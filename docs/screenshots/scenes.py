@@ -54,10 +54,14 @@ def mk_compare():
     """A backup of rocket that differs: src changed, notes.txt only here, the rest left out."""
     def run():
         d = demo("Backups", "rocket")
-        (d / "src").mkdir(parents=True)
-        (d / "Cargo.toml").write_text(demo("projects", "rocket", "Cargo.toml").read_text())
-        (d / "notes.txt").write_text("remember the fuel\n")
-        (d / "src" / "main.rs").write_text("fn main() {}\n")
+        try:
+            (d / "src").mkdir(parents=True)
+            (d / "Cargo.toml").write_text(demo("projects", "rocket", "Cargo.toml").read_text())
+            (d / "notes.txt").write_text("remember the fuel\n")
+            (d / "src" / "main.rs").write_text("fn main() {}\n")
+        except BaseException:
+            shutil.rmtree(d, ignore_errors=True)       # a half-made setup is undone here
+            raise
         return lambda: shutil.rmtree(d, ignore_errors=True)
     return run
 
@@ -99,10 +103,14 @@ def keep(*folders):
 def mk_logs():
     def run():
         d = demo("logs")
-        (d / "old").mkdir(parents=True)
-        line = "2026-10-22T22:49:01Z info engine ignition sequence nominal thrust 98.7\n"
-        for f in ("engine.log", "old/engine-1.log"):
-            (d / f).write_text(line * 40000)
+        try:
+            (d / "old").mkdir(parents=True)
+            line = "2026-10-22T22:49:01Z info engine ignition sequence nominal thrust 98.7\n"
+            for f in ("engine.log", "old/engine-1.log"):
+                (d / f).write_text(line * 40000)
+        except BaseException:
+            shutil.rmtree(d, ignore_errors=True)
+            raise
         return lambda: shutil.rmtree(d, ignore_errors=True)
     return run
 
@@ -168,13 +176,14 @@ def run(name, out):
     s = SCENES[name]
     cfg = demo(".config", "coxswain", "config.toml")
     saved = {p: (p.read_bytes() if p.exists() else None) for p in (cfg, *demo(".local").rglob("*.json"))}
-    undo = s["setup"]() if s["setup"] else None
-    if s["config"]:
-        # Top-level keys go first: the demo's config ends in a [search] table. A text with its own
-        # [search] table replaces the demo's.
-        old = cfg.read_text() if cfg.exists() else ""
-        cfg.write_text(s["config"] + ("" if "[search]" in s["config"] else "\n" + old))
+    undo = None
     try:
+        undo = s["setup"]() if s["setup"] else None
+        if s["config"]:
+            # Top-level keys go first: the demo's config ends in a [search] table. A text with its
+            # own [search] table replaces the demo's.
+            old = cfg.read_text() if cfg.exists() else ""
+            cfg.write_text(s["config"] + ("" if "[search]" in s["config"] else "\n" + old))
         with Terminal(args=s["args"], cols=s["size"][0], rows=s["size"][1]) as t:
             t.wait(4)
             if s["guide"]:
@@ -206,9 +215,19 @@ if __name__ == "__main__":
     names = [a for a in args if not a.startswith("--")] or list(SCENES)
     out = Path(os.environ.get("OUT", cap.RUNTIME / "scenes-out"))
     out.mkdir(parents=True, exist_ok=True)
+    unknown = [n for n in names if n not in SCENES]
+    if unknown:
+        sys.exit(f"no such scene: {', '.join(unknown)} (see --list)")
+    failed = []
     for n in names:
         print(n, flush=True)
-        run(n, out)
-        if write:
-            for f in (n, n.replace(".gif", ".png")):
-                shutil.copy(out / f, Path(__file__).parent / f)
+        try:
+            run(n, out)
+            if write:
+                for f in (n, n.replace(".gif", ".png")):
+                    shutil.copy(out / f, Path(__file__).parent / f)
+        except Exception as e:                  # the rest still run
+            failed.append(n)
+            print(f"FAILED {n}: {e!r}", file=sys.stderr, flush=True)
+    if failed:
+        sys.exit(f"failed: {', '.join(failed)}")
