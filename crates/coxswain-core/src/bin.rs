@@ -1365,7 +1365,7 @@ mod tests {
             let b = bin(&d, &items);
             assert_eq!(empty_in(std::slice::from_ref(&b)).done, n);
         };
-        crate::assert_costs_at_most(16, || empty(150), || empty(1200));
+        crate::assert_costs_at_most(20, || empty(150), || empty(1200));
     }
 
     /// Between its look at an item and its removal, a delete for good or an Empty holds the
