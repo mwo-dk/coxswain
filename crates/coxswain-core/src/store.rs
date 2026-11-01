@@ -611,11 +611,13 @@ impl Store {
                 .collect::<rusqlite::Result<_>>()?;
             let Some(last) = part.last().map(|p| p.0) else { break };
             after = last;
+            // `kind` may open the file: not while searches wait for the lock.
+            drop(db);
+            let redo: Vec<i64> = part.into_iter().filter(|(_, path, long)| kind(Path::new(path), *long)).map(|p| p.0).collect();
+            let mut db = self.db.lock().unwrap();
             let tx = db.transaction()?;
-            for (id, path, long) in part {
-                if kind(Path::new(&path), long) {
-                    tx.execute("UPDATE files SET embedded = NULL WHERE id = ?1", [id])?;
-                }
+            for id in redo {
+                tx.execute("UPDATE files SET embedded = NULL WHERE id = ?1 AND embedded = 1", [id])?;
             }
             tx.commit()?;
         }
@@ -3368,7 +3370,9 @@ fn long_text(path: &str, body: &str) -> bool {
 /// the rest: its passages come from the whole file too (#746).
 fn cut_at_xml(p: &Path) -> bool {
     let ext = p.extension().and_then(|e| e.to_str()).unwrap_or_default();
-    ["docx", "docm", "dotx", "odt", "ott"].iter().any(|k| ext.eq_ignore_ascii_case(k)) && crate::extract::word::past_xml(p)
+    ["docx", "docm", "dotx", "odt", "ott"].iter().any(|k| ext.eq_ignore_ascii_case(k))
+        && !crate::cloud::keep_out(p)
+        && crate::extract::word::past_xml(p)
 }
 
 /// How a file kept whole got its vectors (`embed_streamed`).

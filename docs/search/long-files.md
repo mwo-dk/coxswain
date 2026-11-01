@@ -113,7 +113,8 @@ passages from all of it too, read as it is unpacked, in *Everything* and *Sample
 versions made them from the cut text only. A store from before gives those files alone their
 vectors again, once: Word and OpenDocument texts on disk with more than 16 MB of XML in their
 text parts and less than 3 MB of text kept. Nothing is read again for search by words. A file
-inside an archive keeps its passages from the text kept.
+inside an archive, only in the cloud, or on a disk not plugged in at that first scan keeps its
+passages from the text kept until it changes.
 
 Search by meaning finds such a file by its part read, as it finds any other. One that is not there when it is looked at (a disk
 unplugged) is tried again at the next scan. A file that changes or goes while it is read gets

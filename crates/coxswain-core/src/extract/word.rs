@@ -201,10 +201,11 @@ pub(super) fn read_into(path: &Path, max: u64, out: &mut super::Text) -> Option<
 /// Nothing is unpacked; a size the directory lies about only makes the file read whole, and
 /// that reading has bounds of its own (`WHOLE_XML`, `TIME`).
 pub(crate) fn past_xml(path: &Path) -> bool {
-    let Some(mut zip) = super::open_zip(path, u64::MAX) else { return false };
+    let Some(zip) = super::open_zip(path, u64::MAX) else { return false };
     let mut xml = 0u64;
     for i in 0..zip.len() {
-        let Ok(file) = zip.by_index_raw(i) else { continue };
+        // From the directory alone: nothing of the entry is read.
+        let Ok(file) = zip.by_index_data(i) else { continue };
         let Ok(name) = file.name() else { continue };
         let name: &str = &name;
         if part(name).is_some() || name.ends_with("/content.xml") || name == "word/styles.xml" {
