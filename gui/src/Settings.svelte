@@ -98,7 +98,8 @@
     if (at === "theme" || at === "tui_theme") themeFor = at;
     await tick();
     // Disk use's rows come when they are read: the user's own files are shown once they are.
-    if (at === "disk_yours") await diskRead;
+    // Both reads: the second (with the container images) adds rows above Your own files.
+    if (at === "disk_yours") await Promise.all([diskRead, diskFull]);
     await tick();
     // With none of the user's own files kept, Disk use itself.
     const el = document.getElementById(`opt-${at}`) ?? (at === "disk_yours" ? document.getElementById("opt-disk") : null);
@@ -443,9 +444,10 @@
   let clearing = $state("");
   let also = $state({ models: false, outside: false });
   let diskRead = Promise.resolve();
+  let diskFull = Promise.resolve();
   const loadDisk = () => {
     diskRead = invoke("disk_list", { images: false }).then((v) => (disk ??= v), (e) => (diskSaid = String(e)));
-    invoke("disk_list", { images: true }).then((v) => (disk = v), () => {});
+    diskFull = invoke("disk_list", { images: true }).then((v) => (disk = v), () => {});
   };
   const diskOf = (kind) => (disk ?? []).filter((d) => (kind === "own" ? d.kind === "own" || d.kind === "model" : d.kind === kind));
   /** What *Clear everything that can be built again* clears, with what is ticked. */
