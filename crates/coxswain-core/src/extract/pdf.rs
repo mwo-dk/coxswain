@@ -3383,7 +3383,18 @@ mod tests {
         // A list of numbers heavier than the file allows, and one that is not. The reader's
         // clock stands still: what is left out is left out for its weight, never for the time
         // a busy machine took.
-        super::super::CLOCK.set(Some(Instant::now()));
+        // Read on a thread of its own with the same clock: a weight guard that let a file
+        // through would then never end, and the limit only guards against that.
+        let clock = Some(Instant::now());
+        let read = |name: &'static str, file: &[u8]| {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let file = file.to_vec();
+            std::thread::spawn(move || {
+                super::super::CLOCK.set(clock);
+                let _ = tx.send(read(name, &file));
+            });
+            rx.recv_timeout(crate::test_limit(Duration::from_secs(60))).unwrap_or_else(|_| panic!("{name}: never ended"))
+        };
         let listed = |count: usize| {
             document(
                 FONT,
