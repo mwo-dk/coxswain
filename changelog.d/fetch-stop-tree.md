@@ -1,0 +1,1 @@
+| **Esc ends a fetch's helpers on Windows too.** Stopping a fetch or pull now ends everything the tool started, Git Credential Manager's sign-in window and `git-remote-https` among them, not only `git` itself. | [Fetch and pull](panels/fetch-and-pull.md#how-to-use-it) |
