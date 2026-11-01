@@ -106,6 +106,15 @@ end, so every long Word and OpenDocument text kept whole with at least as many p
 first 4 MB gives gets its vectors again too, once (books and web pages, which no released version
 read that way, are left as they are).
 
+The text kept of a Word or OpenDocument text for search by words also stops after 16 MB of its
+XML. A document heavy with tags (each word in a run of its own with its fonts, as Word writes
+pasted or tracked text) can reach that with well under 4 MB of text. Such a file gets its
+passages from all of it too, read as it is unpacked, in *Everything* and *Sample* alike. Earlier
+versions made them from the cut text only. A store from before gives those files alone their
+vectors again, once: Word and OpenDocument texts on disk with more than 16 MB of XML in their
+text parts and less than 3 MB of text kept. Nothing is read again for search by words. A file
+inside an archive keeps its passages from the text kept.
+
 Search by meaning finds such a file by its part read, as it finds any other. One that is not there when it is looked at (a disk
 unplugged) is tried again at the next scan. A file that changes or goes while it is read gets
 nothing of what was read: it is read again as it is now.
