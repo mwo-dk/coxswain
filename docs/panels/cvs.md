@@ -12,7 +12,7 @@ only once you say yes to that server: **Ctrl+G** asks first, then lists the comm
 ([Fetch and pull](fetch-and-pull.md)). Commit stays with CVS: **Alt+G** opens a terminal in the folder for it.
 Both apps do this.
 
-![The terminal app in Classic blue: the CVS working copy kite on the left with src marked modified and notes.txt unknown, the line cvs HEAD with its counts in the panel's bottom border; on the right the Subversion working copy balloon with svn r2 trunk](../screenshots/cvs-line.png)
+<!-- screenshot: cvs-line.png: The terminal app in Classic blue: the CVS working copy kite on the left with src marked modified and notes.txt unknown, the line cvs HEAD with its counts in the panel's bottom border; on the right the Subversion working copy balloon with svn r2 trunk -->
 
 ## Contents
 
@@ -57,7 +57,7 @@ copy first asks, once per server, as for [Subversion](subversion.md#history-from
 (**Read the history** or **Cancel**), the terminal app a box (**Enter** or **Y** reads, **Esc** or
 **N** cancels).
 
-![The terminal app in Classic blue in ~/projects/kite, a CVS working copy, with the box Read the history from the server?: CVS keeps this history on its server, /home/demo/repos/cvsroot, … Settings → Privacy and updates forgets it, and the key line Enter Read the history · Esc Cancel](../screenshots/tui-cvs-ask.png)
+<!-- screenshot: tui-cvs-ask.png: The terminal app in Classic blue in ~/projects/kite, a CVS working copy, with the box Read the history from the server?: CVS keeps this history on its server, /home/demo/repos/cvsroot, … Settings → Privacy and updates forgets it, and the key line Enter Read the history · Esc Cancel -->
 
 With yes, Coxswain runs `cvs -f -d <root> log -N` in the folder (`-f`: your `~/.cvsrc` is not
 read; `-d`: the root of the folder asked about, for every folder below too, whatever their own
@@ -79,7 +79,7 @@ read; `-d`: the root of the folder asked about, for every folder below too, what
 - **A file's history** is the commits of its folder that touched it, so a commit has the same
   name in both.
 
-![The terminal app's kite/@history after the yes: 1d6dd92 Spar a little longer, 672e4cb Longer spar, red sail, 2287482 Initial revision and 055056e Start the kite, newest first](../screenshots/tui-cvs-history.png)
+<!-- screenshot: tui-cvs-history.png: The terminal app's kite/@history after the yes: 1d6dd92 Spar a little longer, 672e4cb Longer spar, red sail, 2287482 Initial revision and 055056e Start the kite, newest first -->
 
 ## Inside a commit
 
