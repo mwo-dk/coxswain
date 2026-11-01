@@ -585,12 +585,13 @@ impl Store {
         self.reader_changed("readers", tag, ends)
     }
 
-    /// Files of a `kind` whose text was cut at `extract::MAX_TEXT` (no more than `margin` below
-    /// it) get their passages and vectors made again, once (under `key`, at `tag`; an older app
-    /// leaves a newer tag be): they are now made from the whole file. Their text stays.
+    /// Files whose text was cut at `extract::MAX_TEXT` (no more than `margin` below it) and of
+    /// a `kind` get their passages and vectors made again, once (under `key`, at `tag`; an
+    /// older app leaves a newer tag be): they are now made from the whole file. Their text
+    /// stays. `kind` is told whether the file's text is that long.
     /// Gone through `PART` files at a time, the store's lock let go between them: a search
     /// waits for one part, not for the whole store's text to be measured.
-    fn long_passages(&self, key: &str, tag: &str, margin: usize, kind: fn(&Path) -> bool) -> rusqlite::Result<()> {
+    fn long_passages(&self, key: &str, tag: &str, margin: usize, kind: fn(&Path, bool) -> bool) -> rusqlite::Result<()> {
         const PART: i64 = 2000;
         let before: String = self
             .db
@@ -610,11 +611,13 @@ impl Store {
                 .collect::<rusqlite::Result<_>>()?;
             let Some(last) = part.last().map(|p| p.0) else { break };
             after = last;
+            // `kind` may open the file: not while searches wait for the lock.
+            drop(db);
+            let redo: Vec<i64> = part.into_iter().filter(|(_, path, long)| kind(Path::new(path), *long)).map(|p| p.0).collect();
+            let mut db = self.db.lock().unwrap();
             let tx = db.transaction()?;
-            for (id, path, long) in part {
-                if long && kind(Path::new(&path)) {
-                    tx.execute("UPDATE files SET embedded = NULL WHERE id = ?1", [id])?;
-                }
+            for id in redo {
+                tx.execute("UPDATE files SET embedded = NULL WHERE id = ?1 AND embedded = 1", [id])?;
             }
             tx.commit()?;
         }
@@ -3140,19 +3143,19 @@ fn scan_for(
     store.large_unread("readers.large", "1", cfg.text_max_size)?;
     // Their passages and those of every text, code, CSV or log file with more text than is
     // kept are made from the whole file (2.33): only those files get their vectors again, once.
-    store.long_passages("passages.whole", "1", LONG_MARGIN, crate::extract::streams)?;
+    store.long_passages("passages.whole", "1", LONG_MARGIN, |p, long| long && crate::extract::streams(p))?;
     // So are those of Word, OpenDocument, workbook and presentation files with nearly as much
     // text as is kept, or more (2.33): only those get their vectors again, once.
-    store.long_passages("passages.documents", "1", DOCUMENT_MARGIN, crate::extract::whole_document)?;
+    store.long_passages("passages.documents", "1", DOCUMENT_MARGIN, |p, long| long && crate::extract::whole_document(p))?;
     // And those of `.xls` and `.xlsb` workbooks (2.34): only those with nearly as much text as
     // is kept, or more, get their vectors again, once.
-    store.long_passages("passages.workbooks", "1", DOCUMENT_MARGIN, |p| {
-        p.extension().is_some_and(|e| e.eq_ignore_ascii_case("xls") || e.eq_ignore_ascii_case("xlsb"))
+    store.long_passages("passages.workbooks", "1", DOCUMENT_MARGIN, |p, long| {
+        long && p.extension().is_some_and(|e| e.eq_ignore_ascii_case("xls") || e.eq_ignore_ascii_case("xlsb"))
     })?;
     // And those of books and web pages (2.34): only those with nearly as much text as is kept,
     // or more, get their vectors again, once.
-    store.long_passages("passages.books", "1", DOCUMENT_MARGIN, |p| {
-        p.extension().and_then(|e| e.to_str()).is_some_and(|e| ["epub", "html", "htm", "xhtml"].iter().any(|b| e.eq_ignore_ascii_case(b)))
+    store.long_passages("passages.books", "1", DOCUMENT_MARGIN, |p, long| {
+        long && p.extension().and_then(|e| e.to_str()).is_some_and(|e| ["epub", "html", "htm", "xhtml"].iter().any(|b| e.eq_ignore_ascii_case(b)))
     })?;
     // What is kept of long files, *Sample* or *Everything* (2.34): only the long files whose
     // folder's choice changed are read again, get their vectors again, or are cut back.
@@ -3161,6 +3164,10 @@ fn scan_for(
     // they are read and their passages made again, once.
     store.reader_dropped("readers.pdf", "1", &[".pdf"])?;
     store.reader_dropped("readers.word", "1", &[".docx", ".docm", ".dotx", ".odt", ".ott"])?;
+    // And those of Word and OpenDocument texts with less text than that but more than 16 MB of
+    // XML, where the reader for search by words stops (2.36, #746): only those get their
+    // vectors again, once, made from the whole file. Their text stays.
+    store.long_passages("passages.word-xml", "1", DOCUMENT_MARGIN, |p, long| !long && cut_at_xml(p))?;
     // Long Word and OpenDocument texts, books and web pages kept whole that coxswain 2.33.0
     // left with only their first passages (the model's time counted as reading time): only
     // those with fewer passages than their text has get their vectors again, once (2.35).
@@ -3355,6 +3362,17 @@ fn long_text(path: &str, body: &str) -> bool {
     let p = Path::new(path);
     (body.len() + LONG_MARGIN >= crate::extract::MAX_TEXT && crate::extract::streams(p))
         || (body.len() + DOCUMENT_MARGIN >= crate::extract::MAX_TEXT && crate::extract::whole_document(p))
+        || cut_at_xml(p)
+}
+
+/// Whether the file at `path` is a Word or OpenDocument text whose text kept for words stopped
+/// at its reader's XML limit (`extract::word::past_xml`), with less text than that, tags taking
+/// the rest: its passages come from the whole file too (#746).
+fn cut_at_xml(p: &Path) -> bool {
+    let ext = p.extension().and_then(|e| e.to_str()).unwrap_or_default();
+    ["docx", "docm", "dotx", "odt", "ott"].iter().any(|k| ext.eq_ignore_ascii_case(k))
+        && !crate::cloud::keep_out(p)
+        && crate::extract::word::past_xml(p)
 }
 
 /// How a file kept whole got its vectors (`embed_streamed`).
@@ -7188,6 +7206,90 @@ mod tests {
         std::fs::remove_dir_all(d).unwrap();
     }
 
+    /// #746: a Word or OpenDocument text heavy with tags, with more XML than the reader for words
+    /// reads (16 MB) and far less text than is kept, gets its passages from the whole file, read
+    /// to its end; a store that made them from the cut text makes them again, once, for those
+    /// files alone: not a short one, not one long enough to be read whole already.
+    #[test]
+    fn a_document_of_tags_past_the_xml_limit_gets_passages_from_all_of_it() {
+        let d = std::env::temp_dir().join(format!("coxswain-word-xml-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        // Each word in a run of its own with its fonts and size, as Word writes pasted text.
+        // Long names in its tags, so that few words make the XML (and the test) no longer than it must be.
+        let font = "Calibri Light ".repeat(30);
+        let run = |i: usize| format!("<w:r><w:rPr><w:rFonts w:ascii=\"{font}\" w:hAnsi=\"Calibri\" w:cs=\"Calibri\"/><w:sz w:val=\"24\"/></w:rPr><w:t xml:space=\"preserve\">word{i} </w:t></w:r>");
+        let span = |i: usize| format!("<text:span text:style-name=\"T1\" text:class-names=\"{font}\">word{i} </text:span>");
+        let words = 36_000;
+        let paragraphs = |open: &str, close: &str, piece: &dyn Fn(usize) -> String| -> String {
+            let mut xml = String::new();
+            for p in 0..words / 10 {
+                xml += open;
+                (p * 10..p * 10 + 10).for_each(|i| xml += &piece(i));
+                xml += close;
+            }
+            xml + open + "the very last words" + close
+        };
+        let docx = d.join("tags.docx");
+        let xml = format!("<w:document xmlns:w=\"w\"><w:body>{}</w:body></w:document>", paragraphs("<w:p>", "</w:p>", &run).replace("the very last words", "<w:r><w:t>the very last words</w:t></w:r>"));
+        assert!(xml.len() as u64 > 16 << 20);
+        crate::extract::tests::zip_file(&docx, &[("word/document.xml", xml.as_bytes())]);
+        let odt = d.join("tags.odt");
+        let xml = format!("<office:document-content xmlns:office=\"o\" xmlns:text=\"t\"><office:body><office:text>{}</office:text></office:body></office:document-content>", paragraphs("<text:p>", "</text:p>", &span));
+        assert!(xml.len() as u64 > 16 << 20);
+        crate::extract::tests::zip_file(&odt, &[("content.xml", xml.as_bytes())]);
+        let small = d.join("small.docx");
+        crate::extract::tests::zip_file(&small, &[("word/document.xml", b"<w:document xmlns:w=\"w\"><w:body><w:p><w:r><w:t>short</w:t></w:r></w:p></w:body></w:document>")]);
+        let mut bodies = vec![];
+        for file in [&docx, &odt] {
+            let path = file.to_string_lossy().into_owned();
+            let body = crate::extract::text_of(file, std::fs::metadata(file).unwrap().len(), u64::MAX).unwrap();
+            // What is kept for words stops at the XML limit, far below the text kept of a file.
+            assert!(!body.contains("the very last words") && body.len() + DOCUMENT_MARGIN < crate::extract::MAX_TEXT, "{path}");
+            assert!(long_text(&path, &body), "{path}");
+            assert!(prepare(1, path.clone(), body.clone(), true).streamed, "{path}");
+            let mut last = String::new();
+            assert_eq!(whole_read(&path, &mut |l| last = l.to_string()), Some(true), "{path}");
+            assert!(last.contains("the very last words"), "{path}: {last}");
+            bodies.push((path, body));
+        }
+        let small_path = small.to_string_lossy().into_owned();
+        assert!(!long_text(&small_path, "short"));
+        // A store from before: these files' vectors were made from their cut text.
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let long = "x".repeat(crate::extract::MAX_TEXT);
+        {
+            let db = store.db.lock().unwrap();
+            let rows = [(1, bodies[0].0.as_str(), bodies[0].1.as_str()), (2, bodies[1].0.as_str(), bodies[1].1.as_str()), (3, small_path.as_str(), "short"), (4, bodies[0].0.as_str(), long.as_str())];
+            for (id, path, body) in rows {
+                // The long one under another name, so the paths stay unique.
+                let path = if id == 4 { path.replace("tags", "long") } else { path.to_string() };
+                db.execute("INSERT INTO files(id, path, size, modified, has_text, embedded) VALUES (?1, ?2, 1, 0, 1, 1)", params![id, path]).unwrap();
+                db.execute("INSERT INTO text(rowid, body) VALUES (?1, ?2)", params![id, body]).unwrap();
+            }
+        }
+        std::fs::copy(&docx, d.join("long.docx")).unwrap();
+        let renewed = || -> Vec<i64> {
+            store.db.lock().unwrap().prepare("SELECT id FROM files WHERE embedded IS NULL ORDER BY id").unwrap().query_map([], |r| r.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap()
+        };
+        let pass = || store.long_passages("passages.word-xml", "1", DOCUMENT_MARGIN, |p, long| !long && cut_at_xml(p)).unwrap();
+        // A newer version's tag: left be.
+        store.set_tag("passages.word-xml", "2").unwrap();
+        pass();
+        assert!(renewed().is_empty());
+        store.db.lock().unwrap().execute("DELETE FROM meta WHERE key = 'passages.word-xml'", []).unwrap();
+        pass();
+        assert_eq!(renewed(), [1, 2], "the two texts of tags alone");
+        let text: i64 = store.db.lock().unwrap().query_row("SELECT count(*) FROM text", [], |r| r.get(0)).unwrap();
+        assert_eq!(text, 4, "their text stays");
+        // Once.
+        store.db.lock().unwrap().execute("UPDATE files SET embedded = 1", []).unwrap();
+        pass();
+        assert!(renewed().is_empty());
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
     /// #527: a PGN file whose positions the splitter before 2.34.0 numbered (an unclosed
     /// comment ran the games after it into one) gets its positions again, once, numbered as
     /// the table's rows; a PGN file whose numbers match keeps its rows, and no text is read.
@@ -7433,7 +7535,7 @@ mod tests {
             }
             tx.commit().unwrap();
         }
-        store.long_passages("passages.test", "1", LONG_MARGIN, crate::extract::streams).unwrap();
+        store.long_passages("passages.test", "1", LONG_MARGIN, |p, long| long && crate::extract::streams(p)).unwrap();
         let renewed: Vec<i64> = store.db.lock().unwrap().prepare("SELECT id FROM files WHERE embedded IS NULL").unwrap().query_map([], |r| r.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap();
         assert_eq!(renewed, [2400], "the long log, past the first part; not the PDF");
         drop(store);

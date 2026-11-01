@@ -195,6 +195,26 @@ pub(super) fn read_into(path: &Path, max: u64, out: &mut super::Text) -> Option<
     Some(())
 }
 
+/// Whether the parts of the Word or OpenDocument file at `path` that `read_into` reads unpack
+/// to more than `MAX_XML`, as its zip's directory says: its text kept for search by words may
+/// stop there, well before `MAX_TEXT`, while `super::whole_lines` reads on to its end (#746).
+/// Nothing is unpacked; a size the directory lies about only makes the file read whole, and
+/// that reading has bounds of its own (`WHOLE_XML`, `TIME`).
+pub(crate) fn past_xml(path: &Path) -> bool {
+    let Some(zip) = super::open_zip(path, u64::MAX) else { return false };
+    let mut xml = 0u64;
+    for i in 0..zip.len() {
+        // From the directory alone: nothing of the entry is read.
+        let Ok(file) = zip.by_index_data(i) else { continue };
+        let Ok(name) = file.name() else { continue };
+        let name: &str = &name;
+        if part(name).is_some() || name.ends_with("/content.xml") || name == "word/styles.xml" {
+            xml = xml.saturating_add(file.size());
+        }
+    }
+    xml > MAX_XML
+}
+
 /// One part of the zip, no more than `room` bytes of it, handed to `parse` as it is unpacked,
 /// as far as it is UTF-8; a part cut off there is read as far as it goes. How many bytes it
 /// unpacked to, or `None` when it is not there or a fault in the zip broke it off, and what
