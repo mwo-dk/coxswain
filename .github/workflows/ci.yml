@@ -201,6 +201,8 @@ jobs:
       # The workflows' own shell scripts, and those inside `bash -c '…'` or `"…"` in them: bash -n and
       # shellcheck, so a quoting slip fails here in seconds, not after a VM has started.
       - run: python3 tools/workflow-shell-check.py
+      # Which GHCR versions the image cleanup keeps (ghcr-cleanup.yml).
+      - run: python3 -m unittest tools/test_ghcr_cleanup.py
       # Every theme, action, config.toml key, flag and feature has its mention in docs/. `test`
       # runs these on code changes (and every push to master); a docs-only pull request skips
       # `test`, so it runs them here.
