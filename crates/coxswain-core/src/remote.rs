@@ -107,8 +107,9 @@ fn tool(mut c: Command, stop: &AtomicBool, at: &mut dyn FnMut(&str)) -> io::Resu
     }
     let mut child = c.spawn()?;
     // Everything the tool starts goes into a job of its own, so Stop ends the whole tree: Git
-    // Credential Manager's sign-in window too, which never writes to a pipe. git starts its
-    // helpers only after it has read the config, well after this.
+    // Credential Manager's sign-in window too, which never writes to a pipe.
+    // shortcut: a helper started before the assign escapes the job; git starts its helpers only
+    // after reading the config. A suspended spawn would close the gap, once std offers one.
     #[cfg(windows)]
     let job = Job::of(&child);
     let (tx, rx) = std::sync::mpsc::channel::<String>();
@@ -175,8 +176,9 @@ fn tool(mut c: Command, stop: &AtomicBool, at: &mut dyn FnMut(&str)) -> io::Resu
     Ok(Said { ok: status.success(), out, err })
 }
 
-/// A Windows job holding one tool and all it starts. Ended with `end`, or when dropped (kill on
-/// close), so nothing it started outlives `tool`, even when the app ends first.
+/// A Windows job holding one tool and all it starts, ended with `end` on Stop. Not kill on close:
+/// a daemon git starts to outlive it (fsmonitor, credential-cache) lives on after a normal end, as
+/// on Unix, where those leave the session.
 #[cfg(windows)]
 struct Job(windows_sys::Win32::Foundation::HANDLE);
 
@@ -185,18 +187,13 @@ impl Job {
     /// `child` put in a new job; None when Windows refuses (the tool is then only ended itself).
     fn of(child: &std::process::Child) -> Option<Job> {
         use std::os::windows::io::AsRawHandle;
-        use windows_sys::Win32::System::JobObjects::*;
+        use windows_sys::Win32::System::JobObjects::{AssignProcessToJobObject, CreateJobObjectW};
         let job = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
         if job.is_null() {
             return None;
         }
         let job = Job(job);
-        let mut limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
-        limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-        let size = std::mem::size_of_val(&limits) as u32;
-        let set = unsafe { SetInformationJobObject(job.0, JobObjectExtendedLimitInformation, (&raw const limits).cast(), size) };
-        let put = set != 0 && unsafe { AssignProcessToJobObject(job.0, child.as_raw_handle()) } != 0;
-        put.then_some(job)
+        (unsafe { AssignProcessToJobObject(job.0, child.as_raw_handle()) } != 0).then_some(job)
     }
 
     fn end(&self) {
