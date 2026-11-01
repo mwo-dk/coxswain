@@ -107,7 +107,7 @@
         {/each}
         {#if t.archive}
           <!-- Inside an archive: said, so a copy out is not taken for a copy between folders. -->
-          <span class="archive-badge" title={t.diskImage ? tr("disk_image.copy_out_hint", { archive: basename(t.archive) }) : tr("archive.inside_tip")}>{"\u{f410}"} {t.image ? `${t.image} · ` : ""}{tr(t.diskImage || t.nested ? "dialogs.readonly" : t.locked ? "archive.badge_locked" : "archive.badge")}</span>
+          <span class="archive-badge" class:has-image={!!t.image} title={t.diskImage ? tr("disk_image.copy_out_hint", { archive: basename(t.archive) }) : tr("archive.inside_tip")}>{"\u{f410}"}{#if t.image} <span class="badge-image">{t.image}</span>{/if}<span class="badge-kind">{t.image ? " · " : " "}{tr(t.diskImage || t.nested ? "dialogs.readonly" : t.locked ? "archive.badge_locked" : "archive.badge")}</span></span>
         {/if}
         {#if t.history}
           <!-- In a history: which file or folder, and which commit, so an old file is not taken for today's. -->
@@ -336,6 +336,22 @@
     font-size: 0.8em;
     color: var(--accent-fg);
     background: var(--accent-bg);
+    flex: none;
+  }
+  /* A container image's name may be longer than the bar: it is cut with an ellipsis, at most
+     part of the bar's width, and the kind (Read-only) always shows. */
+  .archive-badge.has-image {
+    display: inline-flex;
+    flex: 0 1 auto;
+    max-width: 70%;
+    white-space: pre;
+  }
+  .badge-image {
+    min-width: 6ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .badge-kind {
     flex: none;
   }
   /* This branch | All branches, next to a history's badge. */
