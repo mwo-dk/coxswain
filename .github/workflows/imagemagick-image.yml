@@ -82,3 +82,14 @@ jobs:
           if [ "$PUSH" = true ]; then
             echo "::notice title=Pushed::$IMAGE:latest@$(jq -r '."containerimage.digest"' meta.json)"
           fi
+
+  # The build this push superseded, untagged now, goes (ghcr-cleanup.yml).
+  cleanup:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/ghcr-cleanup.yml
+    with:
+      package: coxswain-imagemagick

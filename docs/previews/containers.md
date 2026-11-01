@@ -226,6 +226,10 @@ day; texts and Settings show the name without the digest.
 - **A new version of Coxswain moves the pins.** Before a release, `tools/images-pin.py` asks
   each registry, anonymously, for the digest its tag has now, and writes the new ones into the
   code; the tests run on them.
+- **The builds older versions pin stay.** Coxswain's own images (`ghcr.io/mwo-dk/coxswain-*`)
+  are rebuilt every week. A build that a newer one replaced is deleted from GHCR, unless the
+  current code or one of the last three releases pins it, or it is among the newest five, so
+  an older Coxswain can still pull what it pins.
 - **An update takes the new pin.** With *Keep images up to date* on, the next round pulls the
   new pin of each image whose old one Coxswain ran in, and removes the copy of the old one by
   its name. A pull that fails keeps the old copy for the next round. Without it, the next

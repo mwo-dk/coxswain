@@ -13,15 +13,15 @@ the sizes in `preview_tools::IMAGES`, and run the tests on the new pins.
     python3 tools/images-pin.py --check    # print only, change nothing
 """
 
-import glob
 import json
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 
-FILES = sorted(glob.glob("crates/coxswain-core/src/**/*.rs", recursive=True) + glob.glob("packaging/images/*/Dockerfile"))
+HOLDS_PINS = re.compile(r"crates/coxswain-core/src/.+\.rs|packaging/images/[^/]+/Dockerfile")
 PINNED = re.compile(r"\b((?:[a-z0-9.-]+\.[a-z]{2,}/)?[a-z0-9._/-]+):([\w.-]+)@(sha256:[0-9a-f]{64})")
 ACCEPT = ", ".join(
     [
@@ -47,16 +47,16 @@ def split(name):
     return host, repo
 
 
-def digest(name, tag):
-    """The digest `name:tag` has now: the index's, for a multi-arch image."""
+def request(name, ref, method):
+    """The registry's answer for the manifest `name:ref` (a tag or a digest), anonymously."""
     host, repo = split(name)
-    url = f"https://{host}/v2/{repo}/manifests/{tag}"
+    url = f"https://{host}/v2/{repo}/manifests/{ref}"
     headers = {"Accept": ACCEPT, "User-Agent": "coxswain-images-pin"}
     for _ in range(2):
-        req = urllib.request.Request(url, method="HEAD", headers=headers)
+        req = urllib.request.Request(url, method=method, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
-                return r.headers["Docker-Content-Digest"]
+                return r.headers, r.read()
         except urllib.error.HTTPError as e:
             challenge = e.headers.get("WWW-Authenticate", "")
             if e.code != 401 or not challenge.startswith("Bearer ") or "Authorization" in headers:
@@ -67,12 +67,38 @@ def digest(name, tag):
             with urllib.request.urlopen(f"{realm}?{urllib.parse.urlencode(params)}", timeout=60) as t:
                 body = json.load(t)
             headers["Authorization"] = "Bearer " + (body.get("token") or body["access_token"])
-    raise RuntimeError(f"{name}:{tag}: no digest")
+    raise RuntimeError(f"{name}:{ref}: no answer")
+
+
+def digest(name, tag):
+    """The digest `name:tag` has now: the index's, for a multi-arch image."""
+    return request(name, tag, "HEAD")[0]["Docker-Content-Digest"]
+
+
+def manifest(name, ref):
+    """The manifest (or index) `name:ref` as JSON."""
+    return json.loads(request(name, ref, "GET")[1])
+
+
+def files(ref=None):
+    """The files that hold pins: in the working tree, or at a git ref."""
+    cmd = ["git", "ls-files"] if ref is None else ["git", "ls-tree", "-r", "--name-only", ref]
+    out = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout
+    return sorted(p for p in out.splitlines() if HOLDS_PINS.fullmatch(p))
+
+
+def pins(ref):
+    """Every (name, tag, digest) pinned at a git ref; fails when git cannot read it."""
+    found = set()
+    for f in files(ref):
+        text = subprocess.run(["git", "show", f"{ref}:{f}"], check=True, capture_output=True, text=True).stdout
+        found |= {m.groups() for m in PINNED.finditer(text)}
+    return found
 
 
 def main():
     check = "--check" in sys.argv
-    texts = {f: open(f, encoding="utf-8").read() for f in FILES}
+    texts = {f: open(f, encoding="utf-8").read() for f in files()}
     texts = {f: t for f, t in texts.items() if PINNED.search(t)}
     found = sorted({m.groups() for t in texts.values() for m in PINNED.finditer(t)})
     changed, failed = [], []
