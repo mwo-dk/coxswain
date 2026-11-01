@@ -205,7 +205,7 @@ impl Viewer {
             return Outcome::Stay;
         }
         let list = |v: &Viewer| v.laid.as_ref().map_or(0, |l| if v.focus == Focus::Types { l.types.len() } else { l.largest.len() });
-        let ch = crate::typed(&key);
+        let ch = crate::typed(&key).filter(|_| !key.ctrl);
         match key.code {
             KeyCode::Esc if self.highlight.is_some() => self.highlight = None,
             KeyCode::Esc => return Outcome::Close,

@@ -265,7 +265,7 @@ impl Viewer {
     // ------------------------------------------------------------ keys
 
     pub fn key(&mut self, key: Key, quit: bool) -> Outcome {
-        let ch = crate::typed(&key);
+        let ch = crate::typed(&key).filter(|_| !key.ctrl);
         let cols = self.columns();
         let ci = cols.iter().position(|c| *c == self.col).unwrap_or(0);
         let rows = self.rows_in(self.col).max(1);

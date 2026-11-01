@@ -773,6 +773,7 @@ impl Viewer {
             return Outcome::Stay;
         }
         if let Some(typing) = &mut self.typing {
+            let typed = crate::typed(&key);
             let field = match typing {
                 Typing::Search(s) | Typing::Line(s) | Typing::Filter(s) => s,
             };
@@ -817,7 +818,7 @@ impl Viewer {
                     }
                     None => {}
                 },
-                _ if crate::typed(&key).is_some() => field.extend(crate::typed(&key)),
+                _ if typed.is_some() => field.extend(typed),
                 _ => {}
             }
             return Outcome::Stay;
@@ -834,7 +835,7 @@ impl Viewer {
         }
         self.seek = None;
         self.said = None;
-        let ch = crate::typed(&key);
+        let ch = crate::typed(&key).filter(|_| !key.ctrl);
         let page = self.page.max(1) as isize;
         let file = matches!(self.body, Body::File(_));
         let log = self.is_log();

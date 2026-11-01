@@ -656,6 +656,7 @@ impl Viewer {
     fn pick_key(&mut self, key: Key) -> Outcome {
         let Some((mut text, mut sel)) = self.picking.take() else { return Outcome::Stay };
         let list = self.pick_list(&text);
+        let typed = crate::typed(&key);
         match key.code {
             KeyCode::Esc => return Outcome::Stay,
             KeyCode::Enter => {
@@ -670,8 +671,8 @@ impl Viewer {
                 text.pop();
                 sel = 0;
             }
-            _ if crate::typed(&key).is_some() => {
-                text.extend(crate::typed(&key));
+            _ if typed.is_some() => {
+                text.extend(typed);
                 sel = 0;
             }
             _ => {}
@@ -725,6 +726,7 @@ impl Viewer {
     /// A key, and the action the keymap binds it to.
     pub fn key(&mut self, key: Key, action: Option<Action>) -> Outcome {
         if let Some((field, mut text)) = self.typing.take() {
+            let typed = crate::typed(&key);
             match key.code {
                 KeyCode::Esc => {}
                 KeyCode::Enter => {
@@ -744,8 +746,8 @@ impl Viewer {
                     text.pop();
                     self.typing = Some((field, text));
                 }
-                _ if crate::typed(&key).is_some() => {
-                    text.extend(crate::typed(&key));
+                _ if typed.is_some() => {
+                    text.extend(typed);
                     self.typing = Some((field, text));
                 }
                 _ => self.typing = Some((field, text)),
@@ -2094,6 +2096,9 @@ mod tests {
         let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
         v.key(key(KeyCode::Char('/')), None);
         v.key(Key { code: KeyCode::Char('m'), ctrl: false, alt: false, shift: true }, None);
+        assert_eq!(v.typing.as_ref().map(|(_, t)| t.as_str()), Some("M"));
+        // Ctrl+letter is no text.
+        v.key(Key { code: KeyCode::Char('x'), ctrl: true, alt: false, shift: false }, None);
         assert_eq!(v.typing.as_ref().map(|(_, t)| t.as_str()), Some("M"));
     }
 
