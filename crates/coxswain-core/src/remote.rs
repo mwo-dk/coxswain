@@ -615,41 +615,59 @@ mod tests {
         }
     }
 
+    /// This test binary run as a tool: `parent` starts a `sleep` (the same binary again), says
+    /// its pid and waits for it; `sleep` sleeps. Run alone, it does nothing.
+    #[test]
+    fn a_tool_with_a_helper() {
+        match std::env::var("COXSWAIN_TEST_HELPER").as_deref() {
+            Ok("parent") => {
+                let mut helper = this_test("sleep").spawn().unwrap();
+                println!("{}", helper.id());
+                let _ = helper.wait();
+            }
+            Ok("sleep") => std::thread::sleep(Duration::from_secs(1000)),
+            _ => {}
+        }
+    }
+
+    /// `a_tool_with_a_helper` as `role`.
+    fn this_test(role: &str) -> Command {
+        let mut c = Command::new(std::env::current_exe().unwrap());
+        c.args(["--exact", "remote::tests::a_tool_with_a_helper", "--nocapture", "--test-threads=1"]).env("COXSWAIN_TEST_HELPER", role);
+        c
+    }
+
     /// Stop ends what the tool started, not only the tool: a helper that never writes to its
     /// pipe (a sign-in window) is ended with it.
     #[test]
     fn stop_ends_the_tools_helpers() {
-        #[cfg(unix)]
-        let c = {
-            let mut c = Command::new("sh");
-            c.args(["-c", "sleep 1000 & echo $!; wait"]);
-            c
-        };
-        #[cfg(windows)]
-        let c = {
-            let mut c = Command::new("powershell");
-            c.args([
-                "-NoProfile",
-                "-Command",
-                "$p = Start-Process -PassThru -NoNewWindow ping -ArgumentList '-n','1000','127.0.0.1'; Write-Output $p.Id; Wait-Process -Id $p.Id",
-            ]);
-            c
-        };
+        let c = this_test("parent");
         let (tx, rx) = std::sync::mpsc::channel();
+        let stop = std::sync::Arc::new(AtomicBool::new(false));
+        let press = stop.clone();
         let ran = std::thread::spawn(move || {
-            let stop = AtomicBool::new(false);
-            tool(c, &stop, &mut |l| {
-                if let Ok(pid) = l.parse::<u32>() {
+            tool(c, &press, &mut |l| {
+                // libtest has written `test … ... ` on that line already.
+                if let Some(Ok(pid)) = l.split_whitespace().last().map(str::parse::<u32>) {
                     let _ = tx.send(pid);
-                    stop.store(true, Ordering::Relaxed);
+                    press.store(true, Ordering::Relaxed);
                 }
             })
-            .err()
-            .map(|e| e.kind())
         });
         let limit = crate::test_limit(Duration::from_secs(20));
-        let helper = rx.recv_timeout(limit).expect("the helper's pid");
-        assert_eq!(ran.join().unwrap(), Some(io::ErrorKind::Interrupted));
+        let helper = match rx.recv_timeout(limit) {
+            Ok(pid) => pid,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                stop.store(true, Ordering::Relaxed);
+                panic!("the tool never said the helper's pid");
+            }
+            // The tool ended without one: what it said.
+            Err(_) => {
+                let said = ran.join().unwrap().map(|s| (s.ok, s.out, s.err));
+                panic!("no helper pid: {said:?}");
+            }
+        };
+        assert_eq!(ran.join().unwrap().err().map(|e| e.kind()), Some(io::ErrorKind::Interrupted));
         assert!(ended(helper, limit), "helper {helper} still runs");
     }
 
