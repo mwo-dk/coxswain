@@ -11,8 +11,9 @@
 //! fetch refspec that writes outside `refs/remotes/<remote>/` is refused. The tool never asks on
 //! the terminal behind the app: no prompt (`GIT_TERMINAL_PROMPT=0`, `--noninteractive`,
 //! `--non-interactive`), on Unix a session of its own (ssh finds no terminal; Esc ends the whole
-//! session), on Windows a detached process; configured helpers and ssh-agent still work, and when
-//! they cannot, the tool's own words come back as the error.
+//! session), on Windows a detached process in a job of its own (Esc ends the job); configured
+//! helpers and ssh-agent still work, and when they cannot, the tool's own words come back as the
+//! error.
 
 use std::io::{self, BufRead, Read};
 use std::path::{Path, PathBuf};
@@ -105,6 +106,12 @@ fn tool(mut c: Command, stop: &AtomicBool, at: &mut dyn FnMut(&str)) -> io::Resu
         std::os::windows::process::CommandExt::creation_flags(&mut c, DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
     }
     let mut child = c.spawn()?;
+    // Everything the tool starts goes into a job of its own, so Stop ends the whole tree: Git
+    // Credential Manager's sign-in window too, which never writes to a pipe.
+    // shortcut: a helper started before the assign escapes the job; git starts its helpers only
+    // after reading the config. A suspended spawn would close the gap, once std offers one.
+    #[cfg(windows)]
+    let job = Job::of(&child);
     let (tx, rx) = std::sync::mpsc::channel::<String>();
     let reader = |r: Option<Box<dyn Read + Send>>, tx: std::sync::mpsc::Sender<String>| {
         std::thread::spawn(move || {
@@ -152,8 +159,10 @@ fn tool(mut c: Command, stop: &AtomicBool, at: &mut dyn FnMut(&str)) -> io::Resu
             unsafe {
                 libc::kill(-(child.id() as libc::pid_t), libc::SIGKILL);
             }
-            // ponytail: on Windows only the tool itself is ended; its helpers end when their pipes
-            // close. A Job object would end them at once.
+            #[cfg(windows)]
+            if let Some(j) = &job {
+                j.end();
+            }
             let _ = child.kill();
             let _ = child.wait();
             return Err(io::Error::new(io::ErrorKind::Interrupted, t!("remote.stopped")));
@@ -165,6 +174,38 @@ fn tool(mut c: Command, stop: &AtomicBool, at: &mut dyn FnMut(&str)) -> io::Resu
     };
     let (out, err) = (out.join().unwrap_or_default(), err.join().unwrap_or_default());
     Ok(Said { ok: status.success(), out, err })
+}
+
+/// A Windows job holding one tool and all it starts, ended with `end` on Stop. Not kill on close:
+/// a daemon git starts to outlive it (fsmonitor, credential-cache) lives on after a normal end, as
+/// on Unix, where those leave the session.
+#[cfg(windows)]
+struct Job(windows_sys::Win32::Foundation::HANDLE);
+
+#[cfg(windows)]
+impl Job {
+    /// `child` put in a new job; None when Windows refuses (the tool is then only ended itself).
+    fn of(child: &std::process::Child) -> Option<Job> {
+        use std::os::windows::io::AsRawHandle;
+        use windows_sys::Win32::System::JobObjects::{AssignProcessToJobObject, CreateJobObjectW};
+        let job = unsafe { CreateJobObjectW(std::ptr::null(), std::ptr::null()) };
+        if job.is_null() {
+            return None;
+        }
+        let job = Job(job);
+        (unsafe { AssignProcessToJobObject(job.0, child.as_raw_handle()) } != 0).then_some(job)
+    }
+
+    fn end(&self) {
+        unsafe { windows_sys::Win32::System::JobObjects::TerminateJobObject(self.0, 1) };
+    }
+}
+
+#[cfg(windows)]
+impl Drop for Job {
+    fn drop(&mut self) {
+        unsafe { windows_sys::Win32::Foundation::CloseHandle(self.0) };
+    }
 }
 
 /// `ours`, with the tool's words under it.
@@ -546,6 +587,90 @@ pub(crate) fn cvs_safely(root: &Path) -> io::Result<()> {
 mod tests {
     use super::*;
 
+    /// Whether process `pid` has ended, waiting at most `limit` (only against a hang).
+    fn ended(pid: u32, limit: Duration) -> bool {
+        #[cfg(unix)]
+        {
+            // Its parent is gone too, so init reaps it and the pid stops answering.
+            let start = std::time::Instant::now();
+            while unsafe { libc::kill(pid as libc::pid_t, 0) } == 0 {
+                if start.elapsed() > limit {
+                    return false;
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            true
+        }
+        #[cfg(windows)]
+        unsafe {
+            use windows_sys::Win32::Foundation::{CloseHandle, WAIT_OBJECT_0};
+            use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject};
+            let h = OpenProcess(PROCESS_SYNCHRONIZE, 0, pid);
+            if h.is_null() {
+                return true;
+            }
+            let gone = WaitForSingleObject(h, limit.as_millis() as u32) == WAIT_OBJECT_0;
+            CloseHandle(h);
+            gone
+        }
+    }
+
+    /// This test binary run as a tool: `parent` starts a `sleep` (the same binary again), says
+    /// its pid and waits for it; `sleep` sleeps. Run alone, it does nothing.
+    #[test]
+    fn a_tool_with_a_helper() {
+        match std::env::var("COXSWAIN_TEST_HELPER").as_deref() {
+            Ok("parent") => {
+                let mut helper = this_test("sleep").spawn().unwrap();
+                println!("{}", helper.id());
+                let _ = helper.wait();
+            }
+            Ok("sleep") => std::thread::sleep(Duration::from_secs(1000)),
+            _ => {}
+        }
+    }
+
+    /// `a_tool_with_a_helper` as `role`.
+    fn this_test(role: &str) -> Command {
+        let mut c = Command::new(std::env::current_exe().unwrap());
+        c.args(["--exact", "remote::tests::a_tool_with_a_helper", "--nocapture", "--test-threads=1"]).env("COXSWAIN_TEST_HELPER", role);
+        c
+    }
+
+    /// Stop ends what the tool started, not only the tool: a helper that never writes to its
+    /// pipe (a sign-in window) is ended with it.
+    #[test]
+    fn stop_ends_the_tools_helpers() {
+        let c = this_test("parent");
+        let (tx, rx) = std::sync::mpsc::channel();
+        let stop = std::sync::Arc::new(AtomicBool::new(false));
+        let press = stop.clone();
+        let ran = std::thread::spawn(move || {
+            tool(c, &press, &mut |l| {
+                // libtest has written `test … ... ` on that line already.
+                if let Some(Ok(pid)) = l.split_whitespace().last().map(str::parse::<u32>) {
+                    let _ = tx.send(pid);
+                    press.store(true, Ordering::Relaxed);
+                }
+            })
+        });
+        let limit = crate::test_limit(Duration::from_secs(20));
+        let helper = match rx.recv_timeout(limit) {
+            Ok(pid) => pid,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                stop.store(true, Ordering::Relaxed);
+                panic!("the tool never said the helper's pid");
+            }
+            // The tool ended without one: what it said.
+            Err(_) => {
+                let said = ran.join().unwrap().map(|s| (s.ok, s.out, s.err));
+                panic!("no helper pid: {said:?}");
+            }
+        };
+        assert_eq!(ran.join().unwrap().err().map(|e| e.kind()), Some(io::ErrorKind::Interrupted));
+        assert!(ended(helper, limit), "helper {helper} still runs");
+    }
+
     fn git_in(dir: &Path, args: &[&str]) {
         let ok = Command::new("git")
             .current_dir(dir)
@@ -782,33 +907,6 @@ mod tests {
         std::fs::remove_file(t.join("sub/evil")).unwrap();
         std::fs::write(t.join("sub/CVS/Update.prog"), "touch pwned").unwrap();
         assert!(cvs_safely(&t).unwrap_err().to_string().contains("CVS/Update.prog"));
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn stop_ends_what_the_tool_started_too() {
-        let t = crate::fs::Scratch::named("remote-group");
-        let pid_file = t.join("pid");
-        let mut c = Command::new("sh");
-        c.arg("-c").arg(format!("sleep 600 & echo $! > {}; wait", pid_file.display()));
-        let stop = std::sync::Arc::new(AtomicBool::new(false));
-        let flag = stop.clone();
-        let f = pid_file.clone();
-        let limit = std::time::Instant::now() + crate::test_limit(Duration::from_secs(10));
-        let presser = std::thread::spawn(move || {
-            while !f.exists() || std::fs::read_to_string(&f).unwrap_or_default().trim().is_empty() {
-                assert!(std::time::Instant::now() < limit, "the tool never started");
-                std::thread::sleep(Duration::from_millis(10));
-            }
-            flag.store(true, Ordering::Relaxed);
-        });
-        assert_eq!(tool(c, &stop, &mut |_| {}).err().map(|e| e.kind()), Some(io::ErrorKind::Interrupted));
-        presser.join().unwrap();
-        let pid: libc::pid_t = std::fs::read_to_string(&pid_file).unwrap().trim().parse().unwrap();
-        while unsafe { libc::kill(pid, 0) } == 0 {
-            assert!(std::time::Instant::now() < limit, "the tool's child lives on after Stop");
-            std::thread::sleep(Duration::from_millis(10));
-        }
     }
 
     #[cfg(unix)]
