@@ -93,7 +93,11 @@ Nothing of its own while it works. Signs of it:
   Homebrew cask also stops it with `launchctl remove dk.mwo.coxswain.index` before an upgrade
   replaces `Coxswain.app`: before, macOS killed the old helper whose signed program had changed
   under it and showed a crash dialog for Coxswain. The LaunchAgent stays, so *Start with my
-  session* stays ticked, and the next app you open starts the helper again.
+  session* stays ticked, and the next app you open starts the helper again. In the Flatpak and
+  the AppImage the helper cannot see its program replaced (it runs from the sandbox or the
+  mounted image, which stay as they were): the old helper stays until no app has asked it for a
+  while, or a newer app says hello. An Ask answer being written when the helper leaves stops
+  there; ask again.
 - **When the system does not start it.** With *Start with my session* on, an app that finds no
   helper asks systemd or launchd to start it (`systemctl --user start coxswain-index`, `launchctl
   kickstart`), and again three seconds later. If none answers eight seconds on, the app starts one

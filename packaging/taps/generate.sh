@@ -122,10 +122,12 @@ cask "coxswain-gui" do
     end
   end
 
-  # Config and state in the coxswain config folder stay: the terminal app shares them.
-  zap trash: [
-    "~/Library/Caches/coxswain",
-    "~/Library/WebKit/dk.mwo.coxswain",
-  ]
+  # Config and state in the coxswain config folder stay: the terminal app shares them. The
+  # LaunchAgent goes with --zap only.
+  zap launchctl: "dk.mwo.coxswain.index",
+      trash:     [
+        "~/Library/Caches/coxswain",
+        "~/Library/WebKit/dk.mwo.coxswain",
+      ]
 end
 RUBY
