@@ -1900,6 +1900,7 @@
     margin: 2px 0 0;
     max-width: 100ch;
     line-height: 1.45;
+    white-space: pre-line;
   }
   .new {
     margin-inline-start: 6px;

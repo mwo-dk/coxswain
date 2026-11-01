@@ -366,9 +366,9 @@ fn news(st: &coxswain_core::state::AppState) -> Vec<coxswain_core::notices::Chan
     changes.into_iter().take(5).collect()
 }
 
-/// What a version brought, without its links.
+/// What a version brought, without its links, on one line (its short preview here).
 fn plain(c: &coxswain_core::notices::Change) -> String {
-    c.parts.iter().map(|(t, _)| t.as_str()).collect()
+    c.parts.iter().map(|(t, _)| t.as_str()).collect::<String>().replace("\n\n", " ")
 }
 
 /// The start of `text` that fits in `h` lines of `w`, cut at a word and ended with "…", and

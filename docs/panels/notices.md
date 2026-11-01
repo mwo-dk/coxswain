@@ -37,8 +37,8 @@ the title also said before 1.41.0, is now the first footer line of
    starts there.
 3. Under *For you*, click **Show me** on a tip to go to the Settings area that does it, or
    **Dismiss** to not see it again. Both take it off the list for good.
-4. Read the versions below. Click a page name in them to open that page of these docs on GitHub,
-   in your browser.
+4. Read the versions below, each change of a version in a paragraph of its own. Click a page name
+   in them to open that page of these docs on GitHub, in your browser.
 5. **Esc** or **Close** closes Settings.
 
 **What's new, in the terminal app:** after an upgrade the status line says once
