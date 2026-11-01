@@ -154,8 +154,10 @@ changed until `cvs update` sets the time again.
 
 Press **Alt+D** (*Pull (fast-forward only)*). Coxswain first runs `cvs -n update`, which
 changes nothing; when it lists a file changed here (`M` or `C`), the update is refused and the
-file named, since `cvs update` would merge into it. Otherwise `cvs update` runs and the status
-line says how many files came from the server. A folder with `CVS/Update.prog` (a program
+file named, since `cvs update` would merge into it. When that look fails (the server refuses
+without a `cvs login`, or does not answer), nothing is updated and the status line shows cvs's
+own words. Otherwise `cvs update` runs and the status line says how many files came from the
+server. A folder with `CVS/Update.prog` (a program
 `cvs update` would run) is refused. There is no Fetch in CVS.
 
 #### Which files are left out as ignored?
