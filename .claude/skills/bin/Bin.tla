@@ -192,9 +192,9 @@ DInfo(a) ==
   /\ UNCHANGED <<origin, files, wanted>>
 
 (* Empty: bin::empty -> fd::empty_in. list_in lists what is in the bin, which the user confirmed
-   by count and size, and read_dir(files) keeps each entry whose info file is missing or does not
-   parse, a stray left by a crash, with its (dev, ino) (e_start); delete_in on the list, item
-   then info (e_file, e_info); then for each stray its info must still be missing or not parse
+   by count and size, and read_dir(files) keeps each entry whose info file is missing or empty (a
+   put that died before writing it: Claimed), a stray left by a crash, with its (dev, ino) (e_start); delete_in on the list, item
+   then info (e_file, e_info); then for each stray its info must still be missing or empty
    and its (dev, ino) the same (e_sweep_check) before remove (e_sweep_rm).
    Info files without their item stay. The "sweep_all" variant is the code before #720:
    read_dir(files) and remove each entry (e_sweep_files), read_dir(info) and remove_file each

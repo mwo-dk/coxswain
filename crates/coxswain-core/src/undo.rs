@@ -118,10 +118,6 @@ pub fn trash_restores() -> bool {
 ))]
 fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
     use trash::os_limited;
-    // No other Coxswain deletes or empties between the listing and the move, after which the
-    // name may hold another file.
-    #[cfg(unix)]
-    let _held = crate::bin::fd::hold(&crate::bin::fd::bins())?;
     let want = comparable(path);
     // ponytail: two trashings of one path within a second are told apart by nothing; the newest
     // listed wins.
@@ -416,6 +412,12 @@ impl Record {
         let mut done = 0;
         // What came back where it was, for the apps to put the cursor on.
         let mut back = vec![];
+        // Out of the bin: no other Coxswain deletes or empties between a listing and its move,
+        // after which the name may hold another file. Taken once, waiting, so a busy bin
+        // refuses nothing (the record is used up either way).
+        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios")))]
+        let _held = matches!(self.kind, Kind::Trash | Kind::Sync)
+            .then(|| crate::bin::fd::wait(&crate::bin::fd::bins()).unwrap_or_default());
         if let Some(u) = self.sync.as_ref().filter(|_| self.kind == Kind::Sync) {
             (done, refused) = u.undo(|path, name| restore(path, name, self.since));
         } else if self.kind == Kind::Rename {

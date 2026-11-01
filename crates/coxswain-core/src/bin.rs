@@ -347,15 +347,11 @@ pub(crate) mod fd {
         lock_all(bins, false)
     }
 
-    /// `hold` on the home bin, waiting while another Coxswain holds it: for a put, which runs
-    /// as a job. The home bin is the one a put may copy into (from another disk), and a copy
-    /// half made is listed: an Empty then would delete it, and the put the original.
-    pub fn wait_home() -> Vec<fs::File> {
-        let home: Vec<Bin> = crate::dirs::data_dir()
-            .map(|d| Bin::at(d.join("Trash")))
-            .into_iter()
-            .collect();
-        lock_all(&home, true).unwrap_or_default()
+    /// `hold`, waiting while another Coxswain holds it, until Stop (`stop::check`'s error): for
+    /// a put and an undo, which run as jobs. A put may copy into a bin (from another disk), and
+    /// a copy half made is listed: an Empty then would delete it, and the put the original.
+    pub fn wait(bins: &[Bin]) -> io::Result<Vec<fs::File>> {
+        lock_all(bins, true)
     }
 
     fn lock_all(bins: &[Bin], wait: bool) -> io::Result<Vec<fs::File>> {
@@ -368,22 +364,24 @@ pub(crate) mod fd {
             let Ok(f) = o.open(b.dir.join(LOCK)) else {
                 continue;
             };
-            let locked = if wait {
-                f.lock().is_ok()
-            } else {
+            loop {
                 match f.try_lock() {
-                    Ok(()) => true,
+                    Ok(()) => {
+                        held.push(f);
+                        break;
+                    }
+                    Err(fs::TryLockError::WouldBlock) if wait => {
+                        crate::stop::check()?;
+                        std::thread::sleep(std::time::Duration::from_millis(50));
+                    }
                     Err(fs::TryLockError::WouldBlock) => {
                         return Err(io::Error::new(
                             io::ErrorKind::WouldBlock,
                             crate::t!("bin.busy"),
                         ));
                     }
-                    Err(_) => false,
+                    Err(_) => break,
                 }
-            };
-            if locked {
-                held.push(f);
             }
         }
         Ok(held)
@@ -396,12 +394,10 @@ pub(crate) mod fd {
         }
     }
 
-    /// The item in `files/` at `path` has no item's info file: none, or one that does not parse.
+    /// The item in `files/` at `path` has no info file: none, or an empty one (a put that died
+    /// before writing it). One that does not parse is someone's item still: never a stray.
     fn unlisted(path: &Path) -> bool {
-        fs::read_to_string(info_of(path))
-            .ok()
-            .and_then(|t| parse(&t, None))
-            .is_none()
+        fs::symlink_metadata(info_of(path)).map_or(true, |m| m.len() == 0)
     }
 
     /// What tells one file from another that took its name since.
@@ -554,9 +550,11 @@ pub(crate) mod fd {
                 if fs::symlink_metadata(&path).is_err() {
                     continue;
                 }
-                let Some((origin, deleted)) = fs::read_to_string(e.path())
+                // Read whole even when not UTF-8 (an older program's raw `Path=`): listed, so
+                // counted and seen before an Empty.
+                let Some((origin, deleted)) = fs::read(e.path())
                     .ok()
-                    .and_then(|t| parse(&t, b.top.as_deref()))
+                    .and_then(|t| parse(&String::from_utf8_lossy(&t), b.top.as_deref()))
                 else {
                     continue;
                 };
@@ -801,8 +799,8 @@ pub(crate) mod fd {
         done
     }
 
-    /// What was listed, and the strays: an item with no info file, or one that does not parse
-    /// (left by a crash), then and still, and still the same file. Nothing put in while it runs
+    /// What was listed, and the strays: an item with no info file, or an empty one (left by a
+    /// crash), then and still, and still the same file. Nothing put in while it runs
     /// goes: a put, by a move or by a copy, writes its info file before the item is in `files/`,
     /// and Coxswain's own put waits for the lock. Info files without their item stay, as one may
     /// be such a put under way.
@@ -1382,7 +1380,7 @@ mod tests {
         assert_eq!(empty_in(&bins).done, 1);
     }
 
-    /// A stray (no info file, or one that does not parse) goes with Empty, but not a file that
+    /// A stray (no info file, or an empty one) goes with Empty, but not a file that
     /// took its name after the listing. Unix: the freedesktop.org bin's systems, where a file
     /// is told by its inode.
     #[cfg(unix)]
@@ -1392,7 +1390,10 @@ mod tests {
         let b = bin(&d, &[]);
         let bins = [b.clone()];
         fs::write(b.dir.join("files/broken"), "x").unwrap();
-        fs::write(b.dir.join("info/broken.trashinfo"), "not an info file").unwrap();
+        fs::write(b.dir.join("info/broken.trashinfo"), "").unwrap();
+        // An info file that does not parse is someone's: its item stays.
+        fs::write(b.dir.join("files/odd"), "x").unwrap();
+        fs::write(b.dir.join("info/odd.trashinfo"), "not an info file").unwrap();
         fs::write(b.dir.join("files/swapped"), "old").unwrap();
         let dir = b.dir.clone();
         MIDWAY.set(Some(Box::new(move || {
@@ -1404,10 +1405,41 @@ mod tests {
         MIDWAY.set(None);
         assert_eq!(r.done, 1);
         assert!(!b.dir.join("files/broken").exists());
+        assert!(b.dir.join("files/odd").exists());
         assert_eq!(
             fs::read_to_string(b.dir.join("files/swapped")).unwrap(),
             "new"
         );
+    }
+
+    /// An info file whose `Path=` is not UTF-8 (an older program's) names an item all the same:
+    /// listed, so seen and counted before an Empty.
+    #[cfg(unix)]
+    #[test]
+    fn bin_lists_an_item_whose_info_is_not_utf8() {
+        let d = crate::fs::Scratch::named("bin-raw");
+        let b = bin(&d, &[]);
+        fs::write(b.dir.join("files/r.txt"), "x").unwrap();
+        fs::write(
+            b.dir.join("info/r.txt.trashinfo"),
+            b"[Trash Info]\nPath=/x/r\xff.txt\nDeletionDate=2026-10-01T12:00:00\n",
+        )
+        .unwrap();
+        let bins = [b.clone()];
+        let l = list_in(&bins);
+        assert_eq!(l.len(), 1);
+        assert_eq!(l[0].path, b.dir.join("files/r.txt"));
+    }
+
+    /// A put waiting for a busy bin hears Stop.
+    #[test]
+    fn bin_wait_hears_stop() {
+        let d = crate::fs::Scratch::named("bin-wait-stop");
+        let bins = [bin(&d, &[])];
+        let _other = hold(&bins).unwrap();
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let e = crate::stop::during(&stop, || wait(&bins)).unwrap_err();
+        assert!(crate::stop::is(&e), "{e}");
     }
 
     /// A bin whose `files` is a link to a folder outside it (a stick with
