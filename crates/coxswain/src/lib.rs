@@ -3690,12 +3690,15 @@ impl App {
         self.forget(&rec.touched());
         let line = t!("status.busy", "what" => rec.label());
         let (tx, rx) = mpsc::channel();
+        // Esc stops it, a wait for a bin another Coxswain is busy in too.
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let s = stop.clone();
         std::thread::spawn(move || {
-            let u = rec.undo(|i| drop(tx.send(JobMsg::At(i))));
+            let u = rec.undo_until(&s, |i| drop(tx.send(JobMsg::At(i))));
             let _ = tx.send(JobMsg::Undone(u));
         });
         self.status = Some(line.clone());
-        self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx, stop: None });
+        self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx, stop: Some(stop) });
     }
 
     fn pack(&mut self, src: Vec<PathBuf>, to: PathBuf, password: Option<String>) {

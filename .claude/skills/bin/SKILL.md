@@ -82,15 +82,16 @@ Not modelled, so not proven:
 - A put that copies (the `trash` crate's fall-back when the file is on another disk than the
   home bin: copy into `files/`, then delete the original). A half-made copy is listed, so an
   Empty then would delete it, and the put the original. Coxswain's own put (`fs::trash_named`)
-  waits for the lock of every bin (`fd::wait`, Stop ends the wait), so no Coxswain Empty runs
-  during it; another
+  waits for the lock of the home bin and its own disk's bin (`fd::bins_for`; `fd::wait`, Stop
+  ends the wait), so no Coxswain Empty runs during it; another
   program's copying put is not covered.
 - A busy bin: `fd::hold` takes the lock with `try_lock`, and when another Coxswain holds it the
   operation does nothing and says `bin.busy`. The model's `Free` waits instead; refusing is a
   step not taken, which no promise can break.
 - Undo after F8 (`undo::Record::undo` for a delete or a sync: the `trash` crate's
   `restore_all`, or `xdg_trash::restore_in` on Termux and illumos) waits for the lock once for
-  the whole undo; its steps are not modelled.
+  the whole undo (Esc or Stop ends the wait, and the undo then does nothing); its steps are not
+  modelled.
 - An info file that is not UTF-8 or does not parse: `list_in` reads it lossily, so a raw
   `Path=` still lists the item; one that does not parse at all is never a stray, and its item
   stays through Empty. The model's info files are written whole or empty.

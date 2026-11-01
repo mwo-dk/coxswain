@@ -443,6 +443,30 @@ pub(crate) mod fd {
         }
     }
 
+    /// The bins a put of `path` may go to, sorted as `bins` is: the home one and its own disk's
+    /// (the top of the folders on its device). Never another mount's, which may hang (a dead
+    /// network share).
+    #[cfg(unix)]
+    pub fn bins_for(path: &Path) -> Vec<Bin> {
+        use std::os::unix::fs::MetadataExt;
+        let mut dirs: Vec<PathBuf> = crate::dirs::data_dir()
+            .map(|d| d.join("Trash"))
+            .into_iter()
+            .collect();
+        if let (Ok(m), Ok(abs)) = (fs::symlink_metadata(path), std::path::absolute(path)) {
+            let top = abs
+                .ancestors()
+                .skip(1)
+                .take_while(|a| fs::metadata(a).is_ok_and(|a| a.dev() == m.dev()))
+                .last()
+                .map(Path::to_path_buf);
+            dirs.extend(disk_bins(top.into_iter()));
+        }
+        dirs.sort();
+        dirs.dedup();
+        dirs.into_iter().map(Bin::at).collect()
+    }
+
     /// The bins of this machine: the home one, then each disk's.
     pub fn bins() -> Vec<Bin> {
         let mut dirs: Vec<PathBuf> = crate::dirs::data_dir()

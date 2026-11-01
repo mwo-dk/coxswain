@@ -405,6 +405,11 @@ impl Record {
         }
     }
 
+    /// `undo`, with `stop` as its Stop: a wait for a busy bin ends there, and so does the rest.
+    pub fn undo_until(&self, stop: &Arc<AtomicBool>, at: impl FnMut(usize)) -> Undone {
+        crate::stop::during(stop, || self.undo(at))
+    }
+
     /// Undo it, the last item first; `at` hears which item is next. What is no longer as the
     /// operation left it is refused, each with a line saying why.
     pub fn undo(&self, mut at: impl FnMut(usize)) -> Undone {
@@ -415,9 +420,22 @@ impl Record {
         // Out of the bin: no other Coxswain deletes or empties between a listing and its move,
         // after which the name may hold another file. Taken once, waiting, so a busy bin
         // refuses nothing (the record is used up either way).
+        // Stopped while waiting: nothing is done unlocked.
         #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios")))]
-        let _held = matches!(self.kind, Kind::Trash | Kind::Sync)
-            .then(|| crate::bin::fd::wait(&crate::bin::fd::bins()).unwrap_or_default());
+        let _held = match matches!(self.kind, Kind::Trash | Kind::Sync)
+            .then(|| crate::bin::fd::wait(&crate::bin::fd::bins()))
+        {
+            Some(Err(e)) => {
+                return Undone {
+                    label: self.label(),
+                    done: 0,
+                    refused: vec![e.to_string()],
+                    back: vec![],
+                    touched: self.touched(),
+                };
+            }
+            held => held,
+        };
         if let Some(u) = self.sync.as_ref().filter(|_| self.kind == Kind::Sync) {
             (done, refused) = u.undo(|path, name| restore(path, name, self.since));
         } else if self.kind == Kind::Rename {
@@ -1070,6 +1088,20 @@ mod tests {
         assert_eq!((u.done, u.refused.len()), (0, 1));
         assert_eq!(fs::read_to_string(d.join("gone.txt")).unwrap(), "new");
         fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// An undo out of a bin another Coxswain is busy in waits, and Stop ends the wait: refused,
+    /// with nothing done unlocked.
+    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios")))]
+    #[test]
+    fn undo_out_of_a_busy_bin_hears_stop() {
+        let home = crate::dirs::data_dir().unwrap().join("Trash");
+        fs::create_dir_all(home.join("info")).unwrap();
+        fs::create_dir_all(home.join("files")).unwrap();
+        let _other = crate::bin::fd::hold(&crate::bin::fd::bins()).unwrap();
+        let stop = Arc::new(AtomicBool::new(true));
+        let u = Record::new(Kind::Trash).undo_until(&stop, |_| {});
+        assert_eq!((u.done, u.refused.len()), (0, 1), "{:?}", u.refused);
     }
 
     #[test]
