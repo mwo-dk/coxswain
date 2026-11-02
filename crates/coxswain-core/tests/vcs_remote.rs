@@ -1,8 +1,9 @@
 //! Fetch and Pull (`remote::run`) against real Jujutsu, Subversion and CVS repositories made here:
 //! a jj clone of a bare git repository, an svnadmin repository over `file://` and served by
 //! `svnserve` with a password wanted, a local CVSROOT and the same served by `cvs pserver`. Each
-//! part is skipped, and says so, where its tool is missing; CI installs them on Linux. The test
-//! runs in a home of its own, as jj, svn and cvs write their settings into the home.
+//! part is skipped, and says so, where its tool is missing, and CVS's as root, as which cvs will
+//! not commit; CI installs them on Linux. The test runs in a home of its own, as jj, svn and cvs
+//! write their settings into the home.
 #![cfg(unix)]
 
 use std::net::{TcpListener, TcpStream};
@@ -109,9 +110,14 @@ fn fetch_and_pull_against_real_servers() {
     } else {
         eprintln!("SKIPPED: Subversion (svn, svnadmin or svnserve is not installed)");
     }
-    if installed("cvs") {
+    // SAFETY: geteuid has no preconditions.
+    let root = unsafe { libc::geteuid() } == 0;
+    if installed("cvs") && !root {
         cvs(&t.join("cvs"));
         ran.push("CVS");
+    } else if root {
+        // cvs refuses to commit as root (unless built with --enable-rootcommit); the BSD VMs run tests as root.
+        eprintln!("SKIPPED: CVS (cvs will not commit as root)");
     } else {
         eprintln!("SKIPPED: CVS (cvs is not installed)");
     }

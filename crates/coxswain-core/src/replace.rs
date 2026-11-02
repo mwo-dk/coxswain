@@ -7,8 +7,9 @@
 //! whole batch back.
 //!
 //! The plan and the run reach the files through `pinned`: folder handles, never a link, and the
-//! run writes only the very files the plan read (same file, same ctime, same content by its
-//! BLAKE3), each anew beside itself in its held folder. Binary files, files over `edit::MOST`,
+//! run writes only the very files the plan read (same file and path, same content by its
+//! BLAKE3; not the same ctime, which FreeBSD's UFS moves by itself after a rename), each anew
+//! beside itself in its held folder, and only while it is still as it was read. Binary files, files over `edit::MOST`,
 //! read-only ones, hard links, other users' files and files with ACLs or extended attributes are
 //! left out, and so is version control's own folder.
 
@@ -85,8 +86,8 @@ pub struct Change {
 pub struct FilePlan {
     pub path: PathBuf,
     pub encoding: edit::Encoding,
-    /// The file as the plan read it: the run writes only this very file (same device, inode and
-    /// ctime) with this very content (BLAKE3).
+    /// The file as the plan read it: the run writes only this very file (same device and inode)
+    /// with this very content (BLAKE3).
     pub id: Id,
     pub hash: String,
     pub changes: Vec<Change>,
@@ -320,7 +321,7 @@ pub fn plan(roots: &[PathBuf], q: &Query, stop: &AtomicBool, progress: &Progress
     let re = q.compile()?;
     let template = q.template();
     let mut plan = Plan { roots: roots.to_vec(), query: q.clone(), token: pinned::token(), ..Default::default() };
-    let (mut set, mut said, mut counted) = (Set::default(), Said::default(), 0);
+    let (mut set, mut said, mut counted) = (Set::by_content(), Said::default(), 0);
     pinned::walk(roots, &walk_spec(None), stop, &mut said, |node| {
         match node.stat.kind {
             Entry::Dir | Entry::Other => return true,
@@ -614,18 +615,29 @@ pub(crate) fn read_kept(path: &Path) -> std::io::Result<Vec<u8>> {
 /// Undo: `bytes` back into the file at `path`, in the folder it was written in, and only while
 /// it is still the very file written then, unchanged since.
 pub(crate) fn write_back(path: &Path, bytes: &[u8], pin: Pin) -> std::io::Result<()> {
-    use std::io::Read as _;
     let p = pinned::Place::reopen(path, pin.dir)?;
+    // The very file written, with the very content written.
+    let Some(sum) = pin.sum else { return Err(pinned::changed()) };
+    let now = same_content(&p, &pin.file, &sum)?;
+    p.rewrite(now, bytes).map(drop)
+}
+
+/// What the file at `p` is now, while it is still `file` (device and inode) with the content
+/// `sum`, whatever its ctime: FreeBSD's UFS with soft updates moves a file's ctime by itself
+/// about half a second after a rename into its name.
+fn same_content(p: &pinned::Place, file: &Id, sum: &str) -> std::io::Result<Id> {
+    use std::io::Read as _;
     let now = p.stat()?;
-    // The very file written, with the very content written (its ctime may have moved by itself).
-    let Some(sum) = pin.sum.filter(|_| now.id.same_file(&pin.file)) else { return Err(pinned::changed()) };
+    if !now.id.same_file(file) {
+        return Err(pinned::changed());
+    }
     let (f, _) = p.open(now.id)?;
     let mut was = vec![];
     f.take(edit::MOST + 1).read_to_end(&mut was)?;
     if hash(&was) != sum {
         return Err(pinned::changed());
     }
-    p.rewrite(now.id, bytes).map(drop)
+    Ok(now.id)
 }
 
 /// Write the ticked changes of `picks` in the files of `plan`, as the plan read them; `stop`
@@ -634,14 +646,16 @@ pub fn apply(plan: &Plan, picks: &[Pick], stop: &AtomicBool, progress: &Progress
     let q = &plan.query;
     let re = q.compile()?;
     let template = q.template();
-    let by_id: HashMap<Id, usize> = plan.files.iter().enumerate().map(|(i, f)| (f.id, i)).collect();
+    // By device and inode: the plan's set meets a file whatever its ctime (`Set::by_content`), and
+    // the content is checked below.
+    let by_id: HashMap<(u64, u128), usize> = plan.files.iter().enumerate().map(|(i, f)| ((f.id.dev, f.id.ino), i)).collect();
     let picked: HashMap<usize, HashSet<usize>> = picks.iter().filter(|p| p.file < plan.files.len()).map(|p| (p.file, p.skip.iter().copied().collect())).collect();
     let mut done = Applied { replaced: 0, files: 0, failed: vec![], record: Record::new(Kind::Replace) };
     sweep();
     let (mut keep, mut kept) = (None::<PathBuf>, 0u64);
     let (mut reached, mut said) = (HashSet::new(), Said::default());
     pinned::walk(&plan.roots, &walk_spec(Some(&plan.set)), stop, &mut said, |node| {
-        let Some(i) = by_id.get(&node.stat.id).copied().filter(|i| picked.contains_key(i)) else { return true };
+        let Some(i) = by_id.get(&(node.stat.id.dev, node.stat.id.ino)).copied().filter(|i| picked.contains_key(i)) else { return true };
         if !reached.insert(i) {
             return true;
         }
@@ -649,10 +663,14 @@ pub fn apply(plan: &Plan, picks: &[Pick], stop: &AtomicBool, progress: &Progress
         let file = &plan.files[i];
         let fail = |why: String| format!("{}: {why}", node.path.display());
         let written = (|| {
-            let (raw, _) = read(node)?;
+            let (raw, stat) = read(node)?;
             // The very content the plan showed.
             if hash(&raw) != file.hash {
                 return Err(t!("pinned.changed"));
+            }
+            // Made read-only since the plan (which leaves those out): its ctime alone told.
+            if read_only(&stat) {
+                return Err(t!("replace.read_only"));
             }
             let Some((text, encoding)) = edit::decode(&raw) else { return Err(t!("replace.binary")) };
             let (new, n) = replaced(&text, &re, q, &template, &picked[&i], file.changes.len()).ok_or_else(too_big)?;
@@ -677,7 +695,14 @@ pub fn apply(plan: &Plan, picks: &[Pick], stop: &AtomicBool, progress: &Progress
             let written = o
                 .open(&was)
                 .and_then(|mut f| std::io::Write::write_all(&mut f, &raw).and_then(|_| f.sync_all()))
-                .and_then(|_| node.place.rewrite(node.stat.id, &bytes));
+                .and_then(|_| {
+                    // Its ctime moved by itself since it was read: written still when it is the
+                    // same file with the content read.
+                    node.place.rewrite(node.stat.id, &bytes).or_else(|e| match same_content(&node.place, &node.stat.id, &file.hash) {
+                        Ok(now) => node.place.rewrite(now, &bytes),
+                        Err(_) => Err(e),
+                    })
+                });
             match written {
                 Ok(id) => Ok(Some((n, was, Pin { dir: node.place.dir_id(), file: id, sum: Some(hash(&bytes)) }))),
                 Err(e) => {
@@ -799,6 +824,44 @@ mod tests {
         let undone = done.record.undo(|_| {});
         assert_eq!((undone.done, undone.refused.len()), (0, 1));
         assert_eq!(std::fs::read_to_string(&a).unwrap(), "mine now");
+    }
+
+    /// Its ctime moved, and nothing else: chmod to the mode it has, until the clock has ticked.
+    #[cfg(unix)]
+    fn ctime_moves(p: &Path) {
+        use std::os::unix::fs::MetadataExt;
+        let m = std::fs::metadata(p).unwrap();
+        let start = std::time::Instant::now();
+        while std::fs::metadata(p).is_ok_and(|n| (n.ctime(), n.ctime_nsec()) == (m.ctime(), m.ctime_nsec())) {
+            assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(10)), "the ctime never moves");
+            std::fs::set_permissions(p, m.permissions()).unwrap();
+            std::thread::yield_now();
+        }
+    }
+
+    /// FreeBSD's UFS with soft updates moves the ctime of a file renamed into its name (a replace
+    /// run's own, an editor's save), and at times of its folder, by itself up to seconds later:
+    /// a quick second replace planned before then is still written. A file made read-only since
+    /// the plan, which only its ctime told before, is still left.
+    #[cfg(unix)]
+    #[test]
+    fn a_ctime_moved_by_itself_since_the_plan_is_written_but_not_a_file_made_read_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = crate::fs::Scratch::named("replace-ctime");
+        let (sub, a, b) = (d.join("sub"), d.join("sub/a"), d.join("sub/b"));
+        std::fs::create_dir(&sub).unwrap();
+        std::fs::write(&a, "x").unwrap();
+        std::fs::write(&b, "x").unwrap();
+        let plan = plan_of(&[d.to_path_buf()], &q("x", "y"));
+        assert_eq!(plan.files.len(), 2);
+        ctime_moves(&a);
+        ctime_moves(&sub);
+        std::fs::set_permissions(&b, std::fs::Permissions::from_mode(0o444)).unwrap();
+        let done = apply_all(&plan);
+        assert_eq!(std::fs::read_to_string(&a).unwrap(), "y");
+        assert_eq!(std::fs::read_to_string(&b).unwrap(), "x");
+        assert_eq!((done.files, done.failed.len()), (1, 1), "{:?}", done.failed);
+        assert!(done.failed[0].ends_with(&t!("replace.read_only")), "{:?}", done.failed);
     }
 
     #[test]
