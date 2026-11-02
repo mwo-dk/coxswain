@@ -653,6 +653,48 @@ impl Drop for Scratch {
     }
 }
 
+/// A file lock, let go by an unlock before its handle closes: a program another thread starts
+/// meanwhile holds a copy of every handle until it runs (a fork, then exec), and the lock
+/// belongs to all the copies, so closing ours alone left it locked until then: the bin busy
+/// for the next restore (#797), a helper or a run seen alive that is not (#802).
+#[derive(Debug)]
+pub struct Held(pub(crate) fs::File);
+
+impl Held {
+    /// `f` locked, if no one else holds it.
+    pub(crate) fn try_lock(f: fs::File) -> Result<Held, fs::TryLockError> {
+        f.try_lock().map(|()| Held(f))
+    }
+}
+
+impl Drop for Held {
+    fn drop(&mut self) {
+        let _ = self.0.unlock();
+    }
+}
+
+/// Runs `f` while another thread starts programs one after the other, each holding a copy of
+/// every handle until it runs: what a lock let go meanwhile must not stay held by.
+#[cfg(all(test, unix))]
+pub(crate) fn while_programs_start<T>(f: impl FnOnce() -> T) -> T {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let stop = std::sync::Arc::new(AtomicBool::new(false));
+    let s = stop.clone();
+    let (started, first) = std::sync::mpsc::channel();
+    let t = std::thread::spawn(move || {
+        while !s.load(Ordering::Relaxed) {
+            let _ = std::process::Command::new("true").status();
+            let _ = started.send(());
+        }
+    });
+    // Programs start already when `f` begins.
+    first.recv_timeout(crate::test_limit(std::time::Duration::from_secs(10))).expect("no program started");
+    let out = f();
+    stop.store(true, Ordering::Relaxed);
+    t.join().unwrap();
+    out
+}
+
 /// A history is read-only: nothing goes into it, nothing is made or taken out there. So are a
 /// ZFS snapshot, the lists of snapshots and of a package's files, and a disk image.
 fn writable(path: &Path) -> io::Result<()> {

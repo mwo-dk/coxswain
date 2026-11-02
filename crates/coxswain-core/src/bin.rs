@@ -365,18 +365,7 @@ pub(crate) mod fd {
         lock_all(bins, true)
     }
 
-    /// A bin's lock, let go by an unlock before its handle closes: a program another thread
-    /// starts meanwhile holds a copy of every handle until it runs (a fork, then exec), and the
-    /// lock belongs to all the copies, so closing ours alone left the bin busy for the next
-    /// restore, delete or Empty until then (#797).
-    #[derive(Debug)]
-    pub struct Held(pub(crate) fs::File);
-
-    impl Drop for Held {
-        fn drop(&mut self) {
-            let _ = self.0.unlock();
-        }
-    }
+    pub use crate::fs::Held;
 
     fn lock_all(bins: &[Bin], wait: bool) -> io::Result<Vec<Held>> {
         let mut held = vec![];
