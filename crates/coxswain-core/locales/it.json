@@ -1149,6 +1149,8 @@
  "enter.games": "Enter: apri le partite",
  "enter.positions": "Enter: apri le posizioni",
  "enter.book": "Enter: apri il libro di aperture",
+ "enter.archive_or_image": "Enter: apri l'archivio o l'immagine container",
+ "enter.maybe_book": "Enter: apri il libro di aperture, se lo è",
  "err.bom.invalid_json": "Questo file non è JSON valido (riga {line}): {message}",
  "err.bom.invalid_xml": "Questo file non è XML valido (riga {line}): {message}",
  "err.bom.no_node": "Questo nodo non è più nel BOM",

@@ -51,7 +51,7 @@ database comes out with the files beside it under the same name; a `.cbv` holds 
 
 While the cursor is on a chess file the command line (the status bar in the desktop app) says
 *Enter: Open games* (*Enter: Open positions* on an EPD or FEN file, *Enter: Open opening book*
-on a book), and the first few times also *Alt+K opens its games: a table, then a board with
+on a book, *Enter: Open opening book, if it is one* on a `.bin` inside an archive), and the first few times also *Alt+K opens its games: a table, then a board with
 every move*. A file of one game opens on its board; **Esc** there closes it in the terminal app. **F1** → *Features* → *Chess games* has the
 keys and the questions below.
 

@@ -142,6 +142,11 @@ pub(crate) fn opens_inside_as(path: &Path) -> Option<crate::enter::Enter> {
     opens_inside(path).then(|| ending_kind(path).or_else(|| ends_in(path, OPEN_ONLY)).map_or(crate::enter::Enter::DiskImage, enter_of))
 }
 
+/// `path` is a plain tar by its name: inside an archive it may be a container image's.
+pub(crate) fn plain_tar(path: &Path) -> bool {
+    ending_kind(path) == Some(Kind::Tar(Pack::None))
+}
+
 fn enter_of(k: Kind) -> crate::enter::Enter {
     use crate::enter::Enter;
     match k {

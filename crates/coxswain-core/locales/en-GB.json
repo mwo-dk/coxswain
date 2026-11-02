@@ -1076,6 +1076,8 @@
  "enter.games": "Enter: Open games",
  "enter.positions": "Enter: Open positions",
  "enter.book": "Enter: Open opening book",
+ "enter.archive_or_image": "Enter: Open archive or container image",
+ "enter.maybe_book": "Enter: Open opening book, if it is one",
  "err.bom.invalid_json": "This file isn't valid JSON (line {line}): {message}",
  "err.bom.invalid_xml": "This file isn't valid XML (line {line}): {message}",
  "err.bom.no_node": "This node is no longer in the BOM",

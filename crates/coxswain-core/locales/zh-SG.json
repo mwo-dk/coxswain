@@ -1036,6 +1036,8 @@
  "enter.games": "Enter：打开对局",
  "enter.positions": "Enter：打开局面",
  "enter.book": "Enter：打开开局库",
+ "enter.archive_or_image": "Enter：打开压缩包或容器镜像",
+ "enter.maybe_book": "Enter：若是开局库则打开",
  "err.bom.invalid_json": "此文件不是有效的 JSON（第 {line} 行）：{message}",
  "err.bom.invalid_xml": "此文件不是有效的 XML（第 {line} 行）：{message}",
  "err.bom.no_node": "此节点已不在物料清单中",

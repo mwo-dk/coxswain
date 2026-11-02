@@ -1108,6 +1108,8 @@
  "enter.games": "Enter՝ բացել պարտիաները",
  "enter.positions": "Enter՝ բացել դիրքերը",
  "enter.book": "Enter՝ բացել դեբյուտների գիրքը",
+ "enter.archive_or_image": "Enter՝ բացել արխիվը կամ կոնտեյների պատկերը",
+ "enter.maybe_book": "Enter՝ բացել դեբյուտների գիրքը, եթե այդպիսին է",
  "err.bom.invalid_json": "Այս ֆայլը վավեր JSON չէ (տող {line})․ {message}",
  "err.bom.invalid_xml": "Այս ֆայլը վավեր XML չէ (տող {line})․ {message}",
  "err.bom.no_node": "Այս հանգույցն այլևս BOM-ում չէ",

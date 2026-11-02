@@ -1108,6 +1108,8 @@
  "enter.games": "Enter: Partien öffnen",
  "enter.positions": "Enter: Stellungen öffnen",
  "enter.book": "Enter: Eröffnungsbuch öffnen",
+ "enter.archive_or_image": "Enter: Archiv oder Container-Image öffnen",
+ "enter.maybe_book": "Enter: Eröffnungsbuch öffnen, falls es eines ist",
  "err.bom.invalid_json": "Diese Datei ist kein gültiges JSON (Zeile {line}): {message}",
  "err.bom.invalid_xml": "Diese Datei ist kein gültiges XML (Zeile {line}): {message}",
  "err.bom.no_node": "Dieser Knoten ist nicht mehr in der BOM",

@@ -1190,6 +1190,8 @@
  "enter.games": "Enter: otwórz partie",
  "enter.positions": "Enter: otwórz pozycje",
  "enter.book": "Enter: otwórz książkę debiutów",
+ "enter.archive_or_image": "Enter: otwórz archiwum lub obraz kontenera",
+ "enter.maybe_book": "Enter: otwórz książkę debiutów, jeśli nią jest",
  "err.bom.invalid_json": "Ten plik nie jest poprawnym JSON (wiersz {line}): {message}",
  "err.bom.invalid_xml": "Ten plik nie jest poprawnym XML (wiersz {line}): {message}",
  "err.bom.no_node": "Tego węzła nie ma już w BOM",

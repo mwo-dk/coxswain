@@ -1149,6 +1149,8 @@
  "enter.games": "Retorn: obre les partides",
  "enter.positions": "Retorn: obre les posicions",
  "enter.book": "Retorn: obre el llibre d'obertures",
+ "enter.archive_or_image": "Retorn: obre l'arxiu o la imatge de contenidor",
+ "enter.maybe_book": "Retorn: obre el llibre d'obertures, si n'és un",
  "err.bom.invalid_json": "Aquest fitxer no és JSON vàlid (línia {line}): {message}",
  "err.bom.invalid_xml": "Aquest fitxer no és XML vàlid (línia {line}): {message}",
  "err.bom.no_node": "Aquest node ja no és al BOM",

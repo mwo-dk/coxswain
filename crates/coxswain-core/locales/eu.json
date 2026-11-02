@@ -1108,6 +1108,8 @@
  "enter.games": "Enter: ireki partidak",
  "enter.positions": "Enter: ireki posizioak",
  "enter.book": "Enter: ireki irekiera-liburua",
+ "enter.archive_or_image": "Enter: ireki artxiboa edo edukiontzi-irudia",
+ "enter.maybe_book": "Enter: ireki irekiera-liburua, halakoa bada",
  "err.bom.invalid_json": "Fitxategi hau ez da baliozko JSON (lerroa: {line}): {message}",
  "err.bom.invalid_xml": "Fitxategi hau ez da baliozko XML (lerroa: {line}): {message}",
  "err.bom.no_node": "Nodo hau jada ez dago BOMean",

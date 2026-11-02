@@ -1108,6 +1108,8 @@
  "enter.games": "Enter: Åbn partier",
  "enter.positions": "Enter: Åbn stillinger",
  "enter.book": "Enter: Åbn åbningsbog",
+ "enter.archive_or_image": "Enter: Åbn arkiv eller containeraftryk",
+ "enter.maybe_book": "Enter: Åbn åbningsbog, hvis den er en",
  "err.bom.invalid_json": "Denne fil er ikke gyldig JSON (linje {line}): {message}",
  "err.bom.invalid_xml": "Denne fil er ikke gyldig XML (linje {line}): {message}",
  "err.bom.no_node": "Denne node findes ikke længere i BOM'en",

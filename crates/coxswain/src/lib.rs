@@ -4701,7 +4701,7 @@ impl App {
         }
         use coxswain_core::enter;
         let place = if coxswain_core::archive::split(&self.panel().dir).is_some() { enter::Place::Archive } else { enter::Place::Disk };
-        let label = enter::label(enter::enter(&e.path, e.is_dir, place));
+        let label = enter::key_line(&e.path, e.is_dir, place);
         self.enter_on = Some((e.path.clone(), label));
     }
 

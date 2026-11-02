@@ -1108,6 +1108,8 @@
  "enter.games": "Enter: باز کردن بازی‌ها",
  "enter.positions": "Enter: باز کردن وضعیت‌ها",
  "enter.book": "Enter: باز کردن کتاب گشایش‌ها",
+ "enter.archive_or_image": "Enter: باز کردن بایگانی یا ایمیج کانتینر",
+ "enter.maybe_book": "Enter: باز کردن کتاب گشایش‌ها، اگر چنین باشد",
  "err.bom.invalid_json": "این فایل JSON معتبر نیست (خط {line}): {message}",
  "err.bom.invalid_xml": "این فایل XML معتبر نیست (خط {line}): {message}",
  "err.bom.no_node": "این گره دیگر در BOM نیست",

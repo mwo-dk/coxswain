@@ -1149,6 +1149,8 @@
  "enter.games": "Enter: atvērt partijas",
  "enter.positions": "Enter: atvērt pozīcijas",
  "enter.book": "Enter: atvērt atklātņu grāmatu",
+ "enter.archive_or_image": "Enter: atvērt arhīvu vai konteinera attēlu",
+ "enter.maybe_book": "Enter: atvērt atklātņu grāmatu, ja tā tāda ir",
  "err.bom.invalid_json": "Šis fails nav derīgs JSON (rinda {line}): {message}",
  "err.bom.invalid_xml": "Šis fails nav derīgs XML (rinda {line}): {message}",
  "err.bom.no_node": "Šī mezgla BOM vairs nav",
