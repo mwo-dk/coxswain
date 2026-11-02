@@ -1357,7 +1357,7 @@
  "feature.ask.q2": "Kodėl rašoma, kad šaltiniuose atsakymo nėra?",
  "feature.ask.q3": "Pirmas atsakymas užtrunka ilgai. Kodėl?",
  "feature.ask.title": "Klausti",
- "feature.ask.what": "Atsako į klausimą pagal artimiausias jam jūsų failų ištraukas, cituodamas jas kaip [1], [2] ir išvardydamas šaltinius.",
+ "feature.ask.what": "Atsako į klausimą pagal artimiausias jam jūsų failų ištraukas, cituodamas jas kaip [1], [2] ir išvardydamas šaltinius. Į klausimą apie šachmatininką atsakoma iš visų jo partijų jūsų partijų bazėse.",
  "feature.ask_code.a1": "Jis skaito jį kaip kodą: ištisas funkcijas ir klases su eilutėmis ir įtraukomis, kiekvieną pavadintą pagal jos elementą, bet kuria kalba. Atsakymas vis tiek yra pokalbių modelio: didesnis modelis su daugiau vietos mato daugiau.",
  "feature.ask_code.a2": "Žodžiai kaip architektūra, karkasas, biblioteka ar priklausomybės paverčia jį klausimu apie visą projektą: Klausti pirmiausia skaito jo apžvalgą su kiekvieno failo, jo viešų elementų ir to, ką projekto failai sako jį naudojant, žemėlapiu.",
  "feature.ask_code.a3": "Kai Parametrai → Klausti → Modelis klausimams apie kodą pažymi jį rekomenduojamu: vaizdo plokštė jį talpina. 8 GB plokštėje qwen3-coder:30b netelpa, pažymėtas lėtu čia, ir lieka Kaip Klausti.",

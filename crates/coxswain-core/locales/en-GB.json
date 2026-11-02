@@ -1275,7 +1275,7 @@
  "feature.ask.q2": "Why does it say the sources do not hold the answer?",
  "feature.ask.q3": "The first answer takes long. Why?",
  "feature.ask.title": "Ask",
- "feature.ask.what": "Answers a question from the passages of your files closest to it, citing them as [1], [2] with the sources listed.",
+ "feature.ask.what": "Answers a question from the passages of your files closest to it, citing them as [1], [2] with the sources listed. A question about a chess player is answered from all his or her games in your game databases.",
  "feature.ask_code.a1": "It reads it as code: whole functions and classes with their lines and indentation, each named after its item, in any language. The answer is still the chat model's: a larger model with more room sees more.",
  "feature.ask_code.a2": "Words such as architecture, framework, library or dependencies make it a question about the whole project: Ask reads its overview first, with a map of each file, its public items and what the project files say it uses.",
  "feature.ask_code.a3": "Where Settings → Ask → Model for code questions marks it recommended: the graphics card holds it. On an 8 GB card qwen3-coder:30b does not fit, is marked slow here, and Same as Ask stays.",

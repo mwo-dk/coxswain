@@ -1357,7 +1357,7 @@
  "feature.ask.q2": "Kāpēc tas saka, ka avotos atbildes nav?",
  "feature.ask.q3": "Pirmā atbilde nāk ilgi. Kāpēc?",
  "feature.ask.title": "Jautāt",
- "feature.ask.what": "Atbild uz jautājumu no tam tuvākajiem jūsu failu fragmentiem, atsaucoties uz tiem kā [1], [2] un uzskaitot avotus.",
+ "feature.ask.what": "Atbild uz jautājumu no tam tuvākajiem jūsu failu fragmentiem, atsaucoties uz tiem kā [1], [2] un uzskaitot avotus. Uz jautājumu par šahistu atbild no visām viņa partijām jūsu partiju datubāzēs.",
  "feature.ask_code.a1": "Tas to lasa kā kodu: veselas funkcijas un klases ar rindām un atkāpēm, katru nosauktu pēc tās elementa, jebkurā valodā. Atbilde joprojām ir tērzēšanas modeļa: lielāks modelis ar vairāk vietas redz vairāk.",
  "feature.ask_code.a2": "Vārdi kā arhitektūra, ietvars, bibliotēka vai atkarības padara to par jautājumu par visu projektu: Jautāt vispirms lasa tā pārskatu ar karti par katru failu, tā publiskajiem elementiem un to, ko projekta faili saka, ka tas izmanto.",
  "feature.ask_code.a3": "Kur Iestatījumi → Jautāt → Modelis jautājumiem par kodu to atzīmē kā ieteiktu: grafiskā karte to ietilpina. 8 GB kartē qwen3-coder:30b neietilpst, ir atzīmēts kā lēns šeit, un paliek Tāpat kā Jautāt.",

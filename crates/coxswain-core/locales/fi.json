@@ -1307,7 +1307,7 @@
  "feature.ask.q2": "Miksi se sanoo, ettei lähteissä ole vastausta?",
  "feature.ask.q3": "Ensimmäinen vastaus kestää kauan. Miksi?",
  "feature.ask.title": "Kysy",
- "feature.ask.what": "Vastaa kysymykseen tiedostojesi sitä lähimpien kohtien pohjalta ja viittaa niihin muodossa [1], [2] lähteet lueteltuina.",
+ "feature.ask.what": "Vastaa kysymykseen tiedostojesi sitä lähimpien kohtien pohjalta ja viittaa niihin muodossa [1], [2] lähteet lueteltuina. Kysymykseen shakinpelaajasta vastataan kaikista hänen peleistään pelitietokannoissasi.",
  "feature.ask_code.a1": "Se lukee sen koodina: kokonaiset funktiot ja luokat riveineen ja sisennyksineen, kukin nimettynä osansa mukaan, millä kielellä tahansa. Vastaus on yhä keskustelumallin: suurempi malli, jolla on enemmän tilaa, näkee enemmän.",
  "feature.ask_code.a2": "Sanat kuten arkkitehtuuri, kehys, kirjasto tai riippuvuudet tekevät siitä koko projektia koskevan kysymyksen: Kysy lukee ensin sen yleiskatsauksen, jossa on kartta jokaisesta tiedostosta, sen julkisista osista ja siitä, mitä projektitiedostot kertovat sen käyttävän.",
  "feature.ask_code.a3": "Kun Asetukset → Kysy → Malli koodikysymyksiin merkitsee sen suositelluksi: näytönohjain mahduttaa sen. 8 Gt:n kortille qwen3-coder:30b ei mahdu, se merkitään täällä hitaaksi, ja Sama kuin Kysy jää.",

@@ -1307,7 +1307,7 @@
  "feature.ask.q2": "Miks öeldakse, et allikates pole vastust?",
  "feature.ask.q3": "Esimene vastus võtab kaua aega. Miks?",
  "feature.ask.title": "Küsi",
- "feature.ask.what": "Vastab küsimusele sinu failide sellele kõige lähemate lõikude põhjal, viidates neile kui [1], [2] ja loetledes allikad.",
+ "feature.ask.what": "Vastab küsimusele sinu failide sellele kõige lähemate lõikude põhjal, viidates neile kui [1], [2] ja loetledes allikad. Küsimusele maletaja kohta vastatakse kõigi tema partiide põhjal teie partiiandmebaasides.",
  "feature.ask_code.a1": "See loeb seda koodina: terveid funktsioone ja klasse ridade ja taanetega, igaüks nimetatud oma osa järgi, igas keeles. Vastus on ikka vestlusmudeli oma: suurem mudel, millel on rohkem ruumi, näeb rohkem.",
  "feature.ask_code.a2": "Sõnad nagu arhitektuur, raamistik, teek või sõltuvused teevad sellest küsimuse kogu projekti kohta: Küsi loeb esmalt selle ülevaate, kus on kaart igast failist, selle avalikest osadest ja sellest, mida projektifailid ütlevad selle kasutavat.",
  "feature.ask_code.a3": "Kui Sätted → Küsi → Mudel koodiküsimusteks märgib selle soovitatuks: graafikakaart mahutab selle. 8 GB kaardile qwen3-coder:30b ei mahu, see on märgitud siin aeglaseks ja jääb Sama mis Küsi.",

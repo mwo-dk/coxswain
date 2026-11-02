@@ -1357,7 +1357,7 @@
  "feature.ask.q2": "Per què diu que les fonts no contenen la resposta?",
  "feature.ask.q3": "La primera resposta triga molt. Per què?",
  "feature.ask.title": "Pregunta",
- "feature.ask.what": "Respon una pregunta a partir dels passatges dels vostres fitxers que més s'hi acosten, citant-los com a [1], [2] amb la llista de fonts.",
+ "feature.ask.what": "Respon una pregunta a partir dels passatges dels vostres fitxers que més s'hi acosten, citant-los com a [1], [2] amb la llista de fonts. Una pregunta sobre un jugador d’escacs es respon a partir de totes les seves partides a les vostres bases de dades.",
  "feature.ask_code.a1": "El llegeix com a codi: funcions i classes senceres amb les línies i el sagnat, cadascuna anomenada pel seu element, en qualsevol llenguatge. La resposta continua sent del model de xat: un model més gran, amb més espai, en veu més.",
  "feature.ask_code.a2": "Paraules com arquitectura, framework, biblioteca o dependències la fan una pregunta sobre tot el projecte: Pregunta llegeix primer la seva visió general, amb un mapa de cada fitxer, els seus elements públics i el que els fitxers del projecte diuen que fa servir.",
  "feature.ask_code.a3": "On Paràmetres → Pregunta → Model per a preguntes sobre codi el marca com a recomanat: la targeta gràfica el conté. En una targeta de 8 GB qwen3-coder:30b no hi cap, es marca lent aquí, i es manté Igual que Pregunta.",

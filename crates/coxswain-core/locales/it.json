@@ -1357,7 +1357,7 @@
  "feature.ask.q2": "Perché dice che le fonti non contengono la risposta?",
  "feature.ask.q3": "La prima risposta ci mette molto. Perché?",
  "feature.ask.title": "Chiedi",
- "feature.ask.what": "Risponde a una domanda dai passaggi dei tuoi file più vicini a essa, citandoli come [1], [2] con l’elenco delle fonti.",
+ "feature.ask.what": "Risponde a una domanda dai passaggi dei tuoi file più vicini a essa, citandoli come [1], [2] con l’elenco delle fonti. Una domanda su un giocatore di scacchi trova risposta in tutte le sue partite nei tuoi database.",
  "feature.ask_code.a1": "Lo legge come codice: funzioni e classi intere con righe e rientri, ognuna chiamata come il suo elemento, in ogni linguaggio. La risposta resta del modello di chat: un modello più grande, con più spazio, vede di più.",
  "feature.ask_code.a2": "Parole come architettura, framework, libreria o dipendenze la rendono una domanda sull’intero progetto: Chiedi legge prima la sua panoramica, con una mappa di ogni file, dei suoi elementi pubblici e di ciò che i file di progetto dicono che usa.",
  "feature.ask_code.a3": "Dove Impostazioni → Chiedi → Modello per le domande sul codice lo segna come consigliato: la scheda grafica lo contiene. Su una scheda da 8 GB qwen3-coder:30b non entra, è segnato lento qui e resta Come Chiedi.",
