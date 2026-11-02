@@ -283,6 +283,13 @@ impl Viewer {
 
     /// Shows the game a Find hit's snippet is about, once it is found (on a thread: the file is
     /// read from its start for it) and the table has reached it.
+    /// Shows game `n` (from 0) once the table has reached it: a Find hit that names its game.
+    pub fn at_game(&mut self, n: u32) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let _ = tx.send(Some(n));
+        self.hit = Some(rx);
+    }
+
     pub fn at_hit(&mut self, snippet: String) {
         let (tx, rx) = std::sync::mpsc::channel();
         let path = self.path.clone();

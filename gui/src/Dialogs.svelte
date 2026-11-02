@@ -215,7 +215,8 @@
     await showInTab(tb, h.path);
     // A game in a PGN file: that game, on the board in the preview.
     if (h.snippet && ["pgn", "pdn", "shogi", "pbn"].includes(chessFormat(basename(h.path)))) {
-      const index = await invoke("chess_hit", { path: h.path, snippet: h.snippet });
+      // A game of a database Find looked through game by game: its number; else by the snippet.
+      const index = h.game ?? (await invoke("chess_hit", { path: h.path, snippet: h.snippet }));
       if (index != null) {
         ui.chessAt = { path: h.path, index };
         ui.showPreview = true;

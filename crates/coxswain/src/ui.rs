@@ -1372,7 +1372,7 @@ mod tests {
         use coxswain_core::index::Hit;
         let hit = |i: usize| Row::Hit {
             group: GroupId::Names,
-            hit: Hit { path: format!("/f{i}").into(), is_dir: false, snippet: i.is_multiple_of(2).then(|| "x".into()), similar: None },
+            hit: Hit { path: format!("/f{i}").into(), is_dir: false, snippet: i.is_multiple_of(2).then(|| "x".into()), similar: None, game: None },
         };
         let rows: Vec<Row> = (0..10_000).map(hit).collect();
         let mut offset = 0;
