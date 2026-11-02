@@ -509,7 +509,7 @@ async fn read_listing(dir: PathBuf, show_hidden: bool, sort: SortKey, reverse: b
     let d = dir.clone();
     let (entries, inside, in_history, snapshot, package) = tauri::async_runtime::spawn_blocking(move || {
         let dir = d;
-        let (mut entries, inside) = bfs::list_with_archive(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
+        let (mut entries, inside) = bfs::list_lean(&dir, show_hidden).map_err(|e| format!("{}: {e}", dir.display()))?;
         // Gone into an archive: the user asked for it, so its files may be previewed.
         if let Some((archive, _)) = &inside {
             coxswain_core::cloud::ask_for(archive);

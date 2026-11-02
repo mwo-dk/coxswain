@@ -243,8 +243,9 @@ through an installed 7-Zip instead, read-only, like a disk image
 - **A 7z's list of contents** is read as it is unpacked, holding only each file's name, size
   and date: a 7z of 900,000 small files opens as a folder, and one of its files is shown or
   copied out, in about a second and 200 MB of memory, up to 4 million files. A folder of two
-  million files in one opens in about six seconds in the terminal app, and takes about 900 MB
-  while it is shown. The list of the archive last browsed is kept for the next look, about
+  million files in one opens in about six seconds in the terminal app; while it is shown, its
+  listing and the archive's list take about 420 MB. A listing holds each entry's name, not its
+  whole path as well, in both apps and on disk too. The list of the archive last browsed is kept for the next look, about
   60 bytes a file; a list of millions is the only one kept. A 7z whose names are locked with a
   password, or one packed with something other than LZMA, LZMA2 or nothing (BCJ, PPMd, BZip2,
   …), and copying a folder of a 7z out, go through a library that reads the whole list into

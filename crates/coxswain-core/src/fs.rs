@@ -163,6 +163,16 @@ impl Entry {
         self.name == ".."
     }
 
+    /// Its path in a listing of `dir`: a listing of millions (`list_lean`) keeps none where it
+    /// is `dir` joined with the name.
+    pub fn path_in(&self, dir: &Path) -> std::borrow::Cow<'_, Path> {
+        if self.path.as_os_str().is_empty() {
+            dir.join(&self.name).into()
+        } else {
+            self.path.as_path().into()
+        }
+    }
+
     pub fn ext(&self) -> &str {
         match self.name.rfind('.') {
             Some(i) if i > 0 && !self.is_dir => &self.name[i + 1..],
@@ -242,6 +252,36 @@ pub fn list_with_archive(
     dir: &Path,
     show_hidden: bool,
 ) -> io::Result<(Vec<Entry>, Option<InArchive>)> {
+    list_inner(dir, show_hidden, false)
+}
+
+/// `list_with_archive` as a panel holds it: an entry's path is left out (empty) where it is
+/// `dir` joined with its name, as it is for nearly all, so a folder of millions holds each name
+/// once and not its whole path too. `Entry::path_in` gives it back.
+pub fn list_lean(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry>, Option<InArchive>)> {
+    list_inner(dir, show_hidden, true)
+}
+
+/// The paths of `entries` (a listing of `dir`) that are `dir` joined with the name, left out.
+fn lean(dir: &Path, entries: &mut [Entry]) {
+    for e in entries {
+        if !e.path.as_os_str().is_empty() && e.path.parent() == Some(dir) && e.path.file_name().is_some_and(|n| n == e.name.as_str()) {
+            e.path = PathBuf::new();
+        }
+    }
+}
+
+fn list_inner(dir: &Path, show_hidden: bool, lean_paths: bool) -> io::Result<(Vec<Entry>, Option<InArchive>)> {
+    let (mut all, inside) = list_full(dir, show_hidden, lean_paths)?;
+    if lean_paths {
+        lean(dir, &mut all);
+    }
+    Ok((all, inside))
+}
+
+/// `lean_paths`: the two that can be millions (a folder on disk, one in an archive) leave the
+/// paths out as they are made, so they are never all held at once.
+fn list_full(dir: &Path, show_hidden: bool, lean_paths: bool) -> io::Result<(Vec<Entry>, Option<InArchive>)> {
     if !dir.is_dir()
         && let Some(at) = crate::history::split(dir)
     {
@@ -266,7 +306,7 @@ pub fn list_with_archive(
     if !dir.is_dir()
         && let Some((archive, inner)) = crate::archive::split(dir)
     {
-        let (mut all, locked) = crate::archive::listing(&archive, &inner)?;
+        let (mut all, locked) = crate::archive::listing_at(&archive, &inner, lean_paths.then_some(dir))?;
         all.retain(|e| show_hidden || !e.hidden || e.is_parent());
         return Ok((all, Some((archive, locked))));
     }
@@ -289,9 +329,14 @@ pub fn list_with_archive(
         let de = de?;
         let name = de.file_name().to_string_lossy().into_owned();
         // Entries can vanish between readdir and stat; skip them.
-        if let Ok(e) = Entry::from_path(de.path(), name, de.metadata())
+        // A name that is not UTF-8 is shown changed: its own path is kept, joined it would be another.
+        let lossless = lean_paths && de.file_name().to_str().is_some();
+        if let Ok(mut e) = Entry::from_path(de.path(), name, de.metadata())
             && (show_hidden || !e.hidden)
         {
+            if lossless {
+                e.path = PathBuf::new();
+            }
             out.push(e);
         }
     }
@@ -381,7 +426,7 @@ pub fn sort_in(
             if !e.is_dir || listed {
                 Some(e.size)
             } else {
-                measured.get(&e.path).copied()
+                measured.get(&*e.path_in(dir)).copied()
             }
         });
     }
@@ -1962,6 +2007,54 @@ const KINDS: &[io::ErrorKind] = &[
 
 #[cfg(test)]
 mod tests {
+    /// The bytes a listing holds for its entries' names and paths, past the entries themselves.
+    fn held(v: &[super::Entry]) -> usize {
+        v.iter().map(|e| e.name.capacity() + e.path.capacity()).sum()
+    }
+
+    /// A panel's listing (`list_lean`) of a folder deep down, on disk and in a zip, holds each
+    /// name and no path: n against 8n entries, its bytes grow with the names alone, and every
+    /// entry still gives its whole path.
+    #[test]
+    fn lean_listings_hold_names_not_paths() {
+        use std::io::Write;
+        let d = super::Scratch::named("lean");
+        let deep = d.join("a-folder-with-a-long-name/another-folder-below-it/and-one-more-folder-below");
+        let zip = d.join("games.zip");
+        let (n, names) = (250, |k: usize| (0..k).map(|i| format!("game-{i:05}.sgf")).collect::<Vec<_>>());
+        for (k, dir) in [(n, deep.join("n")), (8 * n, deep.join("8n"))] {
+            std::fs::create_dir_all(&dir).unwrap();
+            for f in names(k) {
+                std::fs::write(dir.join(f), "").unwrap();
+            }
+        }
+        let mut z = zip::ZipWriter::new(std::fs::File::create(&zip).unwrap());
+        for (k, top) in [(n, "n"), (8 * n, "8n")] {
+            for f in names(k) {
+                z.start_file(format!("collections/{top}/{f}"), zip::write::SimpleFileOptions::default()).unwrap();
+                z.write_all(b"(;)").unwrap();
+            }
+        }
+        z.finish().unwrap();
+        let name_bytes = |k: usize| names(k).iter().map(String::len).sum::<usize>();
+        for (n_dir, n8_dir) in [(deep.join("n"), deep.join("8n")), (zip.join("collections/n"), zip.join("collections/8n"))] {
+            let (small, _) = super::list_lean(&n_dir, true).unwrap();
+            let (mut big, _) = super::list_lean(&n8_dir, true).unwrap();
+            let (mut full, _) = super::list_with_archive(&n8_dir, true).unwrap();
+            big.sort_by(|a, b| a.name.cmp(&b.name));
+            full.sort_by(|a, b| a.name.cmp(&b.name));
+            assert_eq!((small.len(), big.len(), full.len()), (n + 1, 8 * n + 1, 8 * n + 1));
+            // `..` keeps its path; the rest hold their names, and nothing for a path.
+            let up = |v: &[super::Entry]| v.iter().filter(|e| e.is_parent()).map(|e| e.name.capacity() + e.path.capacity()).sum::<usize>();
+            assert_eq!(held(&small) - up(&small), name_bytes(n), "{}", n_dir.display());
+            assert_eq!(held(&big) - up(&big), name_bytes(8 * n), "8n: eight times the names, no more");
+            assert!(held(&full) > held(&big) + 8 * n * n8_dir.as_os_str().len(), "the full listing holds every path");
+            for (l, f) in big.iter().zip(&full) {
+                assert_eq!(l.path_in(&n8_dir), f.path.as_path());
+            }
+        }
+    }
+
     /// A folder shows as `C:\…`, never as `\\?\C:\…`, and still names the same folder.
     #[test]
     fn canonical_paths_have_no_verbatim_prefix() {
