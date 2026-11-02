@@ -105,6 +105,24 @@ pub fn label(e: Enter) -> Option<String> {
     Some(crate::t!(&format!("enter.{id}")))
 }
 
+/// What the key line says Enter does on the entry at `path` in `place`: `label` of `enter`,
+/// except inside an archive, where a name does not always say it. A plain tar opens as a
+/// container image when it is one, a `.bin` as an opening book when it is one (Enter looks
+/// at a copy), and a DhtmlXQ name is a xiangqi game.
+pub fn key_line(path: &Path, is_dir: bool, place: Place) -> Option<String> {
+    let e = enter(path, is_dir, place);
+    if place == Place::Archive && !is_dir {
+        if e == Enter::Archive && crate::archive::plain_tar(path) {
+            return Some(crate::t!("enter.archive_or_image"));
+        }
+        if e == Enter::Other && may_be_games(path) {
+            let bin = path.extension().is_some_and(|x| x.eq_ignore_ascii_case("bin"));
+            return if bin { Some(crate::t!("enter.maybe_book")) } else { label(Enter::Games) };
+        }
+    }
+    label(e)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,6 +230,22 @@ mod tests {
         assert_eq!(view(Path::new("/x/all.zip/setup.iso"), Place::Archive), View::Itself);
         crate::disk_image::FORCE.with(|f| f.set(false));
         assert_eq!(enter(Path::new("/x/all.zip/setup.iso"), false, Place::Archive), Enter::Other);
+    }
+
+    /// Inside an archive the key line says what Enter will do where the name alone cannot:
+    /// a plain tar may be a container image, a `.bin` an opening book.
+    #[test]
+    fn the_key_line_inside_an_archive_says_what_enter_may_open() {
+        let at = |n: &str| key_line(&Path::new("/x/all.zip").join(n), false, Place::Archive);
+        assert_eq!(at("rocket.tar"), Some(crate::t!("enter.archive_or_image")));
+        assert_eq!(at("rocket.tar.gz"), label(Enter::Archive));
+        assert_eq!(at("openings.bin"), Some(crate::t!("enter.maybe_book")));
+        assert_eq!(at("game.che"), label(Enter::Games));
+        assert_eq!(at("notes.txt"), None);
+        assert_eq!(key_line(Path::new("/x/all.zip/sub.tar"), true, Place::Archive), None);
+        for k in ["enter.archive_or_image", "enter.maybe_book"] {
+            assert!(!crate::t!(k).starts_with("enter."), "{k}");
+        }
     }
 
     #[test]

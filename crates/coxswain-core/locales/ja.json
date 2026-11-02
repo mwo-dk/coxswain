@@ -1067,6 +1067,8 @@
  "enter.games": "Enter: 棋譜を開く",
  "enter.positions": "Enter: 局面を開く",
  "enter.book": "Enter: 定跡書を開く",
+ "enter.archive_or_image": "Enter: アーカイブまたはコンテナイメージを開く",
+ "enter.maybe_book": "Enter: 定跡書なら開く",
  "err.bom.invalid_json": "このファイルは正しい JSON ではありません ({line} 行目): {message}",
  "err.bom.invalid_xml": "このファイルは正しい XML ではありません ({line} 行目): {message}",
  "err.bom.no_node": "このノードは BOM にもうありません",

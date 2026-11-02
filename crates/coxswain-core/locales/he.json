@@ -1149,6 +1149,8 @@
  "enter.games": "Enter: פתיחת המשחקים",
  "enter.positions": "Enter: פתיחת העמדות",
  "enter.book": "Enter: פתיחת ספר הפתיחות",
+ "enter.archive_or_image": "Enter: פתיחת הארכיון או תמונת המכולה",
+ "enter.maybe_book": "Enter: פתיחת ספר הפתיחות, אם זה ספר כזה",
  "err.bom.invalid_json": "קובץ זה אינו JSON תקין (שורה {line}): {message}",
  "err.bom.invalid_xml": "קובץ זה אינו XML תקין (שורה {line}): {message}",
  "err.bom.no_node": "צומת זה כבר אינו ב־BOM",

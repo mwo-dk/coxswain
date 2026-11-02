@@ -1149,6 +1149,8 @@
  "enter.games": "Entrée : ouvrir les parties",
  "enter.positions": "Entrée : ouvrir les positions",
  "enter.book": "Entrée : ouvrir le livre d'ouvertures",
+ "enter.archive_or_image": "Entrée : ouvrir l'archive ou l'image de conteneur",
+ "enter.maybe_book": "Entrée : ouvrir le livre d'ouvertures, s'il en est un",
  "err.bom.invalid_json": "Ce fichier n’est pas un JSON valide (ligne {line}) : {message}",
  "err.bom.invalid_xml": "Ce fichier n’est pas un XML valide (ligne {line}) : {message}",
  "err.bom.no_node": "Ce nœud n’est plus dans le BOM",

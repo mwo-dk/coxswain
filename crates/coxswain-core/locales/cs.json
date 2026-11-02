@@ -1149,6 +1149,8 @@
  "enter.games": "Enter: otevřít partie",
  "enter.positions": "Enter: otevřít pozice",
  "enter.book": "Enter: otevřít knihu zahájení",
+ "enter.archive_or_image": "Enter: otevřít archiv nebo obraz kontejneru",
+ "enter.maybe_book": "Enter: otevřít knihu zahájení, pokud jí je",
  "err.bom.invalid_json": "Tento soubor není platný JSON (řádek {line}): {message}",
  "err.bom.invalid_xml": "Tento soubor není platné XML (řádek {line}): {message}",
  "err.bom.no_node": "Tento uzel už v BOM není",

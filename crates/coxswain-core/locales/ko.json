@@ -1067,6 +1067,8 @@
  "enter.games": "Enter: 기보 열기",
  "enter.positions": "Enter: 국면 열기",
  "enter.book": "Enter: 오프닝 북 열기",
+ "enter.archive_or_image": "Enter: 압축 파일 또는 컨테이너 이미지 열기",
+ "enter.maybe_book": "Enter: 오프닝 북이면 열기",
  "err.bom.invalid_json": "올바른 JSON 파일이 아닙니다 ({line}행): {message}",
  "err.bom.invalid_xml": "올바른 XML 파일이 아닙니다 ({line}행): {message}",
  "err.bom.no_node": "이 노드는 더 이상 BOM에 없습니다",

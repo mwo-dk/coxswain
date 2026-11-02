@@ -1108,6 +1108,8 @@
  "enter.games": "Enter: Άνοιγμα παρτίδων",
  "enter.positions": "Enter: Άνοιγμα θέσεων",
  "enter.book": "Enter: Άνοιγμα βιβλίου ανοιγμάτων",
+ "enter.archive_or_image": "Enter: Άνοιγμα αρχειοθήκης ή εικόνας κοντέινερ",
+ "enter.maybe_book": "Enter: Άνοιγμα βιβλίου ανοιγμάτων, αν είναι",
  "err.bom.invalid_json": "Αυτό το αρχείο δεν είναι έγκυρο JSON (γραμμή {line}): {message}",
  "err.bom.invalid_xml": "Αυτό το αρχείο δεν είναι έγκυρο XML (γραμμή {line}): {message}",
  "err.bom.no_node": "Αυτός ο κόμβος δεν υπάρχει πια στο BOM",

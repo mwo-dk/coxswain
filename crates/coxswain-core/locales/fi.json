@@ -1108,6 +1108,8 @@
  "enter.games": "Enter: avaa pelit",
  "enter.positions": "Enter: avaa asemat",
  "enter.book": "Enter: avaa avauskirja",
+ "enter.archive_or_image": "Enter: avaa arkisto tai konttikuva",
+ "enter.maybe_book": "Enter: avaa avauskirja, jos se on sellainen",
  "err.bom.invalid_json": "Tämä tiedosto ei ole kelvollista JSONia (rivi {line}): {message}",
  "err.bom.invalid_xml": "Tämä tiedosto ei ole kelvollista XML:ää (rivi {line}): {message}",
  "err.bom.no_node": "Tätä solmua ei ole enää BOMissa",

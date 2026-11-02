@@ -2087,7 +2087,7 @@ fn enter_on(path: PathBuf, is_dir: bool, inside: bool) -> EnterOn {
     use coxswain_core::enter;
     let place = if inside { enter::Place::Archive } else { enter::Place::Disk };
     let e = enter::enter(&path, is_dir, place);
-    EnterOn { enter: e, label: enter::label(e), maybe_games: inside && !is_dir && enter::may_be_games(&path) }
+    EnterOn { enter: e, label: enter::key_line(&path, is_dir, place), maybe_games: inside && !is_dir && enter::may_be_games(&path) }
 }
 
 /// The password of the locked archive `path` is in (or is), kept in memory for this run.

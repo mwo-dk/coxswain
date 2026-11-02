@@ -1108,6 +1108,8 @@
  "enter.games": "Enter: partijen openen",
  "enter.positions": "Enter: stellingen openen",
  "enter.book": "Enter: openingsboek openen",
+ "enter.archive_or_image": "Enter: archief of container-image openen",
+ "enter.maybe_book": "Enter: openingsboek openen, als het er een is",
  "err.bom.invalid_json": "Dit bestand is geen geldige JSON (regel {line}): {message}",
  "err.bom.invalid_xml": "Dit bestand is geen geldige XML (regel {line}): {message}",
  "err.bom.no_node": "Dit knooppunt staat niet meer in de BOM",

@@ -1108,6 +1108,8 @@
  "enter.games": "Enter: ava partiid",
  "enter.positions": "Enter: ava seisud",
  "enter.book": "Enter: ava avanguraamat",
+ "enter.archive_or_image": "Enter: ava arhiiv või konteineritõmmis",
+ "enter.maybe_book": "Enter: ava avanguraamat, kui see seda on",
  "err.bom.invalid_json": "See fail pole korrektne JSON (rida {line}): {message}",
  "err.bom.invalid_xml": "See fail pole korrektne XML (rida {line}): {message}",
  "err.bom.no_node": "Seda sõlme pole enam BOM-is",

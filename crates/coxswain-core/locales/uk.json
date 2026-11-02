@@ -1190,6 +1190,8 @@
  "enter.games": "Enter: відкрити партії",
  "enter.positions": "Enter: відкрити позиції",
  "enter.book": "Enter: відкрити дебютну книгу",
+ "enter.archive_or_image": "Enter: відкрити архів або образ контейнера",
+ "enter.maybe_book": "Enter: відкрити дебютну книгу, якщо це вона",
  "err.bom.invalid_json": "Цей файл не є коректним JSON (рядок {line}): {message}",
  "err.bom.invalid_xml": "Цей файл не є коректним XML (рядок {line}): {message}",
  "err.bom.no_node": "Цього вузла вже немає в BOM",

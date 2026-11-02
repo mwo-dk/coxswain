@@ -1108,6 +1108,8 @@
  "enter.games": "Enter: პარტიების გახსნა",
  "enter.positions": "Enter: პოზიციების გახსნა",
  "enter.book": "Enter: დებიუტების წიგნის გახსნა",
+ "enter.archive_or_image": "Enter: არქივის ან კონტეინერის ასლის გახსნა",
+ "enter.maybe_book": "Enter: დებიუტების წიგნის გახსნა, თუ ასეთია",
  "err.bom.invalid_json": "ეს ფაილი სწორი JSON არ არის (სტრიქონი {line}): {message}",
  "err.bom.invalid_xml": "ეს ფაილი სწორი XML არ არის (სტრიქონი {line}): {message}",
  "err.bom.no_node": "ეს კვანძი BOM-ში აღარ არის",
