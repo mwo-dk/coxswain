@@ -1,0 +1,1 @@
+| **An OCI image layout folder inside an archive opens as the image.** Enter on its `index.json` copies the folder to the cache once and opens the merged layers read-only, as on the disk; before, it only said to copy it out. | [Container images](files/container-images.md#how-do-i-open-an-oci-layout-folder) |

@@ -41,7 +41,7 @@ or Podman need not run.
    panel. **Ctrl+E** on the image unpacks its whole merged file system into a folder of its own.
 
 For an OCI layout folder, go into the folder (it holds `oci-layout`, `index.json` and `blobs`)
-and press **Enter** on `index.json`. The first few times the cursor is on one, the status line
+and press **Enter** on `index.json`, on the disk or inside an archive. The first few times the cursor is on one, the status line
 says *An OCI image layout: Enter on index.json opens the image like a folder, read-only*.
 
 | | Desktop app | Terminal app |
@@ -216,7 +216,9 @@ an ordinary tar.
 
 Go into the folder and press **Enter** on its `index.json`: the image opens like a folder, its
 tag in the panel's title. **Ctrl+E** on `index.json` unpacks it into a folder named after the
-layout folder.
+layout folder. A layout folder inside an archive opens the same way: **Enter** on its
+`index.json` copies the folder to the cache once (up to 512 MB, as an archive inside an
+archive) and opens the image from there; a larger one says to copy it out with **F5** first.
 
 #### Does it read Docker's or Podman's own image store?
 

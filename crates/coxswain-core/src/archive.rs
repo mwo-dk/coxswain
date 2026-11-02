@@ -1285,16 +1285,45 @@ fn nested_cut(archive: &Path, inner: &str, into: bool) -> io::Result<Option<usiz
         .match_indices('/')
         .map(|(i, _)| i)
         .chain(into.then_some(inner.len()))
-        .filter(|&i| i > 0 && opens_inside(Path::new(&inner[..i])))
+        .filter(|&i| i > 0 && (opens_inside(Path::new(&inner[..i])) || layout_folder(&inner[..i]).is_some()))
         .collect();
     if ends.is_empty() {
         return Ok(None);
     }
     // Only now the listing: a path through no archive by name costs nothing.
     let all = items(archive)?;
-    Ok(ends
-        .into_iter()
-        .find(|&i| all.iter().any(|it| !it.dir && it.name == &inner[..i])))
+    Ok(ends.into_iter().find(|&i| {
+        let name = &inner[..i];
+        all.iter().any(|it| !it.dir && it.name == name) && (opens_inside(Path::new(name)) || layout_in(&all, name))
+    }))
+}
+
+/// The folder (`/`-separated, "" for the top) whose `index.json` `name` is, when it is one.
+fn layout_folder(name: &str) -> Option<&str> {
+    let dir = name.strip_suffix("index.json")?;
+    match dir.strip_suffix('/') {
+        Some(d) => Some(d),
+        None => dir.is_empty().then_some(""),
+    }
+}
+
+/// `name` in the archive listed as `all` is an OCI layout's `index.json`: an `oci-layout`
+/// file lies beside it. It opens as the image, from a copy of its folder.
+fn layout_in(all: &Items, name: &str) -> bool {
+    let Some(dir) = layout_folder(name) else { return false };
+    let marker = if dir.is_empty() { "oci-layout".to_string() } else { format!("{dir}/oci-layout") };
+    all.iter().any(|it| !it.dir && it.name == marker)
+}
+
+/// The file at `path` (a path through an archive) is an OCI layout's `index.json`: what Enter
+/// opens as the image there, as on the disk. Read from the listing, nothing unpacked.
+pub(crate) fn layout_inside(path: &Path) -> bool {
+    if path.file_name().is_none_or(|n| n != "index.json") {
+        return false;
+    }
+    let Some((archive, inner)) = split(path) else { return false };
+    let Ok((at, rest, _held)) = resolve(&archive, &inner, false) else { return false };
+    items(&at).is_ok_and(|all| layout_in(&all, &rest))
 }
 
 /// The archive file `inner` of `archive` is in, and its path inside that one: `archive` itself,
@@ -1441,6 +1470,26 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<Held> {
         held.push(marker.clone());
         return Ok(Held(vec![marker]));
     }
+    // An OCI layout's `index.json`: its whole folder is copied, and the copy's `index.json`
+    // opens as the image.
+    if let Some(folder) = layout_folder(name).filter(|_| layout_in(&all, name)) {
+        let prefix = if folder.is_empty() { String::new() } else { format!("{folder}/") };
+        let claimed: u64 = all.iter().filter(|it| !it.dir && it.name.starts_with(&prefix)).map(|it| it.size).sum();
+        if claimed > NESTED_MAX {
+            return Err(too_large(name));
+        }
+        let dir = run_folder("nested", false)?.join(NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed).to_string());
+        let _ = std::fs::remove_dir_all(&dir);
+        crate::fs::private_dir(&dir)?;
+        let base = dir.join(folder.rsplit('/').next().filter(|n| !n.is_empty()).unwrap_or("layout"));
+        let how = Copy { limit: NESTED_MAX, ..Copy::default() };
+        if let Err(e) = copy_out_with(archive, folder, &base, password_for(archive, None).as_deref(), how) {
+            let _ = std::fs::remove_dir_all(&dir);
+            return Err(e);
+        }
+        let size = crate::fs::dir_size(&base).0;
+        return Ok(keep_spilled(archive, id, name, base.join("index.json"), size));
+    }
     let claimed: u64 = names.iter().map(|n| size_of(n).unwrap_or(0)).sum();
     if claimed > NESTED_MAX {
         return Err(too_large(name));
@@ -1477,6 +1526,11 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<Held> {
             return Err(e);
         }
     };
+    Ok(keep_spilled(archive, id, name, copy, size))
+}
+
+/// The copy `copy` (of `size` bytes) of `name` inside `archive`, kept in `NESTED` and held.
+fn keep_spilled(archive: &Path, id: Identity, name: &str, copy: PathBuf, size: u64) -> Held {
     let mut kept = NESTED.lock().unwrap_or_else(|e| e.into_inner());
     let mut held = HELD.lock().unwrap_or_else(|e| e.into_inner());
     // The oldest not in use go; while all are, there are more for a while.
@@ -1492,7 +1546,7 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<Held> {
         size,
     });
     held.push(copy.clone());
-    Ok(Held(vec![copy]))
+    Held(vec![copy])
 }
 
 /// Where the file `name` inside `archive` is stored as it is: the file its bytes are in, and

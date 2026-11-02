@@ -7,7 +7,8 @@ use serde::Serialize;
 use std::path::Path;
 
 /// Where an entry is: on the disk, or inside an archive (at any depth). Inside one only names
-/// count: nothing is read to say what Enter does there.
+/// count (an `index.json` is told by the `oci-layout` named beside it): nothing is read to say
+/// what Enter does there.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Place {
     Disk,
@@ -59,7 +60,8 @@ pub fn enter(path: &Path, is_dir: bool, place: Place) -> Enter {
     let opens = match place {
         Place::Disk if read => crate::archive::opens_as(path),
         Place::Disk => crate::archive::named_opens_as(path),
-        Place::Archive => crate::archive::opens_inside_as(path),
+        // An OCI layout's `index.json` by the listing: an `oci-layout` beside it.
+        Place::Archive => crate::archive::opens_inside_as(path).or_else(|| crate::archive::layout_inside(path).then_some(Enter::Image)),
     };
     if let Some(k) = opens {
         return k;
