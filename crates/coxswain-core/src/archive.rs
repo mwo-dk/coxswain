@@ -2595,6 +2595,9 @@ fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty()).ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.not_in_archive"))
     })?;
+    // Where it comes from: the path through the archive on the disk, as that archive is now (a
+    // copy of an archive inside it made again has another path, the same file).
+    let origin = (path.to_path_buf(), identity(&archive)?);
     let (archive, inner, _held) = resolve(&archive, &inner, false)?;
     let it = items(&archive)?
         .iter()
@@ -2632,7 +2635,16 @@ fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     // still being looked at, and peeks piling up while the cursor moves each unpack.
     static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
-    let folder = peek_folder()?;
+    // A folder for each file of each archive as it is now: what is kept by a copy's path, size
+    // and date (a ChessBase archive unpacked, a listing, a preview) is never taken for another
+    // archive's file of the same name, size and date.
+    let folder = peek_folder()?.join(format!("{:016x}", {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        (&origin, it.size, it.modified).hash(&mut h);
+        h.finish()
+    }));
+    crate::fs::private_dir(&folder)?;
     let to = folder.join(inner.rsplit('/').next().filter(|n| one_name(n)).unwrap_or("file"));
     // What comes out is counted too: a size the archive claims may be a lie.
     copy_out_with(
@@ -4042,6 +4054,42 @@ mod tests {
         std::fs::remove_dir_all(d).unwrap();
     }
 
+    /// Two archives each holding a file of the same name, size and date: each look gets its
+    /// own copy, so nothing kept by a copy's path (a listing, a ChessBase archive unpacked) is
+    /// taken for the other's. The same file looked at again gets the same copy.
+    #[test]
+    fn same_name_size_and_date_in_two_archives_are_two_copies() {
+        let _alone = nested_alone();
+        let d = crate::pictures::tests::folder("peek-origin");
+        let when = crate::fs::epoch(1_700_000_000);
+        let mut outers = vec![];
+        for (n, inside) in [(1, "a"), (2, "b")] {
+            let src = d.join(format!("src{n}"));
+            std::fs::create_dir_all(&src).unwrap();
+            let file = src.join(inside);
+            std::fs::write(&file, inside).unwrap();
+            File::options().write(true).open(&file).unwrap().set_modified(when).unwrap();
+            let inner = src.join("games.zip");
+            create(&inner, &[file]).unwrap();
+            File::options().write(true).open(&inner).unwrap().set_modified(when).unwrap();
+            let outer = d.join(format!("outer{n}.zip"));
+            create(&outer, &[inner]).unwrap();
+            outers.push(outer);
+        }
+        let it = |o: &Path| items(o).unwrap().iter().find(|i| i.name == "games.zip").map(|i| (i.size, i.modified)).unwrap();
+        assert_eq!(it(&outers[0]), it(&outers[1]), "the same name, size and date");
+        let names = |o: &Path| {
+            let copy = peek(&o.join("games.zip")).unwrap();
+            (copy.clone(), list(&copy, 10).unwrap().0.into_iter().map(|e| e.name).collect::<Vec<_>>())
+        };
+        let (first, one) = names(&outers[0]);
+        let (second, two) = names(&outers[1]);
+        assert_ne!(first, second);
+        assert_eq!((one, two), (vec!["a".to_string()], vec!["b".to_string()]));
+        assert_eq!(names(&outers[0]).0, first, "the same file, the same copy");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
     #[test]
     fn a_games_database_looked_at_inside_an_archive_brings_the_files_beside_it() {
         let _alone = nested_alone();
@@ -4833,10 +4881,11 @@ mod tests {
         got.sort();
         assert_eq!(got, ["EVIL.cbp", "evil.cbg", "evil.cbh"]);
         assert_eq!(std::fs::read(folder.join("evil.cbg")).unwrap(), b"x/evil.cbg");
-        // Crafted names looked at themselves stay in the folder too (or are not listed).
+        // Crafted names looked at themselves stay in a folder of their own beside it too (or
+        // are not listed).
         for name in ["x/..\\..\\evil.cbh", "x/C:evil.cbh"] {
             if let Ok(c) = peek(&zp.join(name)) {
-                assert_eq!(c.parent(), Some(folder), "{name}");
+                assert_eq!(c.parent().and_then(Path::parent), folder.parent(), "{name}");
             }
         }
         for up in [folder.parent().unwrap(), folder.parent().unwrap().parent().unwrap()] {

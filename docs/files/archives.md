@@ -189,6 +189,9 @@ through an installed 7-Zip instead, read-only, like a disk image
   **F4** say on the status line that **F5** copies the file out, since changes to a copy would be
   lost. The copy is made in the cache folder (`coxswain/peek/`, readable by you alone), one at
   a time, and removed when the next is made; copies left by an app that ended go after a day.
+  Each copy is in a folder named for the archive (its path, size, date and file identity) and
+  the file in it, so two archives that hold a file of the same name, size and date never share
+  what is kept of a copy (a ChessBase archive's games, a listing, a preview).
   Files over 256 MB are not copied just to be looked at, counted as they come out, not by the
   size the archive claims: the preview says to copy them out.
 - **Names that lead outside** (`../…`, an absolute path, on Windows a drive or a `\`) are not
