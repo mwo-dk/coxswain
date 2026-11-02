@@ -2638,13 +2638,7 @@ fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     // A folder for each file of each archive as it is now: what is kept by a copy's path, size
     // and date (a ChessBase archive unpacked, a listing, a preview) is never taken for another
     // archive's file of the same name, size and date.
-    let folder = peek_folder()?.join(format!("{:016x}", {
-        use std::hash::{Hash, Hasher};
-        let mut h = std::collections::hash_map::DefaultHasher::new();
-        (&origin, it.size, it.modified).hash(&mut h);
-        h.finish()
-    }));
-    crate::fs::private_dir(&folder)?;
+    let folder = peek_folder_of((&origin, it.size, it.modified))?;
     let to = folder.join(inner.rsplit('/').next().filter(|n| one_name(n)).unwrap_or("file"));
     // What comes out is counted too: a size the archive claims may be a lie.
     copy_out_with(
@@ -2723,6 +2717,25 @@ fn one_name(n: &str) -> bool {
             Path::new(n).components().collect::<Vec<_>>()[..],
             [std::path::Component::Normal(_)]
         )
+}
+
+/// A fresh folder of its own in `peek_folder` for what comes from `origin`: what is kept by a
+/// copy's path, size and date (a listing, a preview, a ChessBase archive unpacked) is never
+/// taken for a copy of something else of the same name, size and date (another commit's file,
+/// another snapshot's, another archive's).
+fn peek_folder_of(origin: impl std::hash::Hash) -> io::Result<PathBuf> {
+    use std::hash::Hasher;
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    origin.hash(&mut h);
+    let folder = peek_folder()?.join(format!("{:016x}", h.finish()));
+    crate::fs::private_dir(&folder)?;
+    Ok(folder)
+}
+
+/// Where a copy named `name` (one name, else "file") of what comes from `origin` goes, in a
+/// fresh folder of its own (`peek_folder_of`): a history's file, a snapshot's diff, a report.
+pub(crate) fn peek_file(origin: impl std::hash::Hash, name: &str) -> io::Result<PathBuf> {
+    Ok(peek_folder_of(origin)?.join(if one_name(name) { name } else { "file" }))
 }
 
 /// A fresh folder for this run's copy to look at (also a history's, `history::peek`): the copy
@@ -4088,6 +4101,23 @@ mod tests {
         assert_eq!((one, two), (vec!["a".to_string()], vec!["b".to_string()]));
         assert_eq!(names(&outers[0]).0, first, "the same file, the same copy");
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// The other copies to look at (a history's file, a snapshot's diff, a report): one folder
+    /// for each origin, so two commits' files of the same name, size and date never share what
+    /// is kept by a copy's path; a crafted name stays inside.
+    #[test]
+    fn copies_of_two_origins_of_the_same_name_are_two_files() {
+        let a = peek_file(("x@1", "same"), "notes.txt").unwrap();
+        std::fs::write(&a, "same").unwrap();
+        let b = peek_file(("x@2", "same"), "notes.txt").unwrap();
+        assert_ne!(a, b);
+        assert_eq!(a.file_name(), b.file_name());
+        assert_eq!(peek_file(("x@1", "same"), "notes.txt").unwrap(), a, "the same origin, the same copy");
+        for bad in ["../evil", "a/b", ""] {
+            let c = peek_file("y", bad).unwrap();
+            assert_eq!((c.file_name().unwrap(), c.parent().and_then(Path::parent)), ("file".as_ref(), a.parent().and_then(Path::parent)), "{bad}");
+        }
     }
 
     #[test]

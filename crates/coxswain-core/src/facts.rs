@@ -175,9 +175,11 @@ fn text_and_format(path: &Path) -> Option<(String, String)> {
 pub fn text_copy(path: &Path) -> Option<Result<(PathBuf, String), String>> {
     let (text, format) = text_and_format(path)?;
     Some((|| {
-        let to = crate::archive::peek_folder()
-            .map_err(|e| e.to_string())?
-            .join(format!("{}.txt", path.file_name().unwrap_or_default().to_string_lossy()));
+        let to = crate::archive::peek_file(
+            (path, &text),
+            &format!("{}.txt", path.file_name().unwrap_or_default().to_string_lossy()),
+        )
+        .map_err(|e| e.to_string())?;
         std::fs::write(&to, text).map_err(|e| e.to_string())?;
         Ok((to, format))
     })())

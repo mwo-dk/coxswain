@@ -614,7 +614,8 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
             ),
         ));
     }
-    let to = crate::archive::peek_folder()?.join(at.inner.rsplit('/').next().unwrap_or("file"));
+    // The path names the commit: each commit's file has a folder of its own.
+    let to = crate::archive::peek_file(path, at.inner.rsplit('/').next().unwrap_or("file"))?;
     std::fs::write(&to, bytes)?;
     Ok(to)
 }
