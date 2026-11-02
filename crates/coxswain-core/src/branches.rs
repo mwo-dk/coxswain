@@ -205,8 +205,10 @@ fn writes_files_safely(dir: &Path, target: &str) -> io::Result<()> {
     if !crate::git::readable(dir) {
         return Err(io::Error::other(crate::t!("gitconfig.failed")));
     }
-    if !crate::git::repo_filters(dir).is_empty() {
-        return Err(io::Error::other(crate::t!("branches.has_filters")));
+    match crate::git::repo_filters(dir) {
+        None => return Err(io::Error::other(crate::t!("gitconfig.failed"))),
+        Some(k) if !k.is_empty() => return Err(io::Error::other(crate::t!("branches.has_filters"))),
+        Some(_) => {}
     }
     match lfs_risk(dir, target)? {
         Some(key) => Err(io::Error::other(crate::t!("branches.lfs_risk", "key" => key))),

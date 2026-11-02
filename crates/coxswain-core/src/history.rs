@@ -85,7 +85,13 @@ impl Scope {
 }
 
 pub(crate) fn git(dir: &Path) -> Command {
-    git_with(dir, &crate::git::repo_filters(dir))
+    let keys = crate::git::repo_filters(dir);
+    let mut c = git_with(dir, keys.as_deref().unwrap_or_default());
+    if keys.is_none() {
+        // After the store `git_with` names: its filters are not known either.
+        crate::git::no_repository(&mut c);
+    }
+    c
 }
 
 /// `git` with the filter settings given (`git::command_with`): none for a command that runs no
@@ -149,6 +155,21 @@ pub(crate) fn records_within(mut c: Command, sep: u8, budget: Duration, mut f: i
     }
     drop(done);
     Ok(watch.join().unwrap_or(false) || cut)
+}
+
+/// A reader that notes when it last got something, in milliseconds from `start`.
+struct Ticking<R> {
+    r: R,
+    start: std::time::Instant,
+    last: Arc<std::sync::atomic::AtomicU64>,
+}
+
+impl<R: Read> Read for Ticking<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let n = self.r.read(buf)?;
+        self.last.store(self.start.elapsed().as_millis() as u64, std::sync::atomic::Ordering::Relaxed);
+        Ok(n)
+    }
 }
 
 /// The most of one record (a line of a diff) that is kept: a line of a 400 MB file with no
@@ -831,6 +852,7 @@ pub(crate) fn git_write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     // One git for every file: the ids in, the contents out.
     let mut c = git(&at.base);
     c.args(["cat-file", "--batch"]);
+    crate::tools::own_group(&mut c);
     let mut child = c
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -842,12 +864,29 @@ pub(crate) fn git_write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
         .ok_or_else(|| io::Error::other("no input"))?;
     let ids: String = files.iter().map(|(oid, ..)| format!("{oid}\n")).collect();
     let feed = std::thread::spawn(move || input.write_all(ids.as_bytes()));
-    let mut out = BufReader::new(
-        child
-            .stdout
-            .take()
-            .ok_or_else(|| io::Error::other("no output"))?,
-    );
+    let start = std::time::Instant::now();
+    let last = Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let mut out = BufReader::new(Ticking {
+        r: child.stdout.take().ok_or_else(|| io::Error::other("no output"))?,
+        start,
+        last: last.clone(),
+    });
+    // A big copy may take long, so the limit is on silence: git ended (and what it started)
+    // when it prints nothing for `git::LIMIT`, as one waiting on a FIFO would.
+    let (done, told) = std::sync::mpsc::channel::<()>();
+    let watch = std::thread::spawn(move || {
+        let late = loop {
+            if told.recv_timeout(Duration::from_secs(1)) != Err(std::sync::mpsc::RecvTimeoutError::Timeout) {
+                break false;
+            }
+            let quiet = start.elapsed().saturating_sub(Duration::from_millis(last.load(std::sync::atomic::Ordering::Relaxed)));
+            if quiet > crate::git::LIMIT {
+                break true;
+            }
+        };
+        crate::tools::kill_tree(&mut child);
+        late
+    });
     // Links are made last: a file listed after a link must not be written through it.
     let mut links = vec![];
     let r = (|| -> io::Result<()> {
@@ -899,9 +938,12 @@ pub(crate) fn git_write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
         }
         Ok(())
     })();
+    drop(done);
+    let late = watch.join().unwrap_or(false);
     let _ = feed.join();
-    let _ = child.kill();
-    let _ = child.wait();
+    if late {
+        return Err(io::Error::new(io::ErrorKind::TimedOut, "took too long"));
+    }
     r
 }
 
