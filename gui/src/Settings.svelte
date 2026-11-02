@@ -193,13 +193,16 @@
       bench = { error: String(e) };
     }
   }
+  /** Which status lines show the runtime's own error. */
+  const details = $state({});
   async function step(line) {
     error = "";
     if (line.step === "turn_on") return chooseLevel("text");
     if (line.step === "set_up") return openSetup();
     if (line.step === "try_it") return tryAsk();
     if (line.step === "bench") return runBench();
-    const what = { read_now: "now", pause: "pause", resume: "resume", stop_transcribing: "stop_transcribing" }[line.step] ?? "restart";
+    if (line.step === "details") return (details[line.part] = !details[line.part]);
+    const what = { read_now: "now", pause: "pause", resume: "resume", stop_transcribing: "stop_transcribing", retry_now: "retry_pulls" }[line.step] ?? "restart";
     await invoke("index_action", { what }).catch((e) => (error = String(e)));
     loadIndex();
   }
@@ -706,6 +709,7 @@
             <span>{l.text}
               {#if l.bar}<br /><progress max={l.bar[1] || 1} value={l.bar[0]}></progress> <small class="hint">{l.bar[1] ? Math.min(99, Math.floor((l.bar[0] * 100) / l.bar[1])) : 100} %</small>{/if}
               {#if l.note}<br /><small class="hint" class:err={l.bad}>{l.note}</small>{/if}
+              {#if l.details && details[l.part]}<br /><small class="hint err"><code class="details">{l.details}</code></small>{/if}
               {#if l.part === "meaning" && index?.meaning_runs_text && s.meaning_engine === "builtin"}<br /><small class="hint">{index.meaning_runs_text}</small>{/if}
               {#if l.poor}<br /><small class={l.poor.tip ? "hint" : "err"}>{l.poor.text}</small>{#if l.poor.button}{" "}<button class="link" onclick={() => usePoor(l.poor)}>{l.poor.button}</button>{/if}{/if}
               {#if l.part === "ask" && trial}<br /><small class="hint" class:err={trial.error}>{trial.busy ? t("common.loading") : trial.error ?? t("setup.try_done", { seconds: (trial.ms / 1000).toFixed(1) })}</small>{/if}
@@ -713,7 +717,7 @@
             </span>
             {#if l.step}<span class="steps"
                 ><button disabled={(trial?.busy && l.step === "try_it") || (bench?.busy && l.step === "bench")} onclick={() => step(l)}>{t(`settings.step.${l.step}`)}</button
-                >{#if l.also}<button onclick={() => step({ step: l.also })}>{t(`settings.step.${l.also}`)}</button>{/if}</span
+                >{#if l.also}<button onclick={() => step({ step: l.also, part: l.part })}>{t(`settings.step.${l.also}`)}</button>{/if}</span
               >{:else}<span></span>{/if}
           {/each}
         </div>
@@ -1538,6 +1542,11 @@
   }
   .level small {
     display: block;
+  }
+  code.details {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 0.9em;
   }
   details.details > summary {
     font-weight: bold;

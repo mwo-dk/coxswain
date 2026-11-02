@@ -578,6 +578,8 @@ pub enum Part {
     Ask,
     /// Apache Tika, for other formats: only while it is turned on.
     Tika,
+    /// calibre, for e-books: only while e-books are searched.
+    Ebooks,
     /// Transcripts with Whisper: only while it is turned on.
     Whisper,
 }
@@ -602,6 +604,9 @@ pub enum Step {
     Pause,
     Resume,
     StopTranscribing,
+    /// A download that failed: try it now, or show the runtime's own error.
+    RetryNow,
+    Details,
 }
 
 impl Step {
@@ -616,6 +621,8 @@ impl Step {
             Step::Pause => "settings.step.pause",
             Step::Resume => "settings.step.resume",
             Step::StopTranscribing => "settings.step.stop_transcribing",
+            Step::RetryNow => "settings.step.retry_now",
+            Step::Details => "settings.step.details",
         })
     }
 }
@@ -637,6 +644,8 @@ pub struct Line {
     pub poor: Option<crate::setup::Poor>,
     /// Work under way: files done of all, for a progress bar.
     pub bar: Option<(usize, usize)>,
+    /// The runtime's own error, which *Details* shows.
+    pub details: Option<String>,
 }
 
 /// A progress bar of `width` cells for the terminal: `done` of `total`, filled from the left.
@@ -761,6 +770,7 @@ pub fn status(
         also: None,
         poor: None,
         bar: None,
+        details: None,
     };
     let mut names = line(
         Part::Names,
@@ -871,37 +881,15 @@ pub fn status(
     }
     let mut lines = vec![names, text, meaning, ask];
     if s.tika && s.text {
-        use crate::extract::tika::State;
         let image = crate::images::short(&crate::config::PreviewConfig::default().images["tika"]).to_string();
-        let mut tika = line(Part::Tika, "settings.status.tika", t!("settings.status.not_running"));
-        match st.tika.as_ref().filter(|_| helper) {
-            None => {}
-            Some(State::Ready) => tika.text = t!("settings.status.tika_ready"),
-            Some(State::Pulling(progress)) => {
-                tika.text = t!("settings.status.tika_pulling", "image" => image);
-                tika.note = (!progress.is_empty()).then(|| progress.clone());
-            }
-            Some(State::NoRuntime) => {
-                tika.text = t!("settings.status.off");
-                tika.note = Some(t!("settings.status.tika_no_runtime"));
-                tika.bad = true;
-            }
-            Some(State::Waiting { fault, at }) => {
-                tika.text = t!("settings.status.tika_waiting");
-                tika.note = Some(t!("settings.status.tika_again", "fault" => fault.text(), "time" => crate::i18n::time(*at)));
-            }
-            Some(State::Unpulled(fault)) => {
-                tika.text = t!("settings.status.off");
-                tika.note = Some(t!("settings.status.tika_unpulled", "fault" => fault.text()));
-                tika.bad = true;
-            }
-            Some(State::Failed(why)) => {
-                tika.text = t!("settings.status.off");
-                tika.note = Some(t!("settings.status.failed", "why" => why));
-                tika.bad = true;
-            }
-        }
-        lines.push(tika);
+        let tika = line(Part::Tika, "settings.status.tika", t!("settings.status.not_running"));
+        lines.push(pull_line(tika, st.tika.as_ref().filter(|_| helper), "Tika", &image, "settings.status.tika_ready"));
+    }
+    // calibre, while e-books are searched: the helper says when.
+    if let Some(state) = st.ebooks.as_ref().filter(|_| helper) {
+        let image = crate::images::short(&crate::config::PreviewConfig::default().images["calibre"]).to_string();
+        let calibre = line(Part::Ebooks, "settings.status.ebooks", t!("settings.status.not_running"));
+        lines.push(pull_line(calibre, Some(state), "calibre", &image, "settings.status.ebooks_ready"));
     }
     if s.whisper && s.text {
         use crate::transcribe::State;
@@ -950,6 +938,46 @@ pub fn status(
         lines.push(w);
     }
     lines
+}
+
+/// The line of a tool that runs from a pulled image (Tika, calibre): ready, downloading, off
+/// with the reason, or waiting to be tried again, with *Retry now* and the runtime's own error
+/// under *Details*.
+fn pull_line(mut l: Line, state: Option<&crate::images::pulls::State>, name: &str, image: &str, ready: &str) -> Line {
+    use crate::images::pulls::State;
+    match state {
+        None => {}
+        Some(State::Ready) => l.text = t!(ready),
+        Some(State::Pulling(progress)) => {
+            l.text = t!("settings.status.tika_pulling", "image" => image);
+            l.note = (!progress.is_empty()).then(|| progress.clone());
+        }
+        Some(State::NoRuntime) => {
+            l.text = t!("settings.status.off");
+            l.note = Some(t!("settings.status.tika_no_runtime"));
+            l.bad = true;
+        }
+        Some(State::Waiting { fault, at, .. }) => {
+            l.text = t!("settings.status.tika_waiting");
+            l.note = Some(t!("settings.status.pull_again", "name" => name, "fault" => fault.text(), "time" => crate::i18n::time(*at)));
+        }
+        Some(State::Unpulled { fault, .. }) => {
+            l.text = t!("settings.status.off");
+            l.note = Some(t!("settings.status.pull_unpulled", "name" => name, "fault" => fault.text()));
+            l.bad = true;
+        }
+        Some(State::Failed(why)) => {
+            l.text = t!("settings.status.off");
+            l.note = Some(t!("settings.status.failed", "why" => why));
+            l.bad = true;
+        }
+    }
+    if let Some(details) = state.and_then(State::details) {
+        l.step = Some(Step::RetryNow);
+        l.also = Some(Step::Details);
+        l.details = Some(details.to_string());
+    }
+    l
 }
 
 // ---------------------------------------------------------------- privacy
@@ -1316,6 +1344,7 @@ mod tests {
             error: Some("stalled".into()),
             clouds: vec![("OneDrive".into(), "/c".into())],
             tika: None,
+            ebooks: None,
             transcripts: None,
             outdated: None,
             changes_left: 0,
@@ -1426,6 +1455,7 @@ mod tests {
             tools: vec![],
             clouds: vec![],
             tika: None,
+            ebooks: None,
             transcripts: None,
             outdated: None,
             changes_left: 0,

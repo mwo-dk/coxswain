@@ -1543,6 +1543,7 @@ async fn index_action(what: String, ctx: tauri::State<'_, Ctx>) -> Res<()> {
         "pause" => index.transcribe_pause(true, false),
         "resume" => index.transcribe_pause(false, false),
         "stop_transcribing" => index.transcribe_pause(false, true),
+        "retry_pulls" => index.retry_pulls(),
         _ => index.restart(),
     })
     .await

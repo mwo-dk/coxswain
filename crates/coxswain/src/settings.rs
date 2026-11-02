@@ -824,6 +824,7 @@ impl App {
                     Some(Row::Model(e)) => return self.model_delete(s, &e.id.clone()),
                     Some(Row::Disk(i)) if i.bytes > 0 && i.clear => s.mode = Mode::ConfirmClear(i.id.clone()),
                     Some(Row::Status(l)) if l.also == Some(Step::StopTranscribing) => self.index.transcribe_pause(false, true),
+                    Some(Row::Status(l)) if l.also == Some(Step::Details) => s.said = l.details.as_ref().map(|d| (d.split_whitespace().collect::<Vec<_>>().join(" "), true)),
                     Some(Row::Server(server)) => {
                         let mut st = coxswain_core::state::AppState::load();
                         st.history_servers.retain(|x| x != server);
@@ -1174,6 +1175,7 @@ impl App {
                 Some(Step::Pause) => self.index.transcribe_pause(true, false),
                 Some(Step::Resume) => self.index.transcribe_pause(false, false),
                 Some(Step::StopTranscribing) => self.index.transcribe_pause(false, true),
+                Some(Step::RetryNow) => self.index.retry_pulls(),
                 Some(Step::SetUp) => self.setup_guide(),
                 Some(Step::TryIt) if s.trial_rx.is_none() => {
                     let (tx, rx) = mpsc::channel();

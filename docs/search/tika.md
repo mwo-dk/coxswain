@@ -121,13 +121,17 @@ stays on: nothing is mounted, so nothing needs relabelling.
   *Off* with why in red: *Needs podman or docker, which run its Linux image; on FreeBSD, the
   other BSDs and illumos it cannot run*, *Tika couldn't be downloaded: …* with a plain reason
   and what to do, or *It stopped: …* when the server would not start. The runtime's own error is
-  in `helper.log` in the cache folder.
+  in `helper.log` in the cache folder, and the same error is under **Details** on the line
+  (**Delete** in the terminal app, where it shows in the status bar). **Retry now** on the line
+  pulls again at once, also after a full disk you have cleared; the helper also pulls again at
+  once when the registry answers after it did not, and calibre's image for
+  [e-book search](../previews/ebooks.md) is handled the same way.
 - A pull that fails for no network (no name lookup, no connection, a timeout, the registry busy)
   or an error the runtime does not explain is tried again by itself: 5 minutes later, then 10,
   20, 40, and then every hour. A full disk or an image the registry does not have is not tried
   again: free some space and untick and tick the option, or update Coxswain. Either way the
   helper looks whether the image has come another way (`podman pull` by hand): after a minute,
-  then less and less often, every 10 minutes at most. It starts reading at once when it has,
+  then less and less often, every 10 minutes at most (every minute after a network fault). It starts reading at once when it has,
   with no restart. An app older than 2.36.0 still talking to this helper shows the same words
   after *It stopped:*.
 - When neither podman nor docker is installed, a [notice](../panels/notices.md) says so once:
@@ -207,8 +211,9 @@ the server would not start, with why.
 No, not for a passing fault. With no network, a timeout or a busy registry, the helper keeps
 Tika waiting and tries again after 5 minutes, then 10, 20, 40 and every hour after, as the *Tika*
 line says (*Trying again at 15:10*). If you pull the image yourself (`podman pull
-docker.io/apache/tika:4.1.0`), the helper notices within 10 minutes at most (a minute, if you do it at once) and starts reading. Only a full
-disk or an image the registry does not have stays *Off* until you act.
+docker.io/apache/tika:4.1.0`), the helper notices within a minute and starts reading. When the network comes back, the helper
+notices that the registry answers and pulls at once, or press **Retry now** on the *Tika* line. Only a full
+disk or an image the registry does not have stays *Off* until you act (then press **Retry now**).
 
 #### Why not run Tika for every file?
 
