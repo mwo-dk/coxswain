@@ -25,7 +25,15 @@ pub const LIMIT: std::time::Duration = std::time::Duration::from_secs(120);
 
 /// What `c` printed, ended past `LIMIT` (and then `None`, as when git could not start).
 pub fn output(c: Command) -> Option<std::process::Output> {
-    crate::tools::capture(c, LIMIT, u64::MAX).ok()
+    // A git ended here is not the file this thread reads taking too long (`took_too_long`).
+    let before = crate::tools::took_too_long();
+    let out = crate::tools::capture(c, LIMIT, u64::MAX).ok();
+    // What this git noted is cleared; what was noted before it stays.
+    let _ = crate::tools::took_too_long();
+    if before {
+        crate::tools::note_too_long();
+    }
+    out
 }
 
 /// `command` with `keys` (`repo_filters`) for the repository's filter drivers, worked out once

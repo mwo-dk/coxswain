@@ -841,6 +841,8 @@ pub fn note_too_long() {
 /// Wait for `child`, ending it and what it started (`kill_tree`) when it runs past `timeout`.
 pub fn wait(child: &mut Child, timeout: Duration) -> std::io::Result<ExitStatus> {
     let start = Instant::now();
+    // Short at first: most programs here end in a few milliseconds.
+    let mut nap = Duration::from_millis(1);
     loop {
         if let Some(status) = child.try_wait()? {
             return Ok(status);
@@ -853,7 +855,8 @@ pub fn wait(child: &mut Child, timeout: Duration) -> std::io::Result<ExitStatus>
                 "took too long",
             ));
         }
-        std::thread::sleep(Duration::from_millis(20));
+        std::thread::sleep(nap);
+        nap = (nap * 2).min(Duration::from_millis(20));
     }
 }
 
