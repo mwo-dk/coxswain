@@ -152,17 +152,24 @@ impl AppState {
                 }
             }
         }
-        for p in self.favorites.iter_mut().flat_map(|g| g.paths.iter_mut()).chain(&mut self.recent_repos).chain(&mut self.pinned_repos) {
-            plain(p);
+        let dedup = |v: &mut Vec<PathBuf>| {
+            v.iter_mut().for_each(plain);
+            let mut seen = std::collections::BTreeSet::new();
+            v.retain(|p| seen.insert(p.clone()));
+        };
+        for g in &mut self.favorites {
+            dedup(&mut g.paths);
         }
+        dedup(&mut self.recent_repos);
+        dedup(&mut self.pinned_repos);
+        // A path saved both ways keeps what was saved under the plain one, the newer.
         for map in [&mut self.tags, &mut self.notes] {
-            *map = std::mem::take(map)
-                .into_iter()
-                .map(|(mut k, v)| {
-                    plain(&mut k);
-                    (k, v)
-                })
-                .collect();
+            let (keep, old): (BTreeMap<_, _>, BTreeMap<_, _>) = std::mem::take(map).into_iter().partition(|(k, _)| crate::fs::without_verbatim(k) == k.as_path());
+            *map = keep;
+            for (mut k, v) in old {
+                plain(&mut k);
+                map.entry(k).or_insert(v);
+            }
         }
     }
 
@@ -365,9 +372,9 @@ mod tests {
         std::fs::write(&f, r#"{
             "session": {"panes": [{"tabs": [{"dir": "\\\\?\\C:\\Users\\ann", "view": "full"}, {"dir": "C:\\Temp"}]}, {"tabs": [{"view": "brief"}]}], "dual": true},
             "favorites": [{"name": "F", "paths": ["\\\\?\\D:\\Music"]}],
-            "tags": {"\\\\?\\C:\\Users\\ann\\a.txt": "red"},
+            "tags": {"\\\\?\\C:\\Users\\ann\\a.txt": "red", "\\\\?\\C:\\b": "old", "C:\\b": "new"},
             "notes": {"\\\\?\\C:\\Users\\ann": "todo"},
-            "recent_repos": ["\\\\?\\C:\\src\\x"],
+            "recent_repos": ["\\\\?\\C:\\src\\x", "C:\\src\\x"],
             "pinned_repos": ["\\\\?\\C:\\src\\x"]
         }"#).unwrap();
         let st = AppState::load_from(&f);
@@ -385,7 +392,12 @@ mod tests {
         assert_eq!(st.favorites[0].paths, [PathBuf::from(music)]);
         assert_eq!(st.tags.get(Path::new(a)).map(String::as_str), Some("red"));
         assert_eq!(st.notes.get(Path::new(ann)).map(String::as_str), Some("todo"));
-        assert_eq!(st.recent_repos, [PathBuf::from(repo)]);
+        assert_eq!(st.tags.get(Path::new(r"C:\b")).map(String::as_str), Some("new"), "the plain one wins");
+        if cfg!(windows) {
+            assert_eq!(st.recent_repos, [PathBuf::from(repo)], "saved both ways: once");
+        } else {
+            assert_eq!(st.recent_repos, [PathBuf::from(repo), PathBuf::from(r"C:\src\x")]);
+        }
         assert_eq!(st.pinned_repos, [PathBuf::from(repo)]);
         let mut kept = AppState::default();
         kept.reload_from(&f);
