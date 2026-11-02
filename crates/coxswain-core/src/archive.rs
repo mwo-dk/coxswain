@@ -770,7 +770,8 @@ fn password_for(archive: &Path, given: Option<&str>) -> Option<String> {
 /// time: browsing an archive lists it once per folder, and a compressed tar is read in full
 /// each time. A few, so the preview of another archive does not push out the one browsed.
 static LAST: std::sync::Mutex<Vec<Looked>> = std::sync::Mutex::new(Vec::new());
-type Looked = (PathBuf, Stamp, Arc<Items>);
+/// The archive, how it was, its entries, and the token its panels' holds share (`hold`).
+type Looked = (PathBuf, Stamp, Arc<Items>, Arc<()>);
 const LAST_KEPT: usize = 4;
 /// The most the lists kept take together (`Items::bytes`), the newest always kept.
 const LAST_BYTES: usize = if cfg!(test) { 4 << 20 } else { 128 << 20 };
@@ -1793,8 +1794,8 @@ fn cached(archive: &Path, stamp: Stamp) -> Option<Arc<Items>> {
     LAST.lock()
         .unwrap()
         .iter()
-        .find(|(p, s, _)| p == archive && *s == stamp)
-        .map(|(.., items)| items.clone())
+        .find(|(p, s, ..)| p == archive && *s == stamp)
+        .map(|(_, _, items, _)| items.clone())
 }
 
 /// Keep all the entries of `archive`, read when it was as `stamp` says, for the next look.
@@ -1807,11 +1808,43 @@ fn keep_items(archive: &Path, stamp: Stamp, items: Arc<Items>) {
 /// `keep_items` into `last`.
 fn kept_with(last: &mut Vec<Looked>, archive: &Path, stamp: Stamp, items: Arc<Items>) {
     last.retain(|(p, ..)| p != archive);
-    let mut bytes: usize = last.iter().map(|(.., i)| i.bytes()).sum::<usize>() + items.bytes();
+    let mut bytes: usize = last.iter().map(|(_, _, i, _)| i.bytes()).sum::<usize>() + items.bytes();
     while !last.is_empty() && (last.len() >= LAST_KEPT || bytes > LAST_BYTES) {
         bytes -= last.remove(0).2.bytes();
     }
-    last.push((archive.to_path_buf(), stamp, items));
+    last.push((archive.to_path_buf(), stamp, items, Arc::new(())));
+}
+
+/// A list kept past this many bytes is kept only while a panel shows a folder of its archive
+/// (`hold`): a list of millions is not kept beside the panel's own once the panel has left.
+const HELD_ONLY: usize = LAST_BYTES / LAST_KEPT;
+
+/// A panel's hold on the list kept of the archive it shows a folder of (`hold`). When the last
+/// hold on a list larger than `HELD_ONLY` goes, the list goes too, whoever still reads it
+/// meanwhile (a preview, a search: they keep their own `Arc<Items>` until done).
+pub struct Hold(Option<Arc<()>>);
+
+/// The hold on the kept list of the archive `dir` is inside of, when one is kept. Looks at no
+/// disk: `dir` is matched against the archives kept. shortcut: an archive inside an archive is
+/// kept by its copy's path and so not held (kept as before, by `kept_with`'s limits alone);
+/// hold it through `NESTED` if lists of millions inside archives inside archives matter.
+pub fn hold(dir: &Path) -> Option<Hold> {
+    let last = LAST.lock().unwrap_or_else(|e| e.into_inner());
+    last.iter().rev().find(|(p, ..)| dir.starts_with(p)).map(|(.., token)| Hold(Some(token.clone())))
+}
+
+impl Drop for Hold {
+    fn drop(&mut self) {
+        if let Some(mine) = self.0.take() {
+            let_go(&mut LAST.lock().unwrap_or_else(|e| e.into_inner()), mine);
+        }
+    }
+}
+
+/// `mine`, a hold's token, let go of: its list out of `last` too when it is large and no other
+/// hold has its token (only `last` and `mine` do: every hold is made under `last`'s lock).
+fn let_go(last: &mut Vec<Looked>, mine: Arc<()>) {
+    last.retain(|(_, _, i, t)| !(Arc::ptr_eq(t, &mine) && Arc::strong_count(t) == 2 && i.bytes() > HELD_ONLY));
 }
 
 fn read_items(archive: &Path) -> io::Result<Items> {
@@ -2685,18 +2718,11 @@ fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     }
     // One at a time: each starts in a fresh folder, which would take away the copy of one
     // still being looked at, and peeks piling up while the cursor moves each unpack.
-    static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+    let _one = PEEK_ONE.lock().unwrap_or_else(|e| e.into_inner());
     // A folder for each file of each archive as it is now: what is kept by a copy's path, size
     // and date (a ChessBase archive unpacked, a listing, a preview) is never taken for another
     // archive's file of the same name, size and date.
-    let folder = peek_folder()?.join(format!("{:016x}", {
-        use std::hash::{Hash, Hasher};
-        let mut h = std::collections::hash_map::DefaultHasher::new();
-        (&origin, it.size, it.modified).hash(&mut h);
-        h.finish()
-    }));
-    crate::fs::private_dir(&folder)?;
+    let folder = peek_folder_of((&origin, it.size, it.modified))?;
     let to = folder.join(inner.rsplit('/').next().filter(|n| one_name(n)).unwrap_or("file"));
     // What comes out is counted too: a size the archive claims may be a lie.
     copy_out_with(
@@ -2803,6 +2829,33 @@ fn one_name(n: &str) -> bool {
             Path::new(n).components().collect::<Vec<_>>()[..],
             [std::path::Component::Normal(_)]
         )
+}
+
+/// A fresh folder of its own in `peek_folder` for what comes from `origin`: what is kept by a
+/// copy's path, size and date (a listing, a preview, a ChessBase archive unpacked) is never
+/// taken for a copy of something else of the same name, size and date (another commit's file,
+/// another snapshot's, another archive's).
+fn peek_folder_of(origin: impl std::hash::Hash) -> io::Result<PathBuf> {
+    use std::hash::Hasher;
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    origin.hash(&mut h);
+    let folder = peek_folder()?.join(format!("{:016x}", h.finish()));
+    crate::fs::private_dir(&folder)?;
+    Ok(folder)
+}
+
+/// One copy to look at made at a time: each starts in a fresh folder, which would take away
+/// one still being written.
+static PEEK_ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// `bytes`, from `origin`, written as a copy to look at named `name` (one name, else "file"),
+/// in a fresh folder of its own for the origin and the bytes (`peek_folder_of`): a history's
+/// file, a snapshot's diff, a report's text.
+pub(crate) fn peek_write(origin: impl std::hash::Hash, name: &str, bytes: &[u8]) -> io::Result<PathBuf> {
+    let _one = PEEK_ONE.lock().unwrap_or_else(|e| e.into_inner());
+    let to = peek_folder_of((origin, bytes))?.join(if one_name(name) { name } else { "file" });
+    std::fs::write(&to, bytes)?;
+    Ok(to)
 }
 
 /// A fresh folder for this run's copy to look at (also a history's, `history::peek`): the copy
@@ -4032,6 +4085,30 @@ mod tests {
         assert_eq!(names(&last), ["two.7z"], "the older went to make room for the newest");
     }
 
+    /// A large list goes when the last panel holding it leaves; a small one stays for the next
+    /// look, and so does a large one another panel still holds.
+    #[test]
+    fn a_large_list_goes_with_its_last_hold() {
+        let big = |n: usize| {
+            let mut i = Items::default();
+            i.push(Item { name: "x".repeat(n), size: 1, dir: false, modified: 2, locked: false, link: false });
+            Arc::new(i.done())
+        };
+        let (mut last, stamp) = (vec![], (0, None));
+        kept_with(&mut last, Path::new("small.zip"), stamp, big(10));
+        kept_with(&mut last, Path::new("large.7z"), stamp, big(HELD_ONLY + 1));
+        let token = |i: usize| last[i].3.clone();
+        let (small, other, panel) = (token(0), token(1), token(1));
+        // A preview still reading the large list does not keep it.
+        let reader = last[1].2.clone();
+        let_go(&mut last, small);
+        let_go(&mut last, panel);
+        assert_eq!(last.len(), 2, "the other panel still holds the large one");
+        let_go(&mut last, other);
+        assert_eq!(last.iter().map(|(p, ..)| p.to_str().unwrap()).collect::<Vec<_>>(), ["small.zip"]);
+        assert_eq!(reader.len(), 1, "what reads it keeps its own");
+    }
+
     fn nested_alone() -> std::sync::MutexGuard<'static, ()> {
         static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
         ONE.lock().unwrap_or_else(|e| e.into_inner())
@@ -4179,6 +4256,24 @@ mod tests {
         assert_eq!((one, two), (vec!["a".to_string()], vec!["b".to_string()]));
         assert_eq!(names(&outers[0]).0, first, "the same file, the same copy");
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// The other copies to look at (a history's file, a snapshot's diff, a report): one folder
+    /// for each origin, so two commits' files of the same name, size and date never share what
+    /// is kept by a copy's path; a crafted name stays inside.
+    #[test]
+    fn copies_of_two_origins_of_the_same_name_are_two_files() {
+        let a = peek_write("x@1", "notes.txt", b"same").unwrap();
+        assert_eq!(std::fs::read(&a).unwrap(), b"same");
+        let b = peek_write("x@2", "notes.txt", b"same").unwrap();
+        assert!(a != b && !a.exists(), "a fresh folder, the one before gone");
+        assert_eq!(a.file_name(), b.file_name());
+        assert_eq!(peek_write("x@1", "notes.txt", b"same").unwrap(), a, "the same origin, the same copy");
+        assert_ne!(peek_write("x@1", "notes.txt", b"later").unwrap(), a, "other text, another copy");
+        for bad in ["../evil", "a/b", ""] {
+            let c = peek_write("y", bad, b"").unwrap();
+            assert_eq!((c.file_name().unwrap(), c.parent().and_then(Path::parent)), ("file".as_ref(), a.parent().and_then(Path::parent)), "{bad}");
+        }
     }
 
     #[test]

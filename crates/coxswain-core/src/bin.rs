@@ -354,18 +354,31 @@ pub(crate) mod fd {
     /// meanwhile. Let go when dropped or when the program dies. A bin where no lock file can be
     /// made goes unlocked. When another Coxswain holds it: `bin.busy`, at once (the terminal
     /// app runs these on its UI thread).
-    pub fn hold(bins: &[Bin]) -> io::Result<Vec<fs::File>> {
+    pub fn hold(bins: &[Bin]) -> io::Result<Vec<Held>> {
         lock_all(bins, false)
     }
 
     /// `hold`, waiting while another Coxswain holds it, until Stop (`stop::check`'s error): for
     /// a put and an undo, which run as jobs. A put may copy into a bin (from another disk), and
     /// a copy half made is listed: an Empty then would delete it, and the put the original.
-    pub fn wait(bins: &[Bin]) -> io::Result<Vec<fs::File>> {
+    pub fn wait(bins: &[Bin]) -> io::Result<Vec<Held>> {
         lock_all(bins, true)
     }
 
-    fn lock_all(bins: &[Bin], wait: bool) -> io::Result<Vec<fs::File>> {
+    /// A bin's lock, let go by an unlock before its handle closes: a program another thread
+    /// starts meanwhile holds a copy of every handle until it runs (a fork, then exec), and the
+    /// lock belongs to all the copies, so closing ours alone left the bin busy for the next
+    /// restore, delete or Empty until then (#797).
+    #[derive(Debug)]
+    pub struct Held(pub(crate) fs::File);
+
+    impl Drop for Held {
+        fn drop(&mut self) {
+            let _ = self.0.unlock();
+        }
+    }
+
+    fn lock_all(bins: &[Bin], wait: bool) -> io::Result<Vec<Held>> {
         let mut held = vec![];
         for b in bins.iter().filter(|b| real(b)) {
             let mut o = fs::OpenOptions::new();
@@ -378,7 +391,7 @@ pub(crate) mod fd {
             loop {
                 match f.try_lock() {
                     Ok(()) => {
-                        held.push(f);
+                        held.push(Held(f));
                         break;
                     }
                     Err(fs::TryLockError::WouldBlock) if wait => {
@@ -1316,6 +1329,22 @@ mod tests {
             Some((PathBuf::from("/a/ø"), 0))
         );
         assert_eq!(parse("[Trash Info]\n", None), None);
+    }
+
+    /// A program another thread starts holds a copy of every handle until it runs (fork, then
+    /// exec); the lock is let go all the same, so the next restore does not find the bin busy
+    /// (#797). `try_clone` is that copy: the same open file, which the lock belongs to.
+    #[cfg(unix)]
+    #[test]
+    fn bin_lock_is_let_go_while_a_started_program_holds_a_copy() {
+        let d = crate::fs::Scratch::named("bin-held-copy");
+        let bins = [bin(&d, &[])];
+        let held = hold(&bins).unwrap();
+        assert_eq!(held.len(), 1);
+        let copy = held[0].0.try_clone().unwrap();
+        drop(held);
+        assert!(hold(&bins).is_ok());
+        drop(copy);
     }
 
     #[test]

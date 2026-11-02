@@ -86,6 +86,9 @@ pub struct Panel {
     /// Compare folders (Ctrl+F2): the compare, this panel's side in it, and whether only the
     /// differences are listed.
     pub cmp: Option<Cmp>,
+    /// The kept list of the archive the folder is in (`archive::hold`): a large one goes once
+    /// no panel shows a folder of it.
+    _hold: Option<coxswain_core::archive::Hold>,
 }
 
 #[derive(Clone)]
@@ -135,6 +138,7 @@ impl Panel {
             link: None,
             models: None,
             cmp: None,
+            _hold: None,
         };
         (p, file)
     }
@@ -170,6 +174,7 @@ impl Panel {
 
     /// Sort what was just listed, keep the marks still there and put the cursor on `keep`.
     fn fill(&mut self, keep: Option<String>) {
+        self._hold = coxswain_core::archive::hold(&self.dir);
         // Differences only: what is the same on both sides is left out.
         if let Some(c) = self.cmp.as_ref().filter(|c| c.diff_only) {
             use coxswain_core::compare::folders::State;

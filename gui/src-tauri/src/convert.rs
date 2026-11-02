@@ -435,7 +435,7 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
         let key = coxswain_core::images::key(tool);
         let image = cfg.images.get(key).filter(|i| !i.is_empty()).ok_or_else(|| t!("convert.no_container_image", "tool" => key))?;
         if image_size(&rt_path, image).is_none() {
-            pull(&rt_path, image)?;
+            coxswain_core::images::pulls::in_job(&rt_path, image, &std::sync::atomic::AtomicBool::new(false))?;
         }
         USED.lock().unwrap().insert(image.clone());
         if tool == coxswain_core::ebook::TOOL {
@@ -885,6 +885,8 @@ use coxswain_core::images::pull;
 pub struct Tools {
     rows: Vec<coxswain_core::preview_tools::Row>,
     pulling: BTreeMap<String, String>,
+    /// Images a job could not pull: why, and when the next job tries again.
+    failed: BTreeMap<String, String>,
     /// Why no container runs, when none can.
     no_runtime: Option<String>,
 }
@@ -892,10 +894,20 @@ pub struct Tools {
 #[tauri::command]
 pub async fn preview_tools(ctx: tauri::State<'_, crate::Ctx>) -> Res<Tools> {
     let cfg = ctx.cfg().preview.clone();
-    tauri::async_runtime::spawn_blocking(move || Tools {
-        rows: coxswain_core::preview_tools::rows(&cfg),
-        pulling: coxswain_core::images::pulling(),
-        no_runtime: runtime(&cfg).is_none().then(|| if cfg.container == "off" { t!("searchable.containers_off") } else { coxswain_core::tools::no_runtime() }),
+    tauri::async_runtime::spawn_blocking(move || {
+        let rows = coxswain_core::preview_tools::rows(&cfg);
+        // Only an image that is not there: a failed update leaves the old one working.
+        let failed = coxswain_core::images::pulls::failures()
+            .into_iter()
+            .filter(|(i, _)| rows.iter().flat_map(|r| &r.images).any(|m| &m.image == i && m.pulled.is_none()))
+            .filter_map(|(i, s)| Some((i, s.job_line()?)))
+            .collect();
+        Tools {
+            pulling: coxswain_core::images::pulling(),
+            failed,
+            no_runtime: runtime(&cfg).is_none().then(|| if cfg.container == "off" { t!("searchable.containers_off") } else { coxswain_core::tools::no_runtime() }),
+            rows,
+        }
     })
     .await
     .map_err(|e| e.to_string())
@@ -918,7 +930,7 @@ pub fn preview_sample(kind: String) -> Res<PathBuf> {
 #[tauri::command]
 pub async fn pull_image(image: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<()> {
     let cfg = ctx.cfg().preview.clone();
-    tauri::async_runtime::spawn_blocking(move || pull(&runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?.1, &image)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::images::pulls::retry_job(&runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?.1, &image)).await.map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

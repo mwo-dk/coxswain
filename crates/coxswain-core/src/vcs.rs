@@ -1056,8 +1056,9 @@ pub(crate) fn date_folders<'a>(to: &Path, dsts: impl Iterator<Item = &'a Path>, 
     }
 }
 
-fn said(mut c: Command) -> io::Result<String> {
-    let o = c.output()?;
+/// hg's message, or its complaint as the error; ended past `branches::SWITCH_LIMIT`.
+fn said(c: Command) -> io::Result<String> {
+    let o = crate::git::output_within(c, crate::branches::SWITCH_LIMIT)?;
     let text = |b: &[u8]| String::from_utf8_lossy(b).trim().to_string();
     if !o.status.success() {
         let why = text(&o.stderr);

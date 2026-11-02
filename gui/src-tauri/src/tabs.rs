@@ -26,6 +26,9 @@ struct List {
     /// As `fs::list_lean` gives them: most without a path, which `Entry::path_in(dir)` gives back.
     entries: Vec<Entry>,
     marked: HashSet<PathBuf>,
+    /// The kept list of the archive `dir` is in (`archive::hold`): a large one goes once no
+    /// tab lists a folder of it.
+    _hold: Option<coxswain_core::archive::Hold>,
 }
 
 /// `e` of a listing of `dir` with its path, as everything outside the listing takes it.
@@ -270,7 +273,7 @@ pub async fn tab_list(
     }
     let alive: HashSet<Cow<Path>> = if marked.is_empty() { HashSet::new() } else { entries.iter().map(|e| e.path_in(&meta.dir)).collect() };
     marked.retain(|p| alive.contains(p.as_path()));
-    let list = List { generation, dir: meta.dir.clone(), entries, marked };
+    let list = List { generation, _hold: coxswain_core::archive::hold(&meta.dir), dir: meta.dir.clone(), entries, marked };
     let total = list.entries.len();
     let cursor = focus.and_then(|f| list.find(&f)).unwrap_or(cursor.min(total.saturating_sub(1)));
     let marks = list.marks();
@@ -374,7 +377,7 @@ mod tests {
             .iter()
             .map(|&(name, is_dir)| Entry { name: name.into(), path: if name == ".." { "/".into() } else { PathBuf::new() }, is_dir, is_symlink: false, is_exec: false, hidden: false, size: 10, modified: 0, created: 0, online: false, referenced: 0, origin: PathBuf::new() })
             .collect();
-        List { generation: 1, dir, entries, marked: HashSet::new() }
+        List { generation: 1, dir, entries, marked: HashSet::new(), _hold: None }
     }
 
     #[test]

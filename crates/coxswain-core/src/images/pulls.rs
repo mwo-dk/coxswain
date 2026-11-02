@@ -59,6 +59,15 @@ impl State {
         }
     }
 
+    /// What Settings → Previews says of an image a job could not pull; None for other states.
+    pub fn job_line(&self) -> Option<String> {
+        match self {
+            State::Waiting { fault, at, .. } => Some(t!("ptools.pull_waiting", "fault" => fault.job_text(), "time" => crate::i18n::time(*at))),
+            State::Unpulled { fault, .. } => Some(t!("ptools.pull_unpulled", "fault" => fault.job_text())),
+            _ => None,
+        }
+    }
+
     /// The runtime's own error, when the state has one to show.
     pub fn details(&self) -> Option<&str> {
         match self {
@@ -105,6 +114,14 @@ impl Fault {
         }
     }
 
+    /// Its words for a job's message: the space is cleared by hand, nothing is ticked again.
+    pub fn job_text(self) -> String {
+        match self {
+            Fault::Space => t!("convert.pull_fault_space"),
+            f => f.text(),
+        }
+    }
+
     /// Whether trying again later may help: not for a full disk or an image the registry lacks.
     pub fn passing(self) -> bool {
         matches!(self, Fault::Network | Fault::Other)
@@ -136,6 +153,82 @@ pub fn failure(image: &str) -> Option<State> {
         Some(at) => State::Waiting { fault, at, details },
         None => State::Unpulled { fault, details },
     })
+}
+
+/// What the pulls inside jobs remember of an image: the failed pulls in a row, and how many
+/// times *Retry now* was pressed by then.
+static JOBS: Mutex<BTreeMap<String, (u32, u64)>> = Mutex::new(BTreeMap::new());
+
+/// Every image whose last pull failed, as `failure` says it. The apps' Settings list them.
+pub fn failures() -> BTreeMap<String, State> {
+    let names: Vec<String> = FAILED.lock().unwrap().keys().cloned().collect();
+    names.into_iter().filter_map(|i| failure(&i).map(|s| (i, s))).collect()
+}
+
+/// Where *Retry now* is, in the words of the job's message.
+fn retry_where() -> String {
+    format!("{} → {} → {}", crate::t!("action.settings"), crate::t!("settings.area.previews"), crate::t!("ptools.title"))
+}
+
+/// A pull inside a job (a conversion, the virus scan, Make PDF searchable, *Pull* in Settings):
+/// `pull_until`, and what failed is remembered. A passing fault is tried again by the next job
+/// after the same waits as the background pulls (`wait`), at once after *Retry now*, and for a
+/// network fault as soon as the registry answers; a lasting one by the next job. Before then
+/// the job fails at once with the reason, not after the runtime's own timeouts.
+pub fn in_job(rt: &std::path::Path, image: &str, stop: &std::sync::atomic::AtomicBool) -> Result<(), String> {
+    pull_job(rt, image, stop, false)
+}
+
+/// `in_job`; `by_hand` (*Retry now*, *Pull* in Settings) pulls whatever the schedule says and
+/// fails with the runtime's own words, as Settings shows them.
+fn pull_job(rt: &std::path::Path, image: &str, stop: &std::sync::atomic::AtomicBool, by_hand: bool) -> Result<(), String> {
+    // Only an image that failed wakes the waiting pulls: Pull on a healthy one wakes none.
+    if by_hand && FAILED.lock().unwrap().contains_key(image) {
+        retry_now();
+    }
+    let retries = RETRIES.load(Ordering::SeqCst);
+    let held = FAILED.lock().unwrap().get(image).cloned();
+    let tries = JOBS.lock().unwrap().get(image).copied();
+    if let (Some((fault, Some(at), _)), Some((_, seen))) = (&held, tries)
+        && *at > crate::fs::now()
+        && retries <= seen
+        && (*fault != Fault::Network || !reachable(image))
+    {
+        return Err(job_message(image, *fault, Some(*at)));
+    }
+    match super::pull_until(rt, image, stop) {
+        Ok(()) => {
+            FAILED.lock().unwrap().remove(image);
+            JOBS.lock().unwrap().remove(image);
+            Ok(())
+        }
+        Err(e) if stop.load(Ordering::Relaxed) => Err(e),
+        Err(e) => {
+            crate::helper::note(format_args!("{image}: {e}"));
+            let fault = Fault::of(&e);
+            let n = tries.map_or(0, |t| t.0);
+            let at = fault.passing().then(|| crate::fs::now() + wait(n).as_secs());
+            let details: String = e.trim().chars().take(4000).collect();
+            FAILED.lock().unwrap().insert(image.to_string(), (fault, at, details));
+            JOBS.lock().unwrap().insert(image.to_string(), (n + 1, retries));
+            Err(if by_hand { e } else { job_message(image, fault, at) })
+        }
+    }
+}
+
+/// What a job says of an image it could not pull: why, when the next job tries again, and
+/// where *Retry now* is.
+fn job_message(image: &str, fault: Fault, at: Option<u64>) -> String {
+    let (image, fault, place) = (super::short(image), fault.job_text(), retry_where());
+    match at {
+        Some(at) => crate::t!("convert.pull_waiting", "image" => image, "fault" => fault, "time" => crate::i18n::time(at), "where" => place),
+        None => crate::t!("convert.pull_unpulled", "image" => image, "fault" => fault, "where" => place),
+    }
+}
+
+/// *Retry now* on one image, from Settings: pulled at once, whatever the schedule says.
+pub fn retry_job(rt: &std::path::Path, image: &str) -> Result<(), String> {
+    pull_job(rt, image, &std::sync::atomic::AtomicBool::new(false), true)
 }
 
 /// How many times *Retry now* was pressed: a waiting pull that saw fewer goes at once.
@@ -251,6 +344,7 @@ pub fn until_there(
         }
     }
     FAILED.lock().unwrap().remove(image);
+    JOBS.lock().unwrap().remove(image);
 }
 
 #[cfg(test)]
@@ -353,6 +447,43 @@ mod tests {
         until_there(image, "test", || { pulls += 1; if pulls < 2 { Err(DNS.into()) } else { Ok(()) } }, || false, || true, |_, _| { rests += 1; false });
         assert_eq!(pulls, 2);
         assert_eq!(rests, 5, "60 s looks until the 300 s were up");
+    }
+
+    /// A pull inside a job that fails is remembered and the next job fails at once with the
+    /// reason, without pulling; *Retry now* pulls whatever the schedule says.
+    #[test]
+    fn a_job_that_cannot_pull_is_held_until_due_or_retried() {
+        let (rt, image, stop) = (std::path::Path::new("/nonexistent/coxswain-test-runtime"), "test.invalid/job:1", std::sync::atomic::AtomicBool::new(false));
+        let first = in_job(rt, image, &stop).unwrap_err();
+        assert!(first.contains("test.invalid/job:1") && first.contains("→"), "{first}");
+        assert!(matches!(failure(image), Some(State::Waiting { .. })));
+        assert!(failures().contains_key(image));
+        let tries = |n| assert_eq!(JOBS.lock().unwrap().get(image).map(|j| j.0), Some(n));
+        tries(1);
+        assert_eq!(in_job(rt, image, &stop).unwrap_err(), first);
+        tries(1);
+        assert!(retry_job(rt, image).is_err());
+        tries(2);
+        FAILED.lock().unwrap().remove(image);
+        JOBS.lock().unwrap().remove(image);
+    }
+
+    /// Pull on an image that never failed wakes no waiting pull; an image that is there again
+    /// forgets its failed pulls in a row.
+    #[test]
+    fn a_healthy_image_wakes_nothing_and_a_found_one_forgets() {
+        let (rt, stop) = (std::path::Path::new("/nonexistent/coxswain-test-runtime"), std::sync::atomic::AtomicBool::new(false));
+        let before = RETRIES.load(Ordering::SeqCst);
+        let healthy = "test.invalid/healthy:1";
+        let _ = retry_job(rt, healthy);
+        // It failed just now, so it is a failed image from here on; before that nothing woke.
+        assert_eq!(RETRIES.load(Ordering::SeqCst), before, "a healthy image bumped the counter");
+        FAILED.lock().unwrap().remove(healthy);
+        JOBS.lock().unwrap().remove(healthy);
+        let image = "test.invalid/forget:1";
+        JOBS.lock().unwrap().insert(image.to_string(), (3, 0));
+        until_there(image, "test", || Ok(()), || true, || true, |_, _| false);
+        assert!(JOBS.lock().unwrap().get(image).is_none());
     }
 
     /// An app older than `STATES_SINCE` gets a failed pull as the `Failed` it knows; a newer
