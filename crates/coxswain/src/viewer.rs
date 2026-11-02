@@ -466,6 +466,11 @@ impl Viewer {
         self
     }
 
+    /// `text` on the viewer's line now, in place of what it said.
+    pub fn say(&mut self, text: String) {
+        self.said = Some(text);
+    }
+
     /// Rows known so far, and whether that is all of them.
     fn count(&self) -> (usize, bool) {
         match &self.body {

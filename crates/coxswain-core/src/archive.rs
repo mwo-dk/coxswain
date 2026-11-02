@@ -2729,6 +2729,12 @@ pub fn head(path: &Path, max: u64) -> io::Result<(Vec<u8>, bool)> {
     if it.dir {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.is_folder", "name" => inner)));
     }
+    // 7-Zip reads a disk image's file whole: a part of it is no head, so the caller copies it.
+    if kind(&archive) == Some(Kind::Disk) && it.size > max {
+        return Err(too_large(&inner));
+    }
+    // shortcut: a wrong ZipCrypto password that passes its check byte (1 in 256) shows as bytes
+    // when only a head is read, since the CRC at the entry's end is never reached.
     let got = std::cell::RefCell::new((Vec::new(), false));
     // Nothing lands anywhere: `head` keeps the bytes, so the path is never made.
     let nowhere = Path::new("");

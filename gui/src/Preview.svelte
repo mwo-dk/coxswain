@@ -214,7 +214,7 @@
         if (e?.path !== cur.path) return;
         // Games, provenance and BOMs are read by readers that need a file: from a copy.
         const special = !bin && ((k === "text" && looksLikeDhtml(cur.name, s)) || (/\.(json|jsonl|ndjson|xml)$/i.test(cur.name) && (looksLikeProvenance(s) || looksLikeBom(s))));
-        if (unpacked && special && !src) return void needsCopy(cur.path);
+        if (unpacked && special) return void needsCopy(cur.path);
         // A DhtmlXQ xiangqi game (`chess::sniff`): on its board, unless the source is asked for.
         if (!bin && k === "text" && !src && looksLikeDhtml(cur.name, s)) {
           ui.book = cur.path;
@@ -1010,7 +1010,7 @@
         {/if}
         <div class="drawio" use:drawioView={rich.drawio}></div>
       {:else if kind === "image"}
-        <div class="media checker"><img src={convertFileSrc(e.path)} alt={e.name} onerror={() => direct && needsCopy(e.path)} /></div>
+        <div class="media checker"><img src={convertFileSrc(e.path) + (direct ? "?inside" : "")} alt={e.name} onerror={() => direct && needsCopy(e.path)} /></div>
       {:else if kind === "picture"}
         {#if pic?.error}
           <p class="more">{pic.error}</p>

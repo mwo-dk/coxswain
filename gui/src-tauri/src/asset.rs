@@ -107,7 +107,9 @@ pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Respo
     let read = || -> std::io::Result<Response<Vec<u8>>> {
         // A file inside an archive (a picture in a zip): unpacked into memory, never copied to
         // the disk, served whole; one larger than `MAX_INSIDE` is not.
-        if !path.exists() && coxswain_core::archive::split(&path).is_some() {
+        // Only the preview's picture asks so (`?inside`): a grid of thumbnails would unpack each.
+        let asked = req.uri().query().is_some_and(|q| q.split('&').any(|p| p == "inside"));
+        if asked && !path.exists() && coxswain_core::archive::split(&path).is_some() {
             let (bytes, more) = coxswain_core::archive::head(&path, MAX_INSIDE)?;
             if more {
                 return Ok(status(StatusCode::PAYLOAD_TOO_LARGE));
@@ -118,6 +120,7 @@ pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Respo
             if let Some(csp) = csp {
                 resp = resp.header(header::CONTENT_SECURITY_POLICY, csp);
             }
+            let resp = resp.header(header::CONTENT_LENGTH, bytes.len());
             let body = if req.method() == tauri::http::Method::HEAD { Vec::new() } else { bytes };
             return Ok(resp.body(body).expect("a file's answer"));
         }

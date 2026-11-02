@@ -2080,7 +2080,7 @@ impl App {
     /// made; games, a viewer of one's own and a locked file from a copy (its password asked for).
     fn peek(&mut self, path: PathBuf) {
         use coxswain_core::enter;
-        if self.cfg.viewer.is_none() && enter::view(&path, enter::Place::Archive) == enter::View::Itself && !enter::may_be_games(&path)
+        if self.cfg.viewer.is_none() && enter::view(&path, enter::Place::Archive) == enter::View::Itself && !enter::may_be_games(&path) && !coxswain_core::logs::is_log_name(&path.file_name().unwrap_or_default().to_string_lossy())
             && let Ok((bytes, more)) = coxswain_core::archive::head(&path, viewer::PLAIN_OVER)
         {
             let labels = [self.key_label(Action::Edit), self.key_label(Action::View)];
@@ -4463,18 +4463,29 @@ impl App {
             Dialog::View { mut v, back } => match v.key(key, action) {
                 viewer::Outcome::Stay => self.dialog = Some(Dialog::View { v, back }),
                 viewer::Outcome::Close => self.dialog = back.map(|b| *b),
-                // Back to the BOM or provenance it was opened from, once the editor ends.
                 // Shown from inside an archive, no copy: editing waits until it is copied out.
                 viewer::Outcome::Edit(file, _) if !file.exists() && coxswain_core::archive::split(&file).is_some() => {
                     let archive = coxswain_core::archive::split(&file).map(|(a, _)| a).unwrap_or_default();
-                    self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
+                    // Said in the viewer, which covers the status line.
+                    v.say(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
                     self.dialog = Some(Dialog::View { v, back });
                 }
+                // Back to the BOM or provenance it was opened from, once the editor ends.
                 viewer::Outcome::Edit(file, a) => {
                     self.view_or_edit(a, &file);
                     match &mut self.dialog {
                         Some(Dialog::Edit { back: b, .. }) => *b = back,
                         _ => self.dialog = back.map(|b| *b),
+                    }
+                }
+                // Shown from inside an archive: the pager gets a copy.
+                viewer::Outcome::Pager(file) if !file.exists() && coxswain_core::archive::split(&file).is_some() => {
+                    match coxswain_core::archive::peek(&file) {
+                        Ok(copy) => self.run_on(&pager(), &copy),
+                        Err(e) => {
+                            self.status = Some(e.to_string());
+                            self.dialog = Some(Dialog::View { v, back });
+                        }
                     }
                 }
                 viewer::Outcome::Pager(file) => self.run_on(&pager(), &file),

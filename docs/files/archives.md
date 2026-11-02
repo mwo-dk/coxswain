@@ -192,7 +192,8 @@ through an installed 7-Zip instead, read-only, like a disk image
   status line when there is more), whatever the file's size. Copy the file out with **F5** to
   see all of a larger one.
 - **Other files inside are previewed and viewed from a copy** (PDFs, documents, media, games, a
-  locked file once its password is given, a picture over 64 MB, and every file when you set a
+  log in the terminal app's log view, a locked file once its password is given, a picture over
+  64 MB, and every file when you set a
   `viewer` of your own in the terminal app), not opened or edited: **Enter** and **F4** say on
   the status line that **F5** copies the file out, since changes to a copy would be lost. The
   copy is made in the cache folder (`coxswain/peek/`, readable by you alone), one at
