@@ -3948,16 +3948,18 @@ fn read_stoppably<T>(halt: &(dyn Fn() -> bool + Sync), read: impl FnOnce() -> T)
     let flag = std::sync::Arc::new(AtomicBool::new(false));
     let over = AtomicBool::new(false);
     std::thread::scope(|s| {
-        s.spawn(|| {
+        let watch = s.spawn(|| {
             while !over.load(Ordering::Relaxed) {
                 if halt() {
                     flag.store(true, Ordering::Relaxed);
                 }
-                std::thread::sleep(Duration::from_millis(50));
+                std::thread::park_timeout(Duration::from_millis(50));
             }
         });
         let out = crate::stop::during(&flag, read);
         over.store(true, Ordering::Relaxed);
+        // Woken at once: the read is not made to wait out the watcher's nap.
+        watch.thread().unpark();
         out
     })
 }
@@ -4009,7 +4011,11 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
                 store.transcript_of(*id)
             } else {
                 crate::tools::took_too_long();
-                let text = read_stoppably(&halt, || crate::extract::text_up_to(Path::new(path), *size, cfg.text_max_size, cap));
+                let read = || crate::extract::text_up_to(Path::new(path), *size, cfg.text_max_size, cap);
+                // Only a game file read through its games table (`chess::games::search_text`)
+                // waits long enough to need watching.
+                let games = *size > crate::extract::MAX_TEXT as u64 && crate::chess::format(Path::new(path)).is_some();
+                let text = if games { read_stoppably(&halt, read) } else { read() };
                 // Stopped inside it (a game file read for its games table): not read, not
                 // marked as without text.
                 if halt() {
