@@ -158,6 +158,9 @@
   </div>
 
   {#if t.error}<div class="error">{t.error}</div>{/if}
+  <!-- A first listing under way (a restored tab in a Subversion revision asks its server): said
+       in the pane after a moment, so a quick one does not flash. -->
+  {#if t.items.loading && !t.items.shown && !t.error}<div class="busy" role="status">{tr("status.busy", { what: basename(t.dir) || t.dir })}</div>{/if}
 
   {#if t.view === "columns"}
     <ColumnsView {t} {active} onfocus={() => focusPane(index)} />
@@ -400,6 +403,16 @@
     color: var(--dialog-input-fg);
     padding: 0 8px;
     outline: 1px solid var(--accent-bg);
+  }
+  .busy {
+    padding: 6px 12px;
+    color: var(--hidden-fg);
+    animation: appear 0s 150ms both;
+  }
+  @keyframes appear {
+    from {
+      visibility: hidden;
+    }
   }
   .error {
     padding: 6px 12px;

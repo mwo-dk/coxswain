@@ -16,17 +16,17 @@ export class Paged {
   rows = $state.raw([]);
   /** Counts the listings: a view brings its cursor into view when a new one comes. */
   listed = $state(0);
+  /** The number of the listing shown: rows and marks are asked of that one; 0 before the first. */
+  shown = $state(0);
+  /** The generation of a `tab_list` under way, else 0. */
+  loading = $state(0);
 
   /** `id`: the tab's id, the backend's key. `onrows(rows)`: told of every row that comes. */
   constructor(id, onrows = () => {}) {
     this.id = id;
     this.onrows = onrows;
-    /** The number of the latest listing asked for (`tab_list`, `tab_sort`), and of the one
-     *  shown: rows and marks are asked of that one. */
+    /** The number of the latest listing asked for (`tab_list`, `tab_sort`). */
     this.generation = 0;
-    this.shown = 0;
-    /** The generation of a `tab_list` under way, else 0. */
-    this.loading = 0;
     /** The rows being asked for, [from, to), and the last asked for by a view. */
     this.asking = null;
     this.view = [0, 0];
