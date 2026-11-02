@@ -42,6 +42,10 @@
   const direct = $derived(inside && !inHistory && (DIRECT.includes(previewKind(raw)) || (DRAWN.includes(previewKind(raw)) && raw.size <= 64 * 1024 * 1024)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
   /** `path` as the web view asks for it: from memory when it is read so. */
   const src = (path) => convertFileSrc(path) + (direct ? "?inside" : "");
+  // Off the files read from memory: the last one unpacked (up to 64 MB) is let go.
+  $effect(() => {
+    if (!direct) invoke("inside_forget");
+  });
   // A PDF's frame says nothing when its file cannot be served so (locked, say): asked first,
   // and from a copy then. The answer stays unpacked in memory for the frame's own request.
   $effect(() => {

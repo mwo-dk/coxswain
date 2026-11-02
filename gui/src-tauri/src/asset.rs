@@ -35,6 +35,19 @@ type Stamp = (u64, Option<std::time::SystemTime>);
 /// file, at most `MAX_INSIDE`; the next one served from an archive takes its place.
 static INSIDE: std::sync::Mutex<Option<(PathBuf, Stamp, std::sync::Arc<Vec<u8>>)>> = std::sync::Mutex::new(None);
 
+/// The file inside an archive the preview showed last, from memory: what its facts are read
+/// from (`preview::file_facts`), from the same unpacking. `None` for a file on disk.
+pub fn inside_file(path: &Path) -> Option<std::sync::Arc<Vec<u8>>> {
+    let (archive, _) = coxswain_core::archive::split(path).filter(|_| !path.exists())?;
+    inside(path, &archive).ok().flatten()
+}
+
+/// The preview has left the files inside archives: the one kept unpacked goes.
+#[tauri::command]
+pub fn inside_forget() {
+    *INSIDE.lock().unwrap_or_else(|e| e.into_inner()) = None;
+}
+
 /// The bytes of `path`, a file inside `archive`, from memory (`archive::head`): the kept ones
 /// while the archive has not changed. `None` when it is larger than `MAX_INSIDE`.
 fn inside(path: &Path, archive: &Path) -> std::io::Result<Option<std::sync::Arc<Vec<u8>>>> {
