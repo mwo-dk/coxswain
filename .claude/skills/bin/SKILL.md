@@ -185,11 +185,11 @@ order of system calls in them, needs the model looked at (and the sync commit mo
 | `Crash` | Not Coxswain: the process or machine dying between two system calls. |
 | The three promises | `docs/files/bin.md`, *Restore, delete for good, empty*: "nothing is overwritten", "Deletes everything in the bin for good" (what was listed and confirmed), the panel lists every item. |
 
-**Sync commit: the merge of the pull request that closes #726** (branch `bin-outside-writers`,
+**Sync commit: the merge of pull request #789** (the fix of #726,
 the re-checks; `bin.rs` and `xdg_trash.rs` as on master at that commit). To see whether the covered code changed since:
 
 ```
-sync=$(git log -1 --format=%h --grep='(#725)$' origin/master)
+sync=$(git log -1 --format=%h --grep='(#789)$' origin/master)
 git diff "$sync" HEAD -- crates/coxswain-core/src/bin.rs crates/coxswain-core/src/xdg_trash.rs
 ```
 
