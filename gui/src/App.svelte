@@ -107,7 +107,9 @@
   listen("dir-changed", (ev) => {
     if (ui.bin?.watch?.some((d) => ev.payload.includes(d))) refreshBin();
     const shown = visibleTabs();
-    for (const t of allTabs()) if (ev.payload.includes(t.dir) || gitDirs(t).some((g) => ev.payload.includes(g))) shown.includes(t) ? load(t) : (t.unread = true);
+    // A tab whose first listing is under way is left to it: read again, it would lose the way
+    // to the folder above when its saved folder is gone (`readWhenShown`).
+    for (const t of allTabs()) if (ev.payload.includes(t.dir) || gitDirs(t).some((g) => ev.payload.includes(g))) shown.includes(t) ? !(t.items.loading && !t.items.shown) && load(t) : (t.unread = true);
   });
   $effect(() => {
     if (ready) for (const t of visibleTabs()) if (t.unread) readWhenShown(t);

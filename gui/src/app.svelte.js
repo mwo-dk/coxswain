@@ -1239,6 +1239,8 @@ export async function readWhenShown(t) {
   t.unread = false;
   const ok = await load(t);
   if (ok !== false) return;
+  // The pane says it is still reading while the folder above is tried, not the failure.
+  t.error = null;
   const up = parent(t.dir);
   const above = up ? await load(t, up, basename(t.dir)) : false;
   if (above === false) await load(t, ui.cfg.home);
@@ -1312,9 +1314,11 @@ export async function init() {
     ui.panes[0].tabs.push(newTab(fromArgs[0]));
     ui.panes[0].active = ui.panes[0].tabs.length - 1;
   }
-  // The tabs in view are read now; the others when they are shown (`readWhenShown`).
+  // The tabs in view are read now, the others when they are shown (`readWhenShown`). Not
+  // waited for: the window draws at once, and a slow folder (a Subversion revision asks its
+  // server) fills its pane when it comes.
   for (const t of ui.panes.flatMap((p) => p.tabs)) t.unread = true;
-  await Promise.all(visibleTabs().map(readWhenShown));
+  for (const t of visibleTabs()) readWhenShown(t);
   invoke("places").then((p) => (ui.places = p));
   invoke("bsd_places").then((p) => (ui.bsdPlaces = p), () => {});
   // `coxswain-gui --duplicates <folders>` starts straight in a scan of those folders; with
