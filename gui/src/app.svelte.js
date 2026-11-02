@@ -1239,6 +1239,8 @@ export async function readWhenShown(t) {
   t.unread = false;
   const ok = await load(t);
   if (ok !== false) return;
+  // The pane says it is still reading while the folder above is tried, not the failure.
+  t.error = null;
   const up = parent(t.dir);
   const above = up ? await load(t, up, basename(t.dir)) : false;
   if (above === false) await load(t, ui.cfg.home);
