@@ -707,10 +707,16 @@ impl Store {
             .prepare("SELECT path FROM files WHERE has_text = 1 AND inside IS NULL AND size > ?1")?
             .query_map([crate::extract::MAX_TEXT as i64], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
+        // A file in the cloud or on a disk not plugged in: looked for again at the next scan.
+        let mut away = false;
         for path in paths {
             let p = Path::new(&path);
             let games = matches!(crate::chess::format(p), Some(crate::chess::Format::Pgn | crate::chess::Format::Pdn | crate::chess::Format::Kif | crate::chess::Format::Csa | crate::chess::Format::Pbn));
-            if !games || crate::cloud::keep_out(p) || !p.is_file() {
+            if !games {
+                continue;
+            }
+            if crate::cloud::keep_out(p) || !p.is_file() {
+                away = true;
                 continue;
             }
             if stop() || Instant::now() > until {
@@ -725,6 +731,9 @@ impl Store {
                     std::thread::sleep(Duration::from_millis(50));
                 }
             }
+        }
+        if away {
+            return Ok(());
         }
         self.set_tag(key, tag)
     }

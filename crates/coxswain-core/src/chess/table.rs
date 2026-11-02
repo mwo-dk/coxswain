@@ -411,7 +411,7 @@ pub(crate) fn whole(wanted: &dyn Fn(&Path) -> bool) -> Vec<(Table, Done)> {
     for e in folder().and_then(|f| std::fs::read_dir(f).ok()).into_iter().flatten().flatten() {
         let dir = e.path();
         let Some(d) = read_done(&dir) else { continue };
-        // One a file, the newest when two apps each made one.
+        // One a file, when two apps each made one (the same file: the same rows).
         if !wanted(&d.source) || d.stamp != stamp(&d.source) || out.iter().any(|(_, o)| o.source == d.source) {
             continue;
         }

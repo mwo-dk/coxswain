@@ -1149,14 +1149,30 @@ pub fn find(query: &str, within: &dyn Fn(&Path) -> bool, max: usize) -> Vec<(Pat
     for (table, done) in super::table::whole(within) {
         let names: Vec<Vec<bool>> = words.iter().map(|w| table.matching(w)).collect();
         let has = |ids: &Vec<bool>, id: u32| ids.get(id as usize).copied().unwrap_or(false);
-        let year = |w: &str| w.len() == 4 && w.bytes().all(|b| b.is_ascii_digit());
-        let eco = |w: &str| (2..=3).contains(&w.len()) && (b'a'..=b'e').contains(&w.as_bytes()[0]) && w.bytes().skip(1).all(|b| b.is_ascii_digit());
+        // A year as a number; an ECO code or its start (`b9`, `b90`) as the range of codes it
+        // names, as `Rec::eco` keeps them.
+        let year = |w: &str| (w.len() == 4).then(|| w.parse::<u32>().ok()).flatten();
+        let eco = |w: &str| -> Option<(u16, u16)> {
+            let b = w.as_bytes();
+            if !(2..=3).contains(&b.len()) || !(b'a'..=b'e').contains(&b[0]) || !b[1..].iter().all(u8::is_ascii_digit) {
+                return None;
+            }
+            let base = (b[0] - b'a' + 1) as u16 * 100;
+            let tens = (b[1] - b'0') as u16 * 10;
+            Some(if b.len() == 3 { (base + tens + (b[2] - b'0') as u16, base + tens + (b[2] - b'0') as u16) } else { (base + tens, base + tens + 9) })
+        };
+        type Wanted = (Option<u32>, Option<(u16, u16)>);
+        let wanted: Vec<Wanted> = words.iter().map(|w| (year(w), eco(w))).collect();
+        // A word no name has, and that is no year nor ECO code: no game here has it.
+        if names.iter().zip(&wanted).any(|(ids, (y, e))| !ids.contains(&true) && y.is_none() && e.is_none()) {
+            continue;
+        }
         let (mut hits, mut n) = (vec![], 0usize);
         let _ = table.each(done.games, |i, r| {
-            let every = words.iter().zip(&names).all(|(w, ids)| {
+            let every = names.iter().zip(&wanted).all(|(ids, (y, e))| {
                 [r.white, r.black, r.event, r.site, r.opening].iter().any(|&id| has(ids, id))
-                    || (year(w) && (r.date / 10000).to_string() == *w)
-                    || (eco(w) && eco_text(r.eco).to_lowercase().starts_with(w.as_str()))
+                    || y.is_some_and(|y| r.date / 10000 == y)
+                    || e.is_some_and(|(lo, hi)| (lo..=hi).contains(&r.eco))
             });
             if every {
                 n += 1;
@@ -1545,7 +1561,9 @@ mod tests {
         // Only the first games' lines fit; the table has them all.
         let kept = search_text(&p, 200).unwrap();
         assert!(kept.lines().count() < 5 && kept.starts_with("Player 0 – Aronian, Levon · Wijk0 · 2000.01.01"), "{kept}");
-        let all = |_: &Path| true;
+        // Only this test's file: other tests' tables share the cache.
+        let me = std::path::absolute(&p).unwrap();
+        let all = |q: &Path| q == me;
         let found = find("aronian wijk299", &all, 10);
         assert_eq!(found.len(), 1);
         let (path, hits, n) = &found[0];

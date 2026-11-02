@@ -464,21 +464,24 @@ pub fn run(
     // The games of game databases, each a hit of its own, in the place of their file's.
     let mut games_found = 0;
     if kind != Kind::About && !syntax {
-        let within = |p: &Path| match scope {
-            Some(s) => p.starts_with(s),
-            None => text_roots.iter().any(|r| p.starts_with(r)),
-        };
+        // Only files Find reads: a table of a file opened elsewhere is not looked through.
+        let within = |p: &Path| scope.is_none_or(|s| p.starts_with(s)) && text_roots.iter().any(|r| p.starts_with(r));
         for (path, hits, n) in crate::chess::games::find(q, &within, rows) {
-            match in_files.iter().position(|h| h.path == path && h.game.is_none()) {
+            // Among the rows shown: the file's own hit's place, else as far down as they fit.
+            let last = rows.saturating_sub(hits.len());
+            let at = match in_files.iter().position(|h| h.path == path && h.game.is_none()) {
                 Some(i) => {
-                    in_files.splice(i..=i, hits);
+                    in_files.remove(i);
                     games_found += n.saturating_sub(1);
+                    i.min(last)
                 }
                 None => {
-                    in_files.extend(hits);
                     games_found += n;
+                    last
                 }
-            }
+            };
+            let at = at.min(in_files.len());
+            in_files.splice(at..at, hits);
         }
     }
     let with_words = with_words + games_found;
@@ -791,7 +794,7 @@ mod tests {
             hits,
             every: usize::MAX,
         };
-        let (mut in_files, about, history) = fuse(all(&words), &meaning, WEIGHTS);
+        let (in_files, about, history) = fuse(all(&words), &meaning, WEIGHTS);
         // c has the words and is closest in meaning: it rises above a and b.
         assert_eq!(paths(&in_files), ["/c", "/a", "/b"]);
         assert_eq!(paths(&about), ["/d"], "found by meaning alone");
