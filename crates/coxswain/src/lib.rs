@@ -405,6 +405,8 @@ pub enum Prompt {
     Resize(Vec<PathBuf>),
     /// The size of the parts to split this file into (`split`).
     SplitSize(PathBuf),
+    /// Pick mode with `--save`: the name to save under, in the active panel's folder.
+    SaveAs,
 }
 
 impl Prompt {
@@ -420,6 +422,7 @@ impl Prompt {
             Prompt::Mkdir | Prompt::NewBranch(..) => "verb.create",
             Prompt::Flags(_) | Prompt::Clip(_) | Prompt::Resize(_) | Prompt::SplitSize(_) => "common.apply",
             Prompt::Goto(_) => "verb.go",
+            Prompt::SaveAs => "verb.save",
             Prompt::Mark(true) => "verb.mark",
             Prompt::Mark(false) => "verb.unmark",
         })
@@ -511,6 +514,8 @@ pub enum Dialog {
     Input { title: String, label: String, value: String, prompt: Prompt },
     /// Delete `paths`; `forever` skips the trash.
     Confirm { title: String, text: String, paths: Vec<PathBuf>, forever: bool },
+    /// Pick mode with `--save`: `path` is there; may the program that asked replace it?
+    Overwrite { title: String, text: String, path: PathBuf },
     /// Restore, delete for good or empty the bin: `paths` (none to empty it), asked first;
     /// `free_name`: a restore whose place is taken comes back beside it.
     Bin { title: String, text: String, op: coxswain_core::bin::Op, paths: Vec<PathBuf>, free_name: bool },
@@ -600,8 +605,10 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
             Prompt::Clip(_) => "convert_media",
             Prompt::Resize(_) => "edit_pictures",
             Prompt::SplitSize(_) => "split_and_join",
+            Prompt::SaveAs => "pick",
         },
         Dialog::Confirm { .. } => "delete",
+        Dialog::Overwrite { .. } => "pick",
         Dialog::Bin { .. } => "bin",
         Dialog::Searchable { .. } => "searchable_pdf",
         Dialog::Media { op, .. } => media_feature(op.program()),
@@ -1513,6 +1520,12 @@ impl App {
             }
         }
         let action = self.keymap.get(&key).copied();
+        // Pick mode with a filter: Alt+E is Show all (`pick::SHOW_ALL_KEY`; it would start a
+        // quick search otherwise).
+        if let Some(r) = self.pick.as_mut().filter(|r| !r.filter.is_empty() && key.alt && !key.ctrl && matches!(key.code, KeyCode::Char('e' | 'E')) && action.is_none()) {
+            r.show_all = !r.show_all;
+            return self.status = Some(t!(if r.show_all { "pick.showing_all" } else { "pick.showing_filtered" }));
+        }
         if let (KeyCode::Char(c), true, false, None) = (key.code, key.alt, key.ctrl, action) {
             self.quick = Some(c.to_string());
             return self.quick_jump();
@@ -1584,6 +1597,7 @@ impl App {
         let goes_in = e.is_parent() || matches!(enter::enter(&e.path, e.is_dir, place), Enter::Folder | Enter::Archive | Enter::DiskImage | Enter::Image | Enter::Mailbox);
         match (key.code, key.ctrl) {
             (KeyCode::PageDown, true) if goes_in => self.open(),
+            (KeyCode::Enter, false) if self.pick.as_ref().is_some_and(|r| r.save.is_some()) => self.pick_save_name(),
             (KeyCode::Enter, false) => self.pick_choose(true),
             _ => return false,
         }
@@ -1602,9 +1616,9 @@ impl App {
         if e.is_parent() && marked.is_empty() {
             return self.open();
         }
-        // A folder inside an archive has no place on the disk to give.
-        if req.folder && coxswain_core::archive::split(&self.panel().dir).is_some() {
-            return self.status = Some(t!("pick.nothing"));
+        // Saving: a double-click opens a folder, and on a file asks for the name, that one's.
+        if req.save.is_some() {
+            return if goes_in { self.open() } else { self.pick_save_name() };
         }
         let cursor = (!e.is_parent()).then(|| (e.path.clone(), e.is_dir));
         match req.judge(&marked, cursor, goes_in) {
@@ -1617,6 +1631,33 @@ impl App {
                 }
                 Err(err) => self.status = Some(err.to_string()),
             },
+        }
+    }
+
+    /// Pick mode with `--save`: the name to save under, in the folder shown; the file under the
+    /// cursor's name to start from, or the one the program gave.
+    fn pick_save_name(&mut self) {
+        let Some(req) = &self.pick else { return };
+        let on_file = self.panel().current().filter(|e| !e.is_dir && !e.is_parent()).map(|e| e.name.clone());
+        let name = on_file.or_else(|| req.save.clone()).unwrap_or_default();
+        let folder = self.panel().dir.to_string_lossy().into_owned();
+        self.input(&t!("pick.save_title"), t!("pick.save_label", "folder" => folder), name, Prompt::SaveAs);
+    }
+
+    /// Pick mode with `--save`: `name` in the folder shown is chosen, after asking whether an
+    /// existing file may be replaced (`replace`: that was said yes to).
+    fn pick_save(&mut self, dir: &Path, name: &str, replace: bool) {
+        let Some(req) = &self.pick else { return };
+        match req.save_to(dir, name, replace) {
+            coxswain_core::pick::Save::Choose(path) => {
+                self.picked = Some(vec![path]);
+                self.quit = true;
+            }
+            coxswain_core::pick::Save::Ask(path) => {
+                let text = t!("pick.overwrite_text", "name" => ui::printable(&path.file_name().unwrap_or_default().to_string_lossy()));
+                self.dialog = Some(Dialog::Overwrite { title: t!("pick.overwrite_title"), text, path });
+            }
+            coxswain_core::pick::Save::Refuse(why) => self.status = Some(t!(why)),
         }
     }
 
@@ -3952,6 +3993,10 @@ impl App {
                 let r = coxswain_core::branches::create(&dir, &value, from.as_deref());
                 self.git_said(t!("error.new_branch", "name" => value.trim()), r);
             }
+            Prompt::SaveAs => {
+                let dir = self.panel().dir.clone();
+                self.pick_save(&dir, &value, false);
+            }
             Prompt::Mkdir if value.trim().is_empty() => {}
             Prompt::Mkdir => {
                 let d = resolve(&base, &value);
@@ -4192,6 +4237,14 @@ impl App {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.bin_run(op, paths, free_name),
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Bin { title, text, op, paths, free_name }),
+            },
+            Dialog::Overwrite { title, text, path } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
+                    let (dir, name) = (path.parent().unwrap_or(Path::new("")).to_path_buf(), path.file_name().unwrap_or_default().to_string_lossy().into_owned());
+                    self.pick_save(&dir, &name, true);
+                }
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Overwrite { title, text, path }),
             },
             Dialog::Confirm { title, text, paths, forever } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.delete(paths, forever),
@@ -5304,9 +5357,10 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
 }
 
 const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
-  --pick[=FILE] [--folder] [--multiple] [--filter EXT,EXT] [--start DIR] [--title TEXT]
-                  let another program choose files or folders: the paths go to FILE or to
-                  standard output, one per line; exit 0 when chosen, 1 when cancelled
+  --pick[=FILE] [--folder] [--multiple] [--save NAME] [--filter EXT,EXT] [--start DIR] [--title TEXT]
+                  let another program choose files or folders, or a name to save under: the
+                  paths go to FILE or to standard output, one per line; exit 0 when chosen,
+                  1 when cancelled
   --settings[=AREA|OPTION]  start with Settings open (in the app: F12): search, previews,
                   games, looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
@@ -5747,29 +5801,7 @@ fn take_terminal() -> std::io::Result<Box<dyn std::io::Write>> {
         return Ok(Box::new(std::io::stdout()));
     }
     let tty = std::fs::OpenOptions::new().read(true).write(true).open(if cfg!(windows) { "CONOUT$" } else { "/dev/tty" })?;
-    #[cfg(unix)]
-    {
-        use std::os::fd::{AsRawFd, FromRawFd};
-        // SAFETY: fd 1 is duplicated, then pointed at the terminal; the copy is owned by the File.
-        // Close-on-exec: a helper or tool started later must not hold the caller's pipe open.
-        let saved = unsafe { libc::fcntl(1, libc::F_DUPFD_CLOEXEC, 3) };
-        if saved < 0 || unsafe { libc::dup2(tty.as_raw_fd(), 1) } < 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        Ok(Box::new(unsafe { std::fs::File::from_raw_fd(saved) }))
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::io::{FromRawHandle, IntoRawHandle};
-        use windows_sys::Win32::System::Console::{GetStdHandle, STD_OUTPUT_HANDLE, SetStdHandle};
-        // SAFETY: the old standard output handle becomes the File's; the terminal replaces it.
-        let old = unsafe { GetStdHandle(STD_OUTPUT_HANDLE) };
-        unsafe { windows_sys::Win32::Foundation::SetHandleInformation(old, windows_sys::Win32::Foundation::HANDLE_FLAG_INHERIT, 0) };
-        if unsafe { SetStdHandle(STD_OUTPUT_HANDLE, tty.into_raw_handle()) } == 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        Ok(Box::new(unsafe { std::fs::File::from_raw_handle(old) }))
-    }
+    Ok(Box::new(coxswain_core::pick::take_stdout(tty)?))
 }
 
 /// The program, under both its names (`coxswain` and `cox`).
@@ -5997,6 +6029,31 @@ mod tests {
         app.cmdline = "touch made".into();
         app.run_cmdline();
         assert!(d.join("keep.txt").exists() && !d.join("made").exists() && app.run.is_none());
+    }
+
+    /// `--save`: Enter asks for the name; a file that is there is chosen only after a yes, and
+    /// nothing is written to it. Alt+E lifts the filter.
+    #[test]
+    fn a_picker_asks_before_a_save_replaces_a_file() {
+        let d = crate::test_dir("pick-save");
+        std::fs::write(d.join("old.pgn"), "x").unwrap();
+        let mut app = App::new(Config::default(), d.clone(), d.clone()).unwrap();
+        app.pick = Some(coxswain_core::pick::Request { save: Some("old.pgn".into()), filter: vec!["pgn".into()], ..Default::default() });
+        let enter = Key::new(KeyCode::Enter, false, false, false);
+        app.key_typed(enter);
+        assert!(matches!(&app.dialog, Some(Dialog::Input { value, prompt: Prompt::SaveAs, .. }) if value == "old.pgn"));
+        app.key_typed(enter);
+        assert!(matches!(app.dialog, Some(Dialog::Overwrite { .. })) && app.picked.is_none() && !app.quit);
+        app.key_typed(Key::new(KeyCode::Esc, false, false, false));
+        assert!(app.dialog.is_none() && app.picked.is_none() && !app.quit, "No keeps the file and the picker");
+        app.key_typed(enter);
+        app.key_typed(enter);
+        app.key_typed(Key::new(KeyCode::Char('y'), false, false, false));
+        assert_eq!(app.picked, Some(vec![d.join("old.pgn")]));
+        assert!(app.quit);
+        assert_eq!(std::fs::read_to_string(d.join("old.pgn")).unwrap(), "x");
+        app.key_typed(Key::new(KeyCode::Char('e'), false, true, false));
+        assert!(app.pick.as_ref().is_some_and(|r| r.show_all) && app.quick.is_none(), "{:?}", app.status);
     }
 
     /// An option or a value not known, or a folder not there, is said, never taken for a folder.

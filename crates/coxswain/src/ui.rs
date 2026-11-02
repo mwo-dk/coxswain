@@ -430,6 +430,10 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         } else {
             base
         };
+        // Pick mode: a file the filter does not take is dimmed.
+        if app.pick.as_ref().is_some_and(|r| !e.is_parent() && r.dims(&e.name, e.is_dir)) {
+            s = s.add_modifier(Modifier::DIM);
+        }
         s = s.bg(base.bg.unwrap_or(Color::Reset));
         if at {
             s = if marked { sty(&t.marked_cursor) } else { sty(&t.cursor) };
@@ -589,18 +593,7 @@ fn status_text(app: &App) -> Option<String> {
     }
     let status = app.status.as_ref().filter(|s| !s.is_empty() && app.cmdline.is_empty()).map(|s| s.replace('\n', " "));
     // Pick mode says what is asked for until something else is said.
-    status.or_else(|| app.pick.as_ref().filter(|_| app.cmdline.is_empty() && !app.cmd_open).map(|r| pick_ask(r)))
-}
-
-/// Pick mode's status line: the program's own title, or what is asked for.
-fn pick_ask(r: &coxswain_core::pick::Request) -> String {
-    let what = r.title.clone().unwrap_or_else(|| t!(match (r.folder, r.multiple) {
-        (false, false) => "pick.ask_file",
-        (false, true) => "pick.ask_files",
-        (true, false) => "pick.ask_folder",
-        (true, true) => "pick.ask_folders",
-    }));
-    if r.filter.is_empty() { what } else { format!("{what} ({})", r.filter.iter().map(|e| format!("*.{e}")).collect::<Vec<_>>().join(" ")) }
+    status.or_else(|| app.pick.as_ref().filter(|_| app.cmdline.is_empty() && !app.cmd_open).map(|r| r.ask()))
 }
 
 fn cmdline(f: &mut Frame, app: &App, area: Rect) {
@@ -648,9 +641,12 @@ fn cmdline(f: &mut Frame, app: &App, area: Rect) {
 fn keybar(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
     // Pick mode has its own few keys.
-    if app.pick.is_some() {
+    if let Some(req) = &app.pick {
         let key = |a| app.cfg.tty_key(a).unwrap_or("").to_string();
-        let line = t!("pick.keys", "mark" => key(Action::Mark), "parent" => key(Action::Parent));
+        let mut line = if req.save.is_some() { t!("pick.keys_save", "parent" => key(Action::Parent)) } else { t!("pick.keys", "mark" => key(Action::Mark), "parent" => key(Action::Parent)) };
+        if !req.filter.is_empty() {
+            line = format!("{line} · {}", t!(if req.show_all { "pick.key_filter" } else { "pick.key_show_all" }, "key" => coxswain_core::pick::SHOW_ALL_KEY));
+        }
         return f.render_widget(Paragraph::new(fit(&line, area.width as usize)).style(sty(&t.keybar_num)), area);
     }
     // F1 to F10 as in NC, then F11 and F12 when they run something (F12: Settings).
@@ -767,8 +763,9 @@ fn dialog(f: &mut Frame, app: &mut App) {
             input_line(f, app, b, &shown);
             f.render_widget(Paragraph::new(keys(&prompt.verb())).centered(), c);
         }
-        Dialog::Confirm { title, text, .. } | Dialog::Switch { title, text, .. } | Dialog::Server { title, text, .. } | Dialog::Bin { title, text, .. } => {
+        Dialog::Confirm { title, text, .. } | Dialog::Overwrite { title, text, .. } | Dialog::Switch { title, text, .. } | Dialog::Server { title, text, .. } | Dialog::Bin { title, text, .. } => {
             let verb = match app.dialog.as_ref() {
+                Some(Dialog::Overwrite { .. }) => t!("pick.overwrite_yes"),
                 Some(Dialog::Bin { free_name: true, .. }) => t!("bin.free_name"),
                 Some(Dialog::Bin { op, .. }) => Action::from_bin(*op).label(),
                 Some(Dialog::Confirm { forever: false, .. }) => t!("app.move_to_trash"),

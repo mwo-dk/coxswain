@@ -15,7 +15,7 @@ the full list.
 |---|---|
 | [The terminal app](terminal-app.md) | What `coxswain` has, what only the desktop app has and why, where the two behave differently, archives and search by meaning in the terminal, the terminal it needs |
 | [Command-line flags](command-line-flags.md) | Every flag of `coxswain` and `coxswain-gui`: folders to start in, `--paths`, `--dump-config`, `--meaning`, `--index-service`, `--settings`, `--duplicates`, `--index-helper` |
-| [Pick mode](pick-mode.md) | `coxswain --pick`: other programs choose files and folders with Coxswain; the paths to a file or standard output, the exit status, archives |
+| [Pick mode](pick-mode.md) | `coxswain --pick` and `coxswain-gui --pick`: other programs choose files and folders, or a name to save under (`--save`), with Coxswain; the paths to a file or standard output, the exit status, dimmed files and *Show all*, archives |
 | [Configuration: every key](configuration.md) | The `config.toml` file, every key with its type and default, which Settings item writes it, and which app reads it |
 | [Privacy](privacy.md) | What stays on your machine, every case where something can leave it, and how to stop each one |
 | [Update checks](updates.md) | The once-a-day version check, what you see in each app, the upgrade command, turning it off |

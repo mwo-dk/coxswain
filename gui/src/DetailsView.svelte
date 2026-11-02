@@ -1,5 +1,5 @@
 <script>
-  import { ui, sortTab, mark, openItem, toggleMark, dragOut, columnMenu, rowContext, rowMenu, gitFacts, cmpGlyph, cmpClass, cmpLabel } from "./app.svelte.js";
+  import { ui, sortTab, mark, openItem, pickDim, toggleMark, dragOut, columnMenu, rowContext, rowMenu, gitFacts, cmpGlyph, cmpClass, cmpLabel } from "./app.svelte.js";
   import { size, date, day, age, ageColor, TAG_COLORS, tagName, basename, invoke } from "./lib.js";
   import { t as tr, num } from "./i18n.svelte.js"; // `t` is the tab here
   import Rows from "./Rows.svelte";
@@ -129,6 +129,7 @@
         aria-selected={i === t.cursor}
         class="cols row {kind(e)}"
         class:hidden={e.hidden}
+        class:dimmed={pickDim(e)}
         class:marked
         class:cursor={i === t.cursor}
         class:focused={active}
@@ -330,6 +331,10 @@
   }
   .hidden {
     opacity: 0.6;
+  }
+  /* Pick mode: a file the filter does not take. */
+  .dimmed {
+    opacity: 0.35;
   }
   .ext,
   .time {

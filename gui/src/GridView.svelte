@@ -2,7 +2,7 @@
   // Thumbnails: images show themselves, everything else its icon. Arrow keys move in 2D
   // (handled in App, which reads the column count from `data-cols`).
   import { untrack } from "svelte";
-  import { openItem, toggleMark, dragOut, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
+  import { openItem, pickDim, toggleMark, dragOut, rowContext, rowMenu, gitFacts } from "./app.svelte.js";
   import { invoke, convertFileSrc, previewKind, TAG_COLORS, MEDIA_TOOL } from "./lib.js";
   import { ui } from "./app.svelte.js";
   import { t as tr } from "./i18n.svelte.js";
@@ -94,6 +94,7 @@
         aria-selected={i === t.cursor}
         class="tile"
         class:hidden={e.hidden}
+        class:dimmed={pickDim(e)}
         class:marked={e.m}
         class:cursor={i === t.cursor}
         class:focused={active}
@@ -249,6 +250,10 @@
   }
   .hidden {
     opacity: 0.6;
+  }
+  /* Pick mode: a file the filter does not take. */
+  .dimmed {
+    opacity: 0.35;
   }
   .marked {
     background: color-mix(in srgb, var(--marked-fg) 16%, transparent);
