@@ -262,7 +262,7 @@ through an installed 7-Zip instead, read-only, like a disk image
   whole path as well, in both apps and on disk too. The list of the archive last browsed is kept for the next look, about
   60 bytes a file; a list of millions is the only one kept, and only while a panel (a tab in
   the desktop app) shows a folder of that archive: once none does, its memory is given back,
-  and going in again reads the list again. Sorting a folder of millions takes about each
+  and going in again reads the list again (not yet for an archive inside an archive, whose list stays kept). Sorting a folder of millions takes about each
   name's sort key and 4 bytes more while it sorts. A 7z whose names are locked with a
   password, or one packed with something other than LZMA, LZMA2 or nothing (BCJ, PPMd, BZip2,
   …), and copying a folder of a 7z out, go through a library that reads the whole list into
