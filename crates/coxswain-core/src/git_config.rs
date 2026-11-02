@@ -87,11 +87,9 @@ pub fn read(dir: &Path) -> Result<Vec<Entry>, String> {
 /// The name of the repository `dir` is in (its work tree's folder), for the view's title.
 pub fn repo_name(dir: &Path) -> Option<String> {
     let dir = dir.ancestors().find(|a| a.is_dir())?;
-    let out = crate::git::command_with(dir, &[])
-        .args(["rev-parse", "--show-toplevel"])
-        .output()
-        .ok()
-        .filter(|o| o.status.success())?;
+    let mut c = crate::git::command_with(dir, &[]);
+    c.args(["rev-parse", "--show-toplevel"]);
+    let out = crate::git::output(c).filter(|o| o.status.success())?;
     let top = String::from_utf8_lossy(&out.stdout).trim().to_string();
     Some(Path::new(&top).file_name()?.to_string_lossy().into_owned())
 }

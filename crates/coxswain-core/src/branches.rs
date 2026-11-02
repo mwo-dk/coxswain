@@ -172,9 +172,14 @@ pub fn lasts(dir: &Path) -> io::Result<Lasts> {
         .collect())
 }
 
-/// git's message, or its complaint as the error.
-fn said(mut c: std::process::Command) -> io::Result<String> {
-    let o = c.output()?;
+/// The longest a switch may take: a checkout of a big tree on a slow disk takes minutes, and
+/// one ended halfway leaves a half-changed work tree, so this only stops one git waits on for
+/// ever (a FIFO `git::readable` does not look for).
+const SWITCH_LIMIT: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+
+/// git's message, or its complaint as the error; ended past `SWITCH_LIMIT`.
+fn said(c: std::process::Command) -> io::Result<String> {
+    let o = crate::git::output_within(c, SWITCH_LIMIT)?;
     let text = |b: &[u8]| String::from_utf8_lossy(b).trim().to_string();
     if !o.status.success() {
         let why = text(&o.stderr);
@@ -221,9 +226,8 @@ fn changes_refs_safely(base: &Path) -> io::Result<()> {
     c.arg("-C")
         .arg(base)
         .args(["config", "--show-scope", "--name-only", "--get-regexp", r"^hook\."])
-        .env("GIT_CONFIG_COUNT", "0")
-        .stdin(std::process::Stdio::null());
-    let out = c.output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+        .env("GIT_CONFIG_COUNT", "0");
+    let out = crate::git::output(c).map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
     if let Some(key) = out.lines().find_map(|l| {
         let (scope, key) = l.split_once('\t')?;
         matches!(scope, "local" | "worktree").then(|| key.to_string())

@@ -349,9 +349,13 @@ either: in its config, an `[include]` of it (or an include of an include), `core
 work tree. git would wait on it for ever, so Coxswain looks at what each one is before git
 runs, opens only plain files, and runs no git there: no status, no filters, no branch switch,
 and the git config view (**Alt+C**) says git could not read the config. A folder unpacked from
-someone else's archive can hold such a file; a clone cannot. A FIFO elsewhere in the
-repository (a ref, a pack) is not looked for: the git status, the filter check, the config
-view and the preview's diff are ended after two minutes instead.
+someone else's archive can hold such a file; a clone cannot. On Windows a name that is a
+device there (`CON`, `NUL`, `COM1`, `LPT1`, also with an ending such as `con.txt`) counts as
+one too. A FIFO elsewhere in the repository (a ref, a pack) is not looked for: the git status,
+the filter check, the config view, the preview's diff, a commit and its diff in the history (**Ctrl+G**), a file read
+from a commit and the checks before a switch are ended after two minutes instead, a blame after
+one minute, and a branch switch itself after thirty minutes, since one ended halfway leaves a
+half-changed work tree.
 
 #### Why are the counts different from `git status`?
 
