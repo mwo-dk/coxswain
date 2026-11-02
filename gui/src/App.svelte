@@ -723,7 +723,8 @@
    *  run from there (`menu::ran`). */
   function ranFromMenu(n) {
     actions[n]?.();
-    invoke("action_ran", { action: n, viaMenu: true }).then((h) => h && !ui.status && !ui.modal && (ui.status = h), () => {});
+    // Once the action has shown what it shows: the hint only where the status line is free.
+    setTimeout(() => invoke("action_ran", { action: n, viaMenu: true, canShow: !ui.status && !ui.modal }).then((h) => h && !ui.status && !ui.modal && (ui.status = h), () => {}), 400);
   }
 
   /** The actions that fit the marked entries (or the one under the cursor), under the
@@ -870,7 +871,7 @@
     if (act) {
       e.preventDefault();
       if (act === "action_menu") menuKeyAt = Date.now();
-      invoke("action_ran", { action: act, viaMenu: false }).catch(() => {});
+      invoke("action_ran", { action: act, viaMenu: false, canShow: false }).catch(() => {});
       actions[act]?.();
     } else if (plain && jump && !inCmd) {
       ui.quick = e.key;

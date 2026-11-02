@@ -417,9 +417,9 @@ fn hint_once(id: String, ctx: tauri::State<Ctx>) -> bool {
 /// An action ran, from its key or (`via_menu`) from F9 or the action menu: the hint that names
 /// its key once it was only ever run from the menu; counted.
 #[tauri::command(async)]
-fn action_ran(action: String, via_menu: bool, ctx: tauri::State<Ctx>) -> Option<String> {
+fn action_ran(action: String, via_menu: bool, can_show: bool, ctx: tauri::State<Ctx>) -> Option<String> {
     let a = coxswain_core::config::Action::ALL.iter().copied().find(|a| a.name() == action)?;
-    coxswain_core::menu::ran(a, via_menu, &ctx.cfg())
+    coxswain_core::menu::ran(a, via_menu, can_show, &ctx.cfg())
 }
 
 /// F1 → Features: every feature with its keys and questions, filtered by `query`.

@@ -1555,7 +1555,7 @@ impl App {
         match (action, plain_char) {
             (Some(a), _) => {
                 self.cmd_open &= a == Action::CommandLine;
-                coxswain_core::menu::ran(a, false, &self.cfg);
+                coxswain_core::menu::ran(a, false, false, &self.cfg);
                 self.act(a)
             }
             // Typing jumps to a name: the first letter starts a quick search.
@@ -4452,7 +4452,7 @@ impl App {
                     Some(MenuRun::Action(a)) => {
                         self.act(*a);
                         // Run from F9 or the menu again and again, never by its key: the key is named.
-                        let named = coxswain_core::menu::ran(*a, true, &self.cfg);
+                        let named = coxswain_core::menu::ran(*a, true, self.status.is_none() && self.dialog.is_none(), &self.cfg);
                         if self.status.is_none() {
                             self.status = named;
                         }

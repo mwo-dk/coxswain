@@ -525,7 +525,7 @@ pub const MENU_RUNS: u32 = 3;
 /// that names its key, once it was run from the menu `MENU_RUNS` times and never by the key.
 /// Counted in `shown` as `menu_runs.<action>`, `key_used.<action>` and `via_menu.<action>`;
 /// and whether that changed.
-pub fn ran_in(a: Action, via_menu: bool, cfg: &Config, shown: &mut BTreeMap<String, u32>) -> (Option<String>, bool) {
+pub fn ran_in(a: Action, via_menu: bool, can_show: bool, cfg: &Config, shown: &mut BTreeMap<String, u32>) -> (Option<String>, bool) {
     let name = a.name();
     let used = format!("key_used.{name}");
     if shown.contains_key(&used) {
@@ -536,9 +536,14 @@ pub fn ran_in(a: Action, via_menu: bool, cfg: &Config, shown: &mut BTreeMap<Stri
         return (None, true);
     }
     let (runs, said) = (format!("menu_runs.{name}"), format!("via_menu.{name}"));
+    // Shown all the times: nothing more to count.
+    if shown.get(&said).copied().unwrap_or(0) >= TIMES {
+        return (None, false);
+    }
     let n = shown.entry(runs).or_default();
     *n += 1;
-    let due = *n >= MENU_RUNS && shown.get(&said).copied().unwrap_or(0) < TIMES;
+    // Where the status line is taken (a dialog opened, a message said) the hint waits for a later run.
+    let due = *n >= MENU_RUNS && can_show;
     // A key-less action (F9 and the menu only) has no key to name.
     let Some(key) = keys(cfg, a).filter(|_| due) else {
         return (None, true);
@@ -559,11 +564,11 @@ pub fn ran_in(a: Action, via_menu: bool, cfg: &Config, shown: &mut BTreeMap<Stri
 }
 
 /// `ran_in`, with the counts kept in state.json, written only when one changed.
-pub fn ran(a: Action, via_menu: bool, cfg: &Config) -> Option<String> {
+pub fn ran(a: Action, via_menu: bool, can_show: bool, cfg: &Config) -> Option<String> {
     if !cfg.hints {
         return None;
     }
-    counted(|shown| ran_in(a, via_menu, cfg, shown))
+    counted(|shown| ran_in(a, via_menu, can_show, cfg, shown))
 }
 
 /// Every hint shows again (`coxswain --hints reset`, Settings → Behaviour). An app that keeps
@@ -583,7 +588,7 @@ mod tests {
     fn a_key_named_after_menu_runs_never_by_key() {
         let cfg = Config::default();
         let mut shown = BTreeMap::new();
-        let mut run = |menu| ran_in(Action::SpaceView, menu, &cfg, &mut shown).0;
+        let mut run = |menu| ran_in(Action::SpaceView, menu, true, &cfg, &mut shown).0;
         assert!(run(true).is_none() && run(true).is_none());
         let text = run(true).expect("the third run from the menu");
         assert!(text.contains(&cfg.keys_shown(Action::SpaceView)), "{text}");
@@ -593,15 +598,21 @@ mod tests {
         assert!(run(true).is_none(), "shown TIMES times, then never");
         // Once the key was used, never.
         let mut shown = BTreeMap::new();
-        assert_eq!(ran_in(Action::SpaceView, false, &cfg, &mut shown), (None, true));
+        assert_eq!(ran_in(Action::SpaceView, false, true, &cfg, &mut shown), (None, true));
         for _ in 0..5 {
-            assert_eq!(ran_in(Action::SpaceView, true, &cfg, &mut shown), (None, false));
+            assert_eq!(ran_in(Action::SpaceView, true, true, &cfg, &mut shown), (None, false));
         }
+        // Nowhere to say it: not spent.
+        let mut shown = BTreeMap::new();
+        for _ in 0..5 {
+            assert!(ran_in(Action::SpaceView, true, false, &cfg, &mut shown).0.is_none());
+        }
+        assert!(ran_in(Action::SpaceView, true, true, &cfg, &mut shown).0.is_some());
         // No key, no hint.
         let none = Config::lenient("[keys]\nspace_view = []\n");
         let mut shown = BTreeMap::new();
         for _ in 0..5 {
-            assert!(ran_in(Action::SpaceView, true, &none, &mut shown).0.is_none());
+            assert!(ran_in(Action::SpaceView, true, true, &none, &mut shown).0.is_none());
         }
     }
 
