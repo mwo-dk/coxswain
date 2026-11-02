@@ -786,6 +786,15 @@ fn dialog(f: &mut Frame, app: &mut App) {
             f.render_widget(Paragraph::new(keys(&verb)).centered(), b);
         }
         Dialog::Viruses(v) => crate::viruses::draw(f, app, full, v),
+        Dialog::Keys { lines, .. } => {
+            let mut text = vec![Line::from(t!("keytest.intro")), Line::from("")];
+            text.extend(lines.iter().map(|l| Line::from(l.as_str())));
+            let p = Paragraph::new(text).wrap(Wrap { trim: false });
+            let inner = frame(f, app, text_box(full, 76, &p, 4 + 12_u16.saturating_sub(lines.len() as u16)), &t!("keytest.title"));
+            let [body, key] = Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas(inner);
+            f.render_widget(p, body);
+            f.render_widget(Paragraph::new(t!("keytest.keys", "verb" => t!("common.close"))).centered(), key);
+        }
         Dialog::Message { title, text } => {
             let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: false });
             let inner = frame(f, app, text_box(full, 76, &p, 4), title);

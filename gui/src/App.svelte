@@ -703,6 +703,7 @@
     duplicates: () => (ui.modal = { kind: "dupes" }),
     settings: () => (ui.modal = { kind: "settings" }),
     disk_use: () => (ui.modal = { kind: "settings", section: "disk" }),
+    key_test: () => (ui.modal = { kind: "keys", lines: [], esc: false }),
     suggest_translation: () => invoke("suggest_translation", { language: ui.cfg.language }).catch((err) => (ui.status = String(err))),
     disk_images: async () => {
       try {
@@ -771,6 +772,8 @@
   function onkeydown(e) {
     if (!ready) return;
     const k = keyString(e);
+    // Show keys as they arrive: every key, lone modifiers and dead keys too, is listed, none runs.
+    if (ui.modal?.kind === "keys") return keySeen(e, k);
     if (!k) return;
     if (ui.modal) {
       if (dialogs.handleKey(e, k)) e.preventDefault();
@@ -865,6 +868,20 @@
     } else if (plain) {
       cmdInput.focus(); // the character lands in the command line
     }
+  }
+
+  /** A line for Show keys as they arrive: the key as the web view reports it, as Coxswain reads
+   *  it, and the action it runs. Esc twice closes. */
+  function keySeen(e, k) {
+    e.preventDefault();
+    const m = ui.modal;
+    if (k === "Esc" && m.esc) return void (ui.modal = null);
+    m.esc = k === "Esc";
+    const mods = ["ctrlKey", "altKey", "shiftKey", "metaKey"].filter((x) => e[x]).map((x) => x.slice(0, -3)).join("+");
+    const act = k && ui.cfg.keymap[k];
+    // Written as F1 writes keys: Alt+U.
+    const read = k ? `${k.replace(/\+([a-z])$/, (_, c) => "+" + c.toUpperCase())} → ${act ? ui.cfg.actions[act][0] : t("keytest.unbound")}` : t("keytest.unread");
+    m.lines = [...m.lines, `key "${e.key}" code ${e.code} ${mods} → ${read}`].slice(-12);
   }
 
   function quickJump(e) {

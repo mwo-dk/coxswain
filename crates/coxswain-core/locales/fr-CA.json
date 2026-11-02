@@ -152,7 +152,7 @@
  "feature.cbom.q1": "Pourquoi une clé RSA est-elle « Inconnu », alors que RSA va bien?",
  "feature.cbom.q2": "Pourquoi tout un dossier est-il rouge alors que presque tout y est vert?",
  "feature.cbom.q3": "Comment retrouver l’ancien {view} dans l’app de terminal?",
- "feature.change_keys.a3": "Un nom de touche qu’elle ne connaît pas, comme Ctlr+P, ou une touche qu’une autre action a déjà. Cette ligne est ignorée et la valeur par défaut s’applique; une notification indique la ligne et y ouvre config.toml. {help} liste toutes les actions avec leurs touches.",
+ "feature.change_keys.a3": "Un nom de touche qu’elle ne connaît pas, comme Ctlr+P, ou une touche qu’une autre action a déjà. Cette ligne est ignorée et la valeur par défaut s’applique; une notification indique la ligne et y ouvre config.toml. {help} liste toutes les actions avec leurs touches. Si une touche arrive seulement à Coxswain : {menu} → {key_test}.",
  "feature.change_keys.q1": "Où changer une touche?",
  "feature.change_keys.q2": "Comment garder la touche par défaut et ajouter la mienne?",
  "feature.change_keys.q3": "J’ai attribué une touche et elle ne fait rien. Qu’est-ce qui ne va pas?",

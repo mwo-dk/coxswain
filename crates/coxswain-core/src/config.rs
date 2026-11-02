@@ -370,6 +370,8 @@ actions! {
     DiskUse = "disk_use", "Disk use", App, [];
     // Settings → Looks → Language: a new GitHub issue in the browser, no key of its own.
     SuggestTranslation = "suggest_translation", "Suggest a better translation", App, [];
+    // Each key as it reaches the app and what it runs: why a key does nothing.
+    KeyTest = "key_test", "Show keys as they arrive", App, [];
     Quit = "quit", "Quit", App, ["F10"];
 }
 

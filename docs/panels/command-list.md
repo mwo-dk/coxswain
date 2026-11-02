@@ -101,6 +101,7 @@ keys are the ones in force, so a rebinding shows at once.
 | Features and questions | `features` | none ([Features and questions](features.md)) |
 | Disk use | `disk_use` | none ([Disk use](../reference/disk-use.md)) |
 | Suggest a better translation | `suggest_translation` | none ([Languages](../customise/languages.md#improving-a-translation)) |
+| Show keys as they arrive | `key_test` | none ([Which keys reach Coxswain](../customise/keys.md#which-keys-reach-coxswain)) |
 
 The actions in the list are all the `[keys]` names; see [Every default key](keys.md).
 
