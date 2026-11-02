@@ -6,8 +6,8 @@
 //!
 //! First a plan, every entry that would change with before and after, then the run. Both reach
 //! the entries through `pinned` (folder handles, never a link), and the run changes only the
-//! very entries the plan saw, unchanged since (same file at the same place, same kind, same bits
-//! and time of last change), each through a handle of its own opened in its held folder (`fchmod`,
+//! very entries the plan saw, unchanged since (same file at the same place, same kind, same bits,
+//! time of last write and size), each through a handle of its own opened in its held folder (`fchmod`,
 //! `futimens`). Not the same ctime: FreeBSD's UFS moves it by itself up to seconds after a save. Hard links, pipes and devices are
 //! left as they are. One undo puts back the old bits and times of the whole batch.
 
@@ -87,9 +87,9 @@ pub struct Plan {
     at: Option<(i64, u32)>,
     #[serde(skip)]
     set: Arc<Set>,
-    /// Each entry's bits and times as the plan saw them, by device and inode.
+    /// Each entry's bits, times and size as the plan saw them, by device and inode.
     #[serde(skip)]
-    seen: Arc<HashMap<(u64, u128), Was>>,
+    seen: Arc<HashMap<(u64, u128), (Was, u64)>>,
 }
 
 #[derive(Default, Debug)]
@@ -249,7 +249,7 @@ pub fn plan(roots: &[PathBuf], spec: &Spec, base: &Path, stop: &AtomicBool, prog
                 match after(spec, at, before, is_dir) {
                     Ok(a) if a != before => {
                         set.add(node);
-                        seen.insert((node.stat.id.dev, node.stat.id.ino), before);
+                        seen.insert((node.stat.id.dev, node.stat.id.ino), (before, node.stat.size));
                         plan.total += 1;
                         if plan.rows.len() < SHOWN {
                             plan.rows.push(Row { path: node.path.clone(), is_dir, before, after: a });
@@ -437,7 +437,7 @@ impl Applied {
 /// swapped, moved in) is left as it is, and counted.
 pub fn apply(plan: &Plan, stop: &AtomicBool, progress: &Progress) -> Result<Applied, String> {
     let mut done = Applied { changed: 0, failed: vec![], record: Record::new(Kind::Attrs) };
-    let (mut said, mut bad, mut n) = (Said::default(), Said::default(), 0);
+    let (mut said, mut bad, mut n, mut stale) = (Said::default(), Said::default(), 0, 0);
     let met = pinned::walk(&plan.roots, &walk_spec(&plan.spec, Some(&plan.set)), stop, &mut said, |node| {
         n += 1;
         progress.files.store(n, Ordering::Relaxed);
@@ -447,13 +447,15 @@ pub fn apply(plan: &Plan, stop: &AtomicBool, progress: &Progress) -> Result<Appl
                 done.changed += 1;
             }
             Ok(None) => {}
+            // Counted with those the walk passed over.
+            Err(e) if e == t!("pinned.changed") => stale += 1,
             Err(e) => bad.say(&node.path, e),
         }
         true
     });
     lines(said, &mut done.failed);
     lines(bad, &mut done.failed);
-    let missed = plan.set.len().saturating_sub(met);
+    let missed = plan.set.len().saturating_sub(met) + stale;
     if missed > 0 && !stop.load(Ordering::Relaxed) {
         done.failed.push(t!("pinned.missed", "n" => missed));
     }
@@ -461,16 +463,17 @@ pub fn apply(plan: &Plan, stop: &AtomicBool, progress: &Progress) -> Result<Appl
 }
 
 /// Change the entry `node` the run met (same file, place and kind as the plan saw; the set does not
-/// ask for the same ctime), while it still has the bits and time of last change the plan saw:
-/// one chmodded or written since is left. Its ctime alone is not asked for, as FreeBSD's UFS
+/// ask for the same ctime), while it still has the bits, time of last write and size the plan
+/// saw: one chmodded or written since is left (on Windows the size also tells a file still being
+/// written, whose time of last write NTFS brings up to date lazily). Its ctime alone is not asked for, as FreeBSD's UFS
 /// with soft updates moves the ctime of a file saved (renamed into its name), and at times of its
 /// folder, by itself half a second to a few seconds later. What it was, what it is, and its Id.
 fn change(plan: &Plan, node: &Node) -> Result<Option<(Was, Was, Id)>, String> {
-    let Some(seen) = plan.seen.get(&(node.stat.id.dev, node.stat.id.ino)) else { return Err(t!("pinned.changed")) };
+    let Some((seen, size)) = plan.seen.get(&(node.stat.id.dev, node.stat.id.ino)) else { return Err(t!("pinned.changed")) };
     let mut stat = node.stat;
     for again in [false, true] {
         let before = Was::of(&stat);
-        if (before.mode, before.modified) != (seen.mode, seen.modified) {
+        if (before.mode, before.modified, stat.size) != (seen.mode, seen.modified, *size) {
             return Err(t!("pinned.changed"));
         }
         let a = after(&plan.spec, plan.at, before, stat.kind == Entry::Dir)?;
@@ -771,8 +774,8 @@ mod tests {
         std::fs::File::options().write(true).open(&c).unwrap().set_modified(SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000)).unwrap();
         let done = apply_all(&plan);
         assert_eq!((mode(&a), mode(&b), mode(&c)), (0o640, 0o604, 0o600));
-        assert_eq!((done.changed, done.failed.len()), (1, 2), "{:?}", done.failed);
-        assert!(done.failed.iter().all(|f| f.ends_with(&t!("pinned.changed"))), "{:?}", done.failed);
+        assert_eq!(done.changed, 1);
+        assert_eq!(done.failed, [t!("pinned.missed", "n" => 2)]);
         assert_eq!(done.record.undo(|_| {}).done, 1);
         assert_eq!(mode(&a), 0o600);
     }
