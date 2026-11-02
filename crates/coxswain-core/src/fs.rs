@@ -448,7 +448,7 @@ fn sort_sized(
     sort_keyed(entries, key == SortKey::Ext, |a, ka, b, kb| {
         let group = |e: &Entry| (!e.is_parent(), !e.is_dir);
         group(a).cmp(&group(b)).then_with(|| {
-            let name = || ka.name.cmp(&kb.name);
+            let name = || ka.name.cmp(kb.name).then_with(|| a.name.cmp(&b.name));
             let sizes = (key == SortKey::Size).then(|| (size(a), size(b)));
             if let Some((x, y)) = sizes
                 && (x.is_none() || y.is_none())
@@ -458,7 +458,7 @@ fn sort_sized(
             }
             let ord = match key {
                 SortKey::Name | SortKey::Commit => name(),
-                SortKey::Ext => ka.ext.cmp(&kb.ext).then_with(name),
+                SortKey::Ext => ka.ext.cmp(kb.ext).then_with(|| a.ext().cmp(b.ext())).then_with(name),
                 SortKey::Time => b.modified.cmp(&a.modified).then_with(name),
                 SortKey::Size => {
                     let (x, y) = sizes.unwrap_or_default();
@@ -470,30 +470,70 @@ fn sort_sized(
     });
 }
 
-/// An entry's collation keys (`collate::key`): its name's, and its extension's when asked.
+/// A listing's collation keys (`collate::sort_key_into`), one after another in blocks of
+/// `KEY_BLOCK` entries: a folder of millions takes the keys' own bytes and 4 an entry while it
+/// is sorted, not two allocations of an entry's (with its name again) as each key on its own did.
 pub(crate) struct Keys {
-    pub name: Vec<u8>,
-    pub ext: Vec<u8>,
+    blocks: Vec<(Vec<u8>, Vec<u32>)>,
 }
 
-/// `entries` sorted by `cmp`, which gets each entry with its `Keys`, made once per entry (on
+const KEY_BLOCK: usize = 4096;
+
+impl Keys {
+    /// The keys of `of(e)` for each of `entries`, on every core.
+    fn of<'a>(entries: &'a [Entry], of: impl Fn(&'a Entry) -> &'a str + Sync) -> Keys {
+        use rayon::prelude::*;
+        let blocks = entries
+            .par_chunks(KEY_BLOCK)
+            .map(|block| {
+                let (mut bytes, mut ends) = (Vec::new(), Vec::with_capacity(block.len()));
+                for e in block {
+                    crate::collate::sort_key_into(of(e), &mut bytes);
+                    // A block of 4096 names of at most a few KB of key each: far below 4 GB.
+                    ends.push(bytes.len() as u32);
+                }
+                bytes.shrink_to_fit();
+                (bytes, ends)
+            })
+            .collect();
+        Keys { blocks }
+    }
+
+    fn get(&self, i: usize) -> &[u8] {
+        let (bytes, ends) = &self.blocks[i / KEY_BLOCK];
+        let j = i % KEY_BLOCK;
+        let start = if j == 0 { 0 } else { ends[j - 1] as usize };
+        &bytes[start..ends[j] as usize]
+    }
+
+    /// The memory they take.
+    #[cfg(test)]
+    fn bytes(&self) -> usize {
+        self.blocks.capacity() * std::mem::size_of::<(Vec<u8>, Vec<u32>)>()
+            + self.blocks.iter().map(|(b, e)| b.capacity() + e.capacity() * 4).sum::<usize>()
+    }
+}
+
+/// An entry's collation keys while it is sorted: its name's, and its extension's when asked
+/// (empty when not). Alike keys are told apart by the names themselves.
+pub(crate) struct Key<'a> {
+    pub name: &'a [u8],
+    pub ext: &'a [u8],
+}
+
+/// `entries` sorted by `cmp`, which gets each entry with its `Key`, made once per entry (on
 /// every core): a sort of 200,000 names compares them some four million times.
 pub(crate) fn sort_keyed(
     entries: &mut [Entry],
     ext: bool,
-    cmp: impl Fn(&Entry, &Keys, &Entry, &Keys) -> std::cmp::Ordering,
+    cmp: impl Fn(&Entry, Key, &Entry, Key) -> std::cmp::Ordering,
 ) {
-    use rayon::prelude::*;
-    let keys: Vec<Keys> = entries
-        .par_iter()
-        .map(|e| Keys {
-            name: crate::collate::key(&e.name),
-            ext: if ext { crate::collate::key(e.ext()) } else { Vec::new() },
-        })
-        .collect();
+    let names = Keys::of(entries, |e| e.name.as_str());
+    let exts = Keys::of(if ext { entries } else { &[] }, Entry::ext);
+    let key = |i: usize| Key { name: names.get(i), ext: if ext { exts.get(i) } else { &[] } };
     let mut order: Vec<usize> = (0..entries.len()).collect();
-    order.sort_by(|&i, &j| cmp(&entries[i], &keys[i], &entries[j], &keys[j]));
-    drop(keys);
+    order.sort_by(|&i, &j| cmp(&entries[i], key(i), &entries[j], key(j)));
+    drop((names, exts));
     // Where each entry goes, then each swapped there in place: no second list of a folder of
     // millions.
     let mut to = vec![0; order.len()];
@@ -2015,6 +2055,28 @@ mod tests {
     /// A panel's listing (`list_lean`) of a folder deep down, on disk and in a zip, holds each
     /// name and no path: n against 8n entries, its bytes grow with the names alone, and every
     /// entry still gives its whole path.
+    #[test]
+    fn sort_keys_hold_their_bytes_and_4_an_entry() {
+        let entries = |k: usize| {
+            (0..k).map(|i| super::Entry { name: format!("Game {i:05} – Ålborg.sgf"), ..Default::default() }).collect::<Vec<_>>()
+        };
+        let (small, big) = (entries(1000), entries(8000));
+        let (ks, kb) = (super::Keys::of(&small, |e| e.name.as_str()), super::Keys::of(&big, |e| e.name.as_str()));
+        let own = |v: &[super::Entry]| v.iter().map(|e| crate::collate::key(&e.name).len() - 1 - e.name.len()).sum::<usize>();
+        // The keys' own bytes, 4 an entry, and some bytes a block: no more.
+        assert!(ks.bytes() <= own(&small) + 4 * small.len() + 256, "{} against {}", ks.bytes(), own(&small));
+        assert!(kb.bytes() <= 8 * ks.bytes() + 2 * 256, "8n: eight times n");
+        // Each key on its own, with its name again, took more than twice that.
+        let apart = |v: &[super::Entry]| v.iter().map(|e| 2 * std::mem::size_of::<Vec<u8>>() + crate::collate::key(&e.name).capacity()).sum::<usize>();
+        assert!(2 * kb.bytes() < apart(&big), "{} against {}", kb.bytes(), apart(&big));
+        // And they sort as those did.
+        let mut a = big.clone();
+        super::sort(&mut a, super::SortKey::Name, false);
+        let mut b = big;
+        b.sort_by_cached_key(|e| crate::collate::key(&e.name));
+        assert!(a.iter().zip(&b).all(|(x, y)| x.name == y.name));
+    }
+
     #[test]
     fn lean_listings_hold_names_not_paths() {
         use std::io::Write;

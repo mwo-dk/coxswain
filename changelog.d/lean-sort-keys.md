@@ -1,0 +1,1 @@
+| **Leaving an archive of millions of files gives its memory back.** The list kept of a large archive (over 32 MB, about 500,000 files) goes once no panel or tab shows a folder of it, and going in again reads it again; sorting a folder of millions takes less memory while it sorts. | [Archives as folders](files/archives.md#limits) |

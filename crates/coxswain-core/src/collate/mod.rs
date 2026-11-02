@@ -98,6 +98,14 @@ fn key_with(c: &Collator, name: &str) -> Vec<u8> {
     k
 }
 
+/// The collator's sort key of `name` alone, put after what `out` holds: it sorts as `cmp`
+/// does up to names that are still alike, which their own bytes then order. Holds no zero.
+pub fn sort_key_into(name: &str, out: &mut Vec<u8>) {
+    with(|c| {
+        let Ok(()) = c.as_borrowed().write_sort_key_to(name, out);
+    })
+}
+
 /// `a` against `b` in the language's order, numbers by their value; total.
 pub fn cmp(a: &str, b: &str) -> Ordering {
     with(|c| c.as_borrowed().compare(a, b)).then_with(|| a.cmp(b))
