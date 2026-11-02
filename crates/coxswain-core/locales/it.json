@@ -4761,6 +4761,7 @@
  "tui.keybar.bin_delete": "Cancella",
  "notice.bin_mac": "macOS: Coxswain elenca il cestino solo con l’accesso completo al disco (Impostazioni di Sistema → Privacy e sicurezza → Accesso completo al disco); senza, il cestino si apre nel Finder. Da Coxswain i file non si possono rimettere, solo eliminare definitivamente.",
  "notice.bin_flatpak": "Nel Flatpak Coxswain vede solo il proprio cestino, non quello del sistema: ciò che altre app ed Elimina di Coxswain vi mettono non è elencato.",
+ "notice.bin_shadowed": "Una vera cartella chiamata @bin nella cartella home ({path}) nasconde il cestino: Cestino apre invece quella cartella. Rinominala o spostala per rivedere il cestino.",
  "hint.bin": "{key}: ripristina ciò che è sotto il cursore, eliminalo definitivamente o svuota il cestino",
  "feature.bin.title": "Il cestino",
  "feature.bin.what": "{bin} mostra il cestino del sistema in un pannello, ogni file con la cartella da cui viene e quando è stato eliminato. {bin_restore} rimette i file; {bin_delete} e {bin_empty} eliminano definitivamente.",

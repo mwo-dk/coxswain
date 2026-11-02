@@ -4761,6 +4761,7 @@
  "tui.keybar.bin_delete": "Effacer",
  "notice.bin_mac": "macOS : Coxswain ne liste la corbeille qu’avec l’accès complet au disque (Réglages Système → Confidentialité et sécurité → Accès complet au disque) ; sans lui, la corbeille s’ouvre dans le Finder. Coxswain ne peut pas remettre les fichiers en place, seulement les supprimer définitivement.",
  "notice.bin_flatpak": "Dans le Flatpak, Coxswain ne voit que sa propre corbeille, pas celle du système : ce que les autres apps et la suppression de Coxswain y mettent n’y figure pas.",
+ "notice.bin_shadowed": "Un vrai dossier nommé @bin dans votre dossier personnel ({path}) masque la corbeille : Corbeille ouvre ce dossier à la place. Renommez-le ou déplacez-le pour revoir la corbeille.",
  "hint.bin": "{key} : restaurer ce qui est sous le curseur, le supprimer définitivement ou vider la corbeille",
  "feature.bin.title": "La corbeille",
  "feature.bin.what": "{bin} montre la corbeille du système dans un panneau, chaque fichier avec son dossier d’origine et sa date de suppression. {bin_restore} remet les fichiers en place ; {bin_delete} et {bin_empty} suppriment définitivement.",

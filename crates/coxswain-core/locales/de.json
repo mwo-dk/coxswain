@@ -4663,6 +4663,7 @@
  "tui.keybar.bin_delete": "Tilgen",
  "notice.bin_mac": "macOS: Coxswain listet den Papierkorb nur mit Festplattenvollzugriff (Systemeinstellungen → Datenschutz & Sicherheit → Festplattenvollzugriff); ohne ihn öffnet sich der Papierkorb im Finder. Zurücklegen geht aus Coxswain nicht, nur endgültig löschen.",
  "notice.bin_flatpak": "Im Flatpak sieht Coxswain nur seinen eigenen Papierkorb, nicht den des Systems: Was andere Apps und Coxswains Löschen dorthin legen, steht dort nicht.",
+ "notice.bin_shadowed": "Ein echter Ordner namens @bin in Ihrem Benutzerordner ({path}) verdeckt den Papierkorb: Papierkorb öffnet stattdessen diesen Ordner. Benennen Sie ihn um oder verschieben Sie ihn, um den Papierkorb wieder zu sehen.",
  "hint.bin": "{key}: wiederherstellen, endgültig löschen oder den Papierkorb leeren",
  "feature.bin.title": "Papierkorb",
  "feature.bin.what": "{bin} zeigt den Papierkorb des Systems als Bereich, jede Datei mit ihrem Ordner und dem Löschdatum. {bin_restore} legt Dateien zurück; {bin_delete} und {bin_empty} löschen endgültig.",

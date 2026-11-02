@@ -4764,6 +4764,7 @@
  "tui.keybar.bin_delete": "Vymazat",
  "notice.bin_mac": "macOS: Coxswain vypíše koš jen s plným přístupem k disku (Nastavení systému → Soukromí a zabezpečení → Plný přístup k disku); bez něj se koš otevře ve Finderu. Z Coxswainu nelze soubory vrátit, jen trvale smazat.",
  "notice.bin_flatpak": "Ve Flatpaku vidí Coxswain jen vlastní koš, ne systémový: co do koše dají jiné aplikace a Smazat v Coxswainu, tam není.",
+ "notice.bin_shadowed": "Skutečná složka @bin v domovské složce ({path}) zakrývá koš: Koš otevře místo něj tuto složku. Přejmenujte ji nebo ji přesuňte a koš bude znovu vidět.",
  "hint.bin": "{key}: obnovte to, co je pod kurzorem, trvale to smažte, nebo vysypte koš",
  "feature.bin.title": "Koš",
  "feature.bin.what": "{bin} ukáže systémový koš v panelu, každý soubor se složkou, odkud pochází, a datem smazání. {bin_restore} soubory vrátí; {bin_delete} a {bin_empty} mažou trvale.",

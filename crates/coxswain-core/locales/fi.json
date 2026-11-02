@@ -4663,6 +4663,7 @@
  "tui.keybar.bin_delete": "Hävitä",
  "notice.bin_mac": "macOS: Coxswain näyttää roskakorin vain täydellä levyn käyttöoikeudella (Järjestelmäasetukset → Tietosuoja ja turvallisuus → Täysi levyn käyttöoikeus); ilman sitä roskakori avautuu Finderissa. Tiedostoja ei voi palauttaa Coxswainista, vain poistaa pysyvästi.",
  "notice.bin_flatpak": "Flatpakissa Coxswain näkee vain oman roskakorinsa, ei järjestelmän: mitä muut sovellukset ja Coxswainin Poista vievät roskakoriin, ei näy siinä.",
+ "notice.bin_shadowed": "Kotikansiossasi oleva oikea kansio nimeltä @bin ({path}) peittää roskakorin: Roskakori avaa sen sijaan tämän kansion. Nimeä se uudelleen tai siirrä se, niin roskakori näkyy taas.",
  "hint.bin": "{key}: palauta kohdistimen kohde, poista se pysyvästi tai tyhjennä roskakori",
  "feature.bin.title": "Roskakori",
  "feature.bin.what": "{bin} näyttää järjestelmän roskakorin paneelina, jokainen tiedosto alkuperäisen kansionsa ja poistoaikansa kanssa. {bin_restore} palauttaa tiedostot; {bin_delete} ja {bin_empty} poistavat pysyvästi.",

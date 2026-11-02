@@ -4663,6 +4663,7 @@
  "tui.keybar.bin_delete": "Wissen",
  "notice.bin_mac": "macOS: Coxswain toont de prullenbak alleen met volledige schijftoegang (Systeeminstellingen → Privacy en beveiliging → Volledige schijftoegang); zonder opent de prullenbak in de Finder. Vanuit Coxswain kunnen bestanden niet worden teruggezet, alleen definitief verwijderd.",
  "notice.bin_flatpak": "In de Flatpak ziet Coxswain alleen zijn eigen prullenbak, niet die van het systeem: wat andere apps en Verwijderen in Coxswain erin zetten, staat er niet.",
+ "notice.bin_shadowed": "Een echte map met de naam @bin in je thuismap ({path}) verbergt de prullenbak: Prullenbak opent in plaats daarvan die map. Hernoem of verplaats hem om de prullenbak weer te zien.",
  "hint.bin": "{key}: zet terug wat onder de cursor staat, verwijder het definitief of leeg de prullenbak",
  "feature.bin.title": "De prullenbak",
  "feature.bin.what": "{bin} toont de prullenbak van het systeem als paneel, elk bestand met de map waar het vandaan kwam en wanneer het verwijderd is. {bin_restore} zet bestanden terug; {bin_delete} en {bin_empty} verwijderen definitief.",

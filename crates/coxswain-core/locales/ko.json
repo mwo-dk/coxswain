@@ -4565,6 +4565,7 @@
  "tui.keybar.bin_delete": "말소",
  "notice.bin_mac": "macOS: Coxswain은 전체 디스크 접근 권한이 있을 때만 휴지통 목록을 보여 줍니다(시스템 설정 → 개인정보 보호 및 보안 → 전체 디스크 접근 권한). 없으면 휴지통이 Finder에서 열립니다. Coxswain에서 파일을 되돌릴 수는 없고 영구 삭제만 할 수 있습니다.",
  "notice.bin_flatpak": "Flatpak에서는 Coxswain이 시스템 휴지통이 아닌 자기 휴지통만 봅니다. 다른 앱과 Coxswain의 삭제가 휴지통에 넣은 것은 거기에 나오지 않습니다.",
+ "notice.bin_shadowed": "홈 폴더에 있는 @bin이라는 실제 폴더({path})가 휴지통을 가립니다. 휴지통을 열면 그 폴더가 열립니다. 이름을 바꾸거나 옮기면 휴지통이 다시 보입니다.",
  "hint.bin": "{key}: 커서 아래 항목을 복원하거나, 영구 삭제하거나, 휴지통을 비웁니다",
  "feature.bin.title": "휴지통",
  "feature.bin.what": "{bin}은(는) 시스템 휴지통을 패널로 보여 주며, 각 파일의 원래 폴더와 삭제 시각을 표시합니다. {bin_restore}은(는) 파일을 되돌리고, {bin_delete}와 {bin_empty}은(는) 영구 삭제합니다.",

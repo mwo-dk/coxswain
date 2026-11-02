@@ -4663,6 +4663,7 @@
  "tui.keybar.bin_delete": "Suntsitu",
  "notice.bin_mac": "macOS: Coxswainek diskorako sarbide osoarekin bakarrik zerrendatzen du zakarrontzia (Sistemaren ezarpenak → Pribatutasuna eta segurtasuna → Diskorako sarbide osoa); hori gabe, zakarrontzia Finderren irekitzen da. Coxswainetik ezin dira fitxategiak itzuli, betiko ezabatu bakarrik.",
  "notice.bin_flatpak": "Flatpak-ean, Coxswainek bere zakarrontzia bakarrik ikusten du, ez sistemarena: beste aplikazioek eta Coxswainen Ezabatu-k bertan jartzen dutena ez da agertzen.",
+ "notice.bin_shadowed": "Etxeko karpetan @bin izeneko benetako karpeta bat dago ({path}) eta zakarrontzia ezkutatzen du: Zakarrontzia-k karpeta hori irekitzen du. Aldatu izena edo mugitu zakarrontzia berriro ikusteko.",
  "hint.bin": "{key}: leheneratu kurtsorearen azpian dagoena, ezabatu betiko, edo hustu zakarrontzia",
  "feature.bin.title": "Zakarrontzia",
  "feature.bin.what": "{bin} sistemaren zakarrontzia panel batean erakusten du, fitxategi bakoitza jatorrizko karpetarekin eta ezabatze-datarekin. {bin_restore} fitxategiak itzultzen ditu; {bin_delete} eta {bin_empty} betiko ezabatzen dute.",

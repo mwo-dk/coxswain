@@ -4761,6 +4761,7 @@
  "tui.keybar.bin_delete": "Sunaikinti",
  "notice.bin_mac": "macOS: Coxswain išvardija šiukšlinę tik turėdama visą disko prieigą (Sistemos nustatymai → Privatumas ir sauga → Visa disko prieiga); be jos šiukšlinė atsiveria „Finder“. Iš Coxswain failų grąžinti negalima, tik galutinai ištrinti.",
  "notice.bin_flatpak": "„Flatpak“ aplinkoje Coxswain mato tik savo šiukšlinę, ne sistemos: tai, ką ten deda kitos programos ir Coxswain „Ištrinti“, ten nerodoma.",
+ "notice.bin_shadowed": "Tikras aplankas @bin namų aplanke ({path}) užstoja šiukšlinę: Šiukšlinė vietoj jos atveria tą aplanką. Pervardykite arba perkelkite jį, kad vėl matytumėte šiukšlinę.",
  "hint.bin": "{key}: atkurkite tai, kas po žymekliu, galutinai ištrinkite arba išvalykite šiukšlinę",
  "feature.bin.title": "Šiukšlinė",
  "feature.bin.what": "{bin} rodo sistemos šiukšlinę skydelyje, kiekvieną failą su aplanku, iš kurio atėjo, ir ištrynimo data. {bin_restore} grąžina failus; {bin_delete} ir {bin_empty} ištrina galutinai.",

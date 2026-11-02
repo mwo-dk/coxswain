@@ -4663,6 +4663,7 @@
  "tui.keybar.bin_delete": "Hävita",
  "notice.bin_mac": "macOS: Coxswain loetleb prügikasti ainult täieliku kettajuurdepääsuga (Süsteemiseaded → Privaatsus ja turvalisus → Täielik kettajuurdepääs); ilma selleta avaneb prügikast Finderis. Coxswainist ei saa faile tagasi panna, ainult jäädavalt kustutada.",
  "notice.bin_flatpak": "Flatpakis näeb Coxswain ainult oma prügikasti, mitte süsteemi oma: mida teised rakendused ja Coxswaini Kustuta prügikasti panevad, seal ei näidata.",
+ "notice.bin_shadowed": "Kodukaustas olev päris kaust nimega @bin ({path}) varjab prügikasti: Prügikast avab selle asemel selle kausta. Nimeta see ümber või teisalda, et prügikasti jälle näha.",
  "hint.bin": "{key}: taasta kursori all olev, kustuta see jäädavalt või tühjenda prügikast",
  "feature.bin.title": "Prügikast",
  "feature.bin.what": "{bin} näitab süsteemi prügikasti paneelina, iga fail koos lähtekausta ja kustutamise ajaga. {bin_restore} paneb failid tagasi; {bin_delete} ja {bin_empty} kustutavad jäädavalt.",

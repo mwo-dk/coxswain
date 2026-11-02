@@ -1,0 +1,1 @@
+| **The bin is the bin however your home is spelled.** A home reached through a link to it (`/home` a link to `/usr/home`) shows the bin at its `@bin` too, and nothing is copied or made there; a real `@bin` folder another program put in your home, which hides the bin, is named in a notice once. | [The bin](files/bin.md#the-bin-opens-a-folder-called-bin-instead) |

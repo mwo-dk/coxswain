@@ -4663,6 +4663,7 @@
  "tui.keybar.bin_delete": "Utslett",
  "notice.bin_mac": "macOS: Coxswain viser papirkorga berre med full disktilgang (Systeminnstillingar → Personvern og tryggleik → Full disktilgang); utan han vert papirkorga opna i Finder. Filer kan ikkje leggjast tilbake frå Coxswain, berre slettast for godt.",
  "notice.bin_flatpak": "I Flatpak ser Coxswain berre si eiga papirkorg, ikkje den til systemet: det andre appar og Slett i Coxswain legg i papirkorga, vert ikkje vist der.",
+ "notice.bin_shadowed": "Ei ekte mappe som heiter @bin i heimemappa di ({path}) gøymer papirkorga: Papirkorg opnar den mappa i staden. Gje ho nytt namn eller flytt ho for å sjå papirkorga att.",
  "hint.bin": "{key}: gjenopprett det under markøren, slett det for godt, eller tøm papirkorga",
  "feature.bin.title": "Papirkorga",
  "feature.bin.what": "{bin} viser papirkorga til systemet som eit panel, kvar fil med mappa ho kom frå og når ho vart sletta. {bin_restore} legg filer tilbake; {bin_delete} og {bin_empty} slettar for godt.",
