@@ -101,17 +101,18 @@ pub fn restore(name: &str, path: &Path) -> io::Result<()> {
 fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
     let path = std::path::absolute(path)?;
     let info = trash.join("info").join(format!("{name}.trashinfo"));
-    let body = fs::read_to_string(&info)
-        .map_err(|_| io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_trash")))?;
+    let file = trash.join("files").join(name);
+    let not_in = || io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_trash"));
+    // Before the read: what is read is then this info file, or a newer one that fails below.
+    let was = (crate::bin::fd::id(&file), crate::bin::fd::id(&info));
+    let body = fs::read_to_string(&info).map_err(|_| not_in())?;
     // Still the one this path put there, not another under a name freed and taken since.
     if !body
         .lines()
         .any(|l| l.strip_prefix("Path=") == Some(encode(&path).as_str()))
+        || crate::bin::fd::id(&info) != was.1
     {
-        return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            crate::t!("err.not_in_trash"),
-        ));
+        return Err(not_in());
     }
     if fs::symlink_metadata(&path).is_ok() {
         return Err(io::Error::new(
@@ -120,9 +121,17 @@ fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
         ));
     }
     crate::bin::fd::midway();
+    // Still the item read: another program may have taken it away and a put another file
+    // under its name since.
+    if crate::bin::fd::id(&file) != was.0 {
+        return Err(not_in());
+    }
     // Never over a file made at `path` since the look above.
-    crate::bin::fd::move_new(&trash.join("files").join(name), &path)?;
-    let _ = fs::remove_file(info);
+    let ours = crate::bin::fd::move_new(&file, &path)?;
+    // Still the one read: another program may have taken it away and a put made a new one.
+    if ours && crate::bin::fd::id(&info) == was.1 {
+        let _ = fs::remove_file(info);
+    }
     Ok(())
 }
 

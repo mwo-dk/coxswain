@@ -142,6 +142,19 @@ program made one, the *Bin* row, **F9** → *The bin* and `~/@bin` open that fol
 says once *A real folder named @bin in your home (…) hides the bin*. Rename or move that folder
 and the bin is back. Coxswain itself never makes it: nothing is copied, moved or made into the
 bin, also when your home is reached through a link to it (`/home` a link to `/usr/home`, say).
+#### What if the desktop's own trash works on the bin at the same time?
+
+Two Coxswains (the terminal app and the desktop app) take turns: while one restores, deletes
+for good or empties, the other says *Another Coxswain is working in the bin* and does nothing. Other programs (the
+desktop's file manager, `gio trash`, `trash-cli`) take no turn of ours, as the freedesktop.org
+bin has no lock. So on the BSDs, illumos, Linux and Termux Coxswain looks at each item again
+just before each removal: the file and its info file must still be the ones listed (the same inode
+and change time). One that another program took away meanwhile counts as done; another file put
+under its name meanwhile stays in the bin, listed, and the dialog names it *Not in the bin*.
+What is left is the instant between that last look and the removal itself, a few microseconds,
+and, for *Empty the bin*, the time it takes to list the bin before it looks at the first item
+(longer in a bin of thousands); no program can close these alone: emptying or deleting from the
+bin in two programs at once is not guarded.
 
 #### Can Find search inside the files in the bin?
 
