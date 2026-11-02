@@ -87,11 +87,13 @@ time of last access to the same; Windows keeps its own.
   that means junctions, mount points and files only in the cloud too.
 - **Only what the plan saw.** The plan goes through the folders by their handles, never through
   a link, and notes each entry that changes and each folder on the way to one: which file it is
-  and when its entry last changed. The run goes the same way, only into those folders, and
-  changes an entry only while it is still exactly that: one changed, swapped or moved in since is
-  left as it is, and the list after the run says *Changed since the plan, left as they are: 3*.
-  Anything that changes a folder after the plan (a file made or removed in it) leaves everything
-  below it as it is: plan again. Folders more than 256 deep are not gone into, nor folders on
+  and where, and for an entry its permissions and its date. The run goes the same way, only into
+  those folders, and changes an entry only while it is still that entry at that place with those
+  permissions and that date: one saved, chmodded, swapped or moved in since is left as it is, and
+  the list after the run says *Changed since the plan, left as they are: 3*. So is everything
+  below a folder renamed or swapped since: plan again. When an entry last changed (its ctime)
+  does not count: FreeBSD's UFS moves it by itself, up to seconds after a file is saved, which
+  would leave a run soon after a save undone. Folders more than 256 deep are not gone into, nor folders on
   another disk or mount (*On another disk or mount: not gone into.*). A plan stops at 100,000
   entries: *Stopped at 100000: mark fewer items.*
 - **Pipes, devices and sockets** are never opened: *Not a file nor a folder: left as it is.*

@@ -321,7 +321,7 @@ pub fn plan(roots: &[PathBuf], q: &Query, stop: &AtomicBool, progress: &Progress
     let re = q.compile()?;
     let template = q.template();
     let mut plan = Plan { roots: roots.to_vec(), query: q.clone(), token: pinned::token(), ..Default::default() };
-    let (mut set, mut said, mut counted) = (Set::by_content(), Said::default(), 0);
+    let (mut set, mut said, mut counted) = (Set::any_ctime(), Said::default(), 0);
     pinned::walk(roots, &walk_spec(None), stop, &mut said, |node| {
         match node.stat.kind {
             Entry::Dir | Entry::Other => return true,
@@ -650,7 +650,7 @@ pub fn apply(plan: &Plan, picks: &[Pick], stop: &AtomicBool, progress: &Progress
     let q = &plan.query;
     let re = q.compile()?;
     let template = q.template();
-    // By device and inode: the plan's set meets a file whatever its ctime (`Set::by_content`), and
+    // By device and inode: the plan's set meets a file whatever its ctime (`Set::any_ctime`), and
     // the content is checked below.
     let by_id: HashMap<(u64, u128), usize> = plan.files.iter().enumerate().map(|(i, f)| ((f.id.dev, f.id.ino), i)).collect();
     let picked: HashMap<usize, HashSet<usize>> = picks.iter().filter(|p| p.file < plan.files.len()).map(|p| (p.file, p.skip.iter().copied().collect())).collect();
@@ -755,7 +755,7 @@ pub fn picks(plan: &Plan) -> Vec<Pick> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     fn q(find: &str, with: &str) -> Query {
@@ -837,7 +837,7 @@ mod tests {
 
     /// Its ctime moved, and nothing else: chmod to the mode it has, until the clock has ticked.
     #[cfg(unix)]
-    fn ctime_moves(p: &Path) {
+    pub(crate) fn ctime_moves(p: &Path) {
         use std::os::unix::fs::MetadataExt;
         let m = std::fs::metadata(p).unwrap();
         let start = std::time::Instant::now();
