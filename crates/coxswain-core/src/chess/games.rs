@@ -932,11 +932,16 @@ impl Library {
         ids
     }
 
-    /// Waits until the table is whole, or its reading failed or stopped.
-    pub fn wait(&self) {
+    /// Waits until the table is whole, or its reading failed or stopped, or this thread's
+    /// Stop (`stop::asked`: the search helper's scan stopping): false then.
+    pub fn wait(&self) -> bool {
         while !self.progress().done {
+            if crate::stop::asked() {
+                return false;
+            }
             std::thread::sleep(std::time::Duration::from_millis(20));
         }
+        true
     }
 
     /// Game `i` in one line, as the search store keeps it (`Head::line`), from the table.
@@ -1203,7 +1208,10 @@ pub fn search_text(path: &Path, max: usize) -> Option<String> {
     if std::fs::metadata(path).is_ok_and(|m| m.len() > max as u64)
         && let Ok(lib) = Library::open(path)
     {
-        lib.wait();
+        // Stopped meanwhile: no text; the caller sees its stop and keeps the file unread.
+        if !lib.wait() {
+            return None;
+        }
         if lib.progress().error.is_none() {
             let mut out = String::new();
             for i in 0..lib.progress().games as u32 {
@@ -1576,6 +1584,20 @@ mod tests {
         assert!(find("aronian", &|_: &Path| false, 3).is_empty());
         std::fs::write(&p, format!("{text}\n")).unwrap();
         assert!(find("aronian", &all, 3).is_empty(), "changed since: not looked through");
+    }
+
+    /// The search helper stopping: a big file's text read through its table gives up at
+    /// once, with no text (its file stays unread), counted by the games read, not a clock.
+    #[test]
+    fn a_stop_ends_the_read_of_a_big_file() {
+        let d = tempdir::Dir::new();
+        let p = d.0.join("stopped.pgn");
+        let game = "[White \"A\"]\n[Black \"B\"]\n\n1.e4 e5 *\n\n";
+        std::fs::write(&p, game.repeat(200_000)).unwrap();
+        let stop = std::sync::Arc::new(AtomicBool::new(true));
+        assert_eq!(crate::stop::during(&stop, || search_text(&p, 100)), None);
+        // Not stopped: the same file gives its text.
+        assert!(search_text(&p, 100).is_some());
     }
 
     #[test]

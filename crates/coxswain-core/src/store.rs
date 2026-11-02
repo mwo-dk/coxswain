@@ -3231,7 +3231,9 @@ fn scan_for(
     store.pgn_positions_renumbered("readers.pgn", "3", &halt)?;
     // Game files over 4 MB get their games table (2.36), so Find looks through every game: each
     // read once, up to a minute a scan; nothing in the store is read or made again.
-    store.games_tables_made("tables.games", "1", &halt, Instant::now() + PDF_SLICE)?;
+    if MAKE_GAMES_TABLES {
+        store.games_tables_made("tables.games", "1", &halt, Instant::now() + PDF_SLICE)?;
+    }
     // PDFs of 1 MB or more are looked at once by the page-at-a-time reader (2.35), up to a
     // minute a scan: only those whose own text is now longer are read again, never by OCR.
     store.pdf_layers("readers.pdf-pages", "1", PDF_LOOKED_AT, cfg.text_max_size, &|p| left_out_file(p, cfg), &halt, Instant::now() + PDF_SLICE)?;
@@ -3656,6 +3658,10 @@ const HELD_TEXT: usize = 64 << 20;
 const PDF_LOOKED_AT: u64 = 1 << 20;
 /// The most of one scan spent looking at them; the rest wait for the next.
 const PDF_SLICE: Duration = Duration::from_secs(60);
+/// The one-time pass that reads each game file over 4 MB already in the store once more, to
+/// make its games table (`games_tables_made`). A proposal awaiting the owner's word: false
+/// leaves those files' tables to be made when they next change or are opened.
+const MAKE_GAMES_TABLES: bool = true;
 
 /// How far below `extract::MAX_TEXT` a text may end and still be one that was cut.
 const LONG_MARGIN: usize = 64 << 10;
@@ -3935,6 +3941,27 @@ fn place(store: &Store, cfg: &SearchConfig) -> rusqlite::Result<(Vec<PathBuf>, V
     Ok((online, offline))
 }
 
+/// `read`, with `halt` as this thread's Stop (`stop::asked`) while it runs: a reader that waits
+/// long (a game file's games table being made, `chess::games::search_text`) gives up within a
+/// tenth of a second of a stop or a clear.
+fn read_stoppably<T>(halt: &(dyn Fn() -> bool + Sync), read: impl FnOnce() -> T) -> T {
+    let flag = std::sync::Arc::new(AtomicBool::new(false));
+    let over = AtomicBool::new(false);
+    std::thread::scope(|s| {
+        s.spawn(|| {
+            while !over.load(Ordering::Relaxed) {
+                if halt() {
+                    flag.store(true, Ordering::Relaxed);
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        });
+        let out = crate::stop::during(&flag, read);
+        over.store(true, Ordering::Relaxed);
+        out
+    })
+}
+
 /// Read the text of the files waiting for it: those on disk, then those inside archives, one
 /// archive at a time and in one pass through it. `true` when stopped.
 fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Result<bool> {
@@ -3964,7 +3991,14 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
             .collect();
         let start = Instant::now();
         let (mut rows, mut held, mut whole) = (vec![], 0, vec![]);
+        let halt = || stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed);
+        let mut stopped = false;
         for (id, path, size) in &batch {
+            // Stopped: the files not read yet keep waiting, unread, for the next scan.
+            if halt() {
+                stopped = true;
+                break;
+            }
             let keep = rule.whole(Path::new(path));
             let cap = if keep { crate::extract::EVERYTHING_TEXT } else { crate::extract::MAX_TEXT };
             // A file that ran past a program's time limit (a LibreOffice that never ends) is
@@ -3975,7 +4009,13 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
                 store.transcript_of(*id)
             } else {
                 crate::tools::took_too_long();
-                let text = crate::extract::text_up_to(Path::new(path), *size, cfg.text_max_size, cap);
+                let text = read_stoppably(&halt, || crate::extract::text_up_to(Path::new(path), *size, cfg.text_max_size, cap));
+                // Stopped inside it (a game file read for its games table): not read, not
+                // marked as without text.
+                if halt() {
+                    stopped = true;
+                    break;
+                }
                 if text.is_none() && crate::tools::took_too_long() {
                     store.mark_too_long(*id)?;
                     store.note_error(Some(path), NOTED[0].0);
@@ -3993,9 +4033,12 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
         }
         store.read(&rows)?;
         store.mark_whole(&whole)?;
+        if stopped {
+            store.pending.fetch_sub(n, Ordering::Relaxed);
+            return Ok(true);
+        }
         // PGN files the text reader read (not left out, not online-only, not empty): the
         // positions of their games too, game by game as the file is read.
-        let halt = || stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed);
         for ((id, path, _), (_, _, text)) in batch.iter().zip(&whole) {
             if *text && crate::chess::format(Path::new(path)) == Some(crate::chess::Format::Pgn) {
                 store.put_positions(*id, Path::new(path), &halt)?;
