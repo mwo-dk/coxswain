@@ -1421,7 +1421,7 @@
  "feature.chess.q2": "Llegeix fitxers de ChessBase?",
  "feature.chess.q3": "Com puc veure les jugades amb les lletres de la meva llengua?",
  "feature.chess.title": "Partides d'escacs",
- "feature.chess.what": "Fitxers PGN com a taula de partides que podeu filtrar i ordenar, cada partida en un tauler amb les seves jugades, variants i comentaris; posicions EPD i FEN; les jugades d'un llibre Polyglot per a cada posició. {chess} els obre. Cerca aquesta posició llista les partides dels vostres fitxers que arriben al tauler mostrat. També es llegeixen les bases de dades SCID (.si4, .si5). Una base de dades de milions de partides s’obre amb la mateixa memòria: la seva taula es desa al disc.",
+ "feature.chess.what": "Fitxers PGN com a taula de partides que podeu filtrar i ordenar, cada partida en un tauler amb les seves jugades, variants i comentaris; posicions EPD i FEN; les jugades d'un llibre Polyglot per a cada posició. {chess} els obre. Cerca aquesta posició llista les partides dels vostres fitxers que arriben al tauler mostrat. També es llegeixen les bases de dades SCID (.si4, .si5). Una base de dades de milions de partides s’obre amb la mateixa memòria: la seva taula es desa al disc. Una de massa gran per obrir dins del seu arxiu es descomprimeix al costat, després de preguntar-ho.",
  "feature.chess_play.a1": "No. La vostra línia només es guarda a la vista. Desa com a PGN nou (s) escriu la partida fins allà amb la vostra línia en un fitxer nou al costat. Per a una partida dins d'un arxiu pregunta on.",
  "feature.chess_play.a2": "Coxswain fa servir un motor instal·lat aquí i mai no en baixa cap. Paràmetres → Jocs → Motors d'escacs llista Stockfish i altres motors UCI, trobats o amb la línia que els instal·la; Prova el motor mostra llavors les opcions pròpies del motor.",
  "feature.chess_play.a3": "Premeu de l'1 al 5 per a la línia, o feu clic en una de les seves jugades: el tauler la mostra mentre la partida es queda on és. → ← la recorren, Enter la juga fins a la jugada mostrada, Esc torna a la partida.",
@@ -4829,5 +4829,9 @@
  "pick.choose": "Tria",
  "chess.engine_from_review": "de l’anàlisi de la partida, cerca més a fons…",
  "chess.memory": "Posicions recordades",
- "chess.memory_hint": "Cada posició que el motor ha analitzat, en directe o en una anàlisi de partida, es desa aquí amb el motor i la seva configuració, perquè no s’analitzi de nou. Com a màxim {most} posicions (menys de 40 MB); les més antigues marxen primer. Ús del disc les esborra."
+ "chess.memory_hint": "Cada posició que el motor ha analitzat, en directe o en una anàlisi de partida, es desa aquí amb el motor i la seva configuració, perquè no s’analitzi de nou. Com a màxim {most} posicions (menys de 40 MB); les més antigues marxen primer. Ús del disc les esborra.",
+ "chess.beside_title": "Descomprimir al costat de l’arxiu",
+ "chess.beside_ask": "{name} fa {size}: massa gran per obrir-lo dins de l’arxiu. El voleu descomprimir al costat de l’arxiu, a {folder}, i obrir-lo allà? La còpia és vostra: s’hi queda fins que l’esborreu.",
+ "chess.beside_go": "Descomprimeix i obre",
+ "chess.beside_failed": "No s’ha pogut descomprimir {name}"
 }

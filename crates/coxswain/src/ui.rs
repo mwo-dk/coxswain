@@ -786,7 +786,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             f.render_widget(p, a);
             f.render_widget(Paragraph::new(keys(&t!("whisper.go"))).centered(), b);
         }
-        d @ (Dialog::Searchable { title, text, .. } | Dialog::Media { title, text, .. } | Dialog::Ebook { title, text, .. } | Dialog::Export { title, text, .. } | Dialog::VirusScan { title, text, .. }) => {
+        d @ (Dialog::Searchable { title, text, .. } | Dialog::Beside { title, text, .. } | Dialog::Media { title, text, .. } | Dialog::Ebook { title, text, .. } | Dialog::Export { title, text, .. } | Dialog::VirusScan { title, text, .. }) => {
             let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: true });
             let inner = frame(f, app, text_box(full, 64, &p, 4), title);
             let [a, _, b] = Layout::vertical([Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
@@ -798,6 +798,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
                 Dialog::Export { op: coxswain_core::export::Op::AdocPdf, .. } => t!("export.go_adoc"),
                 Dialog::Export { .. } => t!("export.go_drawio"),
                 Dialog::VirusScan { .. } => t!("viruses.go"),
+                Dialog::Beside { .. } => t!("chess.beside_go"),
                 _ => t!("searchable.go"),
             };
             f.render_widget(Paragraph::new(keys(&verb)).centered(), b);

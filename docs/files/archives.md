@@ -209,7 +209,9 @@ through an installed 7-Zip instead, read-only, like a disk image
   the file in it, so two archives that hold a file of the same name, size and date never share
   what is kept of a copy (a ChessBase archive's games, a listing, a preview).
   Files over 256 MB are not copied just to be looked at, counted as they come out, not by the
-  size the archive claims: the preview says to copy them out.
+  size the archive claims: the preview says to copy them out. A game database over it is
+  offered to be unpacked beside the archive and opened there, asked first ([Chess
+  games](../previews/chess.md#what-happens-with-a-database-too-large-to-open-inside-its-archive)).
 - **Names that lead outside** (`../…`, an absolute path, on Windows a drive or a `\`) are not
   listed, so nothing you do in the archive acts outside it. They stay in the archive when it is
   written anew. A tar whose long-name record is over 64 KB is not opened.

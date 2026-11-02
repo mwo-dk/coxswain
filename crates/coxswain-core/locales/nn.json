@@ -1371,7 +1371,7 @@
  "feature.chess.q2": "Les Coxswain ChessBase-filer?",
  "feature.chess.q3": "Korleis ser eg trekka med bokstavane i mitt eige språk?",
  "feature.chess.title": "Sjakkparti",
- "feature.chess.what": "PGN-filer som ein tabell over parti som du kan filtrere og sortere, kvart parti på eit brett med trekk, variantar og kommentarar; EPD- og FEN-stillingar; trekka i ei Polyglot-bok for kvar stilling. {chess} opnar dei. Finn denne stillinga listar partia i filene dine som når brettet som blir vist. SCID-databasar (.si4, .si5) vert òg lesne. Ein database med millionar av parti blir opna med same minne: tabellen blir lagra på disken.",
+ "feature.chess.what": "PGN-filer som ein tabell over parti som du kan filtrere og sortere, kvart parti på eit brett med trekk, variantar og kommentarar; EPD- og FEN-stillingar; trekka i ei Polyglot-bok for kvar stilling. {chess} opnar dei. Finn denne stillinga listar partia i filene dine som når brettet som blir vist. SCID-databasar (.si4, .si5) vert òg lesne. Ein database med millionar av parti blir opna med same minne: tabellen blir lagra på disken. Ein som er for stor til å opnast i arkivet, blir pakka ut ved sida av det etter at du er spurd.",
  "feature.chess_play.a1": "Nei. Linja di finst berre i visinga. Lagre som ny PGN (s) skriv partiet til dit med linja di i ei ny fil ved sida av. For eit parti inne i eit arkiv spør han kvar.",
  "feature.chess_play.a2": "Coxswain brukar ein motor installert her og lastar aldri ned ein. Innstillingar → Spel → Sjakkmotorar viser Stockfish og andre UCI-motorar, funne eller med linja som installerer dei; Test motor viser så motoren sine eigne innstillingar.",
  "feature.chess_play.a3": "Trykk 1 til 5 for varianten, eller klikk på eit av trekka: brettet viser han medan partiet blir der det er. → ← går gjennom han, Enter spelar han til og med trekket som vert vist, Esc går tilbake til partiet.",
@@ -4731,5 +4731,9 @@
  "pick.choose": "Vel",
  "chess.engine_from_review": "frå partianalysen, ser djupare …",
  "chess.memory": "Hugsa stillingar",
- "chess.memory_hint": "Kvar stilling motoren har analysert, live eller i ein partianalyse, vert lagra her med motor og innstillingar, så ho ikkje vert analysert på nytt. Høgst {most} stillingar (under 40 MB); dei eldste går først. Diskbruk slettar dei."
+ "chess.memory_hint": "Kvar stilling motoren har analysert, live eller i ein partianalyse, vert lagra her med motor og innstillingar, så ho ikkje vert analysert på nytt. Høgst {most} stillingar (under 40 MB); dei eldste går først. Diskbruk slettar dei.",
+ "chess.beside_title": "Pakk ut ved sida av arkivet",
+ "chess.beside_ask": "{name} er {size}: for stort til å opnast inne i arkivet. Pakke det ut ved sida av arkivet, i {folder}, og opne det der? Kopien er din: han blir verande der til du slettar han.",
+ "chess.beside_go": "Pakk ut og opne",
+ "chess.beside_failed": "Kunne ikkje pakke ut {name}"
 }

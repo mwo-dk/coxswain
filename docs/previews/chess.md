@@ -509,6 +509,23 @@ the cursor on it with the preview open in the desktop app. That file is copied o
 under its name (`.cbg`, `.cbp`, `.sg4` …), and its games table opens as outside the archive.
 It works in an archive inside an archive too ([Archives as folders](../files/archives.md)).
 
+#### What happens with a database too large to open inside its archive?
+
+A games file over 256 MB in an archive (with the files of its database beside it: Lumbra's
+Gigabase in SCID 5 is 4.9 GB in a 7z of 1.4 GB) is not copied into the cache. Opening it
+instead asks *Unpack beside the archive*: *Lumbras.si5 is 4.9 GB: too large to open inside the
+archive. Unpack it next to the archive, into …/LumbrasGigabase_OTB_si5, and open it there?*
+**Enter** (or *Unpack and open* in the desktop app) copies the file and the files of its
+database out into a folder beside the archive, named after it, as **F5** would: the status line
+says how far it is, **Esc** (desktop: *Stop*) stops it, and **Ctrl+Z** undoes it. Then its games
+open there, read like any other database ([Large databases](#large-databases)). **Esc** (or
+*Cancel*) leaves it. The copy is yours, not the cache's: it stays until you delete it, and
+the next time the same file opens there at once without asking. A folder of that name that
+holds other files of those names is never written over: the next one, `… (2)`, is taken. Each
+file is written under a passing name until it is whole. It needs room for the whole database
+beside the archive, and only an archive on the disk: one inside another archive is refused
+as before.
+
 #### Why does a SCID game show fewer moves than the table says?
 
 The table's *Moves* come from the index; the board plays each move from the `.sg4` file. A move

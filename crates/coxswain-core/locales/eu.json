@@ -1371,7 +1371,7 @@
  "feature.chess.q2": "ChessBase fitxategiak irakurtzen al ditu?",
  "feature.chess.q3": "Nola ikusi jokaldiak nire hizkuntzako letrekin?",
  "feature.chess.title": "Xake-partidak",
- "feature.chess.what": "PGN fitxategiak iragaz eta ordena daitekeen partiden taula gisa, partida bakoitza taulan, bere jokaldi, aldaera eta iruzkinekin; EPD eta FEN posizioak; Polyglot liburu baten jokaldiak posizio bakoitzerako. {chess} tekla horiek irekitzeko da. Bilatu posizio hau-k erakutsitako taulara iristen diren zure fitxategietako partidak zerrendatzen ditu. SCID datu-baseak (.si4, .si5) ere irakurtzen dira. Milioika partidako datu-base bat memoria berarekin irekitzen da: bere taula diskoan gordetzen da.",
+ "feature.chess.what": "PGN fitxategiak iragaz eta ordena daitekeen partiden taula gisa, partida bakoitza taulan, bere jokaldi, aldaera eta iruzkinekin; EPD eta FEN posizioak; Polyglot liburu baten jokaldiak posizio bakoitzerako. {chess} tekla horiek irekitzeko da. Bilatu posizio hau-k erakutsitako taulara iristen diren zure fitxategietako partidak zerrendatzen ditu. SCID datu-baseak (.si4, .si5) ere irakurtzen dira. Milioika partidako datu-base bat memoria berarekin irekitzen da: bere taula diskoan gordetzen da. Bere artxiboaren barruan irekitzeko handiegia dena ondoan deskonprimatzen da, galdetu ondoren.",
  "feature.chess_play.a1": "Ez. Zure lerroa ikuspegian bakarrik dago. Gorde PGN berri gisa (s) botoiak partida hona arte idazten du zure lerroarekin, ondoko fitxategi berri batean. Artxibo baten barruko partida baterako, non galdetzen du.",
  "feature.chess_play.a2": "Coxswainek hemen instalatutako motor bat erabiltzen du eta ez du inoiz deskargatzen. Ezarpenak → Jokoak → Xake-motorrak atalak Stockfish eta beste UCI motor batzuk zerrendatzen ditu, aurkituak edo instalatzeko lerroarekin; Probatu motorra sakatuta motorraren aukerak ikusten dira.",
  "feature.chess_play.a3": "Sakatu 1etik 5era lerro horretarako, edo egin klik bere jokaldi batean: taulak erakusten du, partida dagoen lekuan geratzen den bitartean. → ← lerroan zehar mugitzen dira, Enter-ek erakutsitako jokaldiraino jokatzen du, Esc-ek partidara itzultzen da.",
@@ -4731,5 +4731,9 @@
  "pick.choose": "Aukeratu",
  "chess.engine_from_review": "partidaren analisitik, sakonago begiratzen…",
  "chess.memory": "Gogoratutako posizioak",
- "chess.memory_hint": "Motorrak aztertutako posizio bakoitza, zuzenean edo partida baten analisian, hemen gordetzen da motorrarekin eta haren ezarpenekin, berriro azter ez dadin. Gehienez {most} posizio (40 MB baino gutxiago); zaharrenak joaten dira lehenik. Diskoaren erabilerak ezabatzen ditu."
+ "chess.memory_hint": "Motorrak aztertutako posizio bakoitza, zuzenean edo partida baten analisian, hemen gordetzen da motorrarekin eta haren ezarpenekin, berriro azter ez dadin. Gehienez {most} posizio (40 MB baino gutxiago); zaharrenak joaten dira lehenik. Diskoaren erabilerak ezabatzen ditu.",
+ "chess.beside_title": "Deskonprimatu artxiboaren ondoan",
+ "chess.beside_ask": "{name} {size} da: handiegia artxiboaren barruan irekitzeko. Artxiboaren ondoan deskonprimatu, {folder} karpetan, eta han ireki? Kopia zurea da: han geratzen da ezabatu arte.",
+ "chess.beside_go": "Deskonprimatu eta ireki",
+ "chess.beside_failed": "Ezin izan da {name} deskonprimatu"
 }

@@ -1421,7 +1421,7 @@
  "feature.chess.q2": "Čte soubory ChessBase?",
  "feature.chess.q3": "Jak uvidím tahy s písmeny svého jazyka?",
  "feature.chess.title": "Šachové partie",
- "feature.chess.what": "Soubory PGN jako tabulka partií, kterou lze filtrovat a řadit, každá partie na šachovnici s tahy, variantami a komentáři; pozice EPD a FEN; tahy knihy Polyglot pro každou pozici. Otevírá je {chess}. Najít tuto pozici vypíše partie ve vašich souborech, které dojdou k zobrazené pozici. Čtou se i databáze SCID (.si4, .si5). Databáze s miliony partií se otevře se stejnou pamětí: její tabulka se ukládá na disk.",
+ "feature.chess.what": "Soubory PGN jako tabulka partií, kterou lze filtrovat a řadit, každá partie na šachovnici s tahy, variantami a komentáři; pozice EPD a FEN; tahy knihy Polyglot pro každou pozici. Otevírá je {chess}. Najít tuto pozici vypíše partie ve vašich souborech, které dojdou k zobrazené pozici. Čtou se i databáze SCID (.si4, .si5). Databáze s miliony partií se otevře se stejnou pamětí: její tabulka se ukládá na disk. Databáze příliš velká na otevření v archivu se po dotazu rozbalí vedle něj.",
  "feature.chess_play.a1": "Ne. Vaše varianta zůstává jen v zobrazení. Uložit jako nové PGN (s) zapíše partii až sem s vaší variantou do nového souboru vedle. U hry uvnitř archivu se ptá, kam.",
  "feature.chess_play.a2": "Coxswain používá engine nainstalovaný zde a nikdy žádný nestahuje. Nastavení → Hry → Šachové enginy uvádí Stockfish a další UCI enginy, nalezené nebo s řádkem, který je nainstaluje; Vyzkoušet engine pak ukáže vlastní volby enginu.",
  "feature.chess_play.a3": "Stiskněte 1 až 5 pro danou variantu, nebo klikněte na jeden z jejích tahů: šachovnice ji ukáže a partie zůstane, kde je. → ← jí procházejí, Enter ji zahraje až po zobrazený tah, Esc se vrátí k partii.",
@@ -4832,5 +4832,9 @@
  "pick.choose": "Vybrat",
  "chess.engine_from_review": "z rozboru partie, hledá hlouběji…",
  "chess.memory": "Zapamatované pozice",
- "chess.memory_hint": "Každá pozice, kterou motor rozebral, živě nebo v rozboru partie, se tu uchovává s motorem a jeho nastavením, takže se znovu nerozebírá. Nejvýše {most} pozic (pod 40 MB); nejstarší odcházejí první. Využití disku je smaže."
+ "chess.memory_hint": "Každá pozice, kterou motor rozebral, živě nebo v rozboru partie, se tu uchovává s motorem a jeho nastavením, takže se znovu nerozebírá. Nejvýše {most} pozic (pod 40 MB); nejstarší odcházejí první. Využití disku je smaže.",
+ "chess.beside_title": "Rozbalit vedle archivu",
+ "chess.beside_ask": "{name} má {size}: je příliš velký, aby se otevřel uvnitř archivu. Rozbalit ho vedle archivu do {folder} a otevřít tam? Kopie je vaše: zůstane tam, dokud ji nesmažete.",
+ "chess.beside_go": "Rozbalit a otevřít",
+ "chess.beside_failed": "{name} se nepodařilo rozbalit"
 }

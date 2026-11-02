@@ -1497,11 +1497,48 @@ export async function openGames(path, inside) {
     try {
       file = await invoke("archive_peek", { path });
     } catch (err) {
-      return void (ui.status = String(err));
+      // A game database too large to look at here: unpacked beside the archive, asked first;
+      // one unpacked before opens there.
+      const offer = await invoke("archive_beside", { path }).catch(() => null);
+      if (!offer) return void (ui.status = String(err));
+      const [b, whole] = offer;
+      if (whole) return openGames(b.open, false);
+      ui.modal = {
+        kind: "confirm",
+        title: t("chess.beside_title"),
+        text: t("chess.beside_ask", { name: basename(path), size: size(b.bytes), folder: b.folder }),
+        ok: t("chess.beside_go"),
+        safe: true,
+        feature: "chess",
+        run: () => unpackBeside(b),
+      };
+      return;
     }
   }
   const f = chessFormat(basename(file));
   ui.modal = { kind: f === "sgf" ? "go" : "chess", path: file, feature: { pdn: "draughts", shogi: "shogi", pbn: "bridge" }[f] };
+}
+
+/** The files of `b` copied out of their archive into its folder beside it, as Copy does (its
+ *  status line, Stop, Undo), then the database opened there. */
+async function unpackBeside(b) {
+  const what = basename(b.open);
+  ui.status = t("status.busy", { what });
+  const ended = watchJob(ui.status);
+  let stopped = null;
+  try {
+    stopped = await invoke("archive_unpack_beside", { beside: b });
+  } catch (e) {
+    ui.status = "";
+    ui.modal = failure(t("chess.beside_failed", { name: what }), e);
+    return;
+  } finally {
+    ended();
+    refreshUndo();
+  }
+  if (typeof stopped === "string") return void (ui.status = stopped);
+  ui.status = t("status.copied", { what });
+  return openGames(b.open, false);
 }
 
 /** A file opened as it is: in its default application, or its place said. */

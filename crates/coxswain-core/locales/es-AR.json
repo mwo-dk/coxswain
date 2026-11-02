@@ -1421,7 +1421,7 @@
  "feature.chess.q2": "¿Lee archivos de ChessBase?",
  "feature.chess.q3": "¿Cómo veo las jugadas con las letras de mi idioma?",
  "feature.chess.title": "Partidas de ajedrez",
- "feature.chess.what": "Archivos PGN como una tabla de partidas que podés filtrar y ordenar, cada partida en un tablero con sus jugadas, variantes y comentarios; posiciones EPD y FEN; las jugadas de un libro Polyglot para cada posición. {chess} los abre. Buscar esta posición lista las partidas de tus archivos que llegan al tablero mostrado. También se leen las bases de datos SCID (.si4, .si5). Una base de datos de millones de partidas se abre con la misma memoria: su tabla se guarda en el disco.",
+ "feature.chess.what": "Archivos PGN como una tabla de partidas que podés filtrar y ordenar, cada partida en un tablero con sus jugadas, variantes y comentarios; posiciones EPD y FEN; las jugadas de un libro Polyglot para cada posición. {chess} los abre. Buscar esta posición lista las partidas de tus archivos que llegan al tablero mostrado. También se leen las bases de datos SCID (.si4, .si5). Una base de datos de millones de partidas se abre con la misma memoria: su tabla se guarda en el disco. Una demasiado grande para abrirla dentro de su archivo se descomprime al lado, después de preguntar.",
  "feature.chess_play.a1": "No. Tu línea queda solo en la vista. Guardar como PGN nuevo (s) escribe la partida hasta ahí con tu línea en un archivo nuevo al lado. Para una partida dentro de un archivo comprimido, pregunta dónde.",
  "feature.chess_play.a2": "Coxswain usa un motor instalado acá y nunca descarga uno. Configuración → Juegos → Motores de ajedrez lista Stockfish y otros motores UCI, encontrados o con la línea que los instala; Probar el motor muestra después las opciones propias del motor.",
  "feature.chess_play.a3": "Apretá de 1 a 5 para esa línea, o hacé clic en una de sus jugadas: el tablero la muestra y la partida queda donde está. → ← la recorren, Enter la juega hasta la jugada mostrada, Esc vuelve a la partida.",
@@ -4829,5 +4829,9 @@
  "pick.choose": "Elegir",
  "chess.engine_from_review": "del análisis de la partida, busca más hondo…",
  "chess.memory": "Posiciones recordadas",
- "chess.memory_hint": "Cada posición que analizó el motor, en vivo o en un análisis de partida, se guarda acá con el motor y su configuración, para no analizarla de nuevo. Como mucho {most} posiciones (menos de 40 MB); las más viejas se van primero. Uso del disco las borra."
+ "chess.memory_hint": "Cada posición que analizó el motor, en vivo o en un análisis de partida, se guarda acá con el motor y su configuración, para no analizarla de nuevo. Como mucho {most} posiciones (menos de 40 MB); las más viejas se van primero. Uso del disco las borra.",
+ "chess.beside_title": "Descomprimir junto al archivo",
+ "chess.beside_ask": "{name} ocupa {size}: demasiado grande para abrirlo dentro del archivo comprimido. ¿Descomprimirlo junto al archivo, en {folder}, y abrirlo ahí? La copia es tuya: queda ahí hasta que la borres.",
+ "chess.beside_go": "Descomprimir y abrir",
+ "chess.beside_failed": "No se pudo descomprimir {name}"
 }

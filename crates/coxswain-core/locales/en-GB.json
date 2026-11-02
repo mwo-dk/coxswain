@@ -1339,7 +1339,7 @@
  "feature.chess.q2": "Does it read ChessBase files?",
  "feature.chess.q3": "How do I see moves in my own language's letters?",
  "feature.chess.title": "Chess games",
- "feature.chess.what": "PGN files as a table of games you can filter and sort, each game on a board with its moves, variations and comments; EPD and FEN positions; a Polyglot book's moves for each position. {chess} opens them. Find this position lists the games in your files that reach the board shown. SCID databases (.si4, .si5) are read too. A database of millions of games opens in the same memory: its table is kept on the disk.",
+ "feature.chess.what": "PGN files as a table of games you can filter and sort, each game on a board with its moves, variations and comments; EPD and FEN positions; a Polyglot book's moves for each position. {chess} opens them. Find this position lists the games in your files that reach the board shown. SCID databases (.si4, .si5) are read too. A database of millions of games opens in the same memory: its table is kept on the disk. One too large to open inside its archive is unpacked beside it, asked first.",
  "feature.chess_play.a1": "No. Your line is kept in the view only. Save as new PGN (s) writes the game up to there with your line into a new file next to it. For a game inside an archive it asks where.",
  "feature.chess_play.a2": "Coxswain uses an engine installed here and never downloads one. Settings → Games → Chess engines lists Stockfish and other UCI engines, found or with the line that installs them; Test engine then shows the engine's own options to set.",
  "feature.chess_play.a3": "Press 1 to 5 for that line, or click one of its moves: the board shows it while the game stays where it is. → ← step through it, Enter plays it up to the move shown, Esc goes back to the game.",
@@ -4742,5 +4742,9 @@
  "pick.choose": "Choose",
  "chess.engine_from_review": "from the game review, looking deeper…",
  "chess.memory": "Positions remembered",
- "chess.memory_hint": "Each position the engine analysed, live or in a game review, is kept here with its engine and settings, so it is not analysed again. At most {most} positions (under 40 MB); the oldest go first. Disk use clears them."
+ "chess.memory_hint": "Each position the engine analysed, live or in a game review, is kept here with its engine and settings, so it is not analysed again. At most {most} positions (under 40 MB); the oldest go first. Disk use clears them.",
+ "chess.beside_title": "Unpack beside the archive",
+ "chess.beside_ask": "{name} is {size}: too large to open inside the archive. Unpack it next to the archive, into {folder}, and open it there? The copy is yours: it stays there until you delete it.",
+ "chess.beside_go": "Unpack and open",
+ "chess.beside_failed": "Could not unpack {name}"
 }

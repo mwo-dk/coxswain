@@ -516,6 +516,9 @@ pub enum Dialog {
     Confirm { title: String, text: String, paths: Vec<PathBuf>, forever: bool },
     /// Pick mode with `--save`: `path` is there; may the program that asked replace it?
     Overwrite { title: String, text: String, path: PathBuf },
+    /// A game database too large to open inside its archive: unpack it beside the archive, and
+    /// open it there (`archive::beside`).
+    Beside { title: String, text: String, beside: Box<coxswain_core::archive::Beside> },
     /// Restore, delete for good or empty the bin: `paths` (none to empty it), asked first;
     /// `free_name`: a restore whose place is taken comes back beside it.
     Bin { title: String, text: String, op: coxswain_core::bin::Op, paths: Vec<PathBuf>, free_name: bool },
@@ -609,6 +612,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         },
         Dialog::Confirm { .. } => "delete",
         Dialog::Overwrite { .. } => "pick",
+        Dialog::Beside { .. } => "chess",
         Dialog::Bin { .. } => "bin",
         Dialog::Searchable { .. } => "searchable_pdf",
         Dialog::Media { op, .. } => media_feature(op.program()),
@@ -798,6 +802,9 @@ pub struct App {
     ebook_plan: Option<mpsc::Receiver<ebook::EbookPlan>>,
     /// Checksums being made or checked, on their thread.
     work: Option<Work>,
+    /// What opens once the copy under way is whole: a game database unpacked beside its
+    /// archive (`unpack_beside`).
+    open_after: Option<PathBuf>,
     /// Fetch or Pull under way (`coxswain_core::remote`).
     remote: Option<RemoteRun>,
     /// *Transcribe speech*'s question being worked out on a thread (the lengths of the
@@ -1160,6 +1167,7 @@ impl App {
             ebook: None,
             ebook_plan: None,
             work: None,
+            open_after: None,
             remote: None,
             transcribe_plan: None,
             export: None,
@@ -2547,7 +2555,17 @@ impl App {
                     copy = c;
                     &copy
                 }
-                Err(e) => return self.status = Some(e.to_string()),
+                // A game database too large to look at here: unpacked beside the archive, asked
+                // first; one unpacked before is opened there.
+                Err(e) => match coxswain_core::archive::beside(path) {
+                    Some(b) if b.unpacked() => return self.chess(&b.open.clone(), hit),
+                    Some(b) => {
+                        let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                        let text = t!("chess.beside_ask", "name" => name, "size" => coxswain_core::settings::human(b.bytes), "folder" => b.folder.display());
+                        return self.dialog = Some(Dialog::Beside { title: t!("chess.beside_title"), text, beside: Box::new(b) });
+                    }
+                    None => return self.status = Some(e.to_string()),
+                },
             }
         } else {
             path
@@ -2751,6 +2769,17 @@ impl App {
             Ok(text) => Dialog::Searchable { title, text, pdfs },
             Err(e) => Dialog::Message { title, text: format!("{e}\n\n{}", t!("searchable.settings_key", "key" => self.key_label(Action::Settings))) },
         });
+    }
+
+    /// The files of `b` copied out of their archive into its folder, as **F5** copies them (the
+    /// job's line, Esc stops it, **Ctrl+Z** undoes it); then the database opens there.
+    fn unpack_beside(&mut self, b: coxswain_core::archive::Beside) {
+        if let Err(e) = std::fs::create_dir_all(&b.folder) {
+            return self.status = Some(e.to_string());
+        }
+        let src = b.missing();
+        self.open_after = Some(b.open.clone());
+        self.transfer(Transfer::Copy, src, b.folder.clone(), None, None);
     }
 
     fn searchable_start(&mut self, pdfs: Vec<PathBuf>) {
@@ -3852,6 +3881,7 @@ impl App {
     /// `stopped`: Esc stopped it, and the line that says how far it got.
     fn finish(&mut self, job: Job, failed: Vec<(PathBuf, std::io::Error)>, rec: Option<Record>, stopped: Option<String>) {
         let Job { op, src, dst, password, select, .. } = job;
+        let was_stopped = stopped.is_some();
         // Again now it has ended: a folder measured while it ran would keep a size halfway.
         self.changed(&job_op(op).touches(&src, &dst));
         let what = Self::describe(&src);
@@ -3895,9 +3925,14 @@ impl App {
             Transfer::Mkdir => t!("error.create", "what" => src.first().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
             _ => coxswain_core::undo::failure_title(job_op(Some(op)), &what, src.len(), failed.len()),
         };
+        let whole = failed.is_empty() && !was_stopped;
         self.after_op(ok + &hint, fail, errors);
         if let Some((side, n)) = select {
             self.panels[side].select_name(&n);
+        }
+        // A game database unpacked beside its archive: opened there.
+        if let Some(open) = self.open_after.take().filter(|_| whole && op == Transfer::Copy) {
+            self.chess(&open, None);
         }
     }
 
@@ -4275,6 +4310,11 @@ impl App {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.export_start(op, files),
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Export { title, text, op, files }),
+            },
+            Dialog::Beside { title, text, beside } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.unpack_beside(*beside),
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Beside { title, text, beside }),
             },
             Dialog::Searchable { title, text, pdfs } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.searchable_start(pdfs),
