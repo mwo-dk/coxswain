@@ -3687,6 +3687,8 @@
  "space.zoom_out": "Oddálit",
  "state.favourites": "Oblíbené",
  "status.busy": "Pracuje se na {what}…",
+ "job.bytes": "{done} z {all}",
+ "job.bytes_rate": "{of} · {rate}/s · zbývá {left}",
  "status.busy_of": "Pracuje se na {what}… ({n}/{all})",
  "status.copied": "Zkopírováno: {what}",
  "status.created": "Vytvořeno: {what}",

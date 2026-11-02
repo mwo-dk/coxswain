@@ -3531,6 +3531,8 @@
  "space.zoom_out": "축소",
  "state.favourites": "즐겨찾기",
  "status.busy": "{what} 작업 중…",
+ "job.bytes": "{done} / {all}",
+ "job.bytes_rate": "{of} · {rate}/s · {left} 남음",
  "status.busy_of": "{what} 작업 중… ({n}/{all})",
  "status.copied": "{what}을(를) 복사했습니다",
  "status.created": "{what}을(를) 만들었습니다",

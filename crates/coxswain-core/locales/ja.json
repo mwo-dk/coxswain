@@ -3531,6 +3531,8 @@
  "space.zoom_out": "縮小",
  "state.favourites": "お気に入り",
  "status.busy": "{what} を処理中…",
+ "job.bytes": "{done} / {all}",
+ "job.bytes_rate": "{of} · {rate}/s · 残り {left}",
  "status.busy_of": "{what} を処理中… ({n}/{all})",
  "status.copied": "{what} をコピーしました",
  "status.created": "{what} を作成しました",

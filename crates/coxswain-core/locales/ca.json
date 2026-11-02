@@ -3687,6 +3687,8 @@
  "space.zoom_out": "Allunya",
  "state.favourites": "Preferits",
  "status.busy": "S'està processant {what}…",
+ "job.bytes": "{done} de {all}",
+ "job.bytes_rate": "{of} · {rate}/s · falten {left}",
  "status.busy_of": "S'està processant {what}… ({n}/{all})",
  "status.copied": "S'ha copiat {what}",
  "status.created": "S'ha creat {what}",

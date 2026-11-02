@@ -3609,6 +3609,8 @@
  "space.zoom_out": "Loitonna",
  "state.favourites": "Suosikit",
  "status.busy": "Käsitellään: {what}…",
+ "job.bytes": "{done}/{all}",
+ "job.bytes_rate": "{of} · {rate}/s · {left} jäljellä",
  "status.busy_of": "Käsitellään: {what}… ({n}/{all})",
  "status.copied": "Kopioitu: {what}",
  "status.created": "Luotu: {what}",

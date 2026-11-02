@@ -3765,6 +3765,8 @@
  "space.zoom_out": "Pomniejsz",
  "state.favourites": "Ulubione",
  "status.busy": "Pracuję nad {what}…",
+ "job.bytes": "{done} z {all}",
+ "job.bytes_rate": "{of} · {rate}/s · zostało {left}",
  "status.busy_of": "Pracuję nad {what}… ({n}/{all})",
  "status.copied": "Skopiowano {what}",
  "status.created": "Utworzono {what}",

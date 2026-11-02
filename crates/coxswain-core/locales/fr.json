@@ -3687,6 +3687,8 @@
  "space.zoom_out": "Dézoomer",
  "state.favourites": "Favoris",
  "status.busy": "Traitement de {what}…",
+ "job.bytes": "{done} sur {all}",
+ "job.bytes_rate": "{of} · {rate}/s · encore {left}",
  "status.busy_of": "Traitement de {what}… ({n}/{all})",
  "status.copied": "{what} copié",
  "status.created": "{what} créé",

@@ -3609,6 +3609,8 @@
  "space.zoom_out": "Herauszoomen",
  "state.favourites": "Favoriten",
  "status.busy": "{what} wird bearbeitet …",
+ "job.bytes": "{done} von {all}",
+ "job.bytes_rate": "{of} · {rate}/s · noch {left}",
  "status.busy_of": "{what} wird bearbeitet … ({n}/{all})",
  "status.copied": "{what} kopiert",
  "status.created": "{what} erstellt",

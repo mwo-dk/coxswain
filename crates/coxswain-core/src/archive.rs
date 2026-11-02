@@ -1095,6 +1095,8 @@ pub(crate) fn extract_target(path: &Path, dest_dir: &Path) -> PathBuf {
 /// came out so far; the file it was on is removed.
 pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> io::Result<PathBuf> {
     let k = kind(path).ok_or_else(|| not_archive(path))?;
+    // Not known until this archive's total is: never the one before's.
+    crate::stop::expect(0);
     let to = extract_target(path, dest_dir);
     std::fs::create_dir_all(dest_dir)?;
     // Made here, never one that is there (a link to elsewhere included).
@@ -1113,6 +1115,13 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
     // browsed), since the crate would read a crafted long-name record whole, however large:
     // `TAR_META` at most.
     let r = if matches!(k, Kind::SevenZ | Kind::Zip | Kind::Disk | Kind::Mbox | Kind::Image) {
+        // How far, by the bytes its files come out to (a solid 7z's one large file too). A disk
+        // image comes out through 7-Zip, uncounted.
+        if k != Kind::Disk
+            && let Ok(all) = items(path)
+        {
+            crate::stop::expect(all.iter().filter(|it| !it.dir).map(|it| it.size).sum());
+        }
         copy_out_with(
             path,
             "",
@@ -1122,7 +1131,11 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
         )
         .map(drop)
     } else {
-        items(path).and_then(|_| unpack_tar(tar_reader(path, k)?, &to))
+        // How far, by the packed bytes read of it: its names were read first.
+        items(path).and_then(|_| {
+            crate::stop::expect(std::fs::metadata(path)?.len());
+            unpack_tar(tar_reader(path, k)?, &to)
+        })
     };
     // A mailbox some messages of which could not come out keeps the others; what came out
     // before a Stop stays.

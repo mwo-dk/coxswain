@@ -3687,6 +3687,8 @@
  "space.zoom_out": "Nutolinti",
  "state.favourites": "Parankiniai",
  "status.busy": "Apdorojama: {what}…",
+ "job.bytes": "{done} iš {all}",
+ "job.bytes_rate": "{of} · {rate}/s · liko {left}",
  "status.busy_of": "Apdorojama: {what}… ({n}/{all})",
  "status.copied": "Nukopijuota: {what}",
  "status.created": "Sukurta: {what}",

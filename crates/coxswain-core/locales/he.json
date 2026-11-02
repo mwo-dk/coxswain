@@ -3687,6 +3687,8 @@
  "space.zoom_out": "התרחקות",
  "state.favourites": "מועדפים",
  "status.busy": "מעבד את {what}…",
+ "job.bytes": "{done} מתוך {all}",
+ "job.bytes_rate": "{of} · {rate}/s · נותרו {left}",
  "status.busy_of": "מעבד את {what}… ({n}/{all})",
  "status.copied": "{what} הועתק",
  "status.created": "{what} נוצר",

@@ -695,8 +695,24 @@ pub fn run(
     stop: &Arc<AtomicBool>,
     at: impl FnMut(usize),
 ) -> Ran {
-    crate::stop::during(stop, || run_items(op, items, dst, password, at))
+    run_counted(op, items, dst, password, stop, &Arc::default(), at)
 }
+
+/// `run`, with `bytes` counting how far it is inside an item where that is known (an
+/// extract), for the apps' progress line.
+pub fn run_counted(
+    op: Op,
+    items: &[PathBuf],
+    dst: &Path,
+    password: Option<&str>,
+    stop: &Arc<AtomicBool>,
+    bytes: &Arc<Bytes>,
+    at: impl FnMut(usize),
+) -> Ran {
+    crate::stop::during(stop, || crate::stop::counting(bytes, || run_items(op, items, dst, password, at)))
+}
+
+pub use crate::stop::Bytes;
 
 fn run_items(
     op: Op,
@@ -1382,6 +1398,35 @@ mod tests {
         assert_eq!(r.unwrap_err().kind(), io::ErrorKind::AlreadyExists);
         assert_eq!(fs::read_to_string(d.join("a.txt")).unwrap(), "keep me");
         assert_eq!(fs::read_to_string(d.join("b.txt")).unwrap(), "keep me");
+    }
+
+    /// An extract of one large file says how far it is inside that file, for a zip, a 7z (solid)
+    /// and a tar.zst: the bytes move on while it is written, and end at all of them.
+    #[test]
+    fn an_extract_of_one_large_file_counts_its_bytes_as_they_come() {
+        let d = tmp("extract-bytes");
+        let big = d.join("games.pgn");
+        // Text that does not pack to nothing: more reads than one buffer.
+        let text: String = (0..200_000).map(|i| format!("{} ", i * 7919 % 100_003)).collect();
+        fs::write(&big, &text).unwrap();
+        for name in ["one.zip", "one.7z", "one.tar.zst"] {
+            let archive = d.join(name);
+            crate::archive::create(&archive, std::slice::from_ref(&big)).unwrap();
+            let to = d.join(format!("out-{name}"));
+            fs::create_dir(&to).unwrap();
+            let bytes = Arc::new(Bytes::default());
+            let seen = std::rc::Rc::new(std::cell::RefCell::new(vec![]));
+            let (b, s) = (bytes.clone(), seen.clone());
+            crate::stop::LOOK.with(|l| *l.borrow_mut() = Some(Box::new(move || s.borrow_mut().push(b.now()))));
+            let r = run_counted(Op::Extract, std::slice::from_ref(&archive), &to, None, &Arc::default(), &bytes, |_| {});
+            crate::stop::LOOK.with(|l| *l.borrow_mut() = None);
+            assert!(r.failed.is_empty(), "{name}: {:?}", r.failed);
+            let (done, all) = bytes.now().unwrap();
+            assert_eq!(done, all, "{name}: all done at the end");
+            let between = seen.borrow().iter().flatten().filter(|(d, a)| *d > 0 && d < a).count();
+            assert!(between >= 2, "{name}: how far moved on inside the file ({between} looks between)");
+            assert!(bytes.line().is_some_and(|l| !l.starts_with("job.")));
+        }
     }
 
     #[test]

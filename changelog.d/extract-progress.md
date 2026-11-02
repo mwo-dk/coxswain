@@ -1,0 +1,1 @@
+| **Extracting one large file shows how far it is.** Ctrl+E on an archive now says the bytes done of all, the rate and the time left on the status line, and the desktop app's bar moves with them, inside a single multi-GB file in a 7z, zip or tar too; before, the bar stood still until the end. | [Pack and extract](files/pack-and-extract.md#what-you-see) |

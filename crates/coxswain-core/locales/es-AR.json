@@ -3687,6 +3687,8 @@
  "space.zoom_out": "Alejar",
  "state.favourites": "Favoritos",
  "status.busy": "Procesando {what}…",
+ "job.bytes": "{done} de {all}",
+ "job.bytes_rate": "{of} · {rate}/s · faltan {left}",
  "status.busy_of": "Procesando {what}… ({n}/{all})",
  "status.copied": "Se copió {what}",
  "status.created": "Se creó {what}",

@@ -3609,6 +3609,8 @@
  "space.zoom_out": "Zoom ut",
  "state.favourites": "Favoritter",
  "status.busy": "Arbeider med {what}…",
+ "job.bytes": "{done} av {all}",
+ "job.bytes_rate": "{of} · {rate}/s · {left} igjen",
  "status.busy_of": "Arbeider med {what}… ({n}/{all})",
  "status.copied": "Kopierte {what}",
  "status.created": "Opprettet {what}",
