@@ -4788,5 +4788,5 @@
  "convert.pull_fault_space": "na disku došlo místo; nějaké uvolněte",
  "ptools.pull_waiting": "Stažení se nezdařilo: {fault}. Další úloha to zkusí znovu po {time}.",
  "ptools.pull_unpulled": "Stažení se nezdařilo: {fault}.",
- "ptools.keys_tui_retry": "Enter: další volba · C: zkopírovat instalační řádek · P: Zkusit znovu hned (stáhnout obraz) · Delete: odebrat"
+ "ptools.keys_tui_retry": "Enter: další volba · C: zkopírovat instalační řádek · P: Zkusit znovu hned (stáhnout obraz) · Delete: Podrobnosti"
 }

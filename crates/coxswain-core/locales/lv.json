@@ -4785,5 +4785,5 @@
  "convert.pull_fault_space": "diskā nav vietas; atbrīvojiet kādu",
  "ptools.pull_waiting": "Lejupielāde neizdevās: {fault}. Nākamais darbs mēģinās vēlreiz pēc {time}.",
  "ptools.pull_unpulled": "Lejupielāde neizdevās: {fault}.",
- "ptools.keys_tui_retry": "Enter: nākamā izvēle · C: kopēt instalēšanas rindu · P: Mēģināt vēlreiz tagad (lejupielādēt attēlu) · Delete: noņemt"
+ "ptools.keys_tui_retry": "Enter: nākamā izvēle · C: kopēt instalēšanas rindu · P: Mēģināt vēlreiz tagad (lejupielādēt attēlu) · Delete: Detaļas"
 }

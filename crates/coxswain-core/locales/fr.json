@@ -4785,5 +4785,5 @@
  "convert.pull_fault_space": "plus de place sur le disque ; libérez-en",
  "ptools.pull_waiting": "Téléchargement échoué : {fault}. La prochaine tâche réessaie après {time}.",
  "ptools.pull_unpulled": "Téléchargement échoué : {fault}.",
- "ptools.keys_tui_retry": "Entrée : choix suivant · C : copier la ligne d’installation · P : Réessayer maintenant (télécharger l’image) · Suppr : la retirer"
+ "ptools.keys_tui_retry": "Entrée : choix suivant · C : copier la ligne d’installation · P : Réessayer maintenant (télécharger l’image) · Delete : Détails"
 }

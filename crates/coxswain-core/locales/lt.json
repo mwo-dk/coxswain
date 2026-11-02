@@ -4785,5 +4785,5 @@
  "convert.pull_fault_space": "diske nebėra vietos; atlaisvinkite jos",
  "ptools.pull_waiting": "Atsisiuntimas nepavyko: {fault}. Kita užduotis bandys iš naujo po {time}.",
  "ptools.pull_unpulled": "Atsisiuntimas nepavyko: {fault}.",
- "ptools.keys_tui_retry": "Enter: kitas pasirinkimas · C: kopijuoti diegimo eilutę · P: Bandyti dar kartą dabar (atsisiųsti atvaizdą) · Delete: pašalinti"
+ "ptools.keys_tui_retry": "Enter: kitas pasirinkimas · C: kopijuoti diegimo eilutę · P: Bandyti dar kartą dabar (atsisiųsti atvaizdą) · Delete: Išsami informacija"
 }

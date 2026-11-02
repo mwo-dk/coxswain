@@ -4600,5 +4600,5 @@
  "convert.pull_fault_space": "磁盘空间已满；请腾出一些空间",
  "ptools.pull_waiting": "下载失败：{fault}。下一个任务会在 {time} 之后重试。",
  "ptools.pull_unpulled": "下载失败：{fault}。",
- "ptools.keys_tui_retry": "Enter：下一个选项 · C：复制安装命令行 · P：立即重试（下载镜像）· Delete：移除"
+ "ptools.keys_tui_retry": "Enter：下一个选项 · C：复制安装命令行 · P：立即重试（下载镜像）· Delete：详情"
 }

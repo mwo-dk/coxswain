@@ -4698,5 +4698,5 @@
  "convert.pull_fault_space": "no space left on the disk; free some",
  "ptools.pull_waiting": "Download failed: {fault}. The next job tries again after {time}.",
  "ptools.pull_unpulled": "Download failed: {fault}.",
- "ptools.keys_tui_retry": "Enter: next choice · C: copy the install line · P: Retry now (pull the image) · Delete: remove it"
+ "ptools.keys_tui_retry": "Enter: next choice · C: copy the install line · P: Retry now (pull the image) · Delete: Details"
 }

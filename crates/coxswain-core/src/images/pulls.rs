@@ -204,7 +204,8 @@ fn pull_job(rt: &std::path::Path, image: &str, stop: &std::sync::atomic::AtomicB
         }
         Err(e) if stop.load(Ordering::Relaxed) => Err(e),
         Err(e) => {
-            crate::helper::note(format_args!("{image}: {e}"));
+            // An app's own stderr is its screen: the terminal app is drawn over by a line printed there.
+            crate::helper::app_log(&format!("{image}: {e}"));
             let fault = Fault::of(&e);
             let n = tries.map_or(0, |t| t.0);
             let at = fault.passing().then(|| crate::fs::now() + wait(n).as_secs());

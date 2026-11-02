@@ -4687,5 +4687,5 @@
  "convert.pull_fault_space": "slut på utrymme på disken; frigör något",
  "ptools.pull_waiting": "Hämtningen misslyckades: {fault}. Nästa jobb försöker igen efter {time}.",
  "ptools.pull_unpulled": "Hämtningen misslyckades: {fault}.",
- "ptools.keys_tui_retry": "Retur: nästa val · C: kopiera installationsraden · P: Försök igen nu (hämta avbilden) · Delete: ta bort den"
+ "ptools.keys_tui_retry": "Retur: nästa val · C: kopiera installationsraden · P: Försök igen nu (hämta avbilden) · Delete: Detaljer"
 }

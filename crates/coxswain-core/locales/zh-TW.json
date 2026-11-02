@@ -4600,5 +4600,5 @@
  "convert.pull_fault_space": "磁碟空間已滿；請騰出一些空間",
  "ptools.pull_waiting": "下載失敗：{fault}。下一個工作會在 {time} 之後重試。",
  "ptools.pull_unpulled": "下載失敗：{fault}。",
- "ptools.keys_tui_retry": "Enter：下一個選項 · C：複製安裝指令列 · P：立即重試（下載映像檔）· Delete：移除"
+ "ptools.keys_tui_retry": "Enter：下一個選項 · C：複製安裝指令列 · P：立即重試（下載映像檔）· Delete：詳細資料"
 }

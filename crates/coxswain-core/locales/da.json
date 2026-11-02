@@ -4687,5 +4687,5 @@
  "convert.pull_fault_space": "ikke mere plads på disken; frigør noget",
  "ptools.pull_waiting": "Hentning mislykkedes: {fault}. Næste opgave prøver igen efter {time}.",
  "ptools.pull_unpulled": "Hentning mislykkedes: {fault}.",
- "ptools.keys_tui_retry": "Enter: næste valg · C: kopiér installationslinjen · P: Prøv igen nu (hent aftrykket) · Delete: fjern det"
+ "ptools.keys_tui_retry": "Enter: næste valg · C: kopiér installationslinjen · P: Prøv igen nu (hent aftrykket) · Delete: Detaljer"
 }
