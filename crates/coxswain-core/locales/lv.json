@@ -4779,5 +4779,11 @@
  "feature.bin.a2": "Nekas netiek pārrakstīts. Coxswain pajautā un atjauno to blakus ar brīvu nosaukumu, piem., “atskaite (2).pdf”, vai atstāj atkritnē.",
  "feature.bin.q3": "Kāpēc Mac nevaru atjaunot?",
  "feature.bin.a3": "macOS neļauj lietotnēm likt failu atpakaļ. Ar pilnu diska piekļuvi Coxswain uzskaita atkritni un dzēš neatgriezeniski; atjaunošanai izmantojiet Finder komandu Likt atpakaļ.",
- "bin.finder_all_disks": "Finder iztukšo visu disku atkritnes, ne tikai šeit redzamo."
+ "bin.finder_all_disks": "Finder iztukšo visu disku atkritnes, ne tikai šeit redzamo.",
+ "convert.pull_waiting": "Attēlu {image} neizdevās lejupielādēt: {fault}. Palaidiet to vēlreiz pēc {time} vai lejupielādējiet uzreiz ar Mēģināt vēlreiz tagad sadaļā {where}.",
+ "convert.pull_unpulled": "Attēlu {image} neizdevās lejupielādēt: {fault}. Palaidiet to vēlreiz, kad tas ir novērsts, vai lejupielādējiet ar Mēģināt vēlreiz tagad sadaļā {where}.",
+ "convert.pull_fault_space": "diskā nav vietas; atbrīvojiet kādu",
+ "ptools.pull_waiting": "Lejupielāde neizdevās: {fault}. Nākamais darbs mēģinās vēlreiz pēc {time}.",
+ "ptools.pull_unpulled": "Lejupielāde neizdevās: {fault}.",
+ "ptools.keys_tui_retry": "Enter: nākamā izvēle · C: kopēt instalēšanas rindu · P: Mēģināt vēlreiz tagad (lejupielādēt attēlu) · Delete: noņemt"
 }

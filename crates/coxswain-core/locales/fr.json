@@ -4779,5 +4779,11 @@
  "feature.bin.a2": "Rien n’est écrasé. Coxswain demande et le restaure à côté sous un nom libre comme « rapport (2).pdf », ou le laisse dans la corbeille.",
  "feature.bin.q3": "Pourquoi ne puis-je pas restaurer sur un Mac ?",
  "feature.bin.a3": "macOS ne permet pas aux apps de remettre un fichier en place. Avec l’accès complet au disque, Coxswain liste la corbeille et supprime définitivement ; pour restaurer, utilisez Remettre en place dans le Finder.",
- "bin.finder_all_disks": "Le Finder vide la corbeille de tous les disques, pas seulement celle listée ici."
+ "bin.finder_all_disks": "Le Finder vide la corbeille de tous les disques, pas seulement celle listée ici.",
+ "convert.pull_waiting": "{image} n’a pas pu être téléchargée : {fault}. Relancez après {time}, ou téléchargez-la tout de suite avec Réessayer maintenant dans {where}.",
+ "convert.pull_unpulled": "{image} n’a pas pu être téléchargée : {fault}. Relancez une fois cela réglé, ou téléchargez-la avec Réessayer maintenant dans {where}.",
+ "convert.pull_fault_space": "plus de place sur le disque ; libérez-en",
+ "ptools.pull_waiting": "Téléchargement échoué : {fault}. La prochaine tâche réessaie après {time}.",
+ "ptools.pull_unpulled": "Téléchargement échoué : {fault}.",
+ "ptools.keys_tui_retry": "Entrée : choix suivant · C : copier la ligne d’installation · P : Réessayer maintenant (télécharger l’image) · Suppr : la retirer"
 }

@@ -398,7 +398,7 @@
   const limits = $derived([["time", t("settings.chess_limit_time")], ["depth", t("settings.chess_limit_depth")], ["nodes", t("settings.chess_limit_nodes")]]);
   const preferLabel = (v) => t({ auto: "settings.prefer_auto", local: "settings.prefer_local", container: "settings.prefer_container" }[v] ?? "settings.prefer_auto");
   const installed = (r) => r.programs.filter((p) => p.path);
-  const imageState = (im) => (tools.pulling[im.image] != null ? tools.pulling[im.image] || t("common.loading") : im.pulled != null ? t("settings.image_pulled", { size: size(im.pulled) }) : im.download ? `${t("settings.image_not_pulled")} (${im.download})` : t("settings.image_not_pulled"));
+  const imageState = (im) => (tools.pulling[im.image] != null ? tools.pulling[im.image] || t("common.loading") : tools.failed?.[im.image] ? tools.failed[im.image] : im.pulled != null ? t("settings.image_pulled", { size: size(im.pulled) }) : im.download ? `${t("settings.image_not_pulled")} (${im.download})` : t("settings.image_not_pulled"));
   // ------------------------------------------------------------ the chess engine
   /** The known engines (only looked for, never run), and what Test engine read: the chosen
    *  engine's name and options, "testing" while it runs, or why it could not. */
@@ -1023,7 +1023,7 @@
                       <small>{im.image ? t("ptools.container", { image: im.image.split("@")[0], state: imageState(im) }) : t("ptools.container_none", { key: im.key })}</small>
                       {#if !im.image}<button onclick={openConfig}>{t("settings.open_config")}</button>{/if}
                       {#if im.image && !tools.no_runtime}
-                        <button disabled={tools.pulling[im.image] != null} onclick={() => imageAction("pull_image", im.image)}>{t("settings.pull")}</button>
+                        <button disabled={tools.pulling[im.image] != null} onclick={() => imageAction("pull_image", im.image)}>{t(tools.failed?.[im.image] ? "settings.step.retry_now" : "settings.pull")}</button>
                         <button disabled={tools.pulling[im.image] != null || im.pulled == null} onclick={() => imageAction("remove_image", im.image)}>{t("common.remove")}</button>
                       {/if}
                     </div>

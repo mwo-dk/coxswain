@@ -352,7 +352,7 @@ fn pull(rt: &Path, image: &str, stop: &AtomicBool, said: &mut impl FnMut(Said)) 
         return Ok(());
     }
     std::thread::scope(|scope| {
-        let puller = scope.spawn(|| crate::images::pull_until(rt, image, stop));
+        let puller = scope.spawn(|| crate::images::pulls::in_job(rt, image, stop));
         while !puller.is_finished() {
             if let Some(line) = crate::images::pulling().get(image) {
                 said(Said::Pulling(line));

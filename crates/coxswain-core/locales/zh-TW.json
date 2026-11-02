@@ -4594,5 +4594,11 @@
  "feature.bin.a2": "不會覆寫任何內容。Coxswain 會詢問，並把它還原到另一個檔案旁邊，用一個空閒的名稱，例如「report (2).pdf」，或者把它留在垃圾桶中。",
  "feature.bin.q3": "為什麼在 Mac 上不能還原？",
  "feature.bin.a3": "macOS 不讓 App 放回檔案。取得「完整磁碟取用權限」後，Coxswain 能列出垃圾桶並永久刪除；要還原，請在 Finder 中使用「放回原位」。",
- "bin.finder_all_disks": "Finder 會清空每個磁碟的垃圾桶，而不只是這裡列出的那個。"
+ "bin.finder_all_disks": "Finder 會清空每個磁碟的垃圾桶，而不只是這裡列出的那個。",
+ "convert.pull_waiting": "無法下載 {image}：{fault}。請在 {time} 之後再執行，或在{where}用 立即重試 立即下載。",
+ "convert.pull_unpulled": "無法下載 {image}：{fault}。問題解決後再執行，或在{where}用 立即重試 下載。",
+ "convert.pull_fault_space": "磁碟空間已滿；請騰出一些空間",
+ "ptools.pull_waiting": "下載失敗：{fault}。下一個工作會在 {time} 之後重試。",
+ "ptools.pull_unpulled": "下載失敗：{fault}。",
+ "ptools.keys_tui_retry": "Enter：下一個選項 · C：複製安裝指令列 · P：立即重試（下載映像檔）· Delete：移除"
 }

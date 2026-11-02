@@ -4779,5 +4779,11 @@
  "feature.bin.a2": "Non si sovrascrive nulla. Coxswain chiede e lo ripristina accanto con un nome libero come «relazione (2).pdf», oppure lo lascia nel cestino.",
  "feature.bin.q3": "Perché sul Mac non posso ripristinare?",
  "feature.bin.a3": "macOS non permette alle app di rimettere un file. Con l’accesso completo al disco Coxswain elenca il cestino ed elimina definitivamente; per ripristinare usa Ripristina nel Finder.",
- "bin.finder_all_disks": "Il Finder svuota il cestino di tutti i dischi, non solo quello elencato qui."
+ "bin.finder_all_disks": "Il Finder svuota il cestino di tutti i dischi, non solo quello elencato qui.",
+ "convert.pull_waiting": "{image} non si è potuta scaricare: {fault}. Riesegui dopo le {time}, o scaricala subito con Riprova ora in {where}.",
+ "convert.pull_unpulled": "{image} non si è potuta scaricare: {fault}. Riesegui quando è risolto, o scaricala con Riprova ora in {where}.",
+ "convert.pull_fault_space": "spazio esaurito sul disco; liberane un po’",
+ "ptools.pull_waiting": "Download non riuscito: {fault}. Il prossimo lavoro riprova dopo le {time}.",
+ "ptools.pull_unpulled": "Download non riuscito: {fault}.",
+ "ptools.keys_tui_retry": "Invio: scelta successiva · C: copia la riga di installazione · P: Riprova ora (scarica l’immagine) · Canc: rimuovila"
 }

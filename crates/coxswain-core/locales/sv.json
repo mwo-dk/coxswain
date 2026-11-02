@@ -4681,5 +4681,11 @@
  "feature.bin.a2": "Inget skrivs över. Coxswain frågar och återställer den bredvid under ett ledigt namn som ”rapport (2).pdf”, eller låter den ligga kvar i papperskorgen.",
  "feature.bin.q3": "Varför kan jag inte återställa på en Mac?",
  "feature.bin.a3": "macOS låter inte appar lägga tillbaka en fil. Med full skivåtkomst visar Coxswain papperskorgen och raderar för gott; använd Lägg tillbaka i Finder för att återställa.",
- "bin.finder_all_disks": "Finder tömmer papperskorgen på alla skivor, inte bara den som visas här."
+ "bin.finder_all_disks": "Finder tömmer papperskorgen på alla skivor, inte bara den som visas här.",
+ "convert.pull_waiting": "{image} gick inte att hämta: {fault}. Kör det igen efter {time}, eller hämta det direkt med Försök igen nu i {where}.",
+ "convert.pull_unpulled": "{image} gick inte att hämta: {fault}. Kör det igen när det är åtgärdat, eller hämta det med Försök igen nu i {where}.",
+ "convert.pull_fault_space": "slut på utrymme på disken; frigör något",
+ "ptools.pull_waiting": "Hämtningen misslyckades: {fault}. Nästa jobb försöker igen efter {time}.",
+ "ptools.pull_unpulled": "Hämtningen misslyckades: {fault}.",
+ "ptools.keys_tui_retry": "Retur: nästa val · C: kopiera installationsraden · P: Försök igen nu (hämta avbilden) · Delete: ta bort den"
 }

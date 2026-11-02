@@ -61,6 +61,8 @@
  "convert.container_only": "{tool} no tiene un programa propio acá: instala podman o docker, y la imagen de Kroki lo dibuja.",
  "convert.no_image": "No hay imagen para {tool}: configura [preview.images] {tool} en la config",
  "convert.no_runtime_here": "Acá no hay podman ni docker, y las imágenes de las vistas previas son de Linux: instala el programa mismo, por ejemplo {line}",
+ "convert.pull_unpulled": "No se pudo descargar {image}: {fault}. Vuelve a ejecutarlo cuando eso esté arreglado, o descargala con Reintentar ahora en {where}.",
+ "convert.pull_waiting": "No se pudo descargar {image}: {fault}. Vuelve a ejecutarlo después de {time}, o descargala ya con Reintentar ahora en {where}.",
  "details.commit_tip": "Cuándo y quién hizo el último commit de cada entrada (haz clic para ordenar)",
  "dialogs.ask_placeholder": "Pregunta sobre tus archivos y presiona Enter",
  "dialogs.filter": "Escribe para filtrar…",

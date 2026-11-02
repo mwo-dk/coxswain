@@ -4779,5 +4779,11 @@
  "feature.bin.a2": "No se sobreescriu res. Coxswain pregunta i el restaura al costat amb un nom lliure com «informe (2).pdf», o el deixa a la paperera.",
  "feature.bin.q3": "Per què no puc restaurar en un Mac?",
  "feature.bin.a3": "macOS no deixa que les apps tornin un fitxer. Amb accés total al disc, Coxswain llista la paperera i suprimeix definitivament; per restaurar, fes servir Tornar al Finder.",
- "bin.finder_all_disks": "El Finder buida la paperera de tots els discs, no només la que es mostra aquí."
+ "bin.finder_all_disks": "El Finder buida la paperera de tots els discs, no només la que es mostra aquí.",
+ "convert.pull_waiting": "No s’ha pogut baixar {image}: {fault}. Torneu-ho a executar després de {time}, o baixeu-la ara amb Torna-ho a provar ara a {where}.",
+ "convert.pull_unpulled": "No s’ha pogut baixar {image}: {fault}. Torneu-ho a executar quan estigui arreglat, o baixeu-la amb Torna-ho a provar ara a {where}.",
+ "convert.pull_fault_space": "no queda espai al disc; allibereu-ne",
+ "ptools.pull_waiting": "La baixada ha fallat: {fault}. La tasca següent ho tornarà a provar després de {time}.",
+ "ptools.pull_unpulled": "La baixada ha fallat: {fault}.",
+ "ptools.keys_tui_retry": "Retorn: opció següent · C: copia la línia d’instal·lació · P: Torna-ho a provar ara (baixa la imatge) · Supr: elimina-la"
 }

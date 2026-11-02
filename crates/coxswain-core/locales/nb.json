@@ -4681,5 +4681,11 @@
  "feature.bin.a2": "Ingenting overskrives. Coxswain spør, og gjenoppretter den ved siden av under et ledig navn som «rapport (2).pdf», eller lar den ligge i papirkurven.",
  "feature.bin.q3": "Hvorfor kan jeg ikke gjenopprette på en Mac?",
  "feature.bin.a3": "macOS lar ikke apper legge en fil tilbake. Med full disktilgang viser Coxswain papirkurven og sletter for godt; bruk Legg tilbake i Finder for å gjenopprette.",
- "bin.finder_all_disks": "Finder tømmer papirkurven på alle disker, ikke bare den som vises her."
+ "bin.finder_all_disks": "Finder tømmer papirkurven på alle disker, ikke bare den som vises her.",
+ "convert.pull_waiting": "{image} kunne ikke lastes ned: {fault}. Kjør det på nytt etter {time}, eller last det ned med en gang med Prøv igjen nå i {where}.",
+ "convert.pull_unpulled": "{image} kunne ikke lastes ned: {fault}. Kjør det på nytt når det er rettet, eller last det ned med Prøv igjen nå i {where}.",
+ "convert.pull_fault_space": "ikke mer plass på disken; frigjør noe",
+ "ptools.pull_waiting": "Nedlastingen mislyktes: {fault}. Neste jobb prøver igjen etter {time}.",
+ "ptools.pull_unpulled": "Nedlastingen mislyktes: {fault}.",
+ "ptools.keys_tui_retry": "Enter: neste valg · C: kopier installasjonslinjen · P: Prøv igjen nå (last ned avbildet) · Delete: fjern det"
 }

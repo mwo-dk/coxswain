@@ -43,6 +43,7 @@
  "confirm.delete_forever": "Supprimer définitivement {what}? Cette action est irréversible.",
  "confirm.no_trash_here": "Pas de corbeille sur ce disque : supprimer définitivement {what}?",
  "confirm.trash": "Placer {what} dans la corbeille?",
+ "convert.pull_fault_space": "plus de place sur le disque; libérez-en",
  "dialogs.help_quick": "Recherche rapide : maintenez Alt et tapez une lettre (ou tapez simplement, quand Saisie de lettres saute; la ligne de commande est alors sur {key}), puis continuez à taper le début d’un nom; le curseur saute au premier nom qui convient. Backspace reprend une lettre; Esc ou toute autre touche la termine.",
  "disk.confirm_all": "Vider tout ceci? Cliquez à nouveau",
  "disk.confirm_one": "Vider {what}? Cliquez à nouveau",

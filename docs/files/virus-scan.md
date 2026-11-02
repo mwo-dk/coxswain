@@ -225,5 +225,9 @@ pipes or devices, which are never followed.
 Because the database comes from ClamAV's server, and nothing leaves your machine unless you
 ask. Turning it on is that asking; Settings names the server.
 
+#### The image could not be downloaded. What now?
+
+The scan says why in plain words (*no network*) and the time it can be run again; the image's row in *Settings → Previews → Preview tools* says the same, and **Retry now** (the **Pull** button, **P** in the terminal app) pulls it at once. See [An image that cannot be downloaded](../previews/tools.md#an-image-that-cannot-be-downloaded).
+
 ---
 [← Previous: Export draw.io diagram](drawio-export.md) · [Next: Customising →](../customise/README.md)
