@@ -2612,7 +2612,16 @@ fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     // still being looked at, and peeks piling up while the cursor moves each unpack.
     static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
-    let folder = peek_folder()?;
+    // A folder for each file of each archive as it is now: what is kept by a copy's path, size
+    // and date (a ChessBase archive unpacked, a listing, a preview) is never taken for another
+    // archive's file of the same name, size and date.
+    let folder = peek_folder()?.join(format!("{:016x}", {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        (&archive, identity(&archive)?, &inner, it.size, it.modified).hash(&mut h);
+        h.finish()
+    }));
+    crate::fs::private_dir(&folder)?;
     let to = folder.join(inner.rsplit('/').next().filter(|n| one_name(n)).unwrap_or("file"));
     // What comes out is counted too: a size the archive claims may be a lie.
     copy_out_with(
@@ -4019,6 +4028,42 @@ mod tests {
         assert_eq!(std::fs::read(peek(&first.join("note.txt")).unwrap()).unwrap(), b"in parts");
         assert_eq!(std::fs::read(peek(&first.join("noise.bin")).unwrap()).unwrap(), noise);
         assert_eq!(crate::enter::enter(&first, false, crate::enter::Place::Disk), crate::enter::Enter::Archive);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Two archives each holding a file of the same name, size and date: each look gets its
+    /// own copy, so nothing kept by a copy's path (a listing, a ChessBase archive unpacked) is
+    /// taken for the other's. The same file looked at again gets the same copy.
+    #[test]
+    fn same_name_size_and_date_in_two_archives_are_two_copies() {
+        let _alone = nested_alone();
+        let d = crate::pictures::tests::folder("peek-origin");
+        let when = crate::fs::epoch(1_700_000_000);
+        let mut outers = vec![];
+        for (n, inside) in [(1, "a"), (2, "b")] {
+            let src = d.join(format!("src{n}"));
+            std::fs::create_dir_all(&src).unwrap();
+            let file = src.join(inside);
+            std::fs::write(&file, inside).unwrap();
+            File::options().write(true).open(&file).unwrap().set_modified(when).unwrap();
+            let inner = src.join("games.zip");
+            create(&inner, &[file]).unwrap();
+            File::options().write(true).open(&inner).unwrap().set_modified(when).unwrap();
+            let outer = d.join(format!("outer{n}.zip"));
+            create(&outer, &[inner]).unwrap();
+            outers.push(outer);
+        }
+        let it = |o: &Path| items(o).unwrap().iter().find(|i| i.name == "games.zip").map(|i| (i.size, i.modified)).unwrap();
+        assert_eq!(it(&outers[0]), it(&outers[1]), "the same name, size and date");
+        let names = |o: &Path| {
+            let copy = peek(&o.join("games.zip")).unwrap();
+            (copy.clone(), list(&copy, 10).unwrap().0.into_iter().map(|e| e.name).collect::<Vec<_>>())
+        };
+        let (first, one) = names(&outers[0]);
+        let (second, two) = names(&outers[1]);
+        assert_ne!(first, second);
+        assert_eq!((one, two), (vec!["a".to_string()], vec!["b".to_string()]));
+        assert_eq!(names(&outers[0]).0, first, "the same file, the same copy");
         std::fs::remove_dir_all(d).unwrap();
     }
 
