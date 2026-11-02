@@ -244,9 +244,11 @@ cask on Linux is the AppImage, and its formula is the terminal app only) or pres
 
 #### How is a file inside an archive previewed?
 
-A picture the web view draws (PNG, JPEG, GIF, WebP …) is read straight out of the archive into
-memory, up to 64 MB, with no copy on the disk; a text file's first 512 KB too. Anything else is
-not on disk, so Coxswain copies that one file out into its cache folder
+What the desktop app's web view draws itself (a picture such as PNG, JPEG, GIF or WebP, a PDF,
+a song, a video, a font) is read straight out of the archive into memory, up to 64 MB, with no
+copy on the disk; a player's seeking is answered from that one unpacking. A text file's first
+512 KB too. In the terminal app (its readers and players need a file), and for anything else,
+Coxswain copies that one file out into its cache folder
 (`coxswain/peek/`, see [Where things are kept](../reference/where-things-are-kept.md)) and
 previews the copy. There is one copy at a time; the next look replaces it. Files over 256 MB are
 not copied just for a look.

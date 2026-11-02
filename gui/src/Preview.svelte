@@ -33,10 +33,25 @@
   const inHistory = $derived(!!pane?.history && inside);
   /** Text and pictures inside an archive are read as they are unpacked, no copy made
    *  (`archive::head`, through `read_text` and `asset:`); a file that cannot be read so (locked,
-   *  too large a picture, a game to put on its board) is listed here and gets its copy. */
+   *  too large a picture, a game to put on its board) is listed here and gets its copy. PDFs,
+   *  songs, videos and fonts, which the web view draws itself, come the same way up to 64 MB
+   *  (`asset.rs`, `MAX_INSIDE`), a player's ranges from one unpacking. */
   let copied = $state([]);
   const DIRECT = ["text", "markdown", "data", "image"];
-  const direct = $derived(inside && !inHistory && DIRECT.includes(previewKind(raw)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
+  const DRAWN = ["pdf", "audio", "video", "font"];
+  const direct = $derived(inside && !inHistory && (DIRECT.includes(previewKind(raw)) || (DRAWN.includes(previewKind(raw)) && raw.size <= 64 * 1024 * 1024)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
+  /** `path` as the web view asks for it: from memory when it is read so. */
+  const src = (path) => convertFileSrc(path) + (direct ? "?inside" : "");
+  // A PDF's frame says nothing when its file cannot be served so (locked, say): asked first,
+  // and from a copy then. The answer stays unpacked in memory for the frame's own request.
+  $effect(() => {
+    const cur = raw;
+    if (!direct || previewKind(cur) !== "pdf") return;
+    fetch(convertFileSrc(cur.path) + "?inside", { method: "HEAD" }).then(
+      (r) => r.ok || needsCopy(cur.path),
+      () => needsCopy(cur.path),
+    );
+  });
   /** `path` gets its copy after all. */
   const needsCopy = (path) => !copied.includes(path) && (copied = [...copied.slice(-50), path]);
   let peeked = $state({ from: "", to: "", error: "" });
@@ -287,7 +302,7 @@
       try {
         if (k === "docx") r = { html: await renderDocx(cur.path) };
         else if (k === "notebook") r = { html: await renderNotebook(cur.path) };
-        else if (k === "font") r = await loadFont(cur.path);
+        else if (k === "font") r = await loadFont(cur.path, direct).catch((err) => { if (direct) needsCopy(cur.path); throw err; });
         else if (k === "parquet") r = { parquet: await readParquet(cur.path) };
         else if (deck) r = { slides: await renderPptx(cur.path) };
         else if (k === "drawio") {
@@ -498,7 +513,7 @@
   $effect(() => {
     const cur = e;
     scanned = "";
-    if (kind !== "pdf" || !cur || cur.size > 15e6) return;
+    if (kind !== "pdf" || !cur || direct || cur.size > 15e6) return;
     const id = `${cur.path}\0${cur.size}\0${cur.modified}`;
     if (scans.has(id)) return void (scanned = scans.get(id) ? cur.path : "");
     const timer = setTimeout(async () => {
@@ -1010,7 +1025,7 @@
         {/if}
         <div class="drawio" use:drawioView={rich.drawio}></div>
       {:else if kind === "image"}
-        <div class="media checker"><img src={convertFileSrc(e.path) + (direct ? "?inside" : "")} alt={e.name} onerror={() => direct && needsCopy(e.path)} /></div>
+        <div class="media checker"><img src={src(e.path)} alt={e.name} onerror={() => direct && needsCopy(e.path)} /></div>
       {:else if kind === "picture"}
         {#if pic?.error}
           <p class="more">{pic.error}</p>
@@ -1050,15 +1065,15 @@
         <div class="media">
           <!-- svelte-ignore a11y_media_has_caption -->
           <!-- A codec the web view lacks: a frame of it instead, with MP4 offered (`media`). -->
-          <video src={convertFileSrc(e.path)} controls preload="metadata" poster={still?.path === e.path ? convertFileSrc(still.file) : undefined} onerror={() => (sniffed = { path: e.path, kind: "video_other" })}></video>
+          <video src={src(e.path)} controls preload="metadata" poster={still?.path === e.path ? convertFileSrc(still.file) : undefined} onerror={() => (direct ? needsCopy(e.path) : (sniffed = { path: e.path, kind: "video_other" }))}></video>
         </div>
       {:else if kind === "audio"}
         {#if still?.path === e.path}<div class="media wave"><img src={convertFileSrc(still.file)} alt={t("media.waveform")} /></div>{/if}
-        <div class="media"><audio src={convertFileSrc(e.path)} controls preload="metadata" onerror={() => (sniffed = { path: e.path, kind: "audio_other" })}></audio></div>
+        <div class="media"><audio src={src(e.path)} controls preload="metadata" onerror={() => (direct ? needsCopy(e.path) : (sniffed = { path: e.path, kind: "audio_other" }))}></audio></div>
       {:else if kind === "pdf"}
         <!-- Make PDF searchable: offered on every PDF, said why on one without text (a scan). -->
-        <p class="more">{#if scanned === e.path}{t("preview.scanned")} {/if}<button class="render" onclick={() => makeSearchable([e.path])}>{t("action.searchable_pdf")}</button> <kbd>{ui.cfg.actions.searchable_pdf?.[1] ?? ""}</kbd></p>
-        <iframe class="pdf" src={convertFileSrc(e.path) + "#zoom=page-width"} title={e.name}></iframe>
+        {#if !direct}<p class="more">{#if scanned === e.path}{t("preview.scanned")} {/if}<button class="render" onclick={() => makeSearchable([e.path])}>{t("action.searchable_pdf")}</button> <kbd>{ui.cfg.actions.searchable_pdf?.[1] ?? ""}</kbd></p>{/if}
+        <iframe class="pdf" src={src(e.path) + "#zoom=page-width"} title={e.name}></iframe>
       {:else if kind === "disk_image"}
         {#if disk?.error}
           <p class="more">{disk.error}</p>
