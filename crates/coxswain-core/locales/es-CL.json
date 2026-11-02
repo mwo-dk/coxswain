@@ -358,6 +358,7 @@
  "hint.menu": "{key}: lo que puedes hacer con esto",
  "hint.quick": "Alt+letra salta a un nombre: escribe cómo empieza",
  "hint.repos": "Haz clic derecho en un repositorio git de la barra lateral para fijarlo o quitarlo; Supr quita el que tiene el foco",
+ "hint.via_menu": "{action} tiene la tecla {key}. Cámbiala en {settings} o en config.toml, bajo [keys]; {menu} → {key_test} muestra si llega a Coxswain",
  "history.no_upstream": "Esta rama no tiene upstream con el cual comparar: configura uno en tu herramienta de git",
  "history.pick_commit": "Primero elige un commit",
  "image.cost.asciidoctor": "Trabaja solo cuando lo pides: unos segundos de procesador por documento.",
