@@ -110,7 +110,7 @@ fn prune_in(dir: &Path, age: Duration, most: u64) {
 }
 
 /// A preview folder renamed out of the way, then removed.
-fn gone(path: &Path) {
+pub(crate) fn gone(path: &Path) {
     let name = path.file_name().unwrap_or_default().to_string_lossy();
     let aside = path.with_file_name(format!(".gone-{name}-{}", std::process::id()));
     if std::fs::rename(path, &aside).is_ok() {

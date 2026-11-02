@@ -383,9 +383,10 @@ pub(crate) fn is_dhtml(path: &Path) -> bool {
 /// to terabytes, stops here, with the games read so far and a note saying so.
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {
-    /// Games in the table (48 bytes each).
+    /// Games in the table (48 bytes each, on the disk).
     pub games: usize,
-    /// Bytes of the names kept (players, events, openings), with what keeping each costs.
+    /// Bytes of memory the names met (players, events, openings) take while the file is
+    /// read: 32 a name.
     pub names: usize,
     /// Bytes a packed file is unpacked to, at most.
     pub unpacked: u64,
@@ -393,7 +394,7 @@ pub struct Limits {
 
 impl Default for Limits {
     fn default() -> Self {
-        Limits { games: 10_000_000, names: 256 << 20, unpacked: 64 << 30 }
+        Limits { games: 1 << 30, names: 256 << 20, unpacked: 64 << 30 }
     }
 }
 
@@ -528,37 +529,19 @@ pub fn kind(path: &Path) -> super::Format {
     if xiangqi { super::Format::Xiangqi } else { super::Format::Pgn }
 }
 
-/// One game in the table: 48 bytes, so a million games take 48 MB.
-#[derive(Clone, Copy)]
-struct Rec {
-    offset: u64,
-    len: u32,
-    white: u32,
-    black: u32,
-    event: u32,
-    /// The opening's name, interned; `u32::MAX` for none.
-    opening: u32,
-    /// yyyymmdd, unknown parts 0.
-    date: u32,
-    white_elo: u16,
-    black_elo: u16,
-    /// 'A'..'E' as 1..5 times 100 plus the number, 0 for none.
-    eco: u16,
-    plies: u16,
-    /// 1 White won, 2 Black won, 3 a draw, 0 anything else.
-    result: u8,
-    /// The result as written, interned: draughts writes `2-0`.
-    result_name: u32,
-}
+use super::table::{Rec, Table};
 
 #[derive(Default)]
 struct Shared {
-    recs: Vec<Rec>,
-    strings: Vec<Box<str>>,
+    /// Rows in the table, readable.
+    count: u32,
+    /// Names in the table: the names' order is worked out again when more came.
+    names: u32,
     done: bool,
     /// Stopped at `Limits`: the table has the games read until then.
     capped: bool,
     error: Option<String>,
+    kept: bool,
 }
 
 fn result_code(r: &str) -> u8 {
@@ -622,8 +605,17 @@ impl Source {
             buf.truncate(n);
             return Ok(buf);
         }
-        // ponytail: a packed file is unpacked from its start for a game before the last one
-        // read; seek points every few MB would make going back cheap, if it is ever slow.
+        // The place nearest before the game the first pass kept (`tar_index`: a gzip every few
+        // MB, a zstd at each frame): unpacked from there, not from the start.
+        let kind = if pack(&self.path) == Pack::Gz { crate::archive::Pack::Gz } else { crate::archive::Pack::Zst };
+        if self.open.as_ref().is_none_or(|(_, at)| *at > offset || offset - *at > 4 << 20)
+            && let Some((mut r, skip)) = crate::tar_index::from(&self.path, kind, offset)?
+        {
+            io::copy(&mut (&mut r).take(skip), &mut io::sink())?;
+            let n = read_full(&mut r, &mut buf)?;
+            buf.truncate(n);
+            return Ok(buf);
+        }
         if self.open.as_ref().is_none_or(|(_, at)| *at > offset) {
             self.open = Some((reader(&self.path, Arc::default(), Limits::default().unpacked)?, 0));
         }
@@ -658,6 +650,8 @@ pub struct Progress {
     /// Stopped at a limit (`Limits`): only the first `games` games are in the table.
     pub capped: bool,
     pub error: Option<String>,
+    /// The table kept from before was taken (`table`): the file was not read again.
+    pub kept: bool,
 }
 
 /// What the table shows: which games, in what order.
@@ -729,12 +723,14 @@ pub struct Row {
     pub moves: u32,
 }
 
-/// The games of one PGN file.
+/// The games of one PGN file, in a table on the disk (`table`): a file of any number of games
+/// takes the same memory, and opened again unchanged it is not read again.
 pub struct Library {
     pub path: PathBuf,
     /// `Pgn`, or `Pdn` for draughts.
     pub format: super::Format,
     shared: Arc<Mutex<Shared>>,
+    table: Arc<Table>,
     read: Arc<AtomicU64>,
     size: u64,
     stop: Arc<AtomicBool>,
@@ -743,6 +739,8 @@ pub struct Library {
     scid: Option<Arc<super::scid::Base>>,
     /// A ChessBase archive's unpacked files, kept while this reads them (`cbv::hold`).
     _held: Option<super::cbv::Held>,
+    /// The names' order (`Table::ranks`), with how many names there were then.
+    ranks: Mutex<Option<(u32, Arc<Vec<u32>>)>>,
 }
 
 impl Drop for Library {
@@ -752,7 +750,8 @@ impl Drop for Library {
 }
 
 impl Library {
-    /// Starts reading the file's games, on a thread of its own.
+    /// Starts reading the file's games, on a thread of its own; a table kept from before, of
+    /// the file as it is, is taken as it is.
     pub fn open(path: &Path) -> io::Result<Library> {
         Library::open_with(path, Limits::default())
     }
@@ -764,120 +763,175 @@ impl Library {
         let shared = Arc::new(Mutex::new(Shared::default()));
         let stop = Arc::new(AtomicBool::new(false));
         let source = Mutex::new(Source { path: path.to_path_buf(), open: None });
-        if super::scid::is_scid(path) {
-            let base = Arc::new(super::scid::Base::open(path)?);
-            let (sh, st, b, rd) = (shared.clone(), stop.clone(), base.clone(), read.clone());
-            std::thread::Builder::new()
-                .name("chess-games".into())
-                .spawn(move || index(|each| scan_scid(&b, &st, &rd, each), &sh, super::Format::Pgn, limits, || false))?;
-            return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: Some(base), _held: None });
+        let scid = if super::scid::is_scid(path) { Some(Arc::new(super::scid::Base::open(path)?)) } else { None };
+        let cbh = super::cbh::is_cbh(path);
+        let format = if scid.is_some() || cbh { super::Format::Pgn } else { kind(path) };
+        let (table, kept) = Table::open(path, &format!("{limits:?}"))?;
+        let table = Arc::new(table);
+        let _held = (cbh && super::cbv::is_cbv(path)).then(|| super::cbv::hold(path));
+        let lib = |shared, size| Library { path: path.to_path_buf(), format, shared, table: table.clone(), read: read.clone(), size, stop: stop.clone(), source, scid: scid.clone(), _held, ranks: Mutex::new(None) };
+        if let Some(done) = kept {
+            {
+                let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
+                (s.count, s.done, s.capped, s.kept) = (done.games, true, done.capped, true);
+            }
+            read.store(size, Ordering::Relaxed);
+            return Ok(lib(shared, size));
         }
-        if super::cbh::is_cbh(path) {
+        let (sh, st, rd, t) = (shared.clone(), stop.clone(), read.clone(), table.clone());
+        let thread = std::thread::Builder::new().name("chess-games".into());
+        if let Some(base) = &scid {
+            let b = base.clone();
+            thread.spawn(move || index(|each| scan_scid(&b, &st, &rd, each), &sh, &t, &st, super::Format::Pgn, limits, || false))?;
+            return Ok(lib(shared, size));
+        }
+        if cbh {
             // An archive is unpacked first, then read: its bar has both (`scan_cbh`).
             let size = if super::cbv::is_cbv(path) { size.saturating_mul(2) } else { size };
-            let (sh, st, rd, p) = (shared.clone(), stop.clone(), read.clone(), path.to_path_buf());
-            std::thread::Builder::new()
-                .name("chess-games".into())
-                .spawn(move || index(|each| scan_cbh(&p, &st, &rd, size, true, each), &sh, super::Format::Pgn, limits, || false))?;
-            let _held = super::cbv::is_cbv(path).then(|| super::cbv::hold(path));
-            return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: None, _held });
+            let p = path.to_path_buf();
+            thread.spawn(move || index(|each| scan_cbh(&p, &st, &rd, size, true, each), &sh, &t, &st, super::Format::Pgn, limits, || false))?;
+            return Ok(lib(shared, size));
         }
-        let r = reader(path, read.clone(), limits.unpacked)?;
-        // What the packed file unpacked to: at the limit, the rest of it was left.
-        let unpacked = Arc::new(AtomicU64::new(0));
-        let packed = pack(path) != Pack::None;
-        let r: Box<dyn Read + Send> = Box::new(Counted { inner: r, read: unpacked.clone() });
-        let (sh, st) = (shared.clone(), stop.clone());
-        let format = kind(path);
-        std::thread::Builder::new().name("chess-games".into()).spawn(move || {
-            index(|each| scan(BufReader::with_capacity(1 << 16, r), &st, format, true, false, each), &sh, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked)
+        let packing = pack(path);
+        let r = if matches!(packing, Pack::Gz | Pack::Zst) { None } else { Some(reader(path, read.clone(), limits.unpacked)?) };
+        if r.is_none() {
+            File::open(path)?;
+        }
+        let p = path.to_path_buf();
+        thread.spawn(move || {
+            // A gzip or zstd is unpacked here, noting the places it can be unpacked from
+            // again (`tar_index`), so a game far into it is read without unpacking all before.
+            let points = crate::tar_index::Points::default();
+            let r: Box<dyn Read> = match r {
+                Some(r) => r,
+                None => match File::open(&p) {
+                    Ok(f) => {
+                        let f = BufReader::new(Counted { inner: f, read: rd });
+                        if packing == Pack::Gz {
+                            Box::new(crate::tar_index::Gz::new(f, Some(points.clone())).take(limits.unpacked))
+                        } else {
+                            Box::new(crate::tar_index::Zst::new(f, Some(points.clone())).take(limits.unpacked))
+                        }
+                    }
+                    Err(e) => {
+                        let mut s = sh.lock().unwrap_or_else(|e| e.into_inner());
+                        (s.done, s.error) = (true, Some(e.to_string()));
+                        return;
+                    }
+                },
+            };
+            // What the packed file unpacked to: at the limit, the rest of it was left.
+            let unpacked = Arc::new(AtomicU64::new(0));
+            let r = Counted { inner: r, read: unpacked.clone() };
+            let packed = packing != Pack::None;
+            index(|each| scan(BufReader::with_capacity(1 << 16, r), &st, format, true, false, each), &sh, &t, &st, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked);
+            if !st.load(Ordering::Relaxed) {
+                crate::tar_index::save_points(&p, &points.borrow());
+            }
         })?;
-        Ok(Library { path: path.to_path_buf(), format, shared, read, size, stop, source, scid: None, _held: None })
+        Ok(lib(shared, size))
     }
 
     pub fn progress(&self) -> Progress {
         let s = self.shared.lock().unwrap_or_else(|e| e.into_inner());
-        Progress { games: s.recs.len(), done: s.done, capped: s.capped, read: self.read.load(Ordering::Relaxed).min(self.size), size: self.size, error: s.error.clone() }
+        Progress { games: s.count as usize, done: s.done, capped: s.capped, read: self.read.load(Ordering::Relaxed).min(self.size), size: self.size, error: s.error.clone(), kept: s.kept }
     }
 
-    /// The games that `q` lets through, in its order: their indices (from 0).
-    pub fn query(&self, q: &Query) -> Vec<u32> {
+    fn count(&self) -> (u32, u32) {
         let s = self.shared.lock().unwrap_or_else(|e| e.into_inner());
+        (s.count, s.names)
+    }
+
+    /// The names' order, worked out once for as many names as there are.
+    fn ranks(&self, names: u32) -> Arc<Vec<u32>> {
+        let mut r = self.ranks.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((n, ranks)) = r.as_ref()
+            && *n == names
+        {
+            return ranks.clone();
+        }
+        let ranks = Arc::new(self.table.ranks());
+        *r = Some((names, ranks.clone()));
+        ranks
+    }
+
+    /// The games that `q` lets through, in its order: their indices (from 0). The table is read
+    /// through once from the disk; what stays in memory is 4 bytes a game let through (8 while
+    /// they are sorted) and a byte a name.
+    pub fn query(&self, q: &Query) -> Vec<u32> {
+        let (count, names) = self.count();
+        let all = Query { sort: q.sort, desc: q.desc, ..Query::default() };
+        if *q == all && q.sort == Sort::Number {
+            // Every game in the file's order, as while the table fills: nothing to read.
+            let ids = 0..count;
+            return if q.desc { ids.rev().collect() } else { ids.collect() };
+        }
         let player = q.player.trim().to_lowercase();
         let opening = q.opening.trim().to_lowercase();
-        // The interned names that match, looked at once each rather than per game.
-        let names = |needle: &str| -> Vec<bool> {
-            if needle.is_empty() {
-                return vec![];
-            }
-            s.strings.iter().map(|n| n.to_lowercase().contains(needle)).collect()
-        };
-        let players = names(&player);
-        let openings = names(&opening);
+        // The names that match, looked at once each rather than per game.
+        let players = if player.is_empty() { vec![] } else { self.table.matching(&player) };
+        let openings = if opening.is_empty() { vec![] } else { self.table.matching(&opening) };
         let result = result_code(q.result.trim());
         let hit = |ids: &Vec<bool>, i: u32| ids.get(i as usize).copied().unwrap_or(false);
-        let mut ids: Vec<u32> = (0..s.recs.len() as u32)
-            .filter(|&i| {
-                let r = &s.recs[i as usize];
-                (player.is_empty() || hit(&players, r.white) || hit(&players, r.black))
-                    && (opening.is_empty()
-                        || hit(&openings, r.opening)
-                        || eco_text(r.eco).to_lowercase().starts_with(&opening))
-                    && (q.result.trim().is_empty() || r.result == result)
-                    && q.from.is_none_or(|y| r.date / 10000 >= y as u32)
-                    && q.to.is_none_or(|y| r.date / 10000 <= y as u32 && r.date > 0)
-                    && q.elo.is_none_or(|e| r.white_elo.min(r.black_elo) >= e)
-            })
-            .collect();
-        // Names sort by their rank among all names, worked out once.
-        let rank = |s: &Shared| -> Vec<u32> {
-            let mut order: Vec<u32> = (0..s.strings.len() as u32).collect();
-            let keys = crate::collate::keys(&s.strings);
-            order.sort_by(|&a, &b| keys[a as usize].cmp(&keys[b as usize]));
-            let mut rank = vec![0; order.len()];
-            for (r, &i) in order.iter().enumerate() {
-                rank[i as usize] = r as u32;
-            }
-            rank
+        let pass = |r: &Rec| {
+            (player.is_empty() || hit(&players, r.white) || hit(&players, r.black))
+                && (opening.is_empty() || hit(&openings, r.opening) || eco_text(r.eco).to_lowercase().starts_with(&opening))
+                && (q.result.trim().is_empty() || r.result == result)
+                && q.from.is_none_or(|y| r.date / 10000 >= y as u32)
+                && q.to.is_none_or(|y| r.date / 10000 <= y as u32 && r.date > 0)
+                && q.elo.is_none_or(|e| r.white_elo.min(r.black_elo) >= e)
         };
-        type Key = Box<dyn Fn(&Rec) -> u64>;
-        let key: Option<Key> = match q.sort {
-            Sort::Number => None,
-            Sort::White | Sort::Black | Sort::Event | Sort::Opening => {
-                let rank = rank(&s);
-                let sort = q.sort;
-                Some(Box::new(move |r: &Rec| {
-                    let id = match sort {
-                        Sort::White => r.white,
-                        Sort::Black => r.black,
-                        Sort::Event => r.event,
-                        _ => r.opening,
-                    };
-                    // No name sorts last.
-                    rank.get(id as usize).map_or(u64::MAX, |&k| k as u64)
-                }))
+        let rank = matches!(q.sort, Sort::White | Sort::Black | Sort::Event | Sort::Opening).then(|| self.ranks(names));
+        // Every key fits in 32 bits: a name's rank (none last), an Elo, a date as yyyymmdd.
+        let key = |r: &Rec| -> u32 {
+            let name = |id: u32| rank.as_ref().and_then(|k| k.get(id as usize).copied()).unwrap_or(u32::MAX);
+            match q.sort {
+                Sort::Number => 0,
+                Sort::White => name(r.white),
+                Sort::Black => name(r.black),
+                Sort::Event => name(r.event),
+                Sort::Opening => name(r.opening),
+                Sort::WhiteElo => r.white_elo as u32,
+                Sort::BlackElo => r.black_elo as u32,
+                Sort::Result => r.result as u32,
+                Sort::Date => r.date,
+                Sort::Eco => r.eco as u32,
+                Sort::Moves => r.plies as u32,
             }
-            Sort::WhiteElo => Some(Box::new(|r: &Rec| r.white_elo as u64)),
-            Sort::BlackElo => Some(Box::new(|r: &Rec| r.black_elo as u64)),
-            Sort::Result => Some(Box::new(|r: &Rec| r.result as u64)),
-            Sort::Date => Some(Box::new(|r: &Rec| r.date as u64)),
-            Sort::Eco => Some(Box::new(|r: &Rec| r.eco as u64)),
-            Sort::Moves => Some(Box::new(|r: &Rec| r.plies as u64)),
         };
-        if let Some(key) = key {
-            ids.sort_by_key(|&i| key(&s.recs[i as usize]));
-        }
+        let mut ids: Vec<u32> = if q.sort == Sort::Number {
+            let mut ids = vec![];
+            let _ = self.table.each(count, |i, r| {
+                if pass(r) {
+                    ids.push(i);
+                }
+            });
+            ids
+        } else {
+            // The key above the game's number: sorted, equal keys stay in the file's order.
+            let mut keyed: Vec<u64> = vec![];
+            let _ = self.table.each(count, |i, r| {
+                if pass(r) {
+                    keyed.push((key(r) as u64) << 32 | i as u64);
+                }
+            });
+            keyed.sort_unstable();
+            keyed.into_iter().map(|k| k as u32).collect()
+        };
         if q.desc {
             ids.reverse();
         }
         ids
     }
 
+    fn rec(&self, i: u32) -> Option<Rec> {
+        self.table.get(i, self.count().0)
+    }
+
     /// The game at index `i`, as the table shows it.
     pub fn row(&self, i: u32) -> Option<Row> {
-        let s = self.shared.lock().unwrap_or_else(|e| e.into_inner());
-        let r = s.recs.get(i as usize)?;
-        let name = |id: u32| s.strings.get(id as usize).map_or(String::new(), |n| n.to_string());
+        let r = self.rec(i)?;
+        let name = |id: u32| self.table.name(id);
         Some(Row {
             n: i + 1,
             white: name(r.white),
@@ -897,11 +951,8 @@ impl Library {
 
     /// The text of the game at index `i`, read now.
     pub fn text(&self, i: u32) -> io::Result<String> {
-        let (offset, len) = {
-            let s = self.shared.lock().unwrap_or_else(|e| e.into_inner());
-            let r = s.recs.get(i as usize).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such game"))?;
-            (r.offset, r.len)
-        };
+        let r = self.rec(i).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such game"))?;
+        let (offset, len) = (r.offset, r.len);
         if let Some(base) = &self.scid {
             return base.pgn(offset as u32);
         }
@@ -932,40 +983,48 @@ impl Library {
     }
 }
 
-/// The pass over the games: their records, handed over in batches so the table fills.
-/// `cut`: the packed file was unpacked as far as the limits allow.
-fn index(feed: impl FnOnce(&mut dyn FnMut(&Head) -> bool) -> io::Result<()>, shared: &Mutex<Shared>, format: super::Format, limits: Limits, cut: impl Fn() -> bool) {
+/// What a name costs in memory while the file is read: its entry in the lookup of the names
+/// met, by their hash (the names themselves go to the table on the disk).
+const NAME_COST: usize = 32;
+
+/// The pass over the games: their rows, handed to the table in batches so it fills as the file
+/// is read. `cut`: the packed file was unpacked as far as the limits allow. Stopped (`stop`),
+/// the table is left unfinished, and goes.
+#[allow(clippy::too_many_arguments)]
+fn index(feed: impl FnOnce(&mut dyn FnMut(&Head) -> bool) -> io::Result<()>, shared: &Mutex<Shared>, table: &Table, stop: &AtomicBool, format: super::Format, limits: Limits, cut: impl Fn() -> bool) {
+    use std::hash::BuildHasher;
     let chess = format == super::Format::Pgn;
-    // What the names cost so far: their bytes, twice (the list and the lookup), and the rest.
-    let mut names = 0usize;
     let (mut games, mut capped) = (0usize, false);
-    let mut ids: HashMap<Box<str>, u32> = HashMap::new();
-    let mut fresh: Vec<Box<str>> = vec![];
+    // Names by a 64-bit hash, seeded for this pass: two names alike in it (one in billions)
+    // would show as one.
+    let seed = std::collections::hash_map::RandomState::new();
+    let mut ids: HashMap<u64, u32> = HashMap::new();
+    let mut fresh: Vec<(u32, Box<str>)> = vec![];
     let mut batch: Vec<Rec> = vec![];
-    let mut base = 0u32;
-    let intern = |s: &str, ids: &mut HashMap<Box<str>, u32>, fresh: &mut Vec<Box<str>>, base: u32, names: &mut usize| -> u32 {
+    let mut failed: Option<io::Error> = None;
+    let intern = |s: &str, ids: &mut HashMap<u64, u32>, fresh: &mut Vec<(u32, Box<str>)>| -> u32 {
         let s = s.trim();
         if s.is_empty() || s == "?" {
             return u32::MAX;
         }
-        if let Some(&id) = ids.get(s) {
-            return id;
-        }
-        let id = base + fresh.len() as u32;
-        *names += 2 * s.len() + 64;
-        ids.insert(s.into(), id);
-        fresh.push(s.into());
-        id
+        let next = ids.len() as u32;
+        *ids.entry(seed.hash_one(s)).or_insert_with(|| {
+            fresh.push((next, s.into()));
+            next
+        })
     };
-    let flush = |batch: &mut Vec<Rec>, fresh: &mut Vec<Box<str>>, base: &mut u32| {
+    let flush = |batch: &mut Vec<Rec>, fresh: &mut Vec<(u32, Box<str>)>, names: u32| -> io::Result<()> {
+        table.append(batch, fresh)?;
         let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
-        *base += fresh.len() as u32;
-        s.strings.append(fresh);
-        s.recs.append(batch);
+        s.count += batch.len() as u32;
+        s.names = names;
+        batch.clear();
+        fresh.clear();
+        Ok(())
     };
     let mut last = std::time::Instant::now();
     let res = feed(&mut |h| {
-        if games >= limits.games || names >= limits.names {
+        if games >= limits.games || ids.len() * NAME_COST >= limits.names {
             capped = true;
             return false;
         }
@@ -974,29 +1033,37 @@ fn index(feed: impl FnOnce(&mut dyn FnMut(&Head) -> bool) -> io::Result<()>, sha
         let rec = Rec {
             offset: h.offset,
             len: h.len.min(MAX_GAME as u64) as u32,
-            white: intern(h.tag(WHITE), &mut ids, &mut fresh, base, &mut names),
-            black: intern(h.tag(BLACK), &mut ids, &mut fresh, base, &mut names),
-            event: intern(h.tag(EVENT), &mut ids, &mut fresh, base, &mut names),
-            opening: intern(&opening, &mut ids, &mut fresh, base, &mut names),
+            white: intern(h.tag(WHITE), &mut ids, &mut fresh),
+            black: intern(h.tag(BLACK), &mut ids, &mut fresh),
+            event: intern(h.tag(EVENT), &mut ids, &mut fresh),
+            opening: intern(&opening, &mut ids, &mut fresh),
             date: date_code(h.tag(DATE)),
             white_elo: h.tag(WHITE_ELO).parse().unwrap_or(0),
             black_elo: h.tag(BLACK_ELO).parse().unwrap_or(0),
             eco: eco_code(&eco),
             plies: h.plies.min(u16::MAX as u32) as u16,
             result: result_code(h.tag(RESULT)),
-            result_name: if chess { u32::MAX } else { intern(h.tag(RESULT), &mut ids, &mut fresh, base, &mut names) },
+            result_name: if chess { u32::MAX } else { intern(h.tag(RESULT), &mut ids, &mut fresh) },
         };
         batch.push(rec);
         if batch.len() >= 4096 && last.elapsed().as_millis() >= 200 {
-            flush(&mut batch, &mut fresh, &mut base);
+            if let Err(e) = flush(&mut batch, &mut fresh, ids.len() as u32) {
+                failed = Some(e);
+                return false;
+            }
             last = std::time::Instant::now();
         }
         true
     });
-    flush(&mut batch, &mut fresh, &mut base);
+    let res = res.and_then(|()| match failed {
+        Some(e) => Err(e),
+        None => flush(&mut batch, &mut fresh, ids.len() as u32),
+    });
+    let capped = capped || cut();
+    let res = res.and_then(|()| if stop.load(Ordering::Relaxed) { Ok(()) } else { table.finish(games as u32, capped) });
     let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
     s.done = true;
-    s.capped = capped || cut();
+    s.capped = capped;
     if let Err(e) = res {
         s.error = Some(e.to_string());
     }
@@ -1307,6 +1374,32 @@ mod tests {
         assert_eq!(q(Query { result: "0-1".into(), ..Query::default() }), Vec::<u32>::new());
     }
 
+    /// Opened again, unchanged, the table kept on the disk is taken: no game is read again, and
+    /// it shows, sorts and filters as before. Changed, the file is read anew.
+    #[test]
+    fn a_table_kept_on_the_disk() {
+        let (l, d) = lib(TWO.as_bytes(), "kept.pgn");
+        let p = d.0.join("kept.pgn");
+        assert!(!l.progress().kept);
+        let by_white = Query { sort: Sort::White, ..Query::default() };
+        let (rows, order) = ((0..2).map(|i| l.row(i).unwrap().white).collect::<Vec<_>>(), l.query(&by_white));
+        drop(l);
+        let again = Library::open(&p).unwrap();
+        let pr = again.progress();
+        assert!(pr.kept && pr.done && pr.games == 2, "{pr:?}");
+        assert_eq!(again.read.load(Ordering::Relaxed), pr.size, "the bar is full");
+        assert_eq!(((0..2).map(|i| again.row(i).unwrap().white).collect::<Vec<_>>(), again.query(&by_white)), (rows, order));
+        assert_eq!(again.query(&Query { player: "morphy".into(), ..Query::default() }), vec![0]);
+        assert!(again.text(1).unwrap().contains("Anderssen"));
+        drop(again);
+        std::fs::write(&p, &TWO[..TWO.find("\n\n[Event \"London").unwrap() + 1]).unwrap();
+        let changed = Library::open(&p).unwrap();
+        while !changed.progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!((changed.progress().kept, changed.progress().games), (false, 1));
+    }
+
     #[test]
     fn packed_files_and_hits() {
         let mut gz = flate2::write::GzEncoder::new(vec![], flate2::Compression::fast());
@@ -1330,6 +1423,34 @@ mod tests {
         assert_eq!(game_of_hit(&p, &snippet), Some(1));
         let snippet = format!("…{o}Philidor{c} Defense · 1-0 Anderssen, Adolf");
         assert_eq!(game_of_hit(&p, &snippet), Some(0));
+    }
+
+    /// A game deep in a gzip or zstd file is unpacked from the nearest place the first pass
+    /// kept before it, not from the file's start: what is unpacked to no use is counted.
+    #[test]
+    fn a_game_deep_in_a_packed_file() {
+        let mut text = String::new();
+        for i in 0..40_000 {
+            text.push_str(&format!("[White \"W{i}\"]\n[Black \"B{}\"]\n\n1.e4 e5 2.Nf3 {{{}}} *\n\n", i % 7, "z".repeat(i % 300)));
+        }
+        let mut gz = flate2::write::GzEncoder::new(vec![], flate2::Compression::fast());
+        gz.write_all(text.as_bytes()).unwrap();
+        let mut zst = vec![];
+        ruzstd::encoding::compress(text.as_bytes(), &mut zst, ruzstd::encoding::CompressionLevel::Fastest);
+        for (name, bytes, kind) in [("deep.pgn.gz", gz.finish().unwrap(), crate::archive::Pack::Gz), ("deep.pgn.zst", zst, crate::archive::Pack::Zst)] {
+            let (l, d) = lib(&bytes, name);
+            let last = l.progress().games as u32 - 1;
+            assert_eq!(last, 39_999);
+            assert!(l.text(last).unwrap().contains("W39999"));
+            assert!(l.text(3).unwrap().contains("W3\""));
+            let at = l.rec(last).unwrap().offset;
+            match crate::tar_index::from(&d.0.join(name), kind, at).unwrap() {
+                // At most a few MB unpacked before the game, of the file's 8 MB.
+                Some((_, skip)) => assert!(skip <= 4 << 20 && at > 6 << 20, "{skip} of {at}"),
+                // A zstd of one frame has no place but its start.
+                None => assert_eq!(kind, crate::archive::Pack::Zst),
+            }
+        }
     }
 
     /// A packed file of a few MB can unpack to an endless line: what is kept stays small.
@@ -1374,7 +1495,7 @@ mod tests {
         let full = Limits::default();
         let p1 = wait(&Library::open_with(&p, Limits { games: 1000, ..full }).unwrap());
         assert_eq!((p1.games, p1.capped), (1000, true));
-        let p2 = wait(&Library::open_with(&p, Limits { names: 64 * 1024, ..full }).unwrap());
+        let p2 = wait(&Library::open_with(&p, Limits { names: 16 * 1024, ..full }).unwrap());
         assert!(p2.capped && p2.games < 1000, "{p2:?}");
         // Unpacked no further than allowed: about 20 bytes a game.
         let p3 = wait(&Library::open_with(&p, Limits { unpacked: 20_000, ..full }).unwrap());
@@ -1417,22 +1538,33 @@ mod tests {
         }
         let read = t.elapsed();
         let n = l.progress().games;
-        let rss = std::fs::read_to_string("/proc/self/status").unwrap_or_default().lines().find(|l| l.starts_with("VmRSS")).unwrap_or("").to_string();
-        let time = |q: Query| {
+        let mem = || {
+            let s = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+            s.lines().filter(|l| l.starts_with("VmRSS") || l.starts_with("VmHWM")).map(|l| l.split_whitespace().collect::<Vec<_>>().join(" ")).collect::<Vec<_>>().join(", ")
+        };
+        let rss = mem();
+        let time = |l: &Library, q: Query| {
             let t = std::time::Instant::now();
             let ids = l.query(&q);
             (ids.len(), t.elapsed())
         };
         println!("{n} games: first rows after {first:?}, all read in {read:?}; {rss}");
-        println!("all: {:?}", time(Query::default()));
-        println!("player 'carlsen': {:?}", time(Query { player: "carlsen".into(), ..Query::default() }));
-        println!("opening 'gambit' + 1-0 + 1900-1950 + elo 2400: {:?}", time(Query { opening: "gambit".into(), result: "1-0".into(), from: Some(1900), to: Some(1950), elo: Some(2400), ..Query::default() }));
-        println!("sort by white: {:?}", time(Query { sort: Sort::White, ..Query::default() }));
-        println!("sort by date desc: {:?}", time(Query { sort: Sort::Date, desc: true, ..Query::default() }));
+        println!("all: {:?}", time(&l, Query::default()));
+        println!("player 'carlsen': {:?}", time(&l, Query { player: "carlsen".into(), ..Query::default() }));
+        println!("opening 'gambit' + 1-0 + 1900-1950 + elo 2400: {:?}", time(&l, Query { opening: "gambit".into(), result: "1-0".into(), from: Some(1900), to: Some(1950), elo: Some(2400), ..Query::default() }));
+        println!("sort by white: {:?}", time(&l, Query { sort: Sort::White, ..Query::default() }));
+        println!("sort by date desc: {:?}", time(&l, Query { sort: Sort::Date, desc: true, ..Query::default() }));
         for i in [0, n as u32 / 2, n as u32 - 1, 10].into_iter().filter(|&i| (i as usize) < n) {
             let t = std::time::Instant::now();
             let g = l.game(i).unwrap();
             println!("game {i}: {} moves, {} nodes, error {:?}, in {:?}", g.main_line().len(), g.nodes.len(), g.error, t.elapsed());
         }
+        println!("after the queries: {}", mem());
+        drop(l);
+        let t = std::time::Instant::now();
+        let l = Library::open(Path::new(&p)).unwrap();
+        let p = l.progress();
+        println!("opened again: {} games, kept {}, done {}, in {:?}; first row {:?}", p.games, p.kept, p.done, t.elapsed(), l.row(0).map(|r| r.white));
+        println!("sort by white again: {:?}; {}", time(&l, Query { sort: Sort::White, ..Query::default() }), mem());
     }
 }

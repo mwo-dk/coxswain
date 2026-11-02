@@ -21,6 +21,7 @@ deals (PBN) have pages of their own: [Go games](go.md), [Draughts games](draught
 
 - [Using it](#using-it)
 - [The table of games](#the-table-of-games)
+- [Large databases](#large-databases)
 - [A game on the board](#a-game-on-the-board)
 - [EPD and FEN positions](#epd-and-fen-positions)
 - [Opening books](#opening-books)
@@ -67,10 +68,10 @@ keys and the questions below.
 | **Moves** | How many full moves the main line has |
 
 The table fills while the file is read: the line above it says *Games: 12,345 of 12,345 ·
-reading, 40 %*. Only where each game starts and its tags are read and kept, about 50 bytes a
-game, so a file of a million games takes about 50 MB and its moves are read only when you open
-a game. Packed files (`.pgn.gz`, `.pgn.zst`) are unpacked as they are read; nothing is written
-to the disk.
+reading, 40 %*. Only where each game starts and its tags are read, into a table kept on the
+disk ([Large databases](#large-databases)), and a game's moves are read only when you open it.
+Packed files (`.pgn.gz`, `.pgn.zst`) are unpacked as they are read; the game file itself is
+never changed.
 
 **Filtering.** In the desktop app, the fields above the table: *Player* (in White's or Black's
 name), *Opening or ECO* (in the opening's name, or the start of its code: `C4` finds C40 to
@@ -87,6 +88,47 @@ terminal app: **/** player, **o** opening, **r** cycles the result, **y** years 
 **Opening a game.** Desktop: **Enter** or a double-click. In the window (**Alt+K**) the table has
 the keys at once, and again after **Esc** or *Back* from a game; in the preview pane click the
 table first, and **Esc** there gives the keys back to the panels. Terminal: **Enter**.
+
+## Large databases
+
+A database of millions of games, a PGN file of many gigabytes (Lumbra's Gigabase, 12.3
+million games in 12 GB) or a SCID or ChessBase database, opens the same way as a small file,
+in the same memory. The table of games is not held in memory: it is kept on the disk, in the
+cache folder (`chess/tables/`, [Where things are kept](../reference/where-things-are-kept.md)),
+48 bytes a game, with the players', events' and openings' names beside it. What stays in memory
+is the order shown: 4 bytes a game the filters let through (8 while it is sorted).
+
+- **The first time**, the file is read once from start to end, and the table fills as it goes:
+  its first rows show as soon as the first few thousand games are read, and you can filter,
+  sort and open games before it is done. *Games: 1,200,000 of 1,200,000 · reading, 9 %* above
+  the table says how far it is.
+- **The next time**, the same file unchanged opens at once from the table kept: the line says
+  *Games: 12,294,960* with no *reading*, and the file is not read again.
+- **Opening a game** reads only that game, where it starts. In a `.pgn.gz` file, and a
+  `.pgn.zst` made of several frames, the first reading notes places every few MB from which it
+  can be unpacked again, so a game far into it is unpacked from the place just before it, not
+  from the start.
+
+**Measured** (Lumbra's Gigabase OTB, one PGN file of 12 GB, on a desktop with an SSD):
+| | |
+|---|---|
+| Games | 12,294,960 (the table in memory before stopped at 10,000,000) |
+| First rows shown | after 0.2 s |
+| The whole file read | in 95 s, about 130 MB a second |
+| Memory while it is read | 61 MB at most |
+| Opened again | in under 1 ms: the file is not read |
+| All games; a player (*carlsen*: 6,632 games); four filters at once | 0.2 s; 0.25 s; 0.3 s |
+| Sorted by White, or by date | 0.3 s; 180 MB of memory while 12.3 million games are sorted |
+| A game opened, the first, the middle or the last | under 6 ms |
+| The table on the disk | 677 MB (563 MB of rows, 114 MB of names) |
+
+A table goes by itself when its file changes (it is read anew the next time) or goes, when it
+was not opened for 30 days, and when all tables take more than 4 GB (the ones opened longest ago
+first, never the newest). A table that a crash or a stop cut short is never taken for a whole
+one; it goes at the next open. **Clear** on the *chess/* row of
+[Disk use](../reference/disk-use.md) removes them all; each file is then read again the next
+time it is opened. Both apps share the tables, and the terminal app and the desktop app read
+them the same way.
 
 ## A game on the board
 
@@ -372,9 +414,11 @@ record's size and every name's number are checked before they are used, a game i
 | `.bin` | A Polyglot opening book (the format of Polyglot, the book tool, used by most chess programs): its moves for each position, read by a binary search |
 
 Broken games are skipped or read as far as they go; nothing in a file can stop the app. A file
-takes no more than the table can hold: the first 10,000,000 games, 256 MB of names (players,
-events, openings), and a packed file unpacked to no more than 64 GB. Past that, the line above
-the table adds *the first 10000000 games only: the file has more than Coxswain reads*. One game
+takes no more than the table can hold: the first 1,073,741,824 games (48 bytes each on the
+disk), names that take 256 MB of memory while the file is read (32 bytes a different name:
+about 8 million players, events and openings), and a packed file unpacked to no more than
+64 GB. Past that, the line above the table adds *the first 1073741824 games only: the file has
+more than Coxswain reads*. One game
 is read up to 16 MB, a line up to 1 MB and a tag up to 4 KB.
 Chess960 games with a `FEN` tag are read; SCID 4, SCID 5 and ChessBase databases and archives (`.cbv`) are.
 ChessBase's password-protected archives (`.cbz`), its newer `.2cbh` format and other databases are not.
@@ -504,7 +548,21 @@ a null move (`--`) while in check. The line above the board names it; the moves 
 
 The table fills as the file is read, at a few hundred MB a second: a million games show in a few
 seconds, and you can filter and open games before it is done. Filtering and sorting a million
-games takes a fraction of a second.
+games takes a fraction of a second. Opened a second time, a file opens at once from the table
+kept on the disk ([Large databases](#large-databases)).
+
+#### Can it open a database of millions of games?
+
+Yes, of any size, in the same memory: the table of games is kept on the disk, not in memory
+([Large databases](#large-databases)). The first opening reads the file once while the table
+fills; the next one, of the same file unchanged, shows the table at once.
+
+#### Why is my cache folder bigger after I opened a large database?
+
+Its table of games is kept there (`chess/tables/`), 48 bytes a game and the names: 677 MB for
+12.3 million games. It goes by itself 30 days after you last opened the file, when the file changes
+or goes, or past 4 GB of tables in all; **Clear** on the *chess/* row of Disk use removes them
+at once.
 
 #### Why does the book line not show?
 

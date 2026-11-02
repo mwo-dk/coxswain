@@ -688,7 +688,7 @@ impl Collection {
     /// How far the list has come.
     pub fn progress(&self) -> crate::chess::Progress {
         let l = self.lock();
-        crate::chess::Progress { games: l.games.len(), done: l.done, read: self.read.load(Ordering::Relaxed).min(self.size), size: self.size, capped: l.capped, error: l.error.clone() }
+        crate::chess::Progress { games: l.games.len(), done: l.done, read: self.read.load(Ordering::Relaxed).min(self.size), size: self.size, capped: l.capped, error: l.error.clone(), kept: false }
     }
 
     /// Up to `n` of the games listed so far, from the `from`th (from 0).
