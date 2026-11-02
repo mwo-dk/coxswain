@@ -289,7 +289,7 @@ fn refusal(node: &Node) -> Option<String> {
 /// Give the entry at `place` the bits and times of `w` (it had `old`), through one handle opened
 /// in its held folder and checked to be `want` exactly: the one way apply and undo both change
 /// an entry. What it is afterwards, for undo.
-fn set_at(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<Id> {
+fn set_at(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<pinned::Stat> {
     let (f, now) = match place.open_to_change(want) {
         Ok(x) => x,
         // One the owner may not even read (`chmod 000`): on Linux through a path handle instead.
@@ -317,7 +317,7 @@ fn set_at(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<Id> {
         }
         // Settled before it is read for undo: some file systems set the ctime lazily (UFS).
         let _ = f.sync_all();
-        Ok(pinned::stat_of(&f)?.id)
+        pinned::stat_of(&f)
     }
     #[cfg(windows)]
     {
@@ -357,7 +357,7 @@ fn set_at(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<Id> {
             f.set_times(t)?;
         }
         // What it is now, from the very handle it was changed through.
-        Ok(pinned::stat_of(&f)?.id)
+        pinned::stat_of(&f)
     }
 }
 
@@ -365,7 +365,7 @@ fn set_at(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<Id> {
 /// held folder without following a link, checked to be `want` exactly, and changed through
 /// `/proc/self/fd`, which leads to that very inode.
 #[cfg(any(target_os = "linux", target_os = "android"))]
-fn set_through_path(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<Id> {
+fn set_through_path(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<pinned::Stat> {
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     let last = std::io::Error::last_os_error;
     let (dir, name) = place.at();
@@ -401,7 +401,7 @@ fn set_through_path(place: &Place, want: Id, old: Was, w: Was) -> std::io::Resul
     if (w.modified != old.modified || w.accessed != old.accessed) && unsafe { libc::utimensat(libc::AT_FDCWD, proc.as_ptr(), times.as_ptr(), 0) } != 0 {
         return Err(last());
     }
-    Ok(pinned::stat_of(&f)?.id)
+    pinned::stat_of(&f)
 }
 
 /// Undo: give the entry at `path`, in the folder and as the very file `pin` names (unchanged
@@ -491,7 +491,9 @@ fn change(plan: &Plan, node: &Node) -> Result<Option<(Was, Was, Id)>, String> {
             return Ok(None);
         }
         match set_at(&node.place, stat.id, before, a) {
-            Ok(id) => return Ok(Some((before, a, id))),
+            // What the disk kept, for undo to compare with: a coarse clock (FAT's 2 s) rounds the
+            // time, and a setgid bit the system will not set is dropped.
+            Ok(got) => return Ok(Some((before, Was { mode: got.mode, modified: got.modified, ..a }, got.id))),
             // Its ctime moved by itself between the walk and the open: once more, as it is now.
             Err(e) if !again && e.to_string() == t!("pinned.changed") => {
                 let now = node.place.stat().map_err(|e| e.to_string())?;
