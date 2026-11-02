@@ -253,8 +253,6 @@ pub fn rest(d: Duration, since: u64) -> bool {
         if RETRIES.load(Ordering::SeqCst) > since {
             return true;
         }
-        // shortcut: an early end counts as the whole step in `until_there`, so a network that
-        // changes often brings the scheduled pull nearer; count real time if that matters.
         if NET.load(Ordering::SeqCst) != net && FAILED.lock().unwrap().values().any(|f| f.0 == Fault::Network) {
             // A new address comes before its route and name servers: a moment for them.
             std::thread::sleep(Duration::from_secs(3).min(end.saturating_duration_since(std::time::Instant::now())));
@@ -334,11 +332,13 @@ pub fn until_there(
         let (mut waited, mut look) = (Duration::ZERO, LOOK);
         let found = loop {
             let step = wait.map_or(look, |w| look.min(w.saturating_sub(waited)));
+            let (net, began) = (NET.load(Ordering::SeqCst), std::time::Instant::now());
             if rest(step, since) {
                 tries = tries.saturating_sub(1);
                 break false;
             }
-            waited += step;
+            // Woken by the network signal: only the time it rested counts towards the wait.
+            waited += if NET.load(Ordering::SeqCst) == net { step } else { began.elapsed().min(step) };
             look = if fault == Fault::Network { LOOK } else { (look * 2).min(LOOK_MOST) };
             if there() {
                 break true;
