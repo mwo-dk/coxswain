@@ -1995,11 +1995,18 @@ async fn read_text(path: PathBuf, max: usize) -> Res<(String, bool, bool)> {
 }
 
 fn read_text_of(path: &Path, max: usize) -> Res<(String, bool, bool)> {
-    let mut buf = vec![];
-    let f = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
-    f.take(max as u64).read_to_end(&mut buf).map_err(|e| e.to_string())?;
-    let truncated = len > buf.len() as u64;
+    let (buf, truncated) = if !path.exists() && coxswain_core::archive::split(path).is_some() {
+        // Inside an archive: its first part as it is unpacked, no copy on the disk.
+        coxswain_core::archive::head(path, max as u64).map_err(|e| e.to_string())?
+    } else {
+        let mut buf = vec![];
+        let f = std::fs::File::open(path).map_err(|e| e.to_string())?;
+        let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+        f.take(max as u64).read_to_end(&mut buf).map_err(|e| e.to_string())?;
+        let more = len > buf.len() as u64;
+        (buf, more)
+    };
+    let len = if truncated { u64::MAX } else { buf.len() as u64 };
     // UTF-8, UTF-16 by its mark, else Latin-1; no text: a hex dump of the first 64 KB, four
     // thousand lines are plenty to see what a file is.
     match coxswain_core::view::decode(&buf) {

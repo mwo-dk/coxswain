@@ -2076,8 +2076,17 @@ impl App {
         }
     }
 
-    /// F3 on a file inside an archive: a copy of it in the viewer, or its password asked for.
+    /// F3 on a file inside an archive: in the viewer, its first 16 MB as it is unpacked, no copy
+    /// made; games, a viewer of one's own and a locked file from a copy (its password asked for).
     fn peek(&mut self, path: PathBuf) {
+        use coxswain_core::enter;
+        if self.cfg.viewer.is_none() && enter::view(&path, enter::Place::Archive) == enter::View::Itself && !enter::may_be_games(&path)
+            && let Ok((bytes, more)) = coxswain_core::archive::head(&path, viewer::PLAIN_OVER)
+        {
+            let labels = [self.key_label(Action::Edit), self.key_label(Action::View)];
+            let v = viewer::Viewer::bytes(&path, &bytes, more, labels);
+            return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
+        }
         match coxswain_core::archive::peek(&path) {
             // Games (a PGN file, a ChessBase or SCID database with the files beside it, a DhtmlXQ
             // xiangqi game): on their board, as outside (`enter::view`).
@@ -4455,6 +4464,12 @@ impl App {
                 viewer::Outcome::Stay => self.dialog = Some(Dialog::View { v, back }),
                 viewer::Outcome::Close => self.dialog = back.map(|b| *b),
                 // Back to the BOM or provenance it was opened from, once the editor ends.
+                // Shown from inside an archive, no copy: editing waits until it is copied out.
+                viewer::Outcome::Edit(file, _) if !file.exists() && coxswain_core::archive::split(&file).is_some() => {
+                    let archive = coxswain_core::archive::split(&file).map(|(a, _)| a).unwrap_or_default();
+                    self.status = Some(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
+                    self.dialog = Some(Dialog::View { v, back });
+                }
                 viewer::Outcome::Edit(file, a) => {
                     self.view_or_edit(a, &file);
                     match &mut self.dialog {
