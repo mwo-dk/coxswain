@@ -212,7 +212,10 @@ No, not for a passing fault. With no network, a timeout or a busy registry, the 
 Tika waiting and tries again after 5 minutes, then 10, 20, 40 and every hour after, as the *Tika*
 line says (*Trying again at 15:10*). If you pull the image yourself (`podman pull
 docker.io/apache/tika:4.1.0`), the helper notices within a minute and starts reading. When the network comes back, the helper
-notices that the registry answers and pulls at once, or press **Retry now** on the *Tika* line. Only a full
+notices that the registry answers and pulls at once: within seconds on Linux, macOS and Windows,
+which say when the network changes (a new address or route), and within a minute on FreeBSD, the
+other BSDs, illumos and Android, where the helper asks the registry every minute. Or press
+**Retry now** on the *Tika* line. Only a full
 disk or an image the registry does not have stays *Off* until you act (then press **Retry now**).
 
 #### Why not run Tika for every file?
