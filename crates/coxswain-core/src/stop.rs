@@ -37,7 +37,7 @@ impl Bytes {
         let (done, all) = self.now()?;
         let of = crate::t!("job.bytes", "done" => crate::settings::human(done), "all" => crate::settings::human(all));
         let secs = self.since.lock().unwrap_or_else(|e| e.into_inner()).map_or(0.0, |s| s.elapsed().as_secs_f64());
-        if secs < 1.0 || done == 0 {
+        if secs < 1.0 || done == 0 || done >= all {
             return Some(of);
         }
         let rate = done as f64 / secs;
