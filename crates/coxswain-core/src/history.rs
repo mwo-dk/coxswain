@@ -1550,10 +1550,11 @@ pub(crate) mod tests {
             let start = std::time::Instant::now();
             let last = Arc::new(std::sync::atomic::AtomicU64::new(0));
             let mut out = BufReader::new(Ticking { r: child.stdout.take().unwrap(), start, last: last.clone() });
-            let (done, watch) = quiet_watch(child, start, last, limit);
+            // Read before the watch starts, so a slow machine cannot make it quiet too soon.
             let mut line = String::new();
             out.read_line(&mut line).unwrap();
             assert_eq!(line, "one\n");
+            let (done, watch) = quiet_watch(child, start, last, limit);
             (out, done, watch)
         };
         let (mut out, _done, watch) = run(Duration::from_secs(1));
