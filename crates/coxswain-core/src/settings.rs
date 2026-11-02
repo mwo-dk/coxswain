@@ -759,6 +759,7 @@ pub fn status(
     st: &Status,
     helper: bool,
     poor: &[crate::setup::Poor],
+    images: &std::collections::BTreeMap<String, String>,
 ) -> Vec<Line> {
     let line = |part, key: &str, text: String| Line {
         part,
@@ -881,13 +882,13 @@ pub fn status(
     }
     let mut lines = vec![names, text, meaning, ask];
     if s.tika && s.text {
-        let image = crate::images::short(&crate::config::PreviewConfig::default().images["tika"]).to_string();
+        let image = crate::images::short(&images["tika"]).to_string();
         let tika = line(Part::Tika, "settings.status.tika", t!("settings.status.not_running"));
         lines.push(pull_line(tika, st.tika.as_ref().filter(|_| helper), "Tika", &image, "settings.status.tika_ready"));
     }
     // calibre, while e-books are searched: the helper says when.
     if let Some(state) = st.ebooks.as_ref().filter(|_| helper) {
-        let image = crate::images::short(&crate::config::PreviewConfig::default().images["calibre"]).to_string();
+        let image = crate::images::short(&images["calibre"]).to_string();
         let calibre = line(Part::Ebooks, "settings.status.ebooks", t!("settings.status.not_running"));
         lines.push(pull_line(calibre, Some(state), "calibre", &image, "settings.status.ebooks_ready"));
     }
@@ -919,7 +920,7 @@ pub fn status(
                     w.bar = Some((*done as usize, *total as usize));
                 }
                 State::Pulling(progress) => {
-                    let image = crate::images::short(&crate::config::PreviewConfig::default().images["whisper"]).to_string();
+                    let image = crate::images::short(&images["whisper"]).to_string();
                     w.note = Some(format!("{} {progress}", t!("settings.status.tika_pulling", "image" => image)).trim().to_string());
                 }
                 State::Off(why) => {
@@ -929,7 +930,7 @@ pub fn status(
             }
             // The image could not be pulled: why and when it is tried again, with Retry now.
             if let Some(p) = ts.pull.as_ref().filter(|p| matches!(p, crate::images::pulls::State::Waiting { .. } | crate::images::pulls::State::Unpulled { .. })) {
-                let image = crate::images::short(&crate::config::PreviewConfig::default().images["whisper"]).to_string();
+                let image = crate::images::short(&images["whisper"]).to_string();
                 let l = pull_line(w.clone(), Some(p), "Whisper", &image, "");
                 (w.note, w.step, w.also, w.details, w.bad) = (l.note, l.step, l.also, l.details, l.bad);
             }
@@ -1471,7 +1472,7 @@ mod tests {
         };
         s.text = true;
         s.meaning = false;
-        let lines = status(&s, &st, true, &[]);
+        let lines = status(&s, &st, true, &[], &crate::preview_tools::default_images());
         assert_eq!(
             lines.iter().map(|l| l.step).collect::<Vec<_>>(),
             [
@@ -1494,7 +1495,7 @@ mod tests {
                 "12\u{202f}345\u{202f}678".into()
             )
         );
-        assert_eq!(status(&s, &st, false, &[])[1].step, Some(Step::Start));
+        assert_eq!(status(&s, &st, false, &[], &crate::preview_tools::default_images())[1].step, Some(Step::Start));
         s.meaning = true;
         s.meaning_engine = "ollama".into();
         s.ask_model = "qwen3:8b".into();
@@ -1502,7 +1503,7 @@ mod tests {
             meaning_error: Some("http://localhost:11434: Connection refused".into()),
             ..st
         };
-        let lines = status(&s, &st, true, &[]);
+        let lines = status(&s, &st, true, &[], &crate::preview_tools::default_images());
         assert!(
             lines[2].bad
                 && lines[2]
@@ -1520,7 +1521,7 @@ mod tests {
             meaning_pending: 245_762,
             ..st
         };
-        let lines = status(&s, &st, true, &[]);
+        let lines = status(&s, &st, true, &[], &crate::preview_tools::default_images());
         assert_eq!(lines[2].bar, Some((23_611, 269_373)));
         assert_eq!(bar(23_611, 269_373, 20), "█░░░░░░░░░░░░░░░░░░░");
         assert_eq!(
@@ -1538,7 +1539,7 @@ mod tests {
             meaning_changing: 1,
             ..st
         };
-        let lines = status(&s, &st, true, &[]);
+        let lines = status(&s, &st, true, &[], &crate::preview_tools::default_images());
         assert_eq!(lines[2].bar, None);
         assert_eq!(
             lines[2].note.as_deref(),
@@ -1555,7 +1556,7 @@ mod tests {
         let whisper = |state, waiting| {
             let ts = crate::transcribe::Status { waiting, state, ..Default::default() };
             let st = Status { transcripts: Some(ts), ..st.clone() };
-            let l = status(&s, &st, true, &[]).into_iter().find(|l| l.part == Part::Whisper).unwrap();
+            let l = status(&s, &st, true, &[], &crate::preview_tools::default_images()).into_iter().find(|l| l.part == Part::Whisper).unwrap();
             (l.step, l.also)
         };
         use crate::transcribe::State as T;

@@ -404,7 +404,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
     let mut v = vec![];
     match s.area {
         Area::Overview => {
-            let lines = cs::status(&cfg.search, &app.index.status(), app.index.shared(), &[]);
+            let lines = cs::status(&cfg.search, &app.index.status(), app.index.shared(), &[], &cfg.preview.images);
             let search = std::iter::once(level_name()).chain(lines.iter().skip(1).map(|l| format!("{}: {}", l.label, l.text))).collect::<Vec<_>>().join(" · ");
             v.push(Row::Go(Area::Search, search));
             v.push(Row::Go(Area::Previews, choice_label("preview_prefer", &cfg.preview.prefer)));
@@ -420,7 +420,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
         }
         Area::Search => {
             let poor = coxswain_core::setup::poor(&cfg.search, false);
-            v.extend(cs::status(&cfg.search, &app.index.status(), app.index.shared(), &poor).into_iter().map(Row::Status));
+            v.extend(cs::status(&cfg.search, &app.index.status(), app.index.shared(), &poor, &cfg.preview.images).into_iter().map(Row::Status));
             v.push(Row::Head(t!("settings.level"), "level"));
             v.extend(Level::ALL.into_iter().map(Row::Level));
             v.push(Row::SetUp);

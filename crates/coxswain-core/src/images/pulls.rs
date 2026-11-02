@@ -182,7 +182,8 @@ pub fn in_job(rt: &std::path::Path, image: &str, stop: &std::sync::atomic::Atomi
 /// `in_job`; `by_hand` (*Retry now*, *Pull* in Settings) pulls whatever the schedule says and
 /// fails with the runtime's own words, as Settings shows them.
 fn pull_job(rt: &std::path::Path, image: &str, stop: &std::sync::atomic::AtomicBool, by_hand: bool) -> Result<(), String> {
-    if by_hand {
+    // Only an image that failed wakes the waiting pulls: Pull on a healthy one wakes none.
+    if by_hand && FAILED.lock().unwrap().contains_key(image) {
         retry_now();
     }
     let retries = RETRIES.load(Ordering::SeqCst);
@@ -343,6 +344,7 @@ pub fn until_there(
         }
     }
     FAILED.lock().unwrap().remove(image);
+    JOBS.lock().unwrap().remove(image);
 }
 
 #[cfg(test)]
@@ -464,6 +466,24 @@ mod tests {
         tries(2);
         FAILED.lock().unwrap().remove(image);
         JOBS.lock().unwrap().remove(image);
+    }
+
+    /// Pull on an image that never failed wakes no waiting pull; an image that is there again
+    /// forgets its failed pulls in a row.
+    #[test]
+    fn a_healthy_image_wakes_nothing_and_a_found_one_forgets() {
+        let (rt, stop) = (std::path::Path::new("/nonexistent/coxswain-test-runtime"), std::sync::atomic::AtomicBool::new(false));
+        let before = RETRIES.load(Ordering::SeqCst);
+        let healthy = "test.invalid/healthy:1";
+        let _ = retry_job(rt, healthy);
+        // It failed just now, so it is a failed image from here on; before that nothing woke.
+        assert_eq!(RETRIES.load(Ordering::SeqCst), before, "a healthy image bumped the counter");
+        FAILED.lock().unwrap().remove(healthy);
+        JOBS.lock().unwrap().remove(healthy);
+        let image = "test.invalid/forget:1";
+        JOBS.lock().unwrap().insert(image.to_string(), (3, 0));
+        until_there(image, "test", || Ok(()), || true, || true, |_, _| false);
+        assert!(JOBS.lock().unwrap().get(image).is_none());
     }
 
     /// An app older than `STATES_SINCE` gets a failed pull as the `Failed` it knows; a newer

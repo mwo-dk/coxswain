@@ -380,8 +380,8 @@ fn chess_engine_config(key: String) -> Res<(PathBuf, usize)> {
 /// Settings → Finding files: one line for each part of search, with its next step.
 #[tauri::command]
 async fn search_status(ctx: tauri::State<'_, Ctx>) -> Res<Vec<coxswain_core::settings::Line>> {
-    let (index, cfg) = (ctx.index.clone(), ctx.cfg().search.clone());
-    blocking(move || Ok(coxswain_core::settings::status(&cfg, &index.status(), index.shared(), &coxswain_core::setup::poor(&cfg, false)))).await
+    let (index, cfg, images) = (ctx.index.clone(), ctx.cfg().search.clone(), ctx.cfg().preview.images.clone());
+    blocking(move || Ok(coxswain_core::settings::status(&cfg, &index.status(), index.shared(), &coxswain_core::setup::poor(&cfg, false), &images))).await
 }
 
 /// What choosing a search level changes; none when the setup guide has to choose a model first.
