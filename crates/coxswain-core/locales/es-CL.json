@@ -9,6 +9,7 @@
  "archive.pack_no_password": "los archivos tar no tienen contraseña: para una, empaqueta en .zip o .7z",
  "archive.preview_unlock": "Ingresa la contraseña",
  "archive.too_large": "{name} es demasiado grande para verlo acá: cópialo fuera del archivo para abrirlo",
+ "archive.unchecked_password": "{name} está bloqueado a la manera vieja de zip y es demasiado grande para comprobar la contraseña antes de mostrarlo, así que la contraseña puede estar mal: cópialo fuera del archivo para abrirlo",
  "ask.builtin_missing": "{model} todavía no está descargado: descárgalo en Configuración, en Preguntar, o en Configurar…",
  "attrs.bad_date": "Ni una fecha ni un archivo de acá: {date}. Escribe ahora, 2026-10-21 14:30 o el nombre de un archivo.",
  "attrs.bad_mode": "No es un permiso que tome chmod: {mode}. Escribe 644, u+x,go-w o a+X.",

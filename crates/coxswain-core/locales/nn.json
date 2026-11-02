@@ -333,6 +333,7 @@
  "archive.preview_unlock": "Skriv inn passordet",
  "archive.room_short": "Plassen kan bli for liten: her er {free} ledig, og det kan trengast {need}, sidan arkivet først blir skrive ved sida av det gamle",
  "archive.too_large": "{name} er for stor til å visast her: kopier fila ut av arkivet for å opne ho",
+ "archive.unchecked_password": "{name} er låst på den gamle zip-måten og for stor til at passordet kan sjekkast før fila blir vist, så passordet kan vere feil: kopier fila ut av arkivet for å opne ho",
  "ask.builtin_estimate": "På denne prosessoren: om lag {seconds} s til første ord, deretter {words} ord i sekundet",
  "ask.builtin_missing": "{model} er ikkje lasta ned enno: last han ned i Innstillingar under Spør, eller i Set opp…",
  "ask.builtin_name": "{model}, innebygd",

@@ -1,0 +1,1 @@
+| **A wrong password for an old-style locked zip no longer shows garbage in a preview.** A file locked with ZipCrypto is read to its end, and its checksum checked, before the preview or F3 shows it; over 256 MB it is not shown, and the message says the password may be wrong. | [Archive passwords](files/archive-passwords.md#what-if-a-wrong-zipcrypto-password-looks-right) |

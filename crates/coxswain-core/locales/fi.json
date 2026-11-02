@@ -333,6 +333,7 @@
  "archive.preview_unlock": "Anna salasana",
  "archive.room_short": "Tila voi loppua: täällä on vapaana {free}, ja tähän voidaan tarvita {need}, koska arkisto kirjoitetaan ensin vanhan viereen",
  "archive.too_large": "{name} on liian suuri katsottavaksi tässä: kopioi se ulos arkistosta avataksesi sen",
+ "archive.unchecked_password": "{name} on lukittu vanhalla zip-tavalla ja liian suuri, jotta salasana voitaisiin tarkistaa ennen näyttämistä, joten salasana voi olla väärä: kopioi se ulos arkistosta avataksesi sen",
  "ask.builtin_estimate": "Tällä suorittimella: noin {seconds} s ensimmäiseen sanaan, sitten {words} sanaa sekunnissa",
  "ask.builtin_missing": "{model} ei ole vielä ladattu: lataa se kohdassa Asetukset › Kysy tai kohdassa Ota käyttöön…",
  "ask.builtin_name": "{model}, sisäänrakennettu",

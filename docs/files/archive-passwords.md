@@ -177,7 +177,11 @@ Close the app (the desktop window, or **F10** in the terminal app). There is no 
 #### What if a wrong ZipCrypto password looks right?
 
 The old ZipCrypto method cannot always tell a wrong password at once; Coxswain notices when the
-file's checksum does not match. The half-written file is removed and you are asked again.
+file's checksum does not match. The half-written file is removed and you are asked again. A
+look at a locked file without a copy (the preview pane, **F3** in the terminal app) reads it to
+its end for that checksum before anything is shown, so a wrong password shows as locked, never
+as garbage. A file over 256 MB locked this way is not shown: its password cannot be checked
+first, and the message says the password may be wrong. Copy it out with **F5**.
 
 ---
 [← Previous: Pack and extract](pack-and-extract.md) · [Next: Disk images, CHM help files and CBR comics →](disk-images.md)

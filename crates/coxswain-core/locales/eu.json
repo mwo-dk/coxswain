@@ -333,6 +333,7 @@
  "archive.preview_unlock": "Idatzi pasahitza",
  "archive.room_short": "Lekua falta daiteke: hemen {free} daude libre, eta {need} behar izan daitezke, artxiboa zaharraren ondoan idazten baita lehenik",
  "archive.too_large": "{name} handiegia da hemen ikusteko: kopiatu artxibotik kanpora irekitzeko",
+ "archive.unchecked_password": "{name} zip-en modu zaharrean blokeatuta dago eta handiegia da pasahitza erakutsi aurretik egiaztatzeko, beraz pasahitza okerra izan daiteke: kopiatu artxibotik kanpora irekitzeko",
  "ask.builtin_estimate": "Prozesadore honetan: {seconds} s inguru lehen hitzera arte, gero {words} hitz segundoko",
  "ask.builtin_missing": "{model} ez da oraindik deskargatu: deskargatu Ezarpenak atalean, Galdetu azpian, edo Konfiguratu… atalean",
  "ask.builtin_name": "{model}, integratua",

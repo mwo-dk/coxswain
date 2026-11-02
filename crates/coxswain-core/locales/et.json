@@ -333,6 +333,7 @@
  "archive.preview_unlock": "Sisesta parool",
  "archive.room_short": "Ruumi võib jääda väheks: siin on vaba {free} ja vaja võib minna {need}, sest arhiiv kirjutatakse esmalt vana kõrvale",
  "archive.too_large": "{name} on siin vaatamiseks liiga suur: kopeeri see arhiivist välja, et see avada",
+ "archive.unchecked_password": "{name} on lukustatud vanal zip-viisil ja liiga suur, et parooli enne näitamist kontrollida, seega võib parool olla vale: kopeeri see arhiivist välja, et see avada",
  "ask.builtin_estimate": "Sellel protsessoril: umbes {seconds} s esimese sõnani, siis {words} sõna sekundis",
  "ask.builtin_missing": "{model} pole veel alla laaditud: laadi see alla jaotises Sätted › Küsi või Seadista…",
  "ask.builtin_name": "{model}, sisseehitatud",

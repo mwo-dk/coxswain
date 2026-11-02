@@ -297,6 +297,7 @@
  "archive.preview_unlock": "输入密码",
  "archive.room_short": "空间可能不足：这里剩 {free}，可能需要 {need}，因为压缩包会先写在旧文件旁边",
  "archive.too_large": "{name} 太大，无法在这里查看：请从压缩包复制出来再打开",
+ "archive.unchecked_password": "{name} 以旧的 zip 方式加密，太大，无法在显示前检查密码，所以密码可能不对：请从压缩包复制出来再打开",
  "ask.builtin_estimate": "在这个处理器上：约 {seconds} 秒出现第一个字，之后每秒 {words} 个字",
  "ask.builtin_missing": "{model} 尚未下载：请在设置的“提问”下或“设置…”中下载",
  "ask.builtin_name": "{model}（内置）",

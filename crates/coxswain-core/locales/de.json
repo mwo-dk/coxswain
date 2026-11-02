@@ -333,6 +333,7 @@
  "archive.preview_unlock": "Passwort eingeben",
  "archive.room_short": "Der Platz könnte knapp werden: Hier sind {free} frei, nötig sind vielleicht {need}, da das Archiv zuerst neben dem alten geschrieben wird",
  "archive.too_large": "{name} ist zu groß, um hier angesehen zu werden: kopieren Sie es aus dem Archiv, um es zu öffnen",
+ "archive.unchecked_password": "{name} ist auf die alte Zip-Art verschlüsselt und zu groß, um das Passwort vor dem Anzeigen zu prüfen, daher kann das Passwort falsch sein: kopieren Sie es aus dem Archiv, um es zu öffnen",
  "ask.builtin_estimate": "Auf diesem Prozessor: etwa {seconds} s bis zum ersten Wort, dann {words} Wörter pro Sekunde",
  "ask.builtin_missing": "{model} ist noch nicht heruntergeladen: Laden Sie es in den Einstellungen unter Fragen oder unter Einrichten… herunter",
  "ask.builtin_name": "{model}, eingebaut",
