@@ -605,10 +605,8 @@ impl Status {
     pub fn facts(&self, g: &Glyphs) -> Facts {
         let mut c = command_with(&self.root, &[]);
         crate::vcs::use_store(&mut c, &self.root);
-        let remote = c
-            .args(["ls-remote", "--get-url"])
-            .output()
-            .ok()
+        c.args(["ls-remote", "--get-url"]);
+        let remote = output(c)
             .filter(|o| o.status.success())
             .map(|o| without_credentials(String::from_utf8_lossy(&o.stdout).trim()))
             .filter(|u| !u.is_empty());

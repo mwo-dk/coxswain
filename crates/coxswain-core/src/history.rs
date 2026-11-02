@@ -588,10 +588,18 @@ pub(crate) fn read_out(mut c: Command, max: usize) -> io::Result<(Vec<u8>, bool)
     // otherwise waited for once its output ends.
     let (stop, told) = std::sync::mpsc::channel::<()>();
     let watch = std::thread::spawn(move || {
-        if told.recv_timeout(crate::git::LIMIT) != Err(std::sync::mpsc::RecvTimeoutError::Disconnected) {
-            crate::tools::kill_tree(&mut child);
+        match told.recv_timeout(crate::git::LIMIT) {
+            // Its output ended: it gets the limit once more to end too.
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => crate::tools::wait(&mut child, crate::git::LIMIT),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                crate::tools::kill_tree(&mut child);
+                Err(io::Error::new(io::ErrorKind::TimedOut, "took too long"))
+            }
+            Ok(()) => {
+                crate::tools::kill_tree(&mut child);
+                child.wait()
+            }
         }
-        child.wait()
     });
     let mut buf = vec![];
     let read = out.take(max as u64 + 1).read_to_end(&mut buf);
