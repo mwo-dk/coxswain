@@ -133,6 +133,13 @@ The rules:
 - **Never in the way**: no hint while you type a command, during quick search, while a dialog
   is open, or while the status line says something else (*Copied "report.pdf"*).
 - **Your keys**: the hint names the keys in force; a hint whose action you unbound is skipped.
+- **An action you only run from the menu**: after the third time you run an action from the
+  action menu or **F9** without ever pressing its key, the status line names the key and where to
+  change it (*Space view has the key Alt+U. Change it in Settings → Keys or under [keys] in
+  config.toml; F9 → Show keys as they arrive shows whether it reaches Coxswain*). It comes three
+  times at most, never for an action whose key you have used, and never for an action with no
+  key. A key that does nothing may never arrive:
+  [Which keys reach Coxswain](../customise/keys.md#which-keys-reach-coxswain).
 
 ### The hint in Find
 

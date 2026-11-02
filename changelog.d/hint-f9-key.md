@@ -1,0 +1,1 @@
+| **A key named when you only use the menu.** After you run an action from the action menu or F9 three times without its key, the status line names the key, where to change it, and how to check that it reaches Coxswain. | [Hints](panels/action-menu.md#hints-on-the-status-line) |

@@ -4709,5 +4709,6 @@
  "feature.pick.q3": "Aga fail arhiivi sees?",
  "feature.pick.a3": "Arhiivid avanevad kaustadena. Seal valitud fail pakitakse vahemällu lahti ja antakse selle koopia tee.",
  "pick.no_terminal": "Valimisrežiim vajab terminali Coxswaini näitamiseks ja ühtegi ei õnnestunud avada: {error}",
- "pick.refused": "Valija ainult valib: ta ei muuda ühtegi faili"
+ "pick.refused": "Valija ainult valib: ta ei muuda ühtegi faili",
+ "hint.via_menu": "Toimingu {action} klahv on {key}. Muuda seda jaotises {settings} või failis config.toml jaotises [keys]; {menu} → {key_test} näitab, kas klahv jõuab Coxswainini"
 }

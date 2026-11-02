@@ -4709,5 +4709,6 @@
  "feature.pick.q3": "Entä tiedosto arkiston sisällä?",
  "feature.pick.a3": "Arkistot avautuvat kansioina. Niistä valittu tiedosto puretaan välimuistiin ja kopion polku annetaan.",
  "pick.no_terminal": "Valintatila tarvitsee päätteen Coxswainin näyttämiseen, eikä sellaista voitu avata: {error}",
- "pick.refused": "Valitsin vain valitsee: se ei muuta tiedostoja"
+ "pick.refused": "Valitsin vain valitsee: se ei muuta tiedostoja",
+ "hint.via_menu": "Toiminnon {action} näppäin on {key}. Vaihda se kohdassa {settings} tai config.toml-tiedoston osassa [keys]; {menu} → {key_test} näyttää, tavoittaako se Coxswainin"
 }

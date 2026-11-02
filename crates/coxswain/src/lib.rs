@@ -1555,6 +1555,7 @@ impl App {
         match (action, plain_char) {
             (Some(a), _) => {
                 self.cmd_open &= a == Action::CommandLine;
+                coxswain_core::menu::ran(a, false, &self.cfg);
                 self.act(a)
             }
             // Typing jumps to a name: the first letter starts a quick search.
@@ -4448,7 +4449,14 @@ impl App {
                 };
                 match run.map(|i| &items[i].run) {
                     Some(r) if self.pick.is_some() && !matches!(r, MenuRun::Action(_) | MenuRun::Goto(..) | MenuRun::Say(_) | MenuRun::Bin(_)) => self.status = Some(t!("pick.refused")),
-                    Some(MenuRun::Action(a)) => self.act(*a),
+                    Some(MenuRun::Action(a)) => {
+                        self.act(*a);
+                        // Run from F9 or the menu again and again, never by its key: the key is named.
+                        let named = coxswain_core::menu::ran(*a, true, &self.cfg);
+                        if self.status.is_none() {
+                            self.status = named;
+                        }
+                    }
                     Some(MenuRun::User(u)) => self.run_user(u),
                     Some(MenuRun::Script(path)) => self.run_script(&path.clone()),
                     Some(MenuRun::ScriptsFolder) => match coxswain_core::user_menu::scripts_folder() {

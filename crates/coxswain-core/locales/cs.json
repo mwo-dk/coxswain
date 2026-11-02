@@ -4810,5 +4810,6 @@
  "feature.pick.q3": "A soubor v archivu?",
  "feature.pick.a3": "Archivy se otevírají jako složky. Soubor vybraný uvnitř se rozbalí do mezipaměti a vrátí se cesta k této kopii.",
  "pick.no_terminal": "Režim výběru potřebuje terminál k zobrazení Coxswain a žádný nešlo otevřít: {error}",
- "pick.refused": "Výběr jen vybírá: nemění žádné soubory"
+ "pick.refused": "Výběr jen vybírá: nemění žádné soubory",
+ "hint.via_menu": "{action} má klávesu {key}. Změníte ji v {settings} nebo v config.toml v části [keys]; {menu} → {key_test} ukáže, zda se dostane ke Coxswain"
 }

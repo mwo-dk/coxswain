@@ -4622,5 +4622,6 @@
  "feature.pick.q3": "压缩包里的文件呢?",
  "feature.pick.a3": "压缩包照常作为文件夹打开。在里面选的文件会解压到缓存,并给出该副本的路径。",
  "pick.no_terminal": "选取模式需要终端来显示 Coxswain,但无法打开终端:{error}",
- "pick.refused": "选取器只负责选择:不会更改任何文件"
+ "pick.refused": "选取器只负责选择:不会更改任何文件",
+ "hint.via_menu": "{action}的快捷键是 {key}。可在{settings}或 config.toml 的 [keys] 下更改；{menu} → {key_test}可查看按键是否到达 Coxswain"
 }

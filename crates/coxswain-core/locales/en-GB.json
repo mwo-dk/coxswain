@@ -4720,5 +4720,6 @@
  "feature.pick.q3": "What about a file inside an archive?",
  "feature.pick.a3": "Archives open as folders as usual. A file chosen inside one is unpacked to the cache, and the path of that copy is given.",
  "pick.no_terminal": "Pick mode needs a terminal to show Coxswain in, and none could be opened: {error}",
- "pick.refused": "The picker only chooses: it changes no files"
+ "pick.refused": "The picker only chooses: it changes no files",
+ "hint.via_menu": "{action} has the key {key}. Change it in {settings} or under [keys] in config.toml; {menu} → {key_test} shows whether it reaches Coxswain"
 }

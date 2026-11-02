@@ -4807,5 +4807,6 @@
  "feature.pick.q3": "Un fails arhīvā?",
  "feature.pick.a3": "Arhīvi atveras kā mapes. Tajā izvēlētais fails tiek izpakots kešatmiņā, un tiek dots šīs kopijas ceļš.",
  "pick.no_terminal": "Izvēles režīmam vajag termināli, lai parādītu Coxswain, un nevienu neizdevās atvērt: {error}",
- "pick.refused": "Izvēlnis tikai izvēlas: tas nemaina nevienu failu"
+ "pick.refused": "Izvēlnis tikai izvēlas: tas nemaina nevienu failu",
+ "hint.via_menu": "Darbības {action} taustiņš ir {key}. Mainiet to sadaļā {settings} vai config.toml sadaļā [keys]; {menu} → {key_test} parāda, vai tas sasniedz Coxswain"
 }

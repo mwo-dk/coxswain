@@ -203,6 +203,9 @@ arrive* shows what does reach it. It is in **F9** (*Show keys as they arrive*) a
 action menu (**Shift+F10**) on `..` with nothing marked, in both apps; it has no key of its
 own (`key_test` in `[keys]` gives it one).
 
+When you have run an action from the action menu or **F9** three times without ever pressing
+its key, the status line names the key and points here ([Hints](../panels/action-menu.md#hints-on-the-status-line)).
+
 It opens a dialog, *Keys as they arrive*, and lists every key you press, the newest last, the
 last twelve kept. Nothing runs while it is open. Each line has three parts:
 

@@ -4611,5 +4611,6 @@
  "feature.pick.q3": "アーカイブの中のファイルは?",
  "feature.pick.a3": "アーカイブはいつもどおりフォルダとして開きます。中で選んだファイルはキャッシュに展開され、そのコピーのパスが返されます。",
  "pick.no_terminal": "選択モードには Coxswain を表示する端末が必要ですが、開けませんでした: {error}",
- "pick.refused": "ピッカーは選ぶだけです。ファイルは変更しません"
+ "pick.refused": "ピッカーは選ぶだけです。ファイルは変更しません",
+ "hint.via_menu": "{action} のキーは {key} です。{settings} か config.toml の [keys] で変更できます。{menu} → {key_test} で、キーが Coxswain に届いているか確認できます"
 }
