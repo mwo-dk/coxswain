@@ -21,6 +21,10 @@ pub fn command(dir: &Path) -> Command {
 /// for several commands, or none for one that runs no filter (`rev-parse`, `ls-tree`).
 pub(crate) fn command_with(dir: &Path, keys: &[(String, &str)]) -> Command {
     let mut c = crate::tools::command("git");
+    if !readable(dir) {
+        // No repository at all, so git fails at once instead of waiting on what it would open.
+        c.env("GIT_DIR", if cfg!(windows) { "NUL" } else { "/dev/null" });
+    }
     let no_hooks = if cfg!(windows) {
         "core.hooksPath=NUL"
     } else {
@@ -55,6 +59,10 @@ pub(crate) fn command_with(dir: &Path, keys: &[(String, &str)]) -> Command {
 
 /// Settings that turn off every filter driver the repository at `dir` defines itself.
 pub(crate) fn repo_filters(dir: &Path) -> Vec<(String, &'static str)> {
+    if !readable(dir) {
+        // Every git after this fails at once (`command_with`).
+        return vec![];
+    }
     let out = crate::tools::command("git")
         .arg("-C")
         .arg(dir)
@@ -91,6 +99,105 @@ pub(crate) fn repo_filters(dir: &Path) -> Vec<(String, &'static str)> {
             .map(|(k, v)| (format!("filter.{d}.{k}"), v))
         })
         .collect()
+}
+
+/// Whether git can work in the repository `dir` is in without waiting forever. git opens what
+/// the repository names, its config and every `[include]` in it, `HEAD`, the index, the
+/// excludes, and a FIFO or a terminal (`/dev/tty`) there holds it until someone writes: a
+/// folder unpacked from an archive can hold one. Each is looked at with a `stat`, which never
+/// waits, and opened here only when it is a plain file. True outside a repository.
+pub(crate) fn readable(dir: &Path) -> bool {
+    for a in dir.ancestors() {
+        let dot = a.join(".git");
+        let (top, git_dir) = match std::fs::metadata(&dot) {
+            Ok(m) if m.is_dir() => (Some(a), dot),
+            Ok(m) if m.is_file() => match read_plain(&dot) {
+                Some(t) => match t.trim().strip_prefix("gitdir:") {
+                    Some(g) => (Some(a), a.join(g.trim())),
+                    None => return true,
+                },
+                None => return true,
+            },
+            Ok(_) => return false,
+            // A bare repository, as git finds one.
+            Err(_) if a.join("HEAD").exists() && a.join("objects").is_dir() && a.join("refs").is_dir() => {
+                (None, a.to_path_buf())
+            }
+            Err(_) => continue,
+        };
+        if waits(&git_dir.join("commondir")) {
+            return false;
+        }
+        let common = read_plain(&git_dir.join("commondir"))
+            .map_or_else(|| git_dir.clone(), |c| git_dir.join(c.trim()));
+        let base = top.unwrap_or(&git_dir);
+        return ![
+            git_dir.join("HEAD"),
+            git_dir.join("index"),
+            common.join("info/exclude"),
+            base.join(".gitignore"),
+        ]
+        .iter()
+        .any(|f| waits(f))
+            && config_readable(&common.join("config"), base, 0)
+            && config_readable(&git_dir.join("config.worktree"), base, 0);
+    }
+    true
+}
+
+/// There, and neither a file nor a folder (which git refuses at once): a FIFO, a device.
+fn waits(p: &Path) -> bool {
+    std::fs::metadata(p).is_ok_and(|m| !m.is_file() && !m.is_dir())
+}
+
+/// A small file of the repository, read only when it is a plain file.
+fn read_plain(p: &Path) -> Option<String> {
+    let mut b = vec![];
+    std::io::Read::read_to_end(&mut crate::fs::open_regular(p).ok()?, &mut b).ok()?;
+    Some(String::from_utf8_lossy(&b).into_owned())
+}
+
+/// A config file of the repository and every file it includes (as deep as git goes) or names
+/// as its excludes or attributes: none waits. `top`: where git works, which a relative
+/// excludes file is from.
+fn config_readable(file: &Path, top: &Path, depth: u32) -> bool {
+    if waits(file) {
+        return false;
+    }
+    let Some(text) = read_plain(file) else {
+        return true;
+    };
+    // Section and key names are plain words in the file (no escapes, no line joins there), so
+    // a file without these words names none: git is asked only about the others.
+    let low = text.to_ascii_lowercase();
+    if depth > 10 || !["include", "excludesfile", "attributesfile"].iter().any(|w| low.contains(w)) {
+        return true;
+    }
+    // git reads the file itself (its quoting and `~`), without its includes. Started where no
+    // repository is, so git opens nothing else on the way.
+    let tmp = std::env::temp_dir();
+    let out = crate::tools::command("git")
+        .args(["config", "--no-includes", "--null", "--type=path", "--file"])
+        .arg(file)
+        .args([
+            "--get-regexp",
+            r"^(include|includeif\..*)\.path$|^core\.(excludesfile|attributesfile)$",
+        ])
+        .current_dir(&tmp)
+        .env("GIT_CEILING_DIRECTORIES", &tmp)
+        .env("GIT_CONFIG_COUNT", "0")
+        .stdin(Stdio::null())
+        .output();
+    let Ok(out) = out else { return true };
+    String::from_utf8_lossy(&out.stdout).split('\0').all(|kv| {
+        let Some((key, value)) = kv.split_once('\n') else {
+            return true;
+        };
+        let include = key.starts_with("include");
+        let from = if include { file.parent().unwrap_or(top) } else { top };
+        let p = from.join(value);
+        !waits(&p) && (!include || config_readable(&p, top, depth + 1))
+    })
 }
 
 /// Ordered by how loudly it should show; a directory takes the loudest of its contents.
@@ -625,6 +732,49 @@ mod tests {
             st.files.get(&st.root.join("a.txt")).map(|f| f.kind),
             Some(Kind::Modified)
         );
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A repository whose config includes a FIFO (here through a plain included file), or whose
+    /// excludes are one, would hold git until someone writes to it: git is never run there, and
+    /// the status of a repository with a plain include is still read.
+    #[cfg(unix)]
+    #[test]
+    fn a_fifo_the_repository_names_is_never_opened() {
+        let Some(d) = crate::history::tests::repo("fifo") else {
+            return;
+        };
+        let fifo = |p: &Path| {
+            let c = std::ffi::CString::new(p.as_os_str().as_encoded_bytes()).unwrap();
+            // SAFETY: a NUL-terminated path.
+            assert_eq!(unsafe { libc::mkfifo(c.as_ptr(), 0o600) }, 0);
+        };
+        let config = d.join(".git/config");
+        let plain = std::fs::read_to_string(&config).unwrap();
+        // In a thread: were the FIFO opened, the test would wait for ever, not fail.
+        let status = |d: &Path| {
+            let d = d.to_path_buf();
+            let (tx, rx) = std::sync::mpsc::channel();
+            std::thread::spawn(move || tx.send(Status::read(&d).is_some()).unwrap());
+            rx.recv_timeout(crate::test_limit(std::time::Duration::from_secs(20)))
+                .expect("git waited on the FIFO")
+        };
+        std::fs::write(d.join("inc"), "[user]\n\tname = x\n").unwrap();
+        std::fs::write(&config, format!("{plain}[include]\n\tpath = ../inc\n")).unwrap();
+        assert!(readable(&d) && status(&d), "a plain include");
+
+        fifo(&d.join(".git/pipe"));
+        std::fs::write(d.join("inc"), "[INCLUDE]\n\tpath = \".git/pipe\"\n").unwrap();
+        assert!(!readable(&d.join("sub")) && !status(&d), "an included include of a FIFO");
+        assert!(repo_filters(&d).is_empty());
+        assert!(crate::git_config::read(&d).is_err());
+
+        std::fs::write(&config, format!("{plain}[core]\n\texcludesFile = .git/pipe\n")).unwrap();
+        assert!(!readable(&d) && !status(&d), "excludes that are a FIFO");
+
+        std::fs::write(&config, &plain).unwrap();
+        fifo(&d.join(".gitignore"));
+        assert!(!readable(&d) && !status(&d), "a .gitignore that is a FIFO");
         std::fs::remove_dir_all(d).unwrap();
     }
 

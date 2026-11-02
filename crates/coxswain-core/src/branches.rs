@@ -197,6 +197,9 @@ fn said(mut c: std::process::Command) -> io::Result<String> {
 /// own config: a repository from elsewhere could have it run a program or send the user's login
 /// through a proxy while it writes the files of `target` (`lfs_risk`), so that is refused too.
 fn writes_files_safely(dir: &Path, target: &str) -> io::Result<()> {
+    if !crate::git::readable(dir) {
+        return Err(io::Error::other(crate::t!("gitconfig.failed")));
+    }
     if !crate::git::repo_filters(dir).is_empty() {
         return Err(io::Error::other(crate::t!("branches.has_filters")));
     }
@@ -211,6 +214,9 @@ fn writes_files_safely(dir: &Path, target: &str) -> io::Result<()> {
 /// which `core.hooksPath` does not stop), or where it puts the work tree somewhere else
 /// (`core.worktree`), so a checkout would write outside the folder the app shows.
 fn changes_refs_safely(base: &Path) -> io::Result<()> {
+    if !crate::git::readable(base) {
+        return Err(io::Error::other(crate::t!("gitconfig.failed")));
+    }
     let mut c = crate::tools::command("git");
     c.arg("-C")
         .arg(base)

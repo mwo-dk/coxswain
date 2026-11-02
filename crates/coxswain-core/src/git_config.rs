@@ -67,6 +67,10 @@ pub fn command(dir: &Path) -> std::process::Command {
 
 /// The config as git uses it in `dir`, by heading and key, each key's winner first.
 pub fn read(dir: &Path) -> Result<Vec<Entry>, String> {
+    // A FIFO or a device the repository names would hold this read for ever.
+    if !crate::git::readable(dir) {
+        return Err(crate::t!("gitconfig.failed"));
+    }
     let out = command(dir).output().map_err(|e| e.to_string())?;
     if !out.status.success() {
         let said = String::from_utf8_lossy(&out.stderr).trim().to_string();
