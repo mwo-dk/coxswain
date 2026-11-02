@@ -82,7 +82,7 @@ pub fn take_marks(c: &str, marks: &mut Vec<Mark>) -> String {
     while let Some(i) = rest.find("[%") {
         let Some(end) = rest[i..].find(']').map(|e| i + e) else { break };
         let cmd = &rest[i + 2..end];
-        if cmd.starts_with("evp ") {
+        if cmd.strip_prefix("evp").is_some_and(|r| r.is_empty() || r.starts_with(char::is_whitespace)) {
             out.push_str(&rest[..i]);
             rest = &rest[end + 1..];
             continue;
@@ -891,7 +891,7 @@ mod tests {
         // ChessBase's evaluation profile is not comment text.
         let g = parse("1. e4 {[%evp 0,53,31,24,18,40] Annotated by a coach} e5");
         assert_eq!(g.nodes[0].after, "Annotated by a coach");
-        let g = parse("{[%evp 0,53,31] Round 1} 1. e4");
+        let g = parse("{[%evp\n0,53,31] Round 1} 1. e4");
         assert_eq!(g.comment, "Round 1");
         // At a variation's start: on its first move, not on the main line's move it replaces.
         let g = parse("1. e4 ({[%csl Gd4]} 1. d4 d5) 1... e5");
