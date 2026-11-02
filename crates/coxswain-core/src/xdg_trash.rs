@@ -103,6 +103,7 @@ fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
     let info = trash.join("info").join(format!("{name}.trashinfo"));
     let body = fs::read_to_string(&info)
         .map_err(|_| io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_trash")))?;
+    let was = crate::bin::fd::id(&info);
     // Still the one this path put there, not another under a name freed and taken since.
     if !body
         .lines()
@@ -121,8 +122,11 @@ fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
     }
     crate::bin::fd::midway();
     // Never over a file made at `path` since the look above.
-    crate::bin::fd::move_new(&trash.join("files").join(name), &path)?;
-    let _ = fs::remove_file(info);
+    let ours = crate::bin::fd::move_new(&trash.join("files").join(name), &path)?;
+    // Still the one read: another program may have taken it away and a put made a new one.
+    if ours && crate::bin::fd::id(&info) == was {
+        let _ = fs::remove_file(info);
+    }
     Ok(())
 }
 

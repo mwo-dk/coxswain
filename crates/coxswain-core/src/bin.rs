@@ -411,16 +411,20 @@ pub(crate) mod fd {
         fs::symlink_metadata(info_of(path)).map_or(true, |m| m.len() == 0)
     }
 
+    /// Its device, inode and change time: a file freed and another made since may get the
+    /// same inode number.
+    pub(crate) type Id = (u64, u64, i64, i64);
+
     /// What tells one file from another that took its name since.
-    fn id(path: &Path) -> Option<(u64, u64)> {
+    pub(crate) fn id(path: &Path) -> Option<Id> {
         let m = fs::symlink_metadata(path).ok()?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;
-            Some((m.dev(), m.ino()))
+            Some((m.dev(), m.ino(), m.ctime(), m.ctime_nsec()))
         }
         #[cfg(not(unix))]
-        Some((0, m.len()))
+        Some((0, m.len(), 0, 0))
     }
 
     /// A bin folder and the top of the disk it is on, which the paths in its info files are
@@ -670,6 +674,23 @@ pub(crate) mod fd {
         item(b, path.file_name()?.to_str()?).filter(|i| i.path == path)
     }
 
+    /// An item's file and its info file, as `id` tells them: looked at again before each removal,
+    /// as other programs (the desktop's own trash) take no lock of ours (#726).
+    type Ids = (Option<Id>, Option<Id>);
+
+    fn ids(path: &Path) -> Ids {
+        (id(path), id(&info_of(path)))
+    }
+
+    /// The info file of `path`, removed only while it is still `was`: another program may have
+    /// removed it and a put made a new one under the name since.
+    fn remove_info(path: &Path, was: Option<Id>) {
+        let i = info_of(path);
+        if id(&i) == was {
+            let _ = fs::remove_file(i);
+        }
+    }
+
     fn info_of(path: &Path) -> PathBuf {
         let bin = path
             .parent()
@@ -692,6 +713,7 @@ pub(crate) mod fd {
                 done.failed.push(failed(p, crate::t!("err.not_in_trash")));
                 continue;
             };
+            let was = ids(&item.path);
             let mut to = item.origin.clone();
             if fs::symlink_metadata(&to).is_ok() {
                 if !free_name {
@@ -700,13 +722,22 @@ pub(crate) mod fd {
                 }
                 to = free_in(to.parent().unwrap_or(Path::new("/")), &item.name);
             }
+            midway();
+            // Still the item found: another program may have taken it away, and a put another
+            // file under its name, since.
+            if id(&item.path) != was.0 {
+                done.failed.push(failed(p, crate::t!("err.not_in_trash")));
+                continue;
+            }
             let moved = to
                 .parent()
                 .map_or(Ok(()), fs::create_dir_all)
                 .and_then(|_| move_new(&item.path, &to));
             match moved {
-                Ok(()) => {
-                    let _ = fs::remove_file(info_of(&item.path));
+                Ok(ours) => {
+                    if ours {
+                        remove_info(&item.path, was.1);
+                    }
                     done.done += 1;
                 }
                 Err(e) => done.failed.push(failed(&to, e)),
@@ -720,10 +751,12 @@ pub(crate) mod fd {
     /// where Android refuses them; FAT), by a rename onto an empty file made at `to` with
     /// `create_new`, which fails when `to` exists; a folder by a rename, which cannot replace a
     /// file or a folder with something in it. Across disks (the home bin holds what was moved in
-    /// from another), the move F6 does.
+    /// from another), the move F6 does. `false`: the file was moved, but its name in the bin was
+    /// taken away by another program meanwhile (or holds another's file now), so its info file
+    /// is that program's to remove.
     // ponytail: that move checks, then moves: a file made in that instant at `to` is replaced.
     // Windows restores through the shell, with the same check first.
-    pub fn move_new(from: &Path, to: &Path) -> io::Result<()> {
+    pub fn move_new(from: &Path, to: &Path) -> io::Result<bool> {
         let across = |e: &io::Error| {
             #[cfg(test)]
             if crate::fs::ACROSS.get() {
@@ -753,7 +786,7 @@ pub(crate) mod fd {
                     crate::t!("err.exists", "path" => to.display()),
                 ));
             }
-            simulated().and_then(|_| fs::rename(from, to))
+            simulated().and_then(|_| fs::rename(from, to)).map(|_| true)
         } else {
             #[cfg(test)]
             let link = |f: &Path, t: &Path| {
@@ -766,7 +799,15 @@ pub(crate) mod fd {
             #[cfg(not(test))]
             let link = fs::hard_link;
             match simulated().and_then(|_| link(from, to)) {
-                Ok(()) => return fs::remove_file(from),
+                // `from` still the file now at `to`, else another program's since (or gone): left.
+                Ok(()) if id(from) != id(to) => return Ok(false),
+                Ok(()) => {
+                    return match fs::remove_file(from) {
+                        Ok(()) => Ok(true),
+                        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+                        Err(e) => Err(e),
+                    };
+                }
                 Err(e)
                     if matches!(
                         e.kind(),
@@ -779,18 +820,20 @@ pub(crate) mod fd {
                         .write(true)
                         .create_new(true)
                         .open(to)?;
-                    fs::rename(from, to).inspect_err(|_| {
-                        if fs::symlink_metadata(to).is_ok_and(|m| m.len() == 0) {
-                            let _ = fs::remove_file(to);
-                        }
-                    })
+                    fs::rename(from, to)
+                        .inspect_err(|_| {
+                            if fs::symlink_metadata(to).is_ok_and(|m| m.len() == 0) {
+                                let _ = fs::remove_file(to);
+                            }
+                        })
+                        .map(|_| true)
                 }
                 Err(e) => Err(e),
             }
         };
         match first {
             Err(e) if e.kind() != io::ErrorKind::AlreadyExists && across(&e) => {
-                crate::fs::rename(from, to).map(drop)
+                crate::fs::rename(from, to).map(|_| true)
             }
             r => r,
         }
@@ -809,23 +852,47 @@ pub(crate) mod fd {
             Ok(h) => h,
             Err(e) => return busy(e),
         };
-        delete_held(bins, paths)
+        let mut failed_ = vec![];
+        let found: Vec<(PathBuf, Ids)> = paths
+            .iter()
+            .filter_map(|p| match find(bins, p) {
+                Some(_) => Some((p.clone(), ids(p))),
+                None => {
+                    failed_.push(failed(p, crate::t!("err.not_in_trash")));
+                    None
+                }
+            })
+            .collect();
+        let mut done = delete_listed(&found);
+        done.failed.splice(0..0, failed_);
+        done
     }
 
-    fn delete_held(bins: &[Bin], paths: &[PathBuf]) -> Done {
+    /// Each item as it was listed: its file, then its info file, each removed only while still
+    /// the one listed. One gone already (another program took it away) is done; another file
+    /// under its name since is not the user's to lose: left, and said.
+    fn delete_listed(items: &[(PathBuf, Ids)]) -> Done {
         let mut done = Done::default();
-        for p in paths {
-            if find(bins, p).is_none() {
-                done.failed.push(failed(p, crate::t!("err.not_in_trash")));
-                continue;
-            }
+        for (p, (file, info)) in items {
             midway();
+            match id(p) {
+                None => {
+                    done.done += 1;
+                    continue;
+                }
+                now if now != *file => {
+                    done.failed.push(failed(p, crate::t!("err.not_in_trash")));
+                    continue;
+                }
+                _ => {}
+            }
             // The item first: an info file left without it is no item.
             match remove(p) {
                 Ok(()) => {
-                    let _ = fs::remove_file(info_of(p));
+                    remove_info(p, *info);
                     done.done += 1;
                 }
+                Err(e) if e.kind() == io::ErrorKind::NotFound => done.done += 1,
                 Err(e) => done.failed.push(failed(p, e)),
             }
         }
@@ -842,8 +909,14 @@ pub(crate) mod fd {
             Ok(h) => h,
             Err(e) => return busy(e),
         };
-        let all: Vec<PathBuf> = list_in(bins).into_iter().map(|i| i.path).collect();
-        let strays: Vec<(PathBuf, Option<(u64, u64)>)> = bins
+        let all: Vec<(PathBuf, Ids)> = list_in(bins)
+            .into_iter()
+            .map(|i| {
+                let was = ids(&i.path);
+                (i.path, was)
+            })
+            .collect();
+        let strays: Vec<(PathBuf, Option<Id>)> = bins
             .iter()
             .filter(|b| real(b))
             .flat_map(|b| {
@@ -859,7 +932,7 @@ pub(crate) mod fd {
                 (p, id)
             })
             .collect();
-        let mut done = delete_held(bins, &all);
+        let mut done = delete_listed(&all);
         midway();
         for (p, was) in strays {
             if unlisted(&p) && id(&p) == was && remove(&p).is_ok() {
@@ -1345,8 +1418,14 @@ mod tests {
         fs::write(b.dir.join("files/stray"), "").unwrap();
         let bins = [b.clone()];
         let dir = b.dir.clone();
+        let mut calls = 0;
         MIDWAY.set(Some(Box::new(move || {
-            // Another program's put: the info file, then the file.
+            // After a.txt went (the second call): another program's put, the info file, then
+            // the file.
+            calls += 1;
+            if calls != 2 {
+                return;
+            }
             fs::write(
                 dir.join("info/a.txt.trashinfo"),
                 "[Trash Info]\nPath=/y/a.txt\nDeletionDate=2026-10-02T12:00:00\n",
@@ -1362,6 +1441,61 @@ mod tests {
         assert_eq!(l.len(), 1);
         assert_eq!(l[0].origin, Path::new("/y/a.txt"));
         assert_eq!(fs::read_to_string(&l[0].path).unwrap(), "new");
+    }
+
+    /// Another program takes no lock of ours (the desktop's own trash): it empties an item and
+    /// puts another file under its name between Coxswain's look at the item and its removal.
+    /// The new file is left, with its info file; one simply gone is done (#726).
+    #[cfg(unix)]
+    #[test]
+    fn bin_leaves_what_another_program_put_under_an_items_name() {
+        let d = crate::fs::Scratch::named("bin-outside");
+        let other = |dir: PathBuf, put: bool| -> Box<dyn FnMut()> {
+            let mut once = true;
+            Box::new(move || {
+                if std::mem::take(&mut once) {
+                    fs::remove_file(dir.join("files/a.txt")).unwrap();
+                    if put {
+                        fs::remove_file(dir.join("info/a.txt.trashinfo")).unwrap();
+                        fs::write(
+                            dir.join("info/a.txt.trashinfo"),
+                            "[Trash Info]\nPath=/y/a.txt\nDeletionDate=2026-10-02T12:00:00\n",
+                        )
+                        .unwrap();
+                        fs::write(dir.join("files/a.txt"), "new").unwrap();
+                    }
+                }
+            })
+        };
+        let new_one_stays = |b: &Bin| {
+            let l = list_in(std::slice::from_ref(b));
+            assert_eq!(l.len(), 1);
+            assert_eq!(l[0].origin, Path::new("/y/a.txt"));
+            assert_eq!(fs::read_to_string(&l[0].path).unwrap(), "new");
+        };
+        let not_in_bin = |r: &Done| r.failed.len() == 1 && r.done == 0;
+        for op in 0..3 {
+            let b = bin(&d.join(format!("{op}")), &[("a.txt", "/x/a.txt", "2026-10-01T12:00:00")]);
+            let bins = [b.clone()];
+            let a = b.dir.join("files/a.txt");
+            MIDWAY.set(Some(other(b.dir.clone(), true)));
+            let r = match op {
+                0 => delete_in(&bins, std::slice::from_ref(&a)),
+                1 => empty_in(&bins),
+                _ => restore_in(&bins, std::slice::from_ref(&a), true),
+            };
+            MIDWAY.set(None);
+            assert!(not_in_bin(&r), "{op}: {r:?}");
+            new_one_stays(&b);
+        }
+        // Only gone (another program's delete, its info file next): done, and its info file
+        // is the other program's to remove.
+        let b = bin(&d.join("gone"), &[("a.txt", "/x/a.txt", "2026-10-01T12:00:00")]);
+        MIDWAY.set(Some(other(b.dir.clone(), false)));
+        let r = delete_in(std::slice::from_ref(&b), &[b.dir.join("files/a.txt")]);
+        MIDWAY.set(None);
+        assert_eq!((r.done, r.failed.len()), (1, 0));
+        assert!(b.dir.join("info/a.txt.trashinfo").exists());
     }
 
     /// Empty looks at each item alone, not by listing the whole bin again for each: 8 times
