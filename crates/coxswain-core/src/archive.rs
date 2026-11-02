@@ -2376,12 +2376,19 @@ pub fn list_in(archive: &Path, inner: &str) -> io::Result<Vec<crate::fs::Entry>>
 /// `list_in`, and whether anything in that folder or below it is locked. A folder's size is
 /// that of the files in it.
 pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>, bool)> {
+    listing_at(archive, inner, None)
+}
+
+/// `listing`; with `lean`, the folder as the panel names it, each entry's path is left out
+/// (`fs::list_lean`) where it is that folder joined with the name.
+pub(crate) fn listing_at(archive: &Path, inner: &str, lean: Option<&Path>) -> io::Result<(Vec<crate::fs::Entry>, bool)> {
     let (real, inside, _held) = resolve(archive, inner, true)?;
     // Part by part, so the paths have the system's separator throughout, as the search's do.
     let at = inner
         .split('/')
         .filter(|p| !p.is_empty())
         .fold(archive.to_path_buf(), |p, part| p.join(part));
+    let lean = lean == Some(at.as_path());
     let prefix = if inside.is_empty() {
         String::new()
     } else {
@@ -2417,7 +2424,7 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
         };
         let i = *seen.entry(first).or_insert_with(|| {
             out.push(crate::fs::Entry {
-                path: at.join(first),
+                path: if lean { PathBuf::new() } else { at.join(first) },
                 hidden: first.starts_with('.'),
                 name: first.to_string(),
                 is_dir: deeper,

@@ -414,6 +414,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let colours = [&t.git_branch, &t.git_added, &t.git_modified, &t.git_renamed, &t.git_untracked, &t.symlink];
     let mut lines = vec![];
     for (i, e) in p.entries.iter().enumerate().skip(p.offset).take(rows) {
+        let e = &p.full(e);
         let marked = p.marked.contains(&e.path);
         let at = i == p.cursor && active;
         let mut s = if marked {
