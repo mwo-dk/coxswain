@@ -157,6 +157,34 @@ pub(crate) fn records_within(mut c: Command, sep: u8, budget: Duration, mut f: i
     Ok(watch.join().unwrap_or(false) || cut)
 }
 
+/// Ends `child` (and what it started) when the `Ticking` reader of its output got nothing for
+/// `limit`, or once the sender is dropped; the thread says whether it was the limit.
+fn quiet_watch(
+    mut child: std::process::Child,
+    start: std::time::Instant,
+    last: Arc<std::sync::atomic::AtomicU64>,
+    limit: Duration,
+) -> (std::sync::mpsc::Sender<()>, std::thread::JoinHandle<bool>) {
+    let (done, told) = std::sync::mpsc::channel::<()>();
+    let watch = std::thread::spawn(move || {
+        loop {
+            if told.recv_timeout(Duration::from_secs(1).min(limit)) != Err(std::sync::mpsc::RecvTimeoutError::Timeout) {
+                // Still running (a copy stopped by an error): with what it started.
+                if !matches!(child.try_wait(), Ok(Some(_))) {
+                    crate::tools::kill_tree(&mut child);
+                }
+                return false;
+            }
+            let quiet = start.elapsed().saturating_sub(Duration::from_millis(last.load(std::sync::atomic::Ordering::Relaxed)));
+            if quiet > limit {
+                crate::tools::kill_tree(&mut child);
+                return true;
+            }
+        }
+    });
+    (done, watch)
+}
+
 /// A reader that notes when it last got something, in milliseconds from `start`.
 struct Ticking<R> {
     r: R,
@@ -871,22 +899,8 @@ pub(crate) fn git_write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
         start,
         last: last.clone(),
     });
-    // A big copy may take long, so the limit is on silence: git ended (and what it started)
-    // when it prints nothing for `git::LIMIT`, as one waiting on a FIFO would.
-    let (done, told) = std::sync::mpsc::channel::<()>();
-    let watch = std::thread::spawn(move || {
-        let late = loop {
-            if told.recv_timeout(Duration::from_secs(1)) != Err(std::sync::mpsc::RecvTimeoutError::Timeout) {
-                break false;
-            }
-            let quiet = start.elapsed().saturating_sub(Duration::from_millis(last.load(std::sync::atomic::Ordering::Relaxed)));
-            if quiet > crate::git::LIMIT {
-                break true;
-            }
-        };
-        crate::tools::kill_tree(&mut child);
-        late
-    });
+    // A big copy may take long, so the limit is on silence, as a git waiting on a FIFO is.
+    let (done, watch) = quiet_watch(child, start, last, crate::git::LIMIT);
     // Links are made last: a file listed after a link must not be written through it.
     let mut links = vec![];
     let r = (|| -> io::Result<()> {
@@ -1522,6 +1536,35 @@ pub fn changes_cost(root: &Path, max: usize) -> (usize, u64) {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    /// A program that prints a line and then nothing is ended once it has been quiet for the
+    /// limit; one that is told to stop is not counted as late.
+    #[cfg(unix)]
+    #[test]
+    fn a_quiet_program_is_ended() {
+        let run = |limit| {
+            let mut c = std::process::Command::new("sh");
+            c.args(["-c", "echo one; sleep 600"]);
+            crate::tools::own_group(&mut c);
+            let mut child = c.stdout(Stdio::piped()).spawn().unwrap();
+            let start = std::time::Instant::now();
+            let last = Arc::new(std::sync::atomic::AtomicU64::new(0));
+            let mut out = BufReader::new(Ticking { r: child.stdout.take().unwrap(), start, last: last.clone() });
+            let (done, watch) = quiet_watch(child, start, last, limit);
+            let mut line = String::new();
+            out.read_line(&mut line).unwrap();
+            assert_eq!(line, "one\n");
+            (out, done, watch)
+        };
+        let (mut out, _done, watch) = run(Duration::from_secs(1));
+        // Ended, so its output ends (the sleep in its group too, or this would wait 600 s).
+        let mut rest = vec![];
+        out.read_to_end(&mut rest).unwrap();
+        assert!(watch.join().unwrap(), "ended by the limit");
+        let (_out, done, watch) = run(crate::test_limit(Duration::from_secs(60)));
+        drop(done);
+        assert!(!watch.join().unwrap(), "told to stop");
+    }
 
     /// A record longer than any line worth keeping (a diff line of a file without line
     /// breaks) is cut at `RECORD_MOST`, the rest passed over, and the records after it read.
