@@ -237,5 +237,9 @@ Only the image, downloaded from Docker Hub when you allowed it; *Settings → Pr
 What can leave this machine* names `docker.io`. calibre runs with no network, and an installed
 calibre reads and writes only here.
 
+#### The image could not be downloaded. What now?
+
+A conversion or a preview says why in plain words (*no network*) and the time it can be run again; the image's row in *Settings → Previews → Preview tools* says the same, and **Retry now** (the **Pull** button, **P** in the terminal app) pulls it at once. See [An image that cannot be downloaded](tools.md#an-image-that-cannot-be-downloaded).
+
 ---
 [← Previous: Old pictures and files](old-formats.md) · [Next: Diagrams →](diagrams.md)

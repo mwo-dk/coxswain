@@ -160,5 +160,9 @@ Only the image, downloaded from Docker Hub when you allow the first run; *Settin
 updates → What can leave this machine* names it. The container has no network and sees only the
 one file, and an installed ffmpeg reads and writes only here.
 
+#### The image could not be downloaded. What now?
+
+A conversion says why in plain words (*no network*) and the time it can be run again; the image's row in *Settings → Previews → Preview tools* says the same, and **Retry now** (the **Pull** button, **P** in the terminal app) pulls it at once. See [An image that cannot be downloaded](../previews/tools.md#an-image-that-cannot-be-downloaded).
+
 ---
 [← Previous: Make PDF searchable (Alt+P)](searchable-pdf.md) · [Next: Convert or edit pictures →](edit-pictures.md)

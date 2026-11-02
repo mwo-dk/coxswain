@@ -927,6 +927,12 @@ pub fn status(
                     w.bad = true;
                 }
             }
+            // The image could not be pulled: why and when it is tried again, with Retry now.
+            if let Some(p) = ts.pull.as_ref().filter(|p| matches!(p, crate::images::pulls::State::Waiting { .. } | crate::images::pulls::State::Unpulled { .. })) {
+                let image = crate::images::short(&crate::config::PreviewConfig::default().images["whisper"]).to_string();
+                let l = pull_line(w.clone(), Some(p), "Whisper", &image, "");
+                (w.note, w.step, w.also, w.details, w.bad) = (l.note, l.step, l.also, l.details, l.bad);
+            }
             if ts.waiting > 0 {
                 match w.step {
                     None => w.step = Some(Step::StopTranscribing),

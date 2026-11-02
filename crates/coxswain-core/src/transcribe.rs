@@ -540,6 +540,9 @@ pub struct Status {
     /// Seconds of work a second of sound took here, last measured.
     pub rate: Option<f64>,
     pub state: State,
+    /// The image could not be pulled: why, and when it is tried again (`images::pulls`).
+    #[serde(default)]
+    pub pull: Option<crate::images::pulls::State>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -602,6 +605,7 @@ pub fn status(store: &Store) -> Option<Status> {
         left: estimate(cfg, left_secs, rate),
         rate,
         state,
+        pull: cfg.preview.images.get(TOOL).and_then(|i| crate::images::pulls::failure(i)),
     })
 }
 
@@ -682,15 +686,29 @@ fn prepare(cfg: &Config, stop: &AtomicBool) -> Result<(Engine, PathBuf), String>
         && crate::tools::image_size(path, image).is_none()
     {
         set(State::Pulling(String::new()));
-        let (path2, image2) = (path.clone(), image.clone());
-        let pulled = std::thread::spawn(move || crate::images::pull(&path2, &image2));
-        while !pulled.is_finished() {
-            if let Some(l) = crate::images::pulling().get(image) {
-                set(State::Pulling(l.clone()));
+        // Tried again by itself, as Tika's image is (`images::pulls`); *Retry now* and the
+        // reason are in `Status::pull`.
+        std::thread::scope(|scope| {
+            let pulled = scope.spawn(|| {
+                crate::images::pulls::until_there(
+                    image,
+                    "whisper",
+                    || if stop.load(Ordering::Relaxed) { Ok(()) } else { crate::images::pull(path, image) },
+                    || crate::tools::image_size(path, image).is_some(),
+                    || crate::images::pulls::reachable(image),
+                    |d, since| stop.load(Ordering::Relaxed) || crate::images::pulls::rest(d, since),
+                );
+            });
+            while !pulled.is_finished() {
+                if let Some(l) = crate::images::pulling().get(image) {
+                    set(State::Pulling(l.clone()));
+                }
+                std::thread::sleep(Duration::from_millis(500));
             }
-            std::thread::sleep(Duration::from_millis(500));
+        });
+        if stop.load(Ordering::Relaxed) {
+            return Err(String::new());
         }
-        pulled.join().map_err(|_| "pull".to_string())??;
     }
     if let Engine::Container { image, .. } = &engine {
         let mut st = crate::state::AppState::load();

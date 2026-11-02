@@ -198,6 +198,14 @@ Only the model's download from Hugging Face, once, and the container image when 
 not installed. The sound is transcribed here, in a container without network or by your own
 whisper.cpp.
 
+#### The image could not be downloaded. What now?
+
+The *Speech* line in *Settings → Finding files* says why in plain words (*no network*) and when
+the helper tries again: after 5 minutes, then 10, 20, 40 and every hour; it also tries at once
+when the registry answers after it did not. **Retry now** on the line tries at once, also after a
+full disk you have cleared; **Details** (terminal app: **Delete**) shows the runtime's own error.
+The same rules hold for the other images: [An image that cannot be downloaded](../previews/tools.md#an-image-that-cannot-be-downloaded).
+
 #### Why did it stop?
 
 It waits while the machine runs on its battery, and while you have paused it (**Go on** on the

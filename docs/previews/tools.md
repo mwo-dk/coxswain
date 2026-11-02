@@ -97,6 +97,23 @@ your click.
 | The choice | *Default (An installed program, else a container)*, *Installed program*, *Container*, *Off*; for a kind with no image *Container (no image)* is greyed out |
 | **Try** | Writes a small sample of the kind (a `.tex`, a `.puml` …) into the cache folder, closes Settings and shows it in the panel with the preview open |
 
+### An image that cannot be downloaded
+
+A conversion, the virus scan, *Make PDF searchable*, a preview in a container or *Pull* here can
+fail to pull an image. The job then says why in plain words and when to run it again (*… could
+not be downloaded: no network. Run this again after 15:10, or pull it at once with Retry now in
+Settings → Previews → Preview tools.*), and the row of that image says *Download failed: no
+network. The next job tries again after 15:10.* The waits are the ones of Tika and calibre: 5
+minutes, then 10, 20, 40 and every hour. Until then a job fails at once instead of waiting for
+the runtime's own timeouts, unless the registry answers again (the network is back) or you press
+**Retry now**: the **Pull** button on that image, which reads *Retry now* while the pull is
+failed (terminal app: **P**; the key line says *P: Retry now*). A full disk or an image the
+registry does not have is not waited for: the next job simply tries again. The runtime's own
+error is in `helper.log` in the cache folder, and shows in the status line after **Retry now**.
+Whisper's image for [transcripts](../search/transcripts.md) is pulled by the search helper and
+is handled like Tika's (a *Speech* line with *Retry now* and *Details*). The chess engine's image
+is pulled only here, with **Pull**.
+
 The choice is kept under `[preview.tools]` in `config.toml`:
 
 | Choice | `[preview.tools]` | What happens |

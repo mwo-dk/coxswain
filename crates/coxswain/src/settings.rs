@@ -297,7 +297,7 @@ impl Settings {
         std::thread::spawn(move || {
             let said = pull.map(|images| {
                 let rt = coxswain_core::tools::container_runtime(&cfg).map(|r| r.1);
-                let failed: Vec<String> = images.iter().filter_map(|i| rt.as_ref().ok_or_else(coxswain_core::tools::no_runtime).and_then(|rt| coxswain_core::images::pull(rt, i)).err()).collect();
+                let failed: Vec<String> = images.iter().filter_map(|i| rt.as_ref().ok_or_else(coxswain_core::tools::no_runtime).and_then(|rt| coxswain_core::images::pulls::retry_job(rt, i)).err()).collect();
                 if failed.is_empty() { t!("ptools.pulled", "images" => images.iter().map(|i| coxswain_core::images::short(i)).collect::<Vec<_>>().join(", ")) } else { failed.join(" ") }
             });
             tx.send((coxswain_core::preview_tools::rows(&cfg), said))
@@ -358,6 +358,12 @@ impl Settings {
 }
 
 // ---------------------------------------------------------------- what an area holds
+
+/// What a job could not pull for this kind of file: why, and when the next job tries again.
+fn failed_pull(r: &coxswain_core::preview_tools::Row) -> Option<String> {
+    let failed = coxswain_core::images::pulls::failures();
+    r.images.iter().filter(|i| i.pulled.is_none()).find_map(|i| failed.get(&i.image)).and_then(|s| s.job_line())
+}
 
 /// The versions not read yet, else this one.
 fn news(st: &coxswain_core::state::AppState) -> Vec<coxswain_core::notices::Change> {
@@ -1884,7 +1890,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     let pulling = coxswain_core::images::pulling();
                     let uses = match r.images.iter().find_map(|i| pulling.get(&i.image)) {
                         Some(line) => format!("{} {line}", t!("common.loading")),
-                        None => r.uses.clone(),
+                        None => failed_pull(r).unwrap_or_else(|| r.uses.clone()),
                     };
                     lines.extend(pair(&format!(" {} {}", if r.missing { "✗" } else { "✓" }, r.title), &if choice.is_empty() { uses } else { format!("{uses} · {choice}") }, if r.missing && !here { red } else { st }));
                 }
@@ -1980,6 +1986,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(_))) => (t!("disk.keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Server(_))) => (t!("settings.history_server_keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if !r.container) => (t!("ptools.keys_tui_no_image"), dim),
+        (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if failed_pull(r).is_some()) => (t!("ptools.keys_tui_retry"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => (t!("ptools.keys_tui"), dim),
         (None, _) => (t!("tui.settings.keys"), dim),
     };
