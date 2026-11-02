@@ -298,19 +298,19 @@ fn sweep_staging_in(dir: &Path, wait: Duration) {
 // ponytail: a thread per folder named; a hung one stays blocked until the run ends. Lists name
 // a few folders each (where files were written), so that is a few threads at most.
 fn sweep_list(path: &Path, run: &str, end: std::time::Instant) {
-    let Ok(mut list) = std::fs::OpenOptions::new()
+    let Ok(list) = std::fs::OpenOptions::new()
         .read(true)
         .write(true)
         .open(path)
     else {
         return;
     };
-    if list.try_lock().is_err() {
+    let Ok(mut list) = crate::fs::Held::try_lock(list) else {
         return;
-    }
+    };
     // Read through the handle that holds the lock: Windows refuses any other.
     let mut text = String::new();
-    let _ = list.read_to_string(&mut text);
+    let _ = list.0.read_to_string(&mut text);
     let (done, all_done) = std::sync::mpsc::channel();
     let mut started = 0;
     for folder in text.lines().filter_map(folder_of) {
@@ -392,13 +392,18 @@ pub fn alive(run: &str) -> Option<bool> {
     if run == self::run() {
         return Some(true);
     }
-    let list = staging_dir()?.join(run);
+    held(&staging_dir()?.join(run))
+}
+
+/// Whether another holds the lock of the list at `list`; `None` when there is none. One got is
+/// let go at once, by `Held`, so no program started meanwhile keeps it (#802).
+fn held(list: &Path) -> Option<bool> {
     let f = std::fs::OpenOptions::new()
         .read(true)
         .write(true)
         .open(list)
         .ok()?;
-    Some(f.try_lock().is_err())
+    Some(crate::fs::Held::try_lock(f).is_err())
 }
 
 /// The run a run's folder is named by: `<run>`, `<run>-<n>`, `inside-<run>`,
@@ -561,6 +566,20 @@ pub fn at_start() {
 mod tests {
     use super::*;
     use std::io::Seek;
+
+    /// A run's list found free is let go at once, also while other threads start programs: no
+    /// ended run is seen alive and no sweep is skipped for it (#802). The count is of probes,
+    /// not of time: before `Held`, about a third saw the list held.
+    #[cfg(unix)]
+    #[test]
+    fn a_free_list_stays_free_while_programs_start() {
+        let d = folder("held");
+        let list = d.join("list");
+        std::fs::write(&list, "").unwrap();
+        let held = crate::fs::while_programs_start(|| (0..2000).filter(|_| held(&list) != Some(false)).count());
+        assert_eq!(held, 0);
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     fn folder(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("coxswain-spill-{name}-{}", std::process::id()));

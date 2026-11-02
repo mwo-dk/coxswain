@@ -204,7 +204,8 @@ fn pull_job(rt: &std::path::Path, image: &str, stop: &std::sync::atomic::AtomicB
         }
         Err(e) if stop.load(Ordering::Relaxed) => Err(e),
         Err(e) => {
-            crate::helper::note(format_args!("{image}: {e}"));
+            // An app's own stderr is its screen: the terminal app is drawn over by a line printed there.
+            crate::helper::app_log(&format!("{image}: {e}"));
             let fault = Fault::of(&e);
             let n = tries.map_or(0, |t| t.0);
             let at = fault.passing().then(|| crate::fs::now() + wait(n).as_secs());
@@ -240,12 +241,23 @@ pub fn retry_now() {
     RETRIES.fetch_add(1, Ordering::SeqCst);
 }
 
-/// Wait `d`, in steps of a second; true when *Retry now* came after `since`.
+/// How many times the system said its network changed (`watch_network`).
+static NET: AtomicU64 = AtomicU64::new(0);
+
+/// Wait `d`, in steps of a second; true when *Retry now* came after `since`. Ended early (and
+/// false) when the system says its network changed while a pull waits on a network fault, so
+/// the registry is asked at once rather than at the next minute.
 pub fn rest(d: Duration, since: u64) -> bool {
     let end = std::time::Instant::now() + d;
+    let net = NET.load(Ordering::SeqCst);
     while std::time::Instant::now() < end {
         if RETRIES.load(Ordering::SeqCst) > since {
             return true;
+        }
+        if NET.load(Ordering::SeqCst) != net && FAILED.lock().unwrap().values().any(|f| f.0 == Fault::Network) {
+            // A new address comes before its route and name servers: a moment for them.
+            std::thread::sleep(Duration::from_secs(3).min(end.saturating_duration_since(std::time::Instant::now())));
+            return RETRIES.load(Ordering::SeqCst) > since;
         }
         std::thread::sleep(Duration::from_secs(1).min(end.saturating_duration_since(std::time::Instant::now())));
     }
@@ -314,15 +326,20 @@ pub fn until_there(
         tries += 1;
         let details: String = e.trim().chars().take(4000).collect();
         FAILED.lock().unwrap().insert(image.to_string(), (fault, wait.map(|w| crate::fs::now() + w.as_secs()), details));
+        if fault == Fault::Network {
+            watch_network();
+        }
         let mut down = fault == Fault::Network && !reachable();
         let (mut waited, mut look) = (Duration::ZERO, LOOK);
         let found = loop {
             let step = wait.map_or(look, |w| look.min(w.saturating_sub(waited)));
+            let (net, began) = (NET.load(Ordering::SeqCst), std::time::Instant::now());
             if rest(step, since) {
                 tries = tries.saturating_sub(1);
                 break false;
             }
-            waited += step;
+            // Woken by the network signal: only the time it rested counts towards the wait.
+            waited += if NET.load(Ordering::SeqCst) == net { step } else { began.elapsed().min(step) };
             look = if fault == Fault::Network { LOOK } else { (look * 2).min(LOOK_MOST) };
             if there() {
                 break true;
@@ -345,6 +362,132 @@ pub fn until_there(
     }
     FAILED.lock().unwrap().remove(image);
     JOBS.lock().unwrap().remove(image);
+}
+
+/// Listens, once, in a thread of its own, for the system's word that its network changed: an
+/// address or a route added (Linux: netlink; macOS: the routing socket), the address table
+/// changed (Windows). Elsewhere (the BSDs, illumos, Android) the once-a-minute look stays alone.
+fn watch_network() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        let _ = std::thread::Builder::new().name("network-watch".into()).spawn(|| {
+            if let Err(e) = listen(&|| {
+                NET.fetch_add(1, Ordering::SeqCst);
+            }) {
+                crate::helper::note(format_args!("no network signal, the registry is asked every minute: {e}"));
+            }
+        });
+    });
+}
+
+/// Calls `changed` on every address or route the kernel adds, until the socket fails.
+#[cfg(target_os = "linux")]
+fn listen(changed: &dyn Fn()) -> std::io::Result<()> {
+    // SAFETY: a socket of our own, a zeroed address with its family and groups set, and a
+    // buffer as long as the length given.
+    unsafe {
+        let fd = libc::socket(libc::AF_NETLINK, libc::SOCK_RAW | libc::SOCK_CLOEXEC, libc::NETLINK_ROUTE);
+        if fd < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        let mut sa: libc::sockaddr_nl = std::mem::zeroed();
+        sa.nl_family = libc::AF_NETLINK as u16;
+        sa.nl_groups = (libc::RTMGRP_IPV4_IFADDR | libc::RTMGRP_IPV6_IFADDR | libc::RTMGRP_IPV4_ROUTE | libc::RTMGRP_IPV6_ROUTE) as u32;
+        if libc::bind(fd, (&raw const sa).cast(), std::mem::size_of::<libc::sockaddr_nl>() as u32) < 0 {
+            let e = std::io::Error::last_os_error();
+            libc::close(fd);
+            return Err(e);
+        }
+        let mut buf = [0u8; 16384];
+        loop {
+            let n = libc::recv(fd, buf.as_mut_ptr().cast(), buf.len(), 0);
+            if n < 0 {
+                let e = std::io::Error::last_os_error();
+                // Interrupted, or more came than the socket holds: something changed.
+                match e.raw_os_error() {
+                    Some(libc::EINTR) => continue,
+                    Some(libc::ENOBUFS) => {
+                        changed();
+                        continue;
+                    }
+                    _ => {
+                        libc::close(fd);
+                        return Err(e);
+                    }
+                }
+            }
+            if added(&buf[..n as usize]) {
+                changed();
+            }
+        }
+    }
+}
+
+/// Whether the netlink messages in `b` add an address or a route (not only take one away).
+#[cfg(any(target_os = "linux", test))]
+fn added(mut b: &[u8]) -> bool {
+    const NEWADDR: u16 = 20;
+    const NEWROUTE: u16 = 24;
+    while b.len() >= 16 {
+        let len = u32::from_ne_bytes([b[0], b[1], b[2], b[3]]) as usize;
+        if matches!(u16::from_ne_bytes([b[4], b[5]]), NEWADDR | NEWROUTE) {
+            return true;
+        }
+        // Each message is padded to 4 bytes.
+        let step = (len + 3) & !3;
+        if step < 16 || step > b.len() {
+            break;
+        }
+        b = &b[step..];
+    }
+    false
+}
+
+/// Calls `changed` on every address added or interface changed, until the socket fails.
+#[cfg(target_os = "macos")]
+fn listen(changed: &dyn Fn()) -> std::io::Result<()> {
+    // SAFETY: a socket of our own and a buffer as long as the length given.
+    unsafe {
+        let fd = libc::socket(libc::PF_ROUTE, libc::SOCK_RAW, libc::AF_UNSPEC);
+        if fd < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        let mut buf = [0u8; 8192];
+        loop {
+            let n = libc::read(fd, buf.as_mut_ptr().cast(), buf.len());
+            if n < 0 {
+                let e = std::io::Error::last_os_error();
+                if e.raw_os_error() == Some(libc::EINTR) {
+                    continue;
+                }
+                libc::close(fd);
+                return Err(e);
+            }
+            // rt_msghdr: its length (2 bytes), version, then type. Routes cloned for each new
+            // connection are not looked at, so asking the registry wakes nothing.
+            if n >= 4 && matches!(buf[3] as libc::c_int, libc::RTM_NEWADDR | libc::RTM_IFINFO) {
+                changed();
+            }
+        }
+    }
+}
+
+/// Calls `changed` every time the table of IP addresses changes, until that call fails.
+#[cfg(windows)]
+fn listen(changed: &dyn Fn()) -> std::io::Result<()> {
+    loop {
+        // SAFETY: no handle and no overlapped: the call waits until the table changes.
+        let r = unsafe { windows_sys::Win32::NetworkManagement::IpHelper::NotifyAddrChange(std::ptr::null_mut(), std::ptr::null()) };
+        if r != 0 {
+            return Err(std::io::Error::from_raw_os_error(r as i32));
+        }
+        changed();
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", windows)))]
+fn listen(_: &dyn Fn()) -> std::io::Result<()> {
+    Ok(())
 }
 
 #[cfg(test)]
@@ -447,6 +590,20 @@ mod tests {
         until_there(image, "test", || { pulls += 1; if pulls < 2 { Err(DNS.into()) } else { Ok(()) } }, || false, || true, |_, _| { rests += 1; false });
         assert_eq!(pulls, 2);
         assert_eq!(rests, 5, "60 s looks until the 300 s were up");
+    }
+
+    /// Only netlink messages that add an address or a route say the network may be back.
+    #[test]
+    fn netlink_additions_are_told_apart() {
+        let msg = |kind: u16| {
+            let mut m = vec![0u8; 20];
+            m[..4].copy_from_slice(&18u32.to_ne_bytes());
+            m[4..6].copy_from_slice(&kind.to_ne_bytes());
+            m
+        };
+        assert!(added(&msg(20)) && added(&msg(24)), "a new address, a new route");
+        assert!(!added(&msg(21)) && !added(&msg(25)) && !added(&[]), "only taken away");
+        assert!(added(&[msg(21), msg(24)].concat()), "a new route after a removed address");
     }
 
     /// A pull inside a job that fails is remembered and the next job fails at once with the

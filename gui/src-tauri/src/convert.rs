@@ -887,6 +887,8 @@ pub struct Tools {
     pulling: BTreeMap<String, String>,
     /// Images a job could not pull: why, and when the next job tries again.
     failed: BTreeMap<String, String>,
+    /// The runtime's own error of each, for *Details*.
+    failed_details: BTreeMap<String, String>,
     /// Why no container runs, when none can.
     no_runtime: Option<String>,
 }
@@ -900,9 +902,11 @@ pub async fn preview_tools(ctx: tauri::State<'_, crate::Ctx>) -> Res<Tools> {
         let failed = coxswain_core::images::pulls::failures()
             .into_iter()
             .filter(|(i, _)| rows.iter().flat_map(|r| &r.images).any(|m| &m.image == i && m.pulled.is_none()))
-            .filter_map(|(i, s)| Some((i, s.job_line()?)))
-            .collect();
+            .collect::<BTreeMap<_, _>>();
+        let failed_details = failed.iter().filter_map(|(i, s)| Some((i.clone(), s.details()?.to_string()))).collect();
+        let failed = failed.into_iter().filter_map(|(i, s)| Some((i, s.job_line()?))).collect();
         Tools {
+            failed_details,
             pulling: coxswain_core::images::pulling(),
             failed,
             no_runtime: runtime(&cfg).is_none().then(|| if cfg.container == "off" { t!("searchable.containers_off") } else { coxswain_core::tools::no_runtime() }),

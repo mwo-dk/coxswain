@@ -1,6 +1,7 @@
 //! Coxswain core: everything that is not UI, shared by the TUI and the GUI.
 
 pub mod archive;
+mod archive_ro;
 pub mod attrs;
 pub mod bin;
 pub mod ask;

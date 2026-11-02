@@ -1,0 +1,1 @@
+| **A pull that failed for no network goes again within seconds of the network coming back,** on Linux, macOS and Windows: the helper listens for the system's own word that an address or route was added, then asks the registry, instead of waiting for its once-a-minute look (which stays on FreeBSD, the other BSDs, illumos and Android). | [Tika](search/tika.md#questions) |

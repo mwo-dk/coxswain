@@ -65,6 +65,8 @@ lzma-rust2 = "0.23"
 ruzstd = "0.9.0"
 # A gzip unpacked from a block boundary in its middle (a compressed tar's restart points).
 miniz_oxide = { version = "0.9.1", features = ["block-boundary"] }
+# Windows cabinets (.cab), read only: pure Rust, MSZIP and LZX.
+cab = "0.6.0"
 sevenz-rust2 = { version = "0.24.1", features = ["aes256"] }
 # F3 on a Parquet file in the terminal app: its columns and first rows. Pure Rust codecs only
 # (snappy, gzip, lz4, brotli); a zstd file shows its columns and row count.
@@ -108,7 +110,7 @@ kqueue = "1.2.1"
 sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61.2", features = ["Wdk_Foundation", "Win32_Foundation", "Wdk_Storage_FileSystem", "Win32_Globalization", "Win32_Security", "Win32_Security_Authorization", "Win32_System_IO", "Win32_System_JobObjects", "Win32_System_Power", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Console", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61.2", features = ["Wdk_Foundation", "Win32_Foundation", "Wdk_Storage_FileSystem", "Win32_Globalization", "Win32_NetworkManagement_IpHelper", "Win32_Security", "Win32_Security_Authorization", "Win32_System_IO", "Win32_System_JobObjects", "Win32_System_Power", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Console", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 # Search by meaning on Apple's GPU: the built-in model tries Metal first on a Mac (it falls back to
 # the CPU when Metal is missing or disagrees). Only on macOS: other builds and the musl terminal
