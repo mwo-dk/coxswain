@@ -99,9 +99,9 @@ fn git_with(dir: &Path, keys: &[(String, &str)]) -> Command {
     c
 }
 
-/// What `c` prints, or its complaint as the error.
-pub(crate) fn run(mut c: Command) -> io::Result<Vec<u8>> {
-    let o = c.output()?;
+/// What `c` prints, or its complaint as the error; ended past `git::LIMIT`.
+pub(crate) fn run(c: Command) -> io::Result<Vec<u8>> {
+    let o = crate::git::output_within(c, crate::git::LIMIT)?;
     if !o.status.success() {
         let why = String::from_utf8_lossy(&o.stderr).trim().to_string();
         return Err(io::Error::other(if why.is_empty() {
@@ -572,28 +572,52 @@ pub fn read(at: &At, max: usize) -> io::Result<(Vec<u8>, bool)> {
     crate::vcs::of(&at.base).read(&at.base, rev, &at.inner, max)
 }
 
-/// The first `max` bytes of `c`'s output, and whether there was more.
+/// The first `max` bytes of `c`'s output, and whether there was more; ended past `git::LIMIT`.
 pub(crate) fn read_out(mut c: Command, max: usize) -> io::Result<(Vec<u8>, bool)> {
-    let mut child = c.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    crate::tools::own_group(&mut c);
+    let mut child = c.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    let out = child.stdout.take().ok_or_else(|| io::Error::other("no output"))?;
+    let mut err = child.stderr.take().ok_or_else(|| io::Error::other("no output"))?;
+    let errs = std::thread::spawn(move || {
+        let mut s = String::new();
+        let _ = (&mut err).take(64 << 10).read_to_string(&mut s);
+        let _ = io::copy(&mut err, &mut io::sink());
+        s
+    });
+    // Told to stop (all that is wanted is read) or past the limit: ended, with what it started;
+    // otherwise waited for once its output ends.
+    let (stop, told) = std::sync::mpsc::channel::<()>();
+    let watch = std::thread::spawn(move || {
+        match told.recv_timeout(crate::git::LIMIT) {
+            // Its output ended: it gets the limit once more to end too.
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => crate::tools::wait(&mut child, crate::git::LIMIT),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                crate::tools::kill_tree(&mut child);
+                Err(io::Error::new(io::ErrorKind::TimedOut, "took too long"))
+            }
+            Ok(()) => {
+                crate::tools::kill_tree(&mut child);
+                child.wait()
+            }
+        }
+    });
     let mut buf = vec![];
-    child
-        .stdout
-        .take()
-        .ok_or_else(|| io::Error::other("no output"))?
-        .take(max as u64 + 1)
-        .read_to_end(&mut buf)?;
+    let read = out.take(max as u64 + 1).read_to_end(&mut buf);
     let more = buf.len() > max;
+    if more || read.is_err() {
+        let _ = stop.send(());
+    }
+    drop(stop);
+    let status = watch.join().map_err(|_| io::Error::other("git"))??;
+    let why = errs.join().unwrap_or_default();
+    read?;
     buf.truncate(max);
     if more {
-        let _ = child.kill();
-        let _ = child.wait();
         return Ok((buf, true));
     }
-    let o = child.wait_with_output()?;
-    if !o.status.success() {
-        return Err(io::Error::other(
-            String::from_utf8_lossy(&o.stderr).trim().to_string(),
-        ));
+    if !status.success() {
+        let why = why.trim();
+        return Err(io::Error::other(if why.is_empty() { "git failed" } else { why }.to_string()));
     }
     Ok((buf, false))
 }
@@ -1351,7 +1375,7 @@ pub(crate) fn git_grew(root: &Path, old: &str, now: &str) -> bool {
     c.args(["merge-base", "--is-ancestor", old, now])
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    c.status().is_ok_and(|s| s.success())
+    crate::git::output(c).is_some_and(|o| o.status.success())
 }
 
 /// The store's key of a commit of the repository at `root`: not a path on disk, so no folder

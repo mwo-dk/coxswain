@@ -25,9 +25,14 @@ pub const LIMIT: std::time::Duration = std::time::Duration::from_secs(120);
 
 /// What `c` printed, ended past `LIMIT` (and then `None`, as when git could not start).
 pub fn output(c: Command) -> Option<std::process::Output> {
+    output_within(c, LIMIT).ok()
+}
+
+/// What `c` printed, ended past `limit` (a `TimedOut` error then), with no input.
+pub(crate) fn output_within(c: Command, limit: std::time::Duration) -> std::io::Result<std::process::Output> {
     // A git ended here is not the file this thread reads taking too long (`took_too_long`).
     let before = crate::tools::took_too_long();
-    let out = crate::tools::capture(c, LIMIT, u64::MAX).ok();
+    let out = crate::tools::capture(c, limit, u64::MAX);
     // What this git noted is cleared; what was noted before it stays.
     let _ = crate::tools::took_too_long();
     if before {
@@ -162,9 +167,32 @@ pub(crate) fn readable(dir: &Path) -> bool {
     true
 }
 
-/// There, and neither a file nor a folder (which git refuses at once): a FIFO, a device.
+/// There, and neither a file nor a folder (which git refuses at once): a FIFO, a device. On
+/// Windows also a path whose last part names a device (`CON`, `com1.txt`), which opens the
+/// device wherever it stands.
 fn waits(p: &Path) -> bool {
-    std::fs::metadata(p).is_ok_and(|m| !m.is_file() && !m.is_dir())
+    (cfg!(windows) && names_device(p)) || std::fs::metadata(p).is_ok_and(|m| !m.is_file() && !m.is_dir())
+}
+
+/// Whether Windows takes `p`'s last part for a device: `CON`, `PRN`, `AUX`, `NUL`, `COM0`-`COM9`,
+/// `LPT0`-`LPT9` (also with ¹ ² ³), `CONIN$`, `CONOUT$`, in any case, whatever follows a dot or a
+/// colon, and with trailing spaces or dots.
+fn names_device(p: &Path) -> bool {
+    let Some(name) = p.file_name() else { return false };
+    let name = name.to_string_lossy();
+    let name = name.trim_end_matches([' ', '.']);
+    let stem = name.split(['.', ':']).next().unwrap_or("").trim_end_matches(' ').to_uppercase();
+    match stem.as_str() {
+        "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$" => true,
+        s => {
+            let mut c = s.chars();
+            let head: String = c.by_ref().take(3).collect();
+            let rest: Vec<char> = c.collect();
+            (head == "COM" || head == "LPT")
+                && rest.len() == 1
+                && (rest[0].is_ascii_digit() || matches!(rest[0], '¹' | '²' | '³'))
+        }
+    }
 }
 
 /// A small file of the repository, read only when it is a plain file.
@@ -577,10 +605,8 @@ impl Status {
     pub fn facts(&self, g: &Glyphs) -> Facts {
         let mut c = command_with(&self.root, &[]);
         crate::vcs::use_store(&mut c, &self.root);
-        let remote = c
-            .args(["ls-remote", "--get-url"])
-            .output()
-            .ok()
+        c.args(["ls-remote", "--get-url"]);
+        let remote = output(c)
             .filter(|o| o.status.success())
             .map(|o| without_credentials(String::from_utf8_lossy(&o.stdout).trim()))
             .filter(|u| !u.is_empty());
@@ -749,6 +775,34 @@ mod tests {
             st.files.get(&st.root.join("a.txt")).map(|f| f.kind),
             Some(Kind::Modified)
         );
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn windows_device_names_are_known() {
+        for d in ["CON", "con", "Nul.txt", "aux.tar.gz", "COM1", "lpt9", "COM\u{b9}", "conin$", "PRN ", "NUL.", "CON:x", "a/b/LPT3.log"] {
+            assert!(names_device(Path::new(d)), "{d}");
+        }
+        for d in ["CONS", "COM", "COM10", "lpt", "xcon", "con_x", "a/CON/b", ".gitconfig", ""] {
+            assert!(!names_device(Path::new(d)), "{d}");
+        }
+    }
+
+    /// On Windows a config that includes `CON` (the console) would wait for typing: refused.
+    #[cfg(windows)]
+    #[test]
+    fn an_include_of_a_device_is_refused() {
+        let Some(d) = crate::history::tests::repo("device") else {
+            return;
+        };
+        let config = d.join(".git/config");
+        let plain = std::fs::read_to_string(&config).unwrap();
+        std::fs::write(&config, format!("{plain}[include]\n\tpath = ../CON\n")).unwrap();
+        assert!(!readable(&d), "an include of CON");
+        std::fs::write(&config, format!("{plain}[core]\n\texcludesFile = com1.txt\n")).unwrap();
+        assert!(!readable(&d), "excludes that are COM1");
+        std::fs::write(&config, &plain).unwrap();
+        assert!(readable(&d));
         std::fs::remove_dir_all(d).unwrap();
     }
 
