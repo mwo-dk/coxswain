@@ -681,6 +681,7 @@
  "hint.log": "{view} affiche un journal coloré par niveau, ses traces de pile repliées; {menu} → Suivre le journal le suit à mesure qu’il est écrit",
  "hint.long_files": "Un dossier de longs journaux ou de livres? {key} → Fichiers longs : échantillon ou tout… décide ce que la recherche en garde.",
  "hint.repos": "Clic droit sur un dépôt git de la barre latérale pour l’épingler ou le retirer; Delete retire celui qui a le focus",
+ "hint.via_menu": "{action} a pour touche {key}. Changez-la dans {settings} ou sous [keys] dans config.toml; {menu} → {key_test} montre si elle arrive jusqu’à Coxswain",
  "history.ask_server_title": "Lire l’historique depuis le serveur?",
  "history.scope_upstream_tip": "Les commits non poussés et non fusionnés, au dernier fetch; rien n’est récupéré ({key})",
  "image.cost.calibre": "Grande; une ou deux secondes par livre, quelques-unes de plus pour un PDF.",

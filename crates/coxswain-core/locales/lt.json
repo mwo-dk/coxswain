@@ -4807,5 +4807,6 @@
  "feature.pick.q3": "O failas archyve?",
  "feature.pick.a3": "Archyvai atsidaro kaip aplankai. Viduje pasirinktas failas išpakuojamas į podėlį ir pateikiamas tos kopijos kelias.",
  "pick.no_terminal": "Pasirinkimo režimui reikia terminalo Coxswain parodyti, o nė vieno atverti nepavyko: {error}",
- "pick.refused": "Parinkiklis tik renkasi: jis nekeičia jokių failų"
+ "pick.refused": "Parinkiklis tik renkasi: jis nekeičia jokių failų",
+ "hint.via_menu": "Veiksmo {action} klavišas yra {key}. Pakeiskite jį skiltyje {settings} arba config.toml skiltyje [keys]; {menu} → {key_test} parodo, ar jis pasiekia Coxswain"
 }

@@ -4709,5 +4709,6 @@
  "feature.pick.q3": "Hva med en fil i et arkiv?",
  "feature.pick.a3": "Arkiver åpnes som mapper. En fil valgt der pakkes ut i hurtigbufferen, og stien til den kopien gis.",
  "pick.no_terminal": "Velgemodusen trenger en terminal for å vise Coxswain, og ingen kunne åpnes: {error}",
- "pick.refused": "Velgeren velger bare: den endrer ingen filer"
+ "pick.refused": "Velgeren velger bare: den endrer ingen filer",
+ "hint.via_menu": "{action} har tasten {key}. Endre den i {settings} eller i config.toml under [keys]; {menu} → {key_test} viser om den når Coxswain"
 }

@@ -4709,5 +4709,6 @@
  "feature.pick.q3": "En een bestand in een archief?",
  "feature.pick.a3": "Archieven openen als mappen. Een bestand dat daarin gekozen is, wordt naar de cache uitgepakt en het pad van die kopie wordt gegeven.",
  "pick.no_terminal": "De kiesmodus heeft een terminal nodig om Coxswain te tonen en er kon er geen geopend worden: {error}",
- "pick.refused": "De kiezer kiest alleen: hij wijzigt geen bestanden"
+ "pick.refused": "De kiezer kiest alleen: hij wijzigt geen bestanden",
+ "hint.via_menu": "{action} heeft de toets {key}. Wijzig die in {settings} of in config.toml onder [keys]; {menu} → {key_test} laat zien of de toets Coxswain bereikt"
 }

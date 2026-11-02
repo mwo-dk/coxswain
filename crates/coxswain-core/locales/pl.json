@@ -4905,5 +4905,6 @@
  "feature.pick.q3": "A plik w archiwum?",
  "feature.pick.a3": "Archiwa otwierają się jak foldery. Plik wybrany w środku jest rozpakowywany do pamięci podręcznej i podawana jest ścieżka tej kopii.",
  "pick.no_terminal": "Tryb wyboru potrzebuje terminala do wyświetlenia Coxswain, a żadnego nie dało się otworzyć: {error}",
- "pick.refused": "Selektor tylko wybiera: nie zmienia żadnych plików"
+ "pick.refused": "Selektor tylko wybiera: nie zmienia żadnych plików",
+ "hint.via_menu": "{action} ma klawisz {key}. Zmień go w {settings} lub w config.toml w sekcji [keys]; {menu} → {key_test} pokazuje, czy dociera do Coxswain"
 }

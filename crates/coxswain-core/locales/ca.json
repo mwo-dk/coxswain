@@ -4807,5 +4807,6 @@
  "feature.pick.q3": "I un fitxer dins d'un arxiu?",
  "feature.pick.a3": "Els arxius s'obren com a carpetes. Un fitxer triat a dins es desempaqueta a la memòria cau i es dóna la ruta d'aquesta còpia.",
  "pick.no_terminal": "El mode de selecció necessita un terminal per mostrar Coxswain i no se n'ha pogut obrir cap: {error}",
- "pick.refused": "El selector només tria: no canvia cap fitxer"
+ "pick.refused": "El selector només tria: no canvia cap fitxer",
+ "hint.via_menu": "{action} té la tecla {key}. Canvieu-la a {settings} o a config.toml, sota [keys]; {menu} → {key_test} mostra si arriba a Coxswain"
 }

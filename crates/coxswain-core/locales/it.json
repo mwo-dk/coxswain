@@ -4807,5 +4807,6 @@
  "feature.pick.q3": "E un file dentro un archivio?",
  "feature.pick.a3": "Gli archivi si aprono come cartelle. Un file scelto al loro interno viene estratto nella cache e si dà il percorso di quella copia.",
  "pick.no_terminal": "La modalità scelta ha bisogno di un terminale per mostrare Coxswain e non se n'è potuto aprire nessuno: {error}",
- "pick.refused": "Il selettore sceglie soltanto: non modifica nessun file"
+ "pick.refused": "Il selettore sceglie soltanto: non modifica nessun file",
+ "hint.via_menu": "{action} ha il tasto {key}. Cambialo in {settings} o in config.toml, sotto [keys]; {menu} → {key_test} mostra se arriva a Coxswain"
 }

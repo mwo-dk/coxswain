@@ -4709,5 +4709,6 @@
  "feature.pick.q3": "Och en fil i ett arkiv?",
  "feature.pick.a3": "Arkiv öppnas som mappar. En fil som väljs där packas upp i cachen, och sökvägen till den kopian ges.",
  "pick.no_terminal": "Valläget behöver en terminal för att visa Coxswain, och ingen gick att öppna: {error}",
- "pick.refused": "Väljaren väljer bara: den ändrar inga filer"
+ "pick.refused": "Väljaren väljer bara: den ändrar inga filer",
+ "hint.via_menu": "{action} har tangenten {key}. Ändra den i {settings} eller i config.toml under [keys]; {menu} → {key_test} visar om den når Coxswain"
 }

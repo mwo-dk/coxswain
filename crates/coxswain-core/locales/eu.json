@@ -4709,5 +4709,6 @@
  "feature.pick.q3": "Eta artxibo baten barruko fitxategia?",
  "feature.pick.a3": "Artxiboak karpeta gisa irekitzen dira. Barruan aukeratutako fitxategia cachean deskonprimitzen da eta kopia horren bidea ematen da.",
  "pick.no_terminal": "Aukeraketa moduak terminal bat behar du Coxswain erakusteko, eta ezin izan da bat ere ireki: {error}",
- "pick.refused": "Hautatzaileak aukeratu baino ez du egiten: ez du fitxategirik aldatzen"
+ "pick.refused": "Hautatzaileak aukeratu baino ez du egiten: ez du fitxategirik aldatzen",
+ "hint.via_menu": "{action} ekintzaren tekla {key} da. Aldatu {settings} atalean edo config.toml fitxategiko [keys] atalean; {menu} → {key_test}(e)k erakusten du Coxswain-era iristen den"
 }

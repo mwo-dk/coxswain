@@ -414,6 +414,14 @@ fn hint_once(id: String, ctx: tauri::State<Ctx>) -> bool {
     coxswain_core::menu::once(&id, &ctx.cfg())
 }
 
+/// An action ran, from its key or (`via_menu`) from F9 or the action menu: the hint that names
+/// its key once it was only ever run from the menu; counted.
+#[tauri::command(async)]
+fn action_ran(action: String, via_menu: bool, can_show: bool, ctx: tauri::State<Ctx>) -> Option<String> {
+    let a = coxswain_core::config::Action::ALL.iter().copied().find(|a| a.name() == action)?;
+    coxswain_core::menu::ran(a, via_menu, can_show, &ctx.cfg())
+}
+
 /// F1 → Features: every feature with its keys and questions, filtered by `query`.
 #[tauri::command(async)]
 fn features(query: String, ctx: tauri::State<Ctx>) -> Vec<coxswain_core::features::Entry> {
@@ -2915,7 +2923,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_config, action_menu, hint, enter_on, hint_once, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, terminals, git_config, places, disks, get_state, repos, repo_edit, save_session, save_favorites, set_tags, set_note, get_note, bin_summary, bin_question, bin_restore, bin_delete, bin_empty, bin_finder,
+            get_config, action_menu, hint, enter_on, hint_once, action_ran, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, terminals, git_config, places, disks, get_state, repos, repo_edit, save_session, save_favorites, set_tags, set_note, get_note, bin_summary, bin_question, bin_restore, bin_delete, bin_empty, bin_finder,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, folder_to_add, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, replace::replace_plan, replace::replace_apply, replace::replace_progress, replace::replace_stop, attrs::attrs_plan, attrs::attrs_apply, attrs::attrs_progress, attrs::attrs_stop, folders_sync::sync_check, folders_sync::sync_plan, folders_sync::sync_apply, folders_sync::sync_progress, folders_sync::sync_stop, undo, undo_next, open_path, suggest_translation, edit_path, edit_open, edit_save, compare::compare_open, compare::compare_close, compare::compare_state, compare::compare_rows, compare::compare_hex, compare::compare_next, compare::compare_take, compare::compare_undo, compare::compare_save, compare::folders_open, compare::folders_close, compare::folders_state, compare::folders_states, compare::folders_diff_only, compare::folders_ahead, open_keys, open_config_at, scripts_folder,
             plain_error, is_model, git_blame, git_line_history, git_lines_cancel, git_lines_here,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, asset::inside_forget, disk_image_facts, cloud_fetch, properties, set_flags, set_permissions,

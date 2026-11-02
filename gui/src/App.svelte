@@ -654,7 +654,7 @@
           ...ui.cfg.groups.flatMap(([group, names]) =>
             names
               .filter((n) => !["menu", "up", "down"].includes(n) && (n !== "command_line" || ui.cfg.settings.typing === "find"))
-              .map((n) => ({ key: ui.cfg.actions[n][1], label: actionLabel(n), group, run: () => actions[n]?.() })),
+              .map((n) => ({ key: ui.cfg.actions[n][1], label: actionLabel(n), group, run: () => ranFromMenu(n) })),
           ),
           ...themeIds().map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: themeName(id) }), group: ui.cfg.groups.at(-1)?.[0], icon: "\u{f53f}", run: () => setTheme(id, true) })),
         ],
@@ -719,6 +719,14 @@
     forward: () => goForward(),
   };
 
+  /** An action chosen in F9 or the action menu: run, and its key named once it has only ever
+   *  run from there (`menu::ran`). */
+  function ranFromMenu(n) {
+    actions[n]?.();
+    // Once the action has shown what it shows: the hint only where the status line is free.
+    setTimeout(() => invoke("action_ran", { action: n, viaMenu: true, canShow: !ui.status && !ui.modal }).then((h) => h && !ui.status && !ui.modal && (ui.status = h), () => {}), 400);
+  }
+
   /** The actions that fit the marked entries (or the one under the cursor), under the
    *  headings of F1 and F9, each with its key: Enter runs one, Esc closes. */
   async function actionMenu() {
@@ -732,7 +740,7 @@
       direct: false,
       filter: "",
       cursor: 0,
-      items: groups.flatMap(([group, names]) => names.map((n) => ({ key: ui.cfg.actions[n][1], label: ui.cfg.actions[n][0], group, run: () => actions[n]?.() }))),
+      items: groups.flatMap(([group, names]) => names.map((n) => ({ key: ui.cfg.actions[n][1], label: ui.cfg.actions[n][0], group, run: () => ranFromMenu(n) }))),
     };
   }
   hooks.actionMenu = actionMenu;
@@ -863,6 +871,7 @@
     if (act) {
       e.preventDefault();
       if (act === "action_menu") menuKeyAt = Date.now();
+      invoke("action_ran", { action: act, viaMenu: false, canShow: false }).catch(() => {});
       actions[act]?.();
     } else if (plain && jump && !inCmd) {
       ui.quick = e.key;

@@ -4709,5 +4709,6 @@
  "feature.pick.q3": "Und eine Datei in einem Archiv?",
  "feature.pick.a3": "Archive öffnen sich wie üblich als Ordner. Eine darin gewählte Datei wird in den Cache entpackt, und der Pfad dieser Kopie wird ausgegeben.",
  "pick.no_terminal": "Der Auswahlmodus braucht ein Terminal, um Coxswain anzuzeigen, und keines ließ sich öffnen: {error}",
- "pick.refused": "Die Auswahl wählt nur: sie ändert keine Dateien"
+ "pick.refused": "Die Auswahl wählt nur: sie ändert keine Dateien",
+ "hint.via_menu": "{action} hat die Taste {key}. Ändern Sie sie unter {settings} oder in config.toml unter [keys]; {menu} → {key_test} zeigt, ob sie Coxswain erreicht"
 }
