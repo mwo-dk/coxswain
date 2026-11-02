@@ -1109,7 +1109,7 @@
  "enter.positions": "Enter: Opna stillingar",
  "enter.book": "Enter: Opna opningsbok",
  "enter.archive_or_image": "Enter: Opna arkiv eller containerbilete",
- "enter.maybe_book": "Enter: Opna opningsbok, om han er ei",
+ "enter.maybe_book": "Enter: Opna opningsbok, om ho er ei",
  "err.bom.invalid_json": "Denne fila er ikkje gyldig JSON (linje {line}): {message}",
  "err.bom.invalid_xml": "Denne fila er ikkje gyldig XML (linje {line}): {message}",
  "err.bom.no_node": "Denne noden finst ikkje lenger i BOM-en",
