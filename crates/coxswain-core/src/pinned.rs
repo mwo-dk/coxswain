@@ -10,7 +10,8 @@
 //!
 //! The run walks the same way, but goes only into folders in that set and hands on only entries
 //! in it: an entry or folder whose identity, ctime, kind or path is not exactly what the plan saw
-//! (swapped, renamed in, renamed away, written meanwhile) is left as it is. The path counts on its
+//! (swapped, renamed in, renamed away, written meanwhile) is left as it is; in a set made
+//! `by_content` the ctime does not count, as its caller checks each file's content. The path counts on its
 //! own: where a file system's clock ticks coarsely (OpenBSD's every 10 ms) an entry renamed in the
 //! same tick keeps its ctime, but not its name. Nothing compares a ctime with the local clock. Files are opened in their held folder,
 //! never through a link, never blocking on a pipe, and checked to be that very file and a file
@@ -113,14 +114,28 @@ pub struct Pin {
 pub struct Set {
     touch: HashMap<Id, (PathBuf, Kind)>,
     route: HashMap<Id, (PathBuf, Kind)>,
+    /// `by_content`: each entry's device and inode, to the Id the plan saw.
+    inodes: Option<HashMap<(u64, u128), Id>>,
 }
 
 impl Set {
+    /// A set whose entries are met whatever their ctime (still by device, inode, path and kind),
+    /// for a caller that checks each file's content against the plan before it writes it
+    /// (`replace`). FreeBSD's UFS with soft updates moves the ctime of a file renamed into its
+    /// name (an editor's save, a replace's own write), and at times of its folder, by itself half
+    /// a second to a few seconds later, even after fsync of both: a plan made in that time would
+    /// otherwise miss the file in its run.
+    pub fn by_content() -> Set {
+        Set { inodes: Some(HashMap::new()), ..Set::default() }
+    }
+
     /// `node` is to be touched: it, and every folder the walk went through to reach it.
     pub fn add(&mut self, node: &Node) {
         self.touch.insert(node.stat.id, (node.path.clone(), node.stat.kind));
+        self.inode(node.stat.id);
         let mut up = node.chain.as_deref();
         while let Some(l) = up {
+            self.inode(l.id);
             if self.route.insert(l.id, (l.path.clone(), Kind::Dir)).is_some() {
                 break;
             }
@@ -128,9 +143,20 @@ impl Set {
         }
     }
 
+    fn inode(&mut self, id: Id) {
+        if let Some(m) = self.inodes.as_mut() {
+            m.insert((id.dev, id.ino), id);
+        }
+    }
+
+    /// The Id the plan saw for `id`: in a `by_content` set, the one of the same device and inode.
+    fn planned(&self, id: &Id) -> Id {
+        self.inodes.as_ref().and_then(|m| m.get(&(id.dev, id.ino))).copied().unwrap_or(*id)
+    }
+
     /// `id` is already to be touched (a file reached twice).
     pub fn has(&self, id: &Id) -> bool {
-        self.touch.contains_key(id)
+        self.touch.contains_key(&self.planned(id))
     }
 
     /// Whether `id` met at `path` as a `kind` is in `map` as the plan saw it. The kind counts on
@@ -269,7 +295,10 @@ pub fn walk(roots: &[PathBuf], w: &Walk, stop: &AtomicBool, said: &mut Said, mut
         }
         let (touch, route) = match w.only {
             None => (true, true),
-            Some(set) => (Set::met(&set.touch, &stat.id, &t.path, stat.kind), Set::met(&set.route, &stat.id, &t.path, stat.kind)),
+            Some(set) => {
+                let id = set.planned(&stat.id);
+                (Set::met(&set.touch, &id, &t.path, stat.kind), Set::met(&set.route, &id, &t.path, stat.kind))
+            }
         };
         let node = Node { path: t.path, stat, depth: t.depth, place, chain: t.chain };
         if touch {
@@ -640,7 +669,7 @@ mod imp {
             // system that settles a rename later (FreeBSD's UFS with soft updates gives the file
             // a new ctime when the rename's link counts are written out) has done so; and never
             // an error here, which would cost the kept copy its undo. One not to be told is
-            // recorded with no time, which undo refuses.
+            // recorded with no time; undo then goes by its content alone.
             let _ = f.sync_all();
             // SAFETY: the held folder.
             unsafe { libc::fsync(dir) };
@@ -1289,7 +1318,8 @@ mod imp {
                 return Err(e);
             }
             // Written: what it is now, for undo; never an error here, which would cost the kept
-            // copy its undo. One not to be told is recorded with no time, which undo refuses.
+            // copy its undo. One not to be told is recorded with no time; undo then goes by its
+            // content alone.
             Ok(stat_of(&f).map_or(Id { ctime: (-1, 0), ..want }, |s| s.id))
         }
     }
