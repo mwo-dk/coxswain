@@ -465,7 +465,7 @@
   const parts = (s) => s.split(/\{(\w+)\}/);
 
   // Screen-reader name for modals that have no title of their own.
-  const KIND_LABEL = { keys: "keytest.title", linehistory: "action.line_history", help: "help.title", search: "search.title", rename: "action.batch_rename", props: "action.properties", tag: "action.tag" };
+  const KIND_LABEL = { keytest: "keytest.title", linehistory: "action.line_history", help: "help.title", search: "search.title", rename: "action.batch_rename", props: "action.properties", tag: "action.tag" };
 
   // ------------------------------------------------------------ pack
 
@@ -725,7 +725,7 @@
         </div>
         <div class="buttons"><button class="primary" onclick={close}>{t("common.close")}</button></div>
         <p class="keys">{t("dialog.keys_one", { verb: t("common.close") })}</p>
-      {:else if m.kind === "keys"}
+      {:else if m.kind === "keytest"}
         <h2>{t("keytest.title")}</h2>
         <p>{t("keytest.intro")}</p>
         <pre class="keylog">{m.lines.join("\n")}</pre>

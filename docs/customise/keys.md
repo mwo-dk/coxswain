@@ -155,7 +155,7 @@ These belong to where they are, not to an action:
 
 | Where | Keys | Desktop app | Terminal app |
 |---|---|---|---|
-| Every dialog | **Esc** closes, **Enter** confirms | Yes | Yes; the `quit` key (**F10**) closes a dialog too |
+| Every dialog | **Esc** closes, **Enter** confirms (*Keys as they arrive*: **Esc** twice) | Yes | Yes; the `quit` key (**F10**) closes a dialog too, but not *Keys as they arrive*, which lists it |
 | A *Delete* or other question | **Y** / **N** as well as Enter / Esc | Yes | Yes |
 | Find | **Tab** / **Shift+Tab** go to the next / previous kind, **Up**/**Down**/**PageUp**/**PageDown** move over the rows, **Ctrl+Enter** (desktop) / **Alt+Enter** (terminal) asks, **F1** shows the syntax, **Delete** sends a tip away (the `search`, `search_text` and `ask` keys, which you can change, switch the scope, *In files* and ask) | Yes | Yes |
 | *Colour tag* | The digits pick a colour | Yes | (not there) |
@@ -271,7 +271,9 @@ line is added, something before Coxswain took it. Find it by where it happens:
   kitty, `macos-option-as-alt` in Ghostty.
 
 Then free the key there, or give the action another one in `[keys]`. When the line is there
-but says *no action*, the key reaches Coxswain and is bound to nothing: check `[keys]`.
+but says *no action*, the key reaches Coxswain and no action in `[keys]` has it: check
+`[keys]`. A fixed key, such as **Enter** and **Esc** in a dialog or a letter that jumps to a name,
+also says *no action* there ([Keys you cannot change](#keys-you-cannot-change)).
 
 #### My `[keys] mkdir` stopped working in 2.0. Why?
 
