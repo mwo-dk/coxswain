@@ -1112,6 +1112,20 @@ fn kept_from(path: &Path, pack: crate::archive::Pack, at: u64) -> io::Result<Opt
     Ok(Some((r, at - p.out)))
 }
 
+/// The restart points kept of `path` as it is now (`save_points`), read once by a reader that
+/// goes to many places in it (a game file's games).
+pub(crate) fn points_of(path: &Path) -> Option<Vec<Point>> {
+    load_points(path)
+}
+
+/// `path` (a gzip or a zstd) unpacked from `p` on, one of `points_of`'s.
+pub(crate) fn from_point(path: &Path, gz: bool, p: &Point) -> io::Result<Box<dyn Read>> {
+    let mut f = File::open(path)?;
+    f.seek(SeekFrom::Start(p.file))?;
+    let src = io::BufReader::new(f);
+    Ok(if gz { Box::new(Gz::from(src, p)) } else { Box::new(Zst::from(src, p)) })
+}
+
 /// The unpacked tar `path` from a place at or before `at` on that is not its start, when
 /// there is one (an xz in blocks, a gzip or zstd listed whole before), and how many unpacked
 /// bytes of it come before `at`.

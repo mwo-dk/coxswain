@@ -19,9 +19,9 @@ use rusqlite::{Connection, OpenFlags, params};
 use serde::{Deserialize, Serialize};
 
 /// A game's row on the disk.
-pub(crate) const ROW: usize = 48;
+pub(crate) const ROW: usize = 52;
 /// What the folder holds changes form: an older form is never read.
-const FORM: &str = "1";
+const FORM: &str = "2";
 /// A table not opened for this long goes.
 pub const KEPT: Duration = Duration::from_secs(30 * 24 * 3600);
 /// The most all tables take: past it the ones opened longest ago go, never the newest.
@@ -52,6 +52,8 @@ pub(crate) struct Rec {
     pub plies: u16,
     /// 1 White won, 2 Black won, 3 a draw, 0 anything else.
     pub result: u8,
+    /// The site, for the search (`games::search_text`).
+    pub site: u32,
 }
 
 impl Rec {
@@ -64,7 +66,8 @@ impl Rec {
             b[36 + 2 * i..38 + 2 * i].copy_from_slice(&v.to_le_bytes());
         }
         b[44] = self.result;
-        b[45..ROW].fill(0);
+        b[45..48].fill(0);
+        b[48..52].copy_from_slice(&self.site.to_le_bytes());
     }
 
     fn get(b: &[u8]) -> Rec {
@@ -84,6 +87,7 @@ impl Rec {
             eco: u16_at(40),
             plies: u16_at(42),
             result: b[44],
+            site: u32_at(48),
         }
     }
 }
@@ -167,11 +171,19 @@ fn modified(p: &Path) -> Option<SystemTime> {
     std::fs::metadata(p).and_then(|m| m.modified()).ok()
 }
 
-/// A folder being made, by a run that ended without finishing it.
+/// A folder being made, by a run that ended without finishing it: its run (named in the
+/// folder, `<key>-<run>-<n>`) has ended; or, when that cannot be told, its rows did not grow
+/// for `STALE`.
 fn stale(dir: &Path) -> bool {
-    let rows = dir.join("rows");
-    let when = modified(&rows).or_else(|| modified(dir));
-    when.is_none_or(|t| t.elapsed().unwrap_or_default() > STALE)
+    let name = dir.file_name().unwrap_or_default().to_string_lossy().into_owned();
+    let run = name.split_once('-').and_then(|(_, r)| r.rsplit_once('-')).map(|(r, _)| r.to_string());
+    match run.as_deref().and_then(crate::spill::alive) {
+        Some(alive) => !alive,
+        None => {
+            let when = modified(&dir.join("rows")).or_else(|| modified(dir));
+            when.is_none_or(|t| t.elapsed().unwrap_or_default() > STALE)
+        }
+    }
 }
 
 fn connect(path: &Path, write: bool) -> io::Result<Connection> {
@@ -190,6 +202,8 @@ impl Table {
     /// database has not changed since and it was read with the same `extra` (the limits), with
     /// what `done` says; else a new one to fill.
     pub fn open(path: &Path, extra: &str) -> io::Result<(Table, Option<Done>)> {
+        // One table a file, from whichever folder it is named.
+        let path = &std::path::absolute(path)?;
         // Each table made in this run gets a folder of its own.
         static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
         let stamp = stamp(path);
@@ -207,6 +221,16 @@ impl Table {
                     Some(d) if d.stamp == stamp && d.extra == extra && d.source == source => {
                         if let Ok(t) = Table::kept(&dir, &stamp, extra, &source) {
                             crate::spill::used(&dir);
+                            // Two apps that read the file at once each made one: one is kept.
+                            for e in std::fs::read_dir(&root).into_iter().flatten().flatten() {
+                                let other = e.path();
+                                if other != dir
+                                    && e.file_name().to_string_lossy().starts_with(&format!("{key}-"))
+                                    && read_done(&other).is_some_and(|o| o.source == source && o.extra == extra)
+                                {
+                                    crate::spill::gone(&other);
+                                }
+                            }
                             return Ok((t, Some(d)));
                         }
                         crate::spill::gone(&dir);
@@ -282,8 +306,8 @@ impl Table {
         if let Some(w) = inner.writer.lock().unwrap_or_else(|e| e.into_inner()).take() {
             w.into_inner().map_err(|e| e.into_error())?.sync_all()?;
         }
-        inner.names.lock().unwrap_or_else(|e| e.into_inner()).execute_batch("CREATE INDEX names_key ON names (key, id);").map_err(io::Error::other)?;
-        File::open(self.dir.join("names.db"))?.sync_all()?;
+        // SQLite puts the names on the disk itself, through the file it holds open.
+        inner.names.lock().unwrap_or_else(|e| e.into_inner()).execute_batch("PRAGMA synchronous=FULL; CREATE INDEX names_key ON names (key, id);").map_err(io::Error::other)?;
         if self.temp {
             return Ok(());
         }
@@ -425,7 +449,9 @@ pub(crate) fn prune_in(root: &Path, age: Duration, most: u64) {
             continue;
         };
         let when = modified(&dir).unwrap_or(SystemTime::UNIX_EPOCH);
-        if !done.source.exists() || when.elapsed().unwrap_or_default() > age {
+        // Gone from a folder that is there: a disk not plugged in keeps its tables.
+        let gone = !done.source.exists() && done.source.parent().is_some_and(|p| p.exists());
+        if gone || when.elapsed().unwrap_or_default() > age {
             crate::spill::gone(&dir);
         } else {
             kept.push((when, crate::fs::dir_size(&dir).0, dir));
@@ -449,7 +475,7 @@ mod tests {
 
     #[test]
     fn a_row_back_as_it_went() {
-        let r = Rec { offset: 1 << 40, len: 7, white: 1, black: 2, event: u32::MAX, opening: 3, date: 18581102, result_name: u32::MAX, white_elo: 2690, black_elo: 0, eco: 341, plies: 9, result: 1 };
+        let r = Rec { offset: 1 << 40, len: 7, white: 1, black: 2, event: u32::MAX, opening: 3, date: 18581102, result_name: u32::MAX, white_elo: 2690, black_elo: 0, eco: 341, plies: 9, result: 1, site: 5 };
         let mut b = [0u8; ROW];
         r.put(&mut b);
         assert_eq!(Rec::get(&b), r);
@@ -463,6 +489,8 @@ mod tests {
         std::fs::write(&db, "x").unwrap();
         let (t, done) = Table::open(&db, "").unwrap();
         assert!(done.is_none());
+        // Being made by a run that lives: never taken for one a crash left, however long it waits.
+        assert!(!stale(&t.dir));
         let rec = Rec { white: 0, opening: u32::MAX, ..Rec::default() };
         t.append(&[rec, Rec { white: 1, ..rec }], &[(0, "Zoë".into()), (1, "anand".into())]).unwrap();
         t.finish(2, false).unwrap();

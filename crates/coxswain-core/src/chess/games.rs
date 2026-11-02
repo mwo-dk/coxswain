@@ -383,7 +383,7 @@ pub(crate) fn is_dhtml(path: &Path) -> bool {
 /// to terabytes, stops here, with the games read so far and a note saying so.
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {
-    /// Games in the table (48 bytes each, on the disk).
+    /// Games in the table (52 bytes each, on the disk).
     pub games: usize,
     /// Bytes of memory the names met (players, events, openings) take while the file is
     /// read: 32 a name.
@@ -593,6 +593,8 @@ fn eco_text(e: u16) -> String {
 struct Source {
     path: PathBuf,
     open: Option<(Box<dyn Read + Send>, u64)>,
+    /// A packed file's restart points (`tar_index`), once read.
+    points: Option<Vec<crate::tar_index::Point>>,
 }
 
 impl Source {
@@ -606,11 +608,17 @@ impl Source {
             return Ok(buf);
         }
         // The place nearest before the game the first pass kept (`tar_index`: a gzip every few
-        // MB, a zstd at each frame): unpacked from there, not from the start.
-        let kind = if pack(&self.path) == Pack::Gz { crate::archive::Pack::Gz } else { crate::archive::Pack::Zst };
+        // MB, a zstd at each frame), read once: unpacked from there, not from the start.
+        // None yet while the first pass reads: looked for again until there are some.
+        if self.points.as_ref().is_none_or(|p| p.is_empty()) {
+            self.points = Some(crate::tar_index::points_of(&self.path).unwrap_or_default());
+        }
+        let points = self.points.as_deref().unwrap_or_default();
         if self.open.as_ref().is_none_or(|(_, at)| *at > offset || offset - *at > 4 << 20)
-            && let Some((mut r, skip)) = crate::tar_index::from(&self.path, kind, offset)?
+            && let Some(p) = points.iter().rev().find(|p| p.out <= offset && p.out > 0)
         {
+            let mut r = crate::tar_index::from_point(&self.path, pack(&self.path) == Pack::Gz, p)?;
+            let skip = offset - p.out;
             io::copy(&mut (&mut r).take(skip), &mut io::sink())?;
             let n = read_full(&mut r, &mut buf)?;
             buf.truncate(n);
@@ -762,7 +770,7 @@ impl Library {
         let read = Arc::new(AtomicU64::new(0));
         let shared = Arc::new(Mutex::new(Shared::default()));
         let stop = Arc::new(AtomicBool::new(false));
-        let source = Mutex::new(Source { path: path.to_path_buf(), open: None });
+        let source = Mutex::new(Source { path: path.to_path_buf(), open: None, points: None });
         let scid = if super::scid::is_scid(path) { Some(Arc::new(super::scid::Base::open(path)?)) } else { None };
         let cbh = super::cbh::is_cbh(path);
         let format = if scid.is_some() || cbh { super::Format::Pgn } else { kind(path) };
@@ -957,7 +965,7 @@ impl Library {
             return base.pgn(offset as u32);
         }
         if let Some(pgn) = archived_pgn(&self.path) {
-            return Ok(text(&Source { path: pgn, open: None }.read(offset, len)?).into_owned());
+            return Ok(text(&Source { path: pgn, open: None, points: None }.read(offset, len)?).into_owned());
         }
         if super::cbh::is_cbh(&self.path) {
             return super::cbh::pgn(&self.path, offset);
@@ -1036,6 +1044,7 @@ fn index(feed: impl FnOnce(&mut dyn FnMut(&Head) -> bool) -> io::Result<()>, sha
             white: intern(h.tag(WHITE), &mut ids, &mut fresh),
             black: intern(h.tag(BLACK), &mut ids, &mut fresh),
             event: intern(h.tag(EVENT), &mut ids, &mut fresh),
+            site: intern(h.tag(SITE), &mut ids, &mut fresh),
             opening: intern(&opening, &mut ids, &mut fresh),
             date: date_code(h.tag(DATE)),
             white_elo: h.tag(WHITE_ELO).parse().unwrap_or(0),

@@ -65,7 +65,7 @@ fn a_million_games_in_bounded_memory() {
         t.elapsed()
     );
     // The table is on the disk: what stays in memory is the order shown (4 bytes a game, 8
-    // while sorted) and the names met; never 48 bytes a game, never the file's size.
+    // while sorted) and the names met; never a row a game, never the file's size.
     let sorted = lib.query(&coxswain_core::chess::Query { sort: coxswain_core::chess::Sort::White, ..Default::default() });
     assert_eq!(sorted.len(), GAMES);
     let peak = peak_mb();

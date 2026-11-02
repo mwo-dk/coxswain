@@ -95,7 +95,7 @@ A database of millions of games, a PGN file of many gigabytes (Lumbra's Gigabase
 million games in 12 GB) or a SCID or ChessBase database, opens the same way as a small file,
 in the same memory. The table of games is not held in memory: it is kept on the disk, in the
 cache folder (`chess/tables/`, [Where things are kept](../reference/where-things-are-kept.md)),
-48 bytes a game, with the players', events' and openings' names beside it. What stays in memory
+52 bytes a game, with the players', events' and openings' names beside it. What stays in memory
 is the order shown: 4 bytes a game the filters let through (8 while it is sorted).
 
 - **The first time**, the file is read once from start to end, and the table fills as it goes:
@@ -125,7 +125,9 @@ is the order shown: 4 bytes a game the filters let through (8 while it is sorted
 A table goes by itself when its file changes (it is read anew the next time) or goes, when it
 was not opened for 30 days, and when all tables take more than 4 GB (the ones opened longest ago
 first, never the newest). A table that a crash or a stop cut short is never taken for a whole
-one; it goes at the next open. **Clear** on the *chess/* row of
+one; it goes at the next open once the app that made it has ended (or, when that cannot be
+told, after 10 minutes untouched). The table needs room in the cache folder (or, without one,
+the temporary folder): where neither can be written, the file does not open. **Clear** on the *chess/* row of
 [Disk use](../reference/disk-use.md) removes them all; each file is then read again the next
 time it is opened. Both apps share the tables, and the terminal app and the desktop app read
 them the same way.
@@ -414,7 +416,7 @@ record's size and every name's number are checked before they are used, a game i
 | `.bin` | A Polyglot opening book (the format of Polyglot, the book tool, used by most chess programs): its moves for each position, read by a binary search |
 
 Broken games are skipped or read as far as they go; nothing in a file can stop the app. A file
-takes no more than the table can hold: the first 1,073,741,824 games (48 bytes each on the
+takes no more than the table can hold: the first 1,073,741,824 games (52 bytes each on the
 disk), names that take 256 MB of memory while the file is read (32 bytes a different name:
 about 8 million players, events and openings), and a packed file unpacked to no more than
 64 GB. Past that, the line above the table adds *the first 1073741824 games only: the file has
@@ -559,7 +561,7 @@ fills; the next one, of the same file unchanged, shows the table at once.
 
 #### Why is my cache folder bigger after I opened a large database?
 
-Its table of games is kept there (`chess/tables/`), 48 bytes a game and the names: 677 MB for
+Its table of games is kept there (`chess/tables/`), 52 bytes a game and the names: 677 MB for
 12.3 million games. It goes by itself 30 days after you last opened the file, when the file changes
 or goes, or past 4 GB of tables in all; **Clear** on the *chess/* row of Disk use removes them
 at once.
