@@ -338,7 +338,6 @@
  "archive.preview_unlock": "Įveskite slaptažodį",
  "archive.room_short": "Vietos gali pritrūkti: čia laisva {free}, o gali prireikti {need}, nes archyvas pirma rašomas šalia senojo",
  "archive.too_large": "{name} per didelis, kad būtų galima peržiūrėti čia: nukopijuokite jį iš archyvo, kad atidarytumėte",
- "archive.unchecked_password": "{name} užrakintas senuoju zip būdu ir per didelis, kad slaptažodį būtų galima patikrinti prieš rodant, todėl slaptažodis gali būti neteisingas: nukopijuokite jį iš archyvo, kad atidarytumėte",
  "ask.builtin_estimate": "Šiame procesoriuje: apie {seconds} s iki pirmojo žodžio, tada {words} žodžio per sekundę",
  "ask.builtin_missing": "{model} dar neatsisiųstas: atsisiųskite jį skiltyje Parametrai › Klausti arba Nustatyti…",
  "ask.builtin_name": "{model}, įtaisytas",

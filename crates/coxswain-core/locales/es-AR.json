@@ -338,7 +338,6 @@
  "archive.preview_unlock": "Ingresá la contraseña",
  "archive.room_short": "Puede faltar espacio: acá hay {free} libres y puede hacer falta {need}, porque el archivo se escribe primero al lado del viejo",
  "archive.too_large": "{name} es demasiado grande para verlo acá: copialo fuera del archivo para abrirlo",
- "archive.unchecked_password": "{name} está bloqueado a la manera vieja de zip y es demasiado grande para comprobar la contraseña antes de mostrarlo, así que la contraseña puede estar mal: copialo fuera del archivo para abrirlo",
  "ask.builtin_estimate": "En este procesador: unos {seconds} s hasta la primera palabra, después {words} palabras por segundo",
  "ask.builtin_missing": "{model} todavía no está descargado: descargalo en Configuración, en Preguntar, o en Configurar…",
  "ask.builtin_name": "{model}, incluido",

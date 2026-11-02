@@ -343,7 +343,6 @@
  "archive.preview_unlock": "Podaj hasło",
  "archive.room_short": "Może zabraknąć miejsca: wolne jest tu {free}, a może być potrzebne {need}, bo archiwum jest najpierw zapisywane obok starego",
  "archive.too_large": "{name} jest za duży, by go tu obejrzeć: skopiuj go z archiwum, aby go otworzyć",
- "archive.unchecked_password": "{name} jest zablokowany starym sposobem zip i jest za duży, by sprawdzić hasło przed pokazaniem, więc hasło może być błędne: skopiuj go z archiwum, aby go otworzyć",
  "ask.builtin_estimate": "Na tym procesorze: około {seconds} s do pierwszego słowa, potem {words} słowa na sekundę",
  "ask.builtin_missing": "{model} nie jest jeszcze pobrany: pobierz go w Ustawienia, w sekcji Zapytaj, albo w Skonfiguruj…",
  "ask.builtin_name": "{model}, wbudowany",

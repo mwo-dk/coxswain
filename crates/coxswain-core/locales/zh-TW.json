@@ -297,7 +297,6 @@
  "archive.preview_unlock": "輸入密碼",
  "archive.room_short": "空間可能不足：這裡剩 {free}，可能需要 {need}，因為壓縮檔會先寫在舊檔旁邊",
  "archive.too_large": "{name} 太大，無法在這裡檢視：請從壓縮檔複製出來再開啟",
- "archive.unchecked_password": "{name} 以舊的 zip 方式加密，太大，無法在顯示前檢查密碼，所以密碼可能不對：請從壓縮檔複製出來再開啟",
  "ask.builtin_estimate": "在這個處理器上：約 {seconds} 秒出現第一個字，之後每秒 {words} 個字",
  "ask.builtin_missing": "{model} 尚未下載：請在設定的「提問」下或「設定…」中下載",
  "ask.builtin_name": "{model}（內建）",

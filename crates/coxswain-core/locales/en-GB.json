@@ -301,7 +301,6 @@
  "archive.preview_unlock": "Enter the password",
  "archive.room_short": "Space may be short: {free} free here, and this may need {need}, as the archive is written beside the old one first",
  "archive.too_large": "{name} is too large to look at here: copy it out of the archive to open it",
- "archive.unchecked_password": "{name} is locked the old zip way and too large for its password to be checked before it is shown, so the password may be wrong: copy it out of the archive to open it",
  "ask.builtin_estimate": "On this processor: about {seconds} s to the first word, then {words} words a second",
  "ask.builtin_missing": "{model} is not downloaded yet: download it in Settings under Ask, or in Set up…",
  "ask.builtin_name": "{model}, built in",

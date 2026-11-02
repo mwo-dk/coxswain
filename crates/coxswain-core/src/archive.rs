@@ -3274,10 +3274,7 @@ fn copy_entries(
             // A wrong ZipCrypto password is only seen in what comes out: the check fails.
             let size = e.size();
             if encrypted && how.head.is_some() && size > PEEK_MAX {
-                return Err(io::Error::new(
-                    io::ErrorKind::FileTooLarge,
-                    crate::t!("archive.unchecked_password", "name" => name),
-                ));
+                return Err(too_large(&name));
             }
             let mut from = Noting {
                 from: &mut e,
@@ -3357,11 +3354,19 @@ fn copy_entries(
                 left: e.size,
                 failed: false,
             };
+            // Locked, only a head asked for: read to its end too, as a zip's, since AES has no
+            // check of the password but the checksum at the end.
+            let check = locked && how.head.is_some() && !e.is_directory;
+            if check && e.size > PEEK_MAX {
+                failed = Some(too_large(&name));
+                return Ok(false);
+            }
             let done = if e.is_directory {
                 std::fs::create_dir_all(&path)
             } else {
                 write(&path, &mut from, seven_secs(e))
-            };
+            }
+            .and_then(|()| if check { io::copy(&mut crate::stop::Reader(&mut from), &mut io::sink()).map(drop) } else { Ok(()) });
             if let Err(err) = done {
                 failed = Some(copy_error(err, &from, locked));
                 return Ok(false);
@@ -5778,6 +5783,16 @@ mod tests {
             "a copy out notices by the checksum"
         );
         assert!(!d.join("out/a.txt").exists());
+        // A 7z locked with AES (no check of the password at all) neither, its names open.
+        let text = "secret two ".repeat(200);
+        std::fs::write(d.join("c.txt"), &text).unwrap();
+        let sz = d.join("locked.7z");
+        create_locked(&sz, &[d.join("c.txt")], Some("hunter2"), false).unwrap();
+        remember(&sz, "wrong");
+        assert_eq!(head(&sz.join("c.txt"), 4).unwrap_err().to_string(), LOCKED);
+        remember(&sz, "hunter2");
+        assert_eq!(head(&sz.join("c.txt"), 6).unwrap(), (b"secret".to_vec(), true));
+        forget(&sz);
         // Nor does a look at its head (`head`, the preview without a copy) show what comes out.
         remember(&zp, &wrong);
         assert_eq!(head(&zp.join("a.txt"), 4).unwrap_err().to_string(), LOCKED, "the head's look notices too");

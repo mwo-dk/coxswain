@@ -333,7 +333,6 @@
  "archive.preview_unlock": "Wachtwoord invoeren",
  "archive.room_short": "De ruimte kan krap worden: hier is {free} vrij, en dit kan {need} vragen, omdat het archief eerst naast het oude wordt geschreven",
  "archive.too_large": "{name} is te groot om hier te bekijken: kopieer het uit het archief om het te openen",
- "archive.unchecked_password": "{name} is op de oude zip-manier vergrendeld en te groot om het wachtwoord te controleren voordat het wordt getoond, dus het wachtwoord kan fout zijn: kopieer het uit het archief om het te openen",
  "ask.builtin_estimate": "Op deze processor: ongeveer {seconds} s tot het eerste woord, daarna {words} woorden per seconde",
  "ask.builtin_missing": "{model} is nog niet gedownload: download het in Instellingen onder Vragen, of in Instellen…",
  "ask.builtin_name": "{model}, ingebouwd",

@@ -338,7 +338,6 @@
  "archive.preview_unlock": "Introduïu la contrasenya",
  "archive.room_short": "Potser no hi ha prou espai: aquí hi ha {free} lliures i potser en calen {need}, perquè l'arxiu s'escriu primer al costat de l'antic",
  "archive.too_large": "{name} és massa gran per veure'l aquí: copieu-lo fora de l'arxiu per obrir-lo",
- "archive.unchecked_password": "{name} està protegit a l'antiga manera zip i és massa gran per comprovar-ne la contrasenya abans de mostrar-lo, així que potser és incorrecta: copieu-lo fora de l'arxiu per obrir-lo",
  "ask.builtin_estimate": "En aquest processador: uns {seconds} s fins a la primera paraula, després {words} paraules per segon",
  "ask.builtin_missing": "{model} encara no s'ha baixat: baixeu-lo a Paràmetres, a Pregunta, o a Configura…",
  "ask.builtin_name": "{model}, integrat",

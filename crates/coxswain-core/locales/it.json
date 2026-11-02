@@ -338,7 +338,6 @@
  "archive.preview_unlock": "Inserisci la password",
  "archive.room_short": "Lo spazio potrebbe non bastare: qui ci sono {free} liberi e potrebbero servirne {need}, perché l’archivio viene scritto prima accanto al vecchio",
  "archive.too_large": "{name} è troppo grande per essere visto qui: copialo fuori dall’archivio per aprirlo",
- "archive.unchecked_password": "{name} è bloccato alla vecchia maniera zip ed è troppo grande per verificarne la password prima di mostrarlo, quindi la password potrebbe essere sbagliata: copialo fuori dall’archivio per aprirlo",
  "ask.builtin_estimate": "Su questo processore: circa {seconds} s alla prima parola, poi {words} parole al secondo",
  "ask.builtin_missing": "{model} non è ancora scaricato: scaricalo in Impostazioni, sotto Chiedi, o in Configura…",
  "ask.builtin_name": "{model}, integrato",

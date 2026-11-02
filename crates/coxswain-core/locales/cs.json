@@ -338,7 +338,6 @@
  "archive.preview_unlock": "Zadat heslo",
  "archive.room_short": "Místo může dojít: zde je volných {free} a může být potřeba {need}, protože archiv se nejdřív zapisuje vedle starého",
  "archive.too_large": "{name} je příliš velký, aby se dal zobrazit zde: zkopírujte jej z archivu, abyste jej otevřeli",
- "archive.unchecked_password": "{name} je zamčený starým způsobem zipu a je příliš velký na to, aby se heslo ověřilo před zobrazením, takže heslo může být špatné: zkopírujte jej z archivu, abyste jej otevřeli",
  "ask.builtin_estimate": "Na tomto procesoru: asi {seconds} s do prvního slova, pak {words} slova za sekundu",
  "ask.builtin_missing": "{model} ještě není stažený: stáhněte ho v Nastavení pod Dotaz, nebo v Nastavit…",
  "ask.builtin_name": "{model}, vestavěný",

@@ -338,7 +338,6 @@
  "archive.preview_unlock": "Ievadiet paroli",
  "archive.room_short": "Vietas var pietrūkt: šeit brīvi {free}, bet var vajadzēt {need}, jo arhīvs vispirms tiek rakstīts blakus vecajam",
  "archive.too_large": "{name} ir pārāk liels, lai to skatītu šeit: nokopējiet to ārā no arhīva, lai atvērtu",
- "archive.unchecked_password": "{name} ir aizslēgts vecajā zip veidā un ir pārāk liels, lai paroli pārbaudītu pirms parādīšanas, tāpēc parole var būt nepareiza: nokopējiet to ārā no arhīva, lai atvērtu",
  "ask.builtin_estimate": "Šajā procesorā: apmēram {seconds} s līdz pirmajam vārdam, tad {words} vārdi sekundē",
  "ask.builtin_missing": "{model} vēl nav lejupielādēts: lejupielādējiet to sadaļā Iestatījumi › Jautāt vai Iestatīt…",
  "ask.builtin_name": "{model}, iebūvēts",

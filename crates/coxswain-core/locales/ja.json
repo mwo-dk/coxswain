@@ -328,7 +328,6 @@
  "archive.preview_unlock": "パスワードを入力",
  "archive.room_short": "空きが足りないかもしれません: ここの空きは {free} で、{need} 必要になることがあります。アーカイブはまず古いものの隣に書き出されるためです",
  "archive.too_large": "{name} はここで表示するには大きすぎます。開くにはアーカイブの外にコピーしてください",
- "archive.unchecked_password": "{name} は古い zip 方式で保護されており、表示する前にパスワードを確かめるには大きすぎるため、パスワードが間違っている可能性があります。開くにはアーカイブの外にコピーしてください",
  "ask.builtin_estimate": "このプロセッサーでは: 最初の語まで約 {seconds} 秒、その後毎秒 {words} 語",
  "ask.builtin_missing": "{model} はまだダウンロードされていません: 設定 の 質問、または 設定… からダウンロードしてください",
  "ask.builtin_name": "{model} (内蔵)",

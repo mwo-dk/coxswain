@@ -338,7 +338,6 @@
  "archive.preview_unlock": "Saisir le mot de passe",
  "archive.room_short": "La place pourrait manquer : {free} libres ici, et il faudra peut-être {need}, car l’archive est d’abord écrite à côté de l’ancienne",
  "archive.too_large": "{name} est trop volumineux pour être affiché ici : copiez-le hors de l’archive pour l’ouvrir",
- "archive.unchecked_password": "{name} est verrouillé à l’ancienne manière zip et trop volumineux pour que son mot de passe soit vérifié avant l’affichage : le mot de passe est peut-être faux. Copiez-le hors de l’archive pour l’ouvrir",
  "ask.builtin_estimate": "Sur ce processeur : environ {seconds} s jusqu’au premier mot, puis {words} mots par seconde",
  "ask.builtin_missing": "{model} n’est pas encore téléchargé : téléchargez-le dans Réglages, sous Demander, ou dans Configurer…",
  "ask.builtin_name": "{model}, intégré",
