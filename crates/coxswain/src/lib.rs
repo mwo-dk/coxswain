@@ -836,6 +836,9 @@ pub struct App {
     /// summary when it is compared again after it.
     folders_lead: Option<String>,
     quit: bool,
+    /// Pick mode (`--pick`): what is asked for, and what was chosen (none: cancelled).
+    pub pick: Option<coxswain_core::pick::Request>,
+    picked: Option<Vec<PathBuf>>,
     /// Under the pack, copy or move dialog's field: that the disk may be short of room to write
     /// into an archive (`archive::short_of_room`). Cleared by each new input dialog.
     input_note: Option<String>,
@@ -1173,6 +1176,8 @@ impl App {
             folders_said: false,
             folders_lead: None,
             quit: false,
+            pick: None,
+            picked: None,
             input_note: None,
             cfg,
         };
@@ -1544,6 +1549,9 @@ impl App {
             r.stop.store(true, std::sync::atomic::Ordering::Relaxed);
             return self.status = Some(t!("media.stopping"));
         }
+        if self.pick.is_some() && self.pick_key(&key) {
+            return;
+        }
         match (action, plain_char) {
             (Some(a), _) => {
                 self.cmd_open &= a == Action::CommandLine;
@@ -1559,6 +1567,58 @@ impl App {
         }
     }
 
+    /// Pick mode: Enter chooses (or opens a folder), Esc cancels, Ctrl+PageDown opens the folder
+    /// under the cursor. True when the key was one of them.
+    fn pick_key(&mut self, key: &Key) -> bool {
+        if self.pick.is_none() || self.cmd_open || !self.cmdline.is_empty() || key.alt || key.shift {
+            return false;
+        }
+        if key.code == KeyCode::Esc && !key.ctrl {
+            self.quit = true;
+            return true;
+        }
+        let Some(e) = self.panel().current() else { return false };
+        use coxswain_core::enter::{self, Enter, Place};
+        let place = if coxswain_core::archive::split(&self.panel().dir).is_some() { Place::Archive } else { Place::Disk };
+        let goes_in = e.is_parent() || matches!(enter::enter(&e.path, e.is_dir, place), Enter::Folder | Enter::Archive | Enter::DiskImage | Enter::Image | Enter::Mailbox);
+        match (key.code, key.ctrl) {
+            (KeyCode::PageDown, true) if goes_in => self.open(),
+            (KeyCode::Enter, false) => self.pick_choose(true),
+            _ => return false,
+        }
+        true
+    }
+
+    /// Pick mode: what Enter or a double-click does on the entry under the cursor.
+    fn pick_choose(&mut self, use_marks: bool) {
+        let Some(req) = self.pick.clone() else { return };
+        let Some(e) = self.panel().current() else { return };
+        use coxswain_core::enter::{self, Enter, Place};
+        let place = if coxswain_core::archive::split(&self.panel().dir).is_some() { Place::Archive } else { Place::Disk };
+        let goes_in = e.is_parent() || matches!(enter::enter(&e.path, e.is_dir, place), Enter::Folder | Enter::Archive | Enter::DiskImage | Enter::Image | Enter::Mailbox);
+        // A double-click means the row clicked, not the marks.
+        let marked: Vec<(PathBuf, bool)> = if use_marks { self.panel().marked_entries().into_iter().map(|e| (e.path, e.is_dir)).collect() } else { Vec::new() };
+        if e.is_parent() && marked.is_empty() {
+            return self.open();
+        }
+        // A folder inside an archive has no place on the disk to give.
+        if req.folder && coxswain_core::archive::split(&self.panel().dir).is_some() {
+            return self.status = Some(t!("pick.nothing"));
+        }
+        let cursor = (!e.is_parent()).then(|| (e.path.clone(), e.is_dir));
+        match req.judge(&marked, cursor, goes_in) {
+            coxswain_core::pick::Verdict::Enter => self.open(),
+            coxswain_core::pick::Verdict::Refuse(why) => self.status = Some(t!(why)),
+            coxswain_core::pick::Verdict::Choose(paths) => match paths.iter().map(|p| coxswain_core::pick::on_disk(p)).collect() {
+                Ok(paths) => {
+                    self.picked = Some(paths);
+                    self.quit = true;
+                }
+                Err(err) => self.status = Some(err.to_string()),
+            },
+        }
+    }
+
     fn quick_jump(&mut self) {
         let q = self.quick.clone().unwrap_or_default();
         let p = self.panel_mut();
@@ -1568,6 +1628,10 @@ impl App {
     }
 
     fn act(&mut self, a: Action) {
+        // A picker only chooses: nothing that changes files, runs a command or writes settings.
+        if self.pick.is_some() && coxswain_core::pick::changes_files(a) {
+            return self.status = Some(t!("pick.refused"));
+        }
         // Inside a disk image (a CHM, a CBR) nothing changes: said before any question is asked.
         if matches!(a, Action::Move | Action::Rename | Action::Delete | Action::DeleteForever | Action::NewFolder)
             && coxswain_core::archive::split(&self.panel().dir).is_some_and(|(i, _)| coxswain_core::archive::read_only(&i))
@@ -1636,6 +1700,7 @@ impl App {
             Action::Home => self.panel_mut().cursor = 0,
             Action::End => self.panel_mut().move_cursor(isize::MAX / 2),
             Action::SwitchPanel => self.active ^= 1,
+            Action::Open if self.pick.is_some() => self.pick_choose(true),
             Action::Open => self.open(),
             // Where `..` leads: out of a history's commits, back to the folder on disk.
             Action::Parent => {
@@ -3294,7 +3359,19 @@ impl App {
     }
 
     /// `file` in the editor at `line`: config.toml at `[keys]` (Settings) or `[[user_menu]]` (F2).
+    /// Pick mode: whether to stop here, the status line saying a picker only chooses.
+    fn picker_refuses(&mut self) -> bool {
+        let yes = self.pick.is_some();
+        if yes {
+            self.status = Some(t!("pick.refused"));
+        }
+        yes
+    }
+
     pub fn edit_at(&mut self, file: &Path, line: usize) {
+        if self.picker_refuses() {
+            return;
+        }
         let Some(editor) = self.editor() else { return self.edit_here(file, Some(line), None) };
         if let Some(prog) = editor_missing(&editor) {
             return self.status = Some(t!("edit.not_found", "name" => prog));
@@ -3450,6 +3527,9 @@ impl App {
 
     /// `file` in the built-in editor, at `line` (from 1); `back` is shown again when it closes.
     fn edit_here(&mut self, file: &Path, line: Option<usize>, back: Option<Box<Dialog>>) {
+        if self.picker_refuses() {
+            return;
+        }
         match editor::Editor::open(file) {
             Ok(e) => {
                 let mut e = e.git_keys(self.key_label(Action::Blame), self.key_label(Action::LineHistory));
@@ -3509,6 +3589,9 @@ impl App {
 
     /// `prog` run on `file`, in the file's folder, with the panels hidden meanwhile.
     fn run_on(&mut self, prog: &str, file: &Path) {
+        if self.picker_refuses() {
+            return;
+        }
         let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
         let mut line = Line::default();
         line.cmd = format!("{prog} {}", line.word(&file.to_string_lossy()));
@@ -3531,6 +3614,9 @@ impl App {
 
     fn run_cmdline(&mut self) {
         let cmd = std::mem::take(&mut self.cmdline);
+        if self.pick.is_some() {
+            return self.status = Some(t!("pick.refused"));
+        }
         let t = cmd.trim();
         // `cd` has to change our own directory, so it is built in.
         if t == "cd" || t.starts_with("cd ") {
@@ -4361,6 +4447,7 @@ impl App {
                     _ => None,
                 };
                 match run.map(|i| &items[i].run) {
+                    Some(r) if self.pick.is_some() && !matches!(r, MenuRun::Action(_) | MenuRun::Goto(..) | MenuRun::Say(_) | MenuRun::Bin(_)) => self.status = Some(t!("pick.refused")),
                     Some(MenuRun::Action(a)) => self.act(*a),
                     Some(MenuRun::User(u)) => self.run_user(u),
                     Some(MenuRun::Script(path)) => self.run_script(&path.clone()),
@@ -4630,6 +4717,9 @@ impl App {
     /// Text the terminal pasted (bracketed paste): into the editor as it is; anywhere else
     /// as the keys it was typed with before, a line break as Enter.
     fn on_paste(&mut self, text: &str) {
+        if self.pick.is_some() {
+            return;
+        }
         if let Some(Dialog::Edit { e, .. }) = &mut self.dialog {
             return e.paste(text);
         }
@@ -4718,7 +4808,11 @@ impl App {
                     self.last_click = Some((Instant::now(), m.column, m.row));
                     if double {
                         self.last_click = None;
-                        self.open();
+                        if self.pick.is_some() {
+                            self.pick_choose(false);
+                        } else {
+                            self.open();
+                        }
                     }
                 }
             }
@@ -5202,6 +5296,9 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
 }
 
 const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
+  --pick[=FILE] [--folder] [--multiple] [--filter EXT,EXT] [--start DIR] [--title TEXT]
+                  let another program choose files or folders: the paths go to FILE or to
+                  standard output, one per line; exit 0 when chosen, 1 when cancelled
   --settings[=AREA|OPTION]  start with Settings open (in the app: F12): search, previews,
                   games, looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
@@ -5468,6 +5565,7 @@ const OPTIONS: &[(&str, &[&str])] = &[
     ("--models", &["delete"]),
     ("--disk", &["clear"]),
     ("--settings", &[]),
+    ("--pick", &[]),
 ];
 
 /// The edits that turn `a` into `b`.
@@ -5633,6 +5731,39 @@ fn disk(rest: &[String]) {
     }
 }
 
+/// Pick mode: when standard output is not a terminal (`x=$(coxswain --pick)`), the terminal
+/// itself (`/dev/tty`, `CONOUT$`) becomes standard output for the panels, and the stream the
+/// paths are written to is the original one. Fails when there is no terminal to ask in.
+fn take_terminal() -> std::io::Result<Box<dyn std::io::Write>> {
+    if std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+        return Ok(Box::new(std::io::stdout()));
+    }
+    let tty = std::fs::OpenOptions::new().read(true).write(true).open(if cfg!(windows) { "CONOUT$" } else { "/dev/tty" })?;
+    #[cfg(unix)]
+    {
+        use std::os::fd::{AsRawFd, FromRawFd};
+        // SAFETY: fd 1 is duplicated, then pointed at the terminal; the copy is owned by the File.
+        // Close-on-exec: a helper or tool started later must not hold the caller's pipe open.
+        let saved = unsafe { libc::fcntl(1, libc::F_DUPFD_CLOEXEC, 3) };
+        if saved < 0 || unsafe { libc::dup2(tty.as_raw_fd(), 1) } < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(Box::new(unsafe { std::fs::File::from_raw_fd(saved) }))
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::io::{FromRawHandle, IntoRawHandle};
+        use windows_sys::Win32::System::Console::{GetStdHandle, STD_OUTPUT_HANDLE, SetStdHandle};
+        // SAFETY: the old standard output handle becomes the File's; the terminal replaces it.
+        let old = unsafe { GetStdHandle(STD_OUTPUT_HANDLE) };
+        unsafe { windows_sys::Win32::Foundation::SetHandleInformation(old, windows_sys::Win32::Foundation::HANDLE_FLAG_INHERIT, 0) };
+        if unsafe { SetStdHandle(STD_OUTPUT_HANDLE, tty.into_raw_handle()) } == 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(Box::new(unsafe { std::fs::File::from_raw_handle(old) }))
+    }
+}
+
 /// The program, under both its names (`coxswain` and `cox`).
 pub fn main() {
     coxswain_core::sizes::deep_stacks();
@@ -5642,6 +5773,35 @@ pub fn main() {
     if open_settings.is_some() {
         args.remove(0);
     }
+    // `--pick[=FILE] [--folder] [--multiple] [--filter EXT,…] [--start DIR] [--title TEXT]`.
+    let pick = args.first().and_then(|a| a.strip_prefix("--pick")).filter(|r| r.is_empty() || r.starts_with('=')).map(|r| r.trim_start_matches('=').to_string());
+    let pick = pick.map(|out| {
+        let rest = args.split_off(1);
+        args.clear();
+        coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&Config::load().map(|c| c.language).unwrap_or_default()));
+        let req = coxswain_core::pick::Request::parse(Some(out.as_str()), &rest).and_then(|r| {
+            let bad_start = r.start.as_ref().filter(|s| !s.is_dir());
+            match bad_start {
+                Some(s) => Err(t!("cli.no_folder", "path" => s.display())),
+                None => Ok(r),
+            }
+        });
+        req.unwrap_or_else(|e| {
+            eprintln!("coxswain: {e}");
+            std::process::exit(2)
+        })
+    });
+    // The panels are drawn on the terminal, standard output stays for the paths (as fzf does).
+    let mut pick_out = pick.as_ref().map(|r| {
+        take_terminal().unwrap_or_else(|e| {
+            // With a file to write to, a missing terminal is not fatal here (the app draws on stdout).
+            if r.out.is_none() {
+                eprintln!("coxswain: {}", t!("pick.no_terminal", "error" => e));
+                std::process::exit(2)
+            }
+            Box::new(std::io::stdout())
+        })
+    });
     // An option or a folder that is not known is said, and nothing starts.
     if args.first().map(String::as_str) != Some(helper::ARG) {
         coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&Config::load().map(|c| c.language).unwrap_or_default()));
@@ -5699,18 +5859,24 @@ pub fn main() {
         let d = args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());
         coxswain_core::fs::canonical(&d).unwrap_or(d)
     };
-    let mut app = App::new(cfg, dir(0), dir(1)).unwrap_or_else(|e| {
+    let start = pick.as_ref().and_then(|p| p.start.clone());
+    let (left, right) = start.map_or_else(|| (dir(0), dir(1)), |s| {
+        let d = coxswain_core::fs::canonical(&resolve(&cwd, &s.to_string_lossy())).unwrap_or(s);
+        (d.clone(), d)
+    });
+    let mut app = App::new(cfg, left, right).unwrap_or_else(|e| {
         eprintln!("coxswain: {e}");
         std::process::exit(2)
     });
     // A mistake in config.toml: said first, with the way to its line.
+    app.pick = pick;
     let refused = coxswain_core::notices::refused(&app.cfg);
     if let Some(line) = refused.first().and_then(|n| n.config_line) {
         let text = refused.into_iter().map(|n| n.text).collect::<Vec<_>>().join("\n");
         app.dialog = Some(Dialog::Refused { text, line });
     } else if let Some(section) = open_settings {
         app.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(&app, &section))));
-    } else if coxswain_core::state::AppState::load().guide_due() {
+    } else if app.pick.is_none() && coxswain_core::state::AppState::load().guide_due() {
         app.dialog = Some(Dialog::Guide(Box::default()));
     }
     let mut term = ratatui::init();
@@ -5732,6 +5898,14 @@ pub fn main() {
     coxswain_core::spill::at_exit();
     if let Err(e) = res {
         eprintln!("coxswain: {e}");
+    }
+    // Pick mode: the paths chosen are written and the exit code is 0; cancelled, 1.
+    if let (Some(req), Some(out)) = (&app.pick, pick_out.as_mut()) {
+        let Some(paths) = &app.picked else { std::process::exit(1) };
+        if let Err(e) = req.write(paths, out) {
+            eprintln!("coxswain: {e}");
+            std::process::exit(2);
+        }
     }
 }
 
@@ -5797,6 +5971,24 @@ mod tests {
         assert_eq!(typed(&k('a', true, true)), None);
         assert_eq!(typed(&k('@', true, false)), None);
         assert_eq!(typed(&k('x', false, false)), Some('x'));
+    }
+
+    /// A picker only chooses: deleting, a command on the line and a menu's user command are refused.
+    #[test]
+    fn a_picker_refuses_what_changes_files() {
+        let d = crate::test_dir("pick-refuses");
+        std::fs::write(d.join("keep.txt"), "x").unwrap();
+        let mut app = App::new(Config::default(), d.clone(), d.clone()).unwrap();
+        app.pick = Some(coxswain_core::pick::Request::default());
+        for a in [Action::Delete, Action::DeleteForever, Action::Move, Action::Rename, Action::NewFolder, Action::Edit] {
+            app.status = None;
+            app.act(a);
+            assert_eq!(app.status, Some(t!("pick.refused")), "{a:?}");
+            assert!(app.dialog.is_none(), "{a:?}");
+        }
+        app.cmdline = "touch made".into();
+        app.run_cmdline();
+        assert!(d.join("keep.txt").exists() && !d.join("made").exists() && app.run.is_none());
     }
 
     /// An option or a value not known, or a folder not there, is said, never taken for a folder.

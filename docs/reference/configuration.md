@@ -595,4 +595,4 @@ the session. See [What has no key](#what-has-no-key).
 Yes: `theme` is the terminal app's, `[gui] theme` the desktop app's. Everything else is shared.
 
 ---
-[← Previous: Command-line flags](command-line-flags.md) · [Next: Privacy →](privacy.md)
+[← Previous: Pick mode](pick-mode.md) · [Next: Privacy →](privacy.md)

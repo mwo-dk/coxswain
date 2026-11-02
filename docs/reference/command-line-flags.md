@@ -42,6 +42,7 @@ Both apps also open their Settings from the command line (`--settings`). For the
 | The status-line hints again | `coxswain --hints reset` | `coxswain-gui --settings=hints`, then *Show the hints again* |
 | What the new version brought | `coxswain --whats-new`, or `coxswain --settings=overview`: *What's new* is in the Overview | `coxswain-gui --settings=overview`, or click *⚙ Settings*: *What's new* is in the Overview |
 | Search by meaning on | `coxswain --meaning on` | `coxswain-gui --settings=search`, then the level *Names, text and meaning* |
+| Let another program choose files | `coxswain --pick=/tmp/choice` | – (see [Pick mode](pick-mode.md)) |
 | Find duplicates in a folder | – | `coxswain-gui --duplicates ~/Pictures` |
 
 ## The terminal app: `coxswain`
@@ -50,6 +51,9 @@ Both apps also open their Settings from the command line (`--settings`). For the
 
 ```
 coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
+  --pick[=FILE] [--folder] [--multiple] [--filter EXT,EXT] [--start DIR] [--title TEXT]
+                  let another program choose files or folders: the paths go to FILE or to
+                  standard output, one per line; exit 0 when chosen, 1 when cancelled
   --settings[=AREA|OPTION]  start with Settings open (in the app: F12): search, previews,
                   games, looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
@@ -105,6 +109,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | `--disk clear NAME` | Clears one: `store` (through the search helper while it runs), `index`, `previews`, `peek`, `inside`, `libreoffice`, `log`, `clamav`, a model by its folder's name (as `--models delete`), `tectonic`, `images` or one image by its name. What is outside Coxswain's folder is listed first and asks *[y/N]*. Prints *previews/ cleared: 12.4 MB freed.* An unknown name: the names it takes, exit status 2 |
 | `--disk clear rebuildable` | Clears every row that is built again on its own (not the log, the models or what is outside): *Cleared: 12.9 MB freed.* |
 | `--index-helper` | Runs as the search helper instead of the app: see [below](#the-helper---index-helper) |
+| `--pick[=FILE]` | Pick mode: another program chooses files or folders with Coxswain. The paths go to `FILE` or standard output, one per line; exit status `0` when chosen, `1` when cancelled. With `--folder`, `--multiple`, `--filter EXT,EXT`, `--start DIR`, `--title TEXT`. See [Pick mode](pick-mode.md) |
 | `--hints reset` | Every hint on the status line shows three times again, in both apps (they share `state.json`), and says so. See [The action menu and hints](../panels/action-menu.md#hints-on-the-status-line) |
 | `--languages` | Prints every language under its region, one line each: code, own name, *new* for a fresh translation and *(current)* for the one in use, then where `language` is set and where to suggest a better word. In your language. See [Languages](../customise/languages.md) |
 | `--whats-new` | Prints the changes of the versions you have not read yet, newest first, or of the version you run when you have read them all, then counts them as read (in both apps). Each version is a line `1.29.0  2026-10-04`, then its changes, with each docs link as `Find <https://github.com/mwo-dk/coxswain/blob/master/docs/search/find-file.md>`. See [Notices and what's new](../panels/notices.md) |
@@ -178,7 +183,7 @@ See [The search helper](../search/helper.md).
 | Status | When |
 |---|---|
 | `0` | Done, or the app quit normally |
-| `1` | A flag's work failed (`--meaning`, `--index-service`, `--models delete`, `--disk clear`, `--hints reset`), or `--models delete` names no such model; it prints `coxswain: …` with the reason |
+| `1` | `--pick` was cancelled; or a flag's work failed (`--meaning`, `--index-service`, `--models delete`, `--disk clear`, `--hints reset`), or `--models delete` names no such model; it prints `coxswain: …` with the reason |
 | `2` | An option, value or folder it does not know (`coxswain --model`, `--meaning of`, `coxswain nowhere`), or a name `--disk clear` does not take; or `config.toml` could not be read at all (no permission): `coxswain: config: …`. The app does not start. A mistake inside the file does not stop it: see [Mistakes](configuration.md#the-file) |
 
 ## The desktop app: `coxswain-gui`
@@ -324,4 +329,4 @@ Put the flag first, on its own: `coxswain --paths`. The desktop app takes such a
 folder instead.
 
 ---
-[← Previous: The terminal app](terminal-app.md) · [Next: Configuration: every key →](configuration.md)
+[← Previous: The terminal app](terminal-app.md) · [Next: Pick mode →](pick-mode.md)

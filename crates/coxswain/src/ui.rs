@@ -587,7 +587,20 @@ fn status_text(app: &App) -> Option<String> {
     if let Some(q) = &app.quick {
         return Some(t!("quick_search", "query" => q));
     }
-    app.status.as_ref().filter(|s| !s.is_empty() && app.cmdline.is_empty()).map(|s| s.replace('\n', " "))
+    let status = app.status.as_ref().filter(|s| !s.is_empty() && app.cmdline.is_empty()).map(|s| s.replace('\n', " "));
+    // Pick mode says what is asked for until something else is said.
+    status.or_else(|| app.pick.as_ref().filter(|_| app.cmdline.is_empty() && !app.cmd_open).map(|r| pick_ask(r)))
+}
+
+/// Pick mode's status line: the program's own title, or what is asked for.
+fn pick_ask(r: &coxswain_core::pick::Request) -> String {
+    let what = r.title.clone().unwrap_or_else(|| t!(match (r.folder, r.multiple) {
+        (false, false) => "pick.ask_file",
+        (false, true) => "pick.ask_files",
+        (true, false) => "pick.ask_folder",
+        (true, true) => "pick.ask_folders",
+    }));
+    if r.filter.is_empty() { what } else { format!("{what} ({})", r.filter.iter().map(|e| format!("*.{e}")).collect::<Vec<_>>().join(" ")) }
 }
 
 fn cmdline(f: &mut Frame, app: &App, area: Rect) {
@@ -634,6 +647,12 @@ fn cmdline(f: &mut Frame, app: &App, area: Rect) {
 
 fn keybar(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
+    // Pick mode has its own few keys.
+    if app.pick.is_some() {
+        let key = |a| app.cfg.tty_key(a).unwrap_or("").to_string();
+        let line = t!("pick.keys", "mark" => key(Action::Mark), "parent" => key(Action::Parent));
+        return f.render_widget(Paragraph::new(fit(&line, area.width as usize)).style(sty(&t.keybar_num)), area);
+    }
     // F1 to F10 as in NC, then F11 and F12 when they run something (F12: Settings).
     let fkey = |n| app.keymap.get(&Key::new(KeyCode::F(n), false, false, false));
     let keys: Vec<u8> = (1..=12u8).filter(|&n| n <= 10 || fkey(n).is_some()).collect();
