@@ -2685,18 +2685,11 @@ fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     }
     // One at a time: each starts in a fresh folder, which would take away the copy of one
     // still being looked at, and peeks piling up while the cursor moves each unpack.
-    static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+    let _one = PEEK_ONE.lock().unwrap_or_else(|e| e.into_inner());
     // A folder for each file of each archive as it is now: what is kept by a copy's path, size
     // and date (a ChessBase archive unpacked, a listing, a preview) is never taken for another
     // archive's file of the same name, size and date.
-    let folder = peek_folder()?.join(format!("{:016x}", {
-        use std::hash::{Hash, Hasher};
-        let mut h = std::collections::hash_map::DefaultHasher::new();
-        (&origin, it.size, it.modified).hash(&mut h);
-        h.finish()
-    }));
-    crate::fs::private_dir(&folder)?;
+    let folder = peek_folder_of((&origin, it.size, it.modified))?;
     let to = folder.join(inner.rsplit('/').next().filter(|n| one_name(n)).unwrap_or("file"));
     // What comes out is counted too: a size the archive claims may be a lie.
     copy_out_with(
@@ -2803,6 +2796,33 @@ fn one_name(n: &str) -> bool {
             Path::new(n).components().collect::<Vec<_>>()[..],
             [std::path::Component::Normal(_)]
         )
+}
+
+/// A fresh folder of its own in `peek_folder` for what comes from `origin`: what is kept by a
+/// copy's path, size and date (a listing, a preview, a ChessBase archive unpacked) is never
+/// taken for a copy of something else of the same name, size and date (another commit's file,
+/// another snapshot's, another archive's).
+fn peek_folder_of(origin: impl std::hash::Hash) -> io::Result<PathBuf> {
+    use std::hash::Hasher;
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    origin.hash(&mut h);
+    let folder = peek_folder()?.join(format!("{:016x}", h.finish()));
+    crate::fs::private_dir(&folder)?;
+    Ok(folder)
+}
+
+/// One copy to look at made at a time: each starts in a fresh folder, which would take away
+/// one still being written.
+static PEEK_ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// `bytes`, from `origin`, written as a copy to look at named `name` (one name, else "file"),
+/// in a fresh folder of its own for the origin and the bytes (`peek_folder_of`): a history's
+/// file, a snapshot's diff, a report's text.
+pub(crate) fn peek_write(origin: impl std::hash::Hash, name: &str, bytes: &[u8]) -> io::Result<PathBuf> {
+    let _one = PEEK_ONE.lock().unwrap_or_else(|e| e.into_inner());
+    let to = peek_folder_of((origin, bytes))?.join(if one_name(name) { name } else { "file" });
+    std::fs::write(&to, bytes)?;
+    Ok(to)
 }
 
 /// A fresh folder for this run's copy to look at (also a history's, `history::peek`): the copy
@@ -4179,6 +4199,24 @@ mod tests {
         assert_eq!((one, two), (vec!["a".to_string()], vec!["b".to_string()]));
         assert_eq!(names(&outers[0]).0, first, "the same file, the same copy");
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// The other copies to look at (a history's file, a snapshot's diff, a report): one folder
+    /// for each origin, so two commits' files of the same name, size and date never share what
+    /// is kept by a copy's path; a crafted name stays inside.
+    #[test]
+    fn copies_of_two_origins_of_the_same_name_are_two_files() {
+        let a = peek_write("x@1", "notes.txt", b"same").unwrap();
+        assert_eq!(std::fs::read(&a).unwrap(), b"same");
+        let b = peek_write("x@2", "notes.txt", b"same").unwrap();
+        assert!(a != b && !a.exists(), "a fresh folder, the one before gone");
+        assert_eq!(a.file_name(), b.file_name());
+        assert_eq!(peek_write("x@1", "notes.txt", b"same").unwrap(), a, "the same origin, the same copy");
+        assert_ne!(peek_write("x@1", "notes.txt", b"later").unwrap(), a, "other text, another copy");
+        for bad in ["../evil", "a/b", ""] {
+            let c = peek_write("y", bad, b"").unwrap();
+            assert_eq!((c.file_name().unwrap(), c.parent().and_then(Path::parent)), ("file".as_ref(), a.parent().and_then(Path::parent)), "{bad}");
+        }
     }
 
     #[test]

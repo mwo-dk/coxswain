@@ -509,9 +509,6 @@ pub fn plan_text(cfg: &Config, s: &Survey, measured: Option<f64>) -> String {
 /// The transcript of `path` as a text file to view (the terminal app's F3 on a recording):
 /// with a line before it while it is not done.
 pub fn text_copy(path: &Path, t: &Transcript) -> Result<PathBuf, String> {
-    let to = crate::archive::peek_folder()
-        .map_err(|e| e.to_string())?
-        .join(format!("{}.transcript.txt", path.file_name().unwrap_or_default().to_string_lossy()));
     let head = if t.failed {
         format!("{}\n\n", t!("whisper.failed", "why" => t.text.as_str()))
     } else if !t.finished {
@@ -520,7 +517,8 @@ pub fn text_copy(path: &Path, t: &Transcript) -> Result<PathBuf, String> {
         String::new()
     };
     let body = if t.failed { "" } else { t.text.as_str() };
-    std::fs::write(&to, format!("{head}{body}\n")).map_err(|e| e.to_string())?;
+    let text = format!("{head}{body}\n");
+    let to = crate::archive::peek_write(path, &format!("{}.transcript.txt", path.file_name().unwrap_or_default().to_string_lossy()), text.as_bytes()).map_err(|e| e.to_string())?;
     Ok(to)
 }
 
