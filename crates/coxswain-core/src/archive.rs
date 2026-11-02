@@ -2575,6 +2575,9 @@ fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty()).ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.not_in_archive"))
     })?;
+    // Where it comes from: the path through the archive on the disk, as that archive is now (a
+    // copy of an archive inside it made again has another path, the same file).
+    let origin = (path.to_path_buf(), identity(&archive)?);
     let (archive, inner, _held) = resolve(&archive, &inner, false)?;
     let it = items(&archive)?
         .iter()
@@ -2618,7 +2621,7 @@ fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     let folder = peek_folder()?.join(format!("{:016x}", {
         use std::hash::{Hash, Hasher};
         let mut h = std::collections::hash_map::DefaultHasher::new();
-        (&archive, identity(&archive)?, &inner, it.size, it.modified).hash(&mut h);
+        (&origin, it.size, it.modified).hash(&mut h);
         h.finish()
     }));
     crate::fs::private_dir(&folder)?;
