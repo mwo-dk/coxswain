@@ -144,6 +144,12 @@ pub(crate) fn is(e: &io::Error) -> bool {
 /// written or unpacked) stops inside a large file.
 pub(crate) struct Reader<R>(pub R);
 
+impl<R: io::Seek> io::Seek for Reader<R> {
+    fn seek(&mut self, to: io::SeekFrom) -> io::Result<u64> {
+        self.0.seek(to)
+    }
+}
+
 impl<R: Read> Read for Reader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         check()?;

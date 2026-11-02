@@ -282,6 +282,7 @@
  "archive.part_missing": "缺少 {name}：分割的 7z 需要所有分割檔齊全、編號連續才能開啟",
  "archive.zip_part_missing": "缺少 {name}：分割的 zip 需要所有分割檔齊全、編號連續才能開啟",
  "archive.zip_parts_zip64": "不讀取這麼大的分割 zip（zip64）：請先合併其分割檔（zip -s 0）",
+ "archive.cab_too_much": "要取得這些檔案，這個 cabinet 需要解壓縮超過 4 GB：請每次少複製一些",
  "archive.nested_too_deep": "壓縮檔中的壓縮檔最多只開到 {depth} 層：請用 F5 把這個複製出來再開啟",
  "archive.overlapping": "這個 zip 的檔案共用壓縮後的位元組，解開會遠大於它的內容：它可能是故意做來塞滿磁碟的。仍可從中複製出單一檔案",
  "archive.pack_confirm": "再輸入一次密碼：",

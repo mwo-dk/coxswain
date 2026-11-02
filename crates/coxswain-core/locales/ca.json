@@ -323,6 +323,7 @@
  "archive.part_missing": "Falta {name}: un 7z dividit en parts només s'obre amb totes les parts, numerades sense buits",
  "archive.zip_part_missing": "Falta {name}: un zip dividit en parts només s'obre amb totes les parts, numerades sense buits",
  "archive.zip_parts_zip64": "Un zip dividit en parts tan gran (zip64) no es llegeix: primer uniu-ne les parts (zip -s 0)",
+ "archive.cab_too_much": "Aquest cabinet desempaquetaria més de 4 GB per arribar a aquests fitxers: copieu-ne menys alhora",
  "archive.nested_too_deep": "Els arxius dins d'arxius s'obren fins a {depth} nivells: copieu aquest a fora amb F5 per obrir-lo",
  "archive.overlapping": "Els fitxers d'aquest zip comparteixen els bytes comprimits, així que es desempaquetaria en molt més del que conté: pot estar fet per omplir el disc. Encara se'n pot copiar un fitxer",
  "archive.pack_confirm": "La contrasenya de nou:",
