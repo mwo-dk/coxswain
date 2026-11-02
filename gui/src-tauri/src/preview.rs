@@ -28,12 +28,11 @@ pub async fn git_diff(path: PathBuf) -> Res<Option<String>> {
             return Ok((!text.trim().is_empty()).then_some(text));
         }
         let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else { return Ok(None) };
-        let out = coxswain_core::git::command(dir)
-            // No external diff or textconv program from the repository's own config.
-            .args(["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "HEAD", "--"])
-            .arg(name)
-            .output()
-            .map_err(|e| e.to_string())?;
+        let mut c = coxswain_core::git::command(dir);
+        // No external diff or textconv program from the repository's own config.
+        c.args(["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "HEAD", "--"]).arg(name);
+        // Ended past its limit: a repository can name a FIFO git waits on.
+        let Some(out) = coxswain_core::git::output(c) else { return Ok(None) };
         let text = String::from_utf8_lossy(&out.stdout);
         Ok((out.status.success() && !text.trim().is_empty()).then(|| text.chars().take(512 * 1024).collect()))
     })

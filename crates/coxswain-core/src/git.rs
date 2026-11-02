@@ -17,6 +17,17 @@ pub fn command(dir: &Path) -> Command {
     command_with(dir, &repo_filters(dir))
 }
 
+/// The longest a git Coxswain starts on its own (the status, the filter check, the config view,
+/// the preview's diff) may run before it is ended: a repository from elsewhere can name more
+/// files than `readable` looks at (a FIFO as a ref or a pack index), and no thread may wait on
+/// one for ever. A huge repository's status takes seconds, not minutes.
+pub const LIMIT: std::time::Duration = std::time::Duration::from_secs(120);
+
+/// What `c` printed, ended past `LIMIT` (and then `None`, as when git could not start).
+pub fn output(c: Command) -> Option<std::process::Output> {
+    crate::tools::capture(c, LIMIT, u64::MAX).ok()
+}
+
 /// `command` with `keys` (`repo_filters`) for the repository's filter drivers, worked out once
 /// for several commands, or none for one that runs no filter (`rev-parse`, `ls-tree`).
 pub(crate) fn command_with(dir: &Path, keys: &[(String, &str)]) -> Command {
@@ -63,8 +74,8 @@ pub(crate) fn repo_filters(dir: &Path) -> Vec<(String, &'static str)> {
         // Every git after this fails at once (`command_with`).
         return vec![];
     }
-    let out = crate::tools::command("git")
-        .arg("-C")
+    let mut c = crate::tools::command("git");
+    c.arg("-C")
         .arg(dir)
         .args([
             "config",
@@ -73,10 +84,8 @@ pub(crate) fn repo_filters(dir: &Path) -> Vec<(String, &'static str)> {
             "--get-regexp",
             r"^filter\.",
         ])
-        .env("GIT_CONFIG_COUNT", "0")
-        .stdin(Stdio::null())
-        .output();
-    let Ok(out) = out else { return vec![] };
+        .env("GIT_CONFIG_COUNT", "0");
+    let Some(out) = output(c) else { return vec![] };
     let mut drivers: Vec<String> = String::from_utf8_lossy(&out.stdout)
         .lines()
         .filter_map(|l| {
@@ -176,8 +185,8 @@ fn config_readable(file: &Path, top: &Path, depth: u32) -> bool {
     // git reads the file itself (its quoting and `~`), without its includes. Started where no
     // repository is, so git opens nothing else on the way.
     let tmp = std::env::temp_dir();
-    let out = crate::tools::command("git")
-        .args(["config", "--no-includes", "--null", "--type=path", "--file"])
+    let mut c = crate::tools::command("git");
+    c.args(["config", "--no-includes", "--null", "--type=path", "--file"])
         .arg(file)
         .args([
             "--get-regexp",
@@ -185,10 +194,13 @@ fn config_readable(file: &Path, top: &Path, depth: u32) -> bool {
         ])
         .current_dir(&tmp)
         .env("GIT_CEILING_DIRECTORIES", &tmp)
-        .env("GIT_CONFIG_COUNT", "0")
-        .stdin(Stdio::null())
-        .output();
-    let Ok(out) = out else { return true };
+        .env("GIT_CONFIG_COUNT", "0");
+    let Some(out) = output(c) else { return false };
+    // 1 is no match. Anything else (a bad line, a `~user` that is no one) printed nothing, while
+    // git itself still reads the includes above that line.
+    if !matches!(out.status.code(), Some(0 | 1)) {
+        return false;
+    }
     String::from_utf8_lossy(&out.stdout).split('\0').all(|kv| {
         let Some((key, value)) = kv.split_once('\n') else {
             return true;
@@ -347,11 +359,8 @@ impl Status {
     /// Run git in `dir`. `None` when `dir` is not inside a work tree or git is missing.
     pub(crate) fn read_git(dir: &Path) -> Option<Status> {
         let git = |mut c: Command, args: &[&str]| {
-            c.args(args)
-                .output()
-                .ok()
-                .filter(|o| o.status.success())
-                .map(|o| o.stdout)
+            c.args(args);
+            output(c).filter(|o| o.status.success()).map(|o| o.stdout)
         };
         // rev-parse runs no filter driver: a folder outside a repository costs one git.
         let dirs = git(
@@ -768,6 +777,9 @@ mod tests {
         assert!(!readable(&d.join("sub")) && !status(&d), "an included include of a FIFO");
         assert!(repo_filters(&d).is_empty());
         assert!(crate::git_config::read(&d).is_err());
+        // A bad line after the include: git has read the include before it gets there.
+        std::fs::write(d.join("inc"), "[include]\n\tpath = .git/pipe\n[bad").unwrap();
+        assert!(!readable(&d), "an include before a bad line");
 
         std::fs::write(&config, format!("{plain}[core]\n\texcludesFile = .git/pipe\n")).unwrap();
         assert!(!readable(&d) && !status(&d), "excludes that are a FIFO");

@@ -349,7 +349,9 @@ either: in its config, an `[include]` of it (or an include of an include), `core
 work tree. git would wait on it for ever, so Coxswain looks at what each one is before git
 runs, opens only plain files, and runs no git there: no status, no filters, no branch switch,
 and the git config view (**Alt+C**) says git could not read the config. A folder unpacked from
-someone else's archive can hold such a file; a clone cannot.
+someone else's archive can hold such a file; a clone cannot. A FIFO elsewhere in the
+repository (a ref, a pack) is not looked for: the git status, the filter check, the config
+view and the preview's diff are ended after two minutes instead.
 
 #### Why are the counts different from `git status`?
 
