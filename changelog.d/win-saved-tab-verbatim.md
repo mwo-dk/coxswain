@@ -1,0 +1,1 @@
+| **On Windows, a tab saved before 2.34.2 opens as `C:\…`.** The desktop app's restored tabs no longer show `\ › ? › C:` until you leave the folder; favourites, tags, notes and the sidebar's repositories saved with `\\?\` in front are found again too. | [Where things are kept](reference/where-things-are-kept.md#every-file-and-folder) |

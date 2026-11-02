@@ -121,14 +121,49 @@ impl AppState {
                 };
             }
         };
-        serde_json::from_slice(&bytes).unwrap_or_else(|_| {
+        let mut st: AppState = serde_json::from_slice(&bytes).unwrap_or_else(|_| {
             let mut bad = path.with_extension("json.bad");
             if bad.exists() {
                 bad = path.with_extension(format!("json.{}.bad", crate::fs::now()));
             }
             let _ = std::fs::rename(path, bad);
             AppState::default()
-        })
+        });
+        st.plain_paths();
+        st
+    }
+
+    /// The paths saved by a version that kept Windows' `\\?\` in front (before 2.34.2) without
+    /// it, as every path is now: a restored tab shows `C:\Users`, and a tag, a note or a
+    /// favourite of such a path is found again. Nothing changes anywhere else.
+    fn plain_paths(&mut self) {
+        let plain = |p: &mut PathBuf| {
+            let q = crate::fs::without_verbatim(p);
+            if q != p.as_path() {
+                *p = q.to_path_buf();
+            }
+        };
+        if let Some(panes) = self.session.get_mut("panes").and_then(|v| v.as_array_mut()) {
+            for tab in panes.iter_mut().filter_map(|p| p.get_mut("tabs")?.as_array_mut()).flatten() {
+                if let Some(dir) = tab.get_mut("dir").filter(|d| d.is_string()) {
+                    let mut p = PathBuf::from(dir.as_str().unwrap_or_default());
+                    plain(&mut p);
+                    *dir = serde_json::Value::String(p.to_string_lossy().into_owned());
+                }
+            }
+        }
+        for p in self.favorites.iter_mut().flat_map(|g| g.paths.iter_mut()).chain(&mut self.recent_repos).chain(&mut self.pinned_repos) {
+            plain(p);
+        }
+        for map in [&mut self.tags, &mut self.notes] {
+            *map = std::mem::take(map)
+                .into_iter()
+                .map(|(mut k, v)| {
+                    plain(&mut k);
+                    (k, v)
+                })
+                .collect();
+        }
     }
 
     pub fn save_to(&self, path: &Path) -> io::Result<()> {
@@ -154,6 +189,7 @@ impl AppState {
             Ok(bytes) => {
                 if let Ok(st) = serde_json::from_slice(&bytes) {
                     *self = st;
+                    self.plain_paths();
                 }
             }
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}
@@ -315,6 +351,46 @@ mod tests {
         assert!(s.remove_repo(&p("r19")));
         assert!(!s.remove_repo(&p("r19")));
         assert!(!s.recent_repos.contains(&p("r19")));
+    }
+
+    /// A state saved with Windows' `\\?\` paths loads without it there: the tab shows
+    /// `C:\Users\ann`, its tag and note are found by the path a listing now gives. Elsewhere such
+    /// a name is an ordinary one and stays as it was.
+    #[test]
+    fn verbatim_paths_load_plain() {
+        let d = std::env::temp_dir().join(format!("coxswain-state-plain-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let f = d.join("state.json");
+        std::fs::write(&f, r#"{
+            "session": {"panes": [{"tabs": [{"dir": "\\\\?\\C:\\Users\\ann", "view": "full"}, {"dir": "C:\\Temp"}]}, {"tabs": [{"view": "brief"}]}], "dual": true},
+            "favorites": [{"name": "F", "paths": ["\\\\?\\D:\\Music"]}],
+            "tags": {"\\\\?\\C:\\Users\\ann\\a.txt": "red"},
+            "notes": {"\\\\?\\C:\\Users\\ann": "todo"},
+            "recent_repos": ["\\\\?\\C:\\src\\x"],
+            "pinned_repos": ["\\\\?\\C:\\src\\x"]
+        }"#).unwrap();
+        let st = AppState::load_from(&f);
+        let (ann, music, a, repo) = if cfg!(windows) {
+            (r"C:\Users\ann", r"D:\Music", r"C:\Users\ann\a.txt", r"C:\src\x")
+        } else {
+            (r"\\?\C:\Users\ann", r"\\?\D:\Music", r"\\?\C:\Users\ann\a.txt", r"\\?\C:\src\x")
+        };
+        let tabs = &st.session["panes"][0]["tabs"];
+        assert_eq!(tabs[0]["dir"], ann);
+        assert_eq!(tabs[0]["view"], "full", "the rest of the tab as it was");
+        assert_eq!(tabs[1]["dir"], r"C:\Temp");
+        assert!(st.session["panes"][1]["tabs"][0].get("dir").is_none());
+        assert_eq!(st.session["dual"], true);
+        assert_eq!(st.favorites[0].paths, [PathBuf::from(music)]);
+        assert_eq!(st.tags.get(Path::new(a)).map(String::as_str), Some("red"));
+        assert_eq!(st.notes.get(Path::new(ann)).map(String::as_str), Some("todo"));
+        assert_eq!(st.recent_repos, [PathBuf::from(repo)]);
+        assert_eq!(st.pinned_repos, [PathBuf::from(repo)]);
+        let mut kept = AppState::default();
+        kept.reload_from(&f);
+        assert_eq!(kept, st, "a reload cleans them the same way");
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]

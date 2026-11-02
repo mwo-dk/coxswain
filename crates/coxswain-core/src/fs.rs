@@ -1737,6 +1737,12 @@ pub fn canonical(p: &Path) -> io::Result<PathBuf> {
     dunce::canonicalize(p)
 }
 
+/// `p` without the `\\?\` in front on Windows where the path does without it (as `canonical`
+/// gives it), read from the path alone; anywhere else `p` as it is.
+pub fn without_verbatim(p: &Path) -> &Path {
+    dunce::simplified(p)
+}
+
 /// `s` as a path: `~` is the home folder, and a relative path starts from `base`.
 pub fn resolve(base: &Path, s: &str) -> PathBuf {
     let s = s.trim();
