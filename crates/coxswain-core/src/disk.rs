@@ -866,12 +866,7 @@ impl Report {
 /// `report` of `path` as text in a file of the cache, for the pager: F3.
 pub fn text_copy(path: &Path, report: &Report) -> Result<PathBuf, String> {
     let text = report.text();
-    let to = crate::archive::peek_file(
-        (path, &text),
-        &format!("{}.txt", path.file_name().unwrap_or_default().to_string_lossy()),
-    )
-    .map_err(|e| e.to_string())?;
-    std::fs::write(&to, text).map_err(|e| e.to_string())?;
+    let to = crate::archive::peek_write(path, &format!("{}.txt", path.file_name().unwrap_or_default().to_string_lossy()), text.as_bytes()).map_err(|e| e.to_string())?;
     Ok(to)
 }
 

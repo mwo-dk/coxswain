@@ -518,12 +518,7 @@ pub fn text_copy(path: &Path, t: &Transcript) -> Result<PathBuf, String> {
     };
     let body = if t.failed { "" } else { t.text.as_str() };
     let text = format!("{head}{body}\n");
-    let to = crate::archive::peek_file(
-        (path, &text),
-        &format!("{}.transcript.txt", path.file_name().unwrap_or_default().to_string_lossy()),
-    )
-    .map_err(|e| e.to_string())?;
-    std::fs::write(&to, text).map_err(|e| e.to_string())?;
+    let to = crate::archive::peek_write(path, &format!("{}.transcript.txt", path.file_name().unwrap_or_default().to_string_lossy()), text.as_bytes()).map_err(|e| e.to_string())?;
     Ok(to)
 }
 

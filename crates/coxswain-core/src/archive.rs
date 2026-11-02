@@ -2633,8 +2633,7 @@ fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     }
     // One at a time: each starts in a fresh folder, which would take away the copy of one
     // still being looked at, and peeks piling up while the cursor moves each unpack.
-    static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+    let _one = PEEK_ONE.lock().unwrap_or_else(|e| e.into_inner());
     // A folder for each file of each archive as it is now: what is kept by a copy's path, size
     // and date (a ChessBase archive unpacked, a listing, a preview) is never taken for another
     // archive's file of the same name, size and date.
@@ -2732,10 +2731,18 @@ fn peek_folder_of(origin: impl std::hash::Hash) -> io::Result<PathBuf> {
     Ok(folder)
 }
 
-/// Where a copy named `name` (one name, else "file") of what comes from `origin` goes, in a
-/// fresh folder of its own (`peek_folder_of`): a history's file, a snapshot's diff, a report.
-pub(crate) fn peek_file(origin: impl std::hash::Hash, name: &str) -> io::Result<PathBuf> {
-    Ok(peek_folder_of(origin)?.join(if one_name(name) { name } else { "file" }))
+/// One copy to look at made at a time: each starts in a fresh folder, which would take away
+/// one still being written.
+static PEEK_ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// `bytes`, from `origin`, written as a copy to look at named `name` (one name, else "file"),
+/// in a fresh folder of its own for the origin and the bytes (`peek_folder_of`): a history's
+/// file, a snapshot's diff, a report's text.
+pub(crate) fn peek_write(origin: impl std::hash::Hash, name: &str, bytes: &[u8]) -> io::Result<PathBuf> {
+    let _one = PEEK_ONE.lock().unwrap_or_else(|e| e.into_inner());
+    let to = peek_folder_of((origin, bytes))?.join(if one_name(name) { name } else { "file" });
+    std::fs::write(&to, bytes)?;
+    Ok(to)
 }
 
 /// A fresh folder for this run's copy to look at (also a history's, `history::peek`): the copy
@@ -4108,14 +4115,15 @@ mod tests {
     /// is kept by a copy's path; a crafted name stays inside.
     #[test]
     fn copies_of_two_origins_of_the_same_name_are_two_files() {
-        let a = peek_file(("x@1", "same"), "notes.txt").unwrap();
-        std::fs::write(&a, "same").unwrap();
-        let b = peek_file(("x@2", "same"), "notes.txt").unwrap();
-        assert_ne!(a, b);
+        let a = peek_write("x@1", "notes.txt", b"same").unwrap();
+        assert_eq!(std::fs::read(&a).unwrap(), b"same");
+        let b = peek_write("x@2", "notes.txt", b"same").unwrap();
+        assert!(a != b && !a.exists(), "a fresh folder, the one before gone");
         assert_eq!(a.file_name(), b.file_name());
-        assert_eq!(peek_file(("x@1", "same"), "notes.txt").unwrap(), a, "the same origin, the same copy");
+        assert_eq!(peek_write("x@1", "notes.txt", b"same").unwrap(), a, "the same origin, the same copy");
+        assert_ne!(peek_write("x@1", "notes.txt", b"later").unwrap(), a, "other text, another copy");
         for bad in ["../evil", "a/b", ""] {
-            let c = peek_file("y", bad).unwrap();
+            let c = peek_write("y", bad, b"").unwrap();
             assert_eq!((c.file_name().unwrap(), c.parent().and_then(Path::parent)), ("file".as_ref(), a.parent().and_then(Path::parent)), "{bad}");
         }
     }

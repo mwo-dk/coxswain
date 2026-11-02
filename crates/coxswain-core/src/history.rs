@@ -615,9 +615,7 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
         ));
     }
     // The path names the commit: each commit's file has a folder of its own.
-    let to = crate::archive::peek_file(path, at.inner.rsplit('/').next().unwrap_or("file"))?;
-    std::fs::write(&to, bytes)?;
-    Ok(to)
+    crate::archive::peek_write(path, at.inner.rsplit('/').next().unwrap_or("file"), &bytes)
 }
 
 /// What the commit changed in the file (or folder): its diff against the commit before.

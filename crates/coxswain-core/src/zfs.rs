@@ -462,11 +462,7 @@ pub fn diff_file(path: &Path) -> io::Result<Option<PathBuf>> {
     if text.trim().is_empty() {
         return Ok(None);
     }
-    let to = crate::archive::peek_file(
-        (path, &text),
-        &format!("{}.diff", path.file_name().unwrap_or_default().to_string_lossy()),
-    )?;
-    std::fs::write(&to, text)?;
+    let to = crate::archive::peek_write(path, &format!("{}.diff", path.file_name().unwrap_or_default().to_string_lossy()), text.as_bytes())?;
     Ok(Some(to))
 }
 
