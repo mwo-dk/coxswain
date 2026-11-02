@@ -1876,6 +1876,23 @@ mod tests {
         assert_eq!(l.row(0).unwrap().white, "Björn");
     }
 
+    /// What Ask is told of a player in a big file, and how long it takes:
+    /// `COXSWAIN_CHESS_BIG=/path/to/big.pgn cargo test --release -p coxswain-core ask_big --
+    /// --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn ask_big() {
+        let Ok(p) = std::env::var("COXSWAIN_CHESS_BIG") else { return };
+        let l = Library::open(Path::new(&p)).unwrap();
+        l.wait();
+        let t = std::time::Instant::now();
+        let said = ask_about("who is Levon Aronian and what info do we have about him", &|_: &Path| true, 6000);
+        println!("{:?}\n{}", t.elapsed(), said.first().map_or("", |s| s.1.as_str()));
+        let t = std::time::Instant::now();
+        let found = find("Aronian Carlsen 2014", &|_: &Path| true, 5);
+        println!("find {:?}: {:?}", t.elapsed(), found.iter().map(|f| f.2).collect::<Vec<_>>());
+    }
+
     /// A big file, timed: `COXSWAIN_CHESS_BIG=/path/to/million.pgn cargo test --release -p
     /// coxswain-core big_file -- --ignored --nocapture`.
     #[test]
