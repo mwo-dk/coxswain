@@ -2134,6 +2134,10 @@ fn entries_at(archive: &Path, size: u64, depth: usize) -> Option<Vec<ArchiveEntr
 fn copied_for_search(archive: &Path, parts: &[String], size: u64, from: &mut dyn Read, f: &mut dyn FnMut(&Path, u64)) -> bool {
     static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let name = parts[0].as_str();
+    // A first part without the others here (a set split across archives) cannot be read.
+    if in_parts(Path::new(name)) && parts.len() == 1 {
+        return false;
+    }
     let zipped = matches!(ending_kind(Path::new(name)), Some(Kind::Zip | Kind::SevenZ));
     let places: Option<Vec<_>> = if zipped {
         parts.iter().map(|n| in_place(archive, n).ok().flatten()).collect()
@@ -2166,7 +2170,9 @@ fn copied_for_search(archive: &Path, parts: &[String], size: u64, from: &mut dyn
             }
             made
         }
-        // Each part copied out of the archive, all of them within the limit.
+        // Each part copied out of the archive, all of them within the limit; never out of a
+        // compressed tar or a 7z, which would be unpacked from its start again for each part.
+        None if parts.len() > 1 && streamed(archive) => false,
         None if parts.len() > 1 => {
             let mut left = SEARCH_UNPACK;
             let made = parts.iter().try_for_each(|n| {
@@ -2243,6 +2249,8 @@ fn search_read_at(
 ) -> io::Result<()> {
     // An archive inside picked: read in place or through a copy, its files named through it.
     let looked = |name: &str, _: u64| depth < SEARCH_DEPTH && nests(name) && inside(name);
+    // The archive's names, once, for the parts of an archive split into parts inside it.
+    let listed: std::cell::OnceCell<std::collections::HashSet<String>> = std::cell::OnceCell::new();
     let mut read = |names: &[&str], from: &mut dyn Read| -> bool {
         let name = names[0];
         if !(depth < SEARCH_DEPTH && nests(name) && inside(name)) {
@@ -2251,8 +2259,8 @@ fn search_read_at(
         let mut go = true;
         // Its other parts, when it is split into parts: by the archive's list, read only then.
         let parts = if in_parts(Path::new(name)) || name.to_ascii_lowercase().ends_with(".zip") {
-            let all = items(archive).unwrap_or_default();
-            parts_of(name, |n| all.iter().any(|it| it.name == n && !it.dir))
+            let all = listed.get_or_init(|| items(archive).map(|all| all.iter().filter(|it| !it.dir).map(|it| it.name.to_string()).collect()).unwrap_or_default());
+            parts_of(name, |n| all.contains(n))
         } else {
             vec![name.to_string()]
         };

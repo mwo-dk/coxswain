@@ -143,7 +143,7 @@ sends one anywhere: what it knows of a locked archive is what anyone can see.
 | How deep | 64 folders | Deeper entries, and entries named with `..`, are left out |
 | A 7z's packed list of contents | 16 MB, unpacked | Search does not look into it; it is found by its own name. As a folder it opens however long its list is, up to 4 million files ([Archives as folders](../files/archives.md#limits)) |
 | A 7z split into parts (`.7z.001`) on the disk | | Found by its own name only; it opens as a folder ([Archives as folders](../files/archives.md#limits)) |
-| An archive split into parts inside an archive (`2d.7z.001`, `2d.7z.002` … in a zip; `.zip.001` …; `.zip` with `.z01` …) | 256 MB for all its parts | Looked into with all its parts, as any archive inside one is: read in place when they are stored there as they are, else copied out together; its later parts are found by their own names |
+| An archive split into parts inside an archive (`2d.7z.001`, `2d.7z.002` … in a zip; `.zip.001` …; `.zip` with `.z01` …) | 256 MB for all its parts when copied | Looked into with all its parts, as any archive inside one is: read in place when they are stored there as they are (any size, its text read up to 256 MB as for any 7z), else copied out together, but not out of a compressed tar or a 7z, where it is found by its own name only; its files are named through the part it opens from (`.7z.001`, `.zip.001`, the `.zip`), the other parts are found by their own names |
 | A zip split into parts (`.zip.001`, its parts beside it) | | Looked into as one zip, from its first part; the later parts are found by their own names |
 | A zip split into parts (`.zip` with `.z01` …) | | Looked into as a zip, its parts read as one; one needing zip64 is found by its own name only ([Archives as folders](../files/archives.md#limits)) |
 
@@ -215,7 +215,7 @@ Yes, three archives deep, each up to 256 MB: a file in `bundle.zip/site.tar.gz` 
 and its text as any file in an archive is, its path through both. **Enter** on the hit opens the
 inner archive as a folder ([Limits](#limits)). An archive split into parts inside one (a game
 collection's `2d.7z.001`, `2d.7z.002` … in a zip) is looked into with all its parts: its files
-are named through its first part (`go.zip/2d/2d.7z.001/game.sgf`). A zip already in the search
+are named through the part it opens from (`go.zip/2d/2d.7z.001/game.sgf`). A zip already in the search
 store is looked into so once it changes; nothing is read again for this.
 
 #### Why are the jars in ~/.m2, or the archives in ~/.cache, not looked into?
