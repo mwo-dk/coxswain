@@ -3597,6 +3597,8 @@
  "space.zoom_out": "Փոքրացնել",
  "state.favourites": "Ընտրյալներ",
  "status.busy": "Աշխատանք՝ {what}…",
+ "job.bytes": "{done}՝ {all}-ից",
+ "job.bytes_rate": "{of} · {rate}/վ · մնաց {left}",
  "status.busy_of": "Աշխատանք՝ {what}… ({n}/{all})",
  "status.copied": "Պատճենվեց՝ {what}",
  "status.created": "Ստեղծվեց՝ {what}",

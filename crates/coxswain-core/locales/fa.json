@@ -3597,6 +3597,8 @@
  "space.zoom_out": "کوچک‌نمایی",
  "state.favourites": "برگزیده‌ها",
  "status.busy": "در حال کار روی {what}…",
+ "job.bytes": "{done} از {all}",
+ "job.bytes_rate": "{of} · {rate}/s · {left} مانده",
  "status.busy_of": "در حال کار روی {what}… ({n}/{all})",
  "status.copied": "{what} کپی شد",
  "status.created": "{what} ایجاد شد",

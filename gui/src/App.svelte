@@ -925,8 +925,8 @@
         {@const j = ui.job}
         <!-- A file operation under way: the item it is on, a bar of how far, and Stop (Esc stops too while it has the focus). -->
         <span class="job">
-          <span class="status">{t(j.all > 1 ? "status.busy_of" : "status.busy", { what: j.name, n: j.at + 1, all: j.all })}{j.stopping ? ` · ${t("searchable.stopping")}` : ""}</span>
-          <progress max={Math.max(j.all, 1)} value={j.at} aria-label={t("status.busy", { what: j.name })}></progress>
+          <span class="status">{t(j.all > 1 ? "status.busy_of" : "status.busy", { what: j.name, n: j.at + 1, all: j.all })}{j.bytes ? ` · ${j.bytes}` : ""}{j.stopping ? ` · ${t("searchable.stopping")}` : ""}</span>
+          <progress max={Math.max(j.all, 1)} value={j.at + (j.part ?? 0)} aria-label={t("status.busy", { what: j.name })}></progress>
           <button class="update" title={t("searchable.stop_key", { key: "Esc" })} disabled={j.stopping} onclick={stopJob}>{t("searchable.stop")}</button>
         </span>
       {/if}

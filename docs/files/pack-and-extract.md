@@ -116,7 +116,12 @@ with no archive ending gets one added (`my.notes` becomes `my.notes.zip`).
   asking until you close the app; its badge says *archive, locked*.
 - While it runs, the status line says *Working on …*, with a progress bar and **Stop** in the
   desktop app and `· Esc stops` in the terminal app
-  ([Can I stop packing or extracting?](#can-i-stop-packing-or-extracting)).
+  ([Can I stop packing or extracting?](#can-i-stop-packing-or-extracting)). An extract also
+  says how far it is in bytes, inside one large file too, with its rate and the time left:
+  *Working on "games.7z"… · 1.2 GB of 4.5 GB · 80.0 MB/s · 42 s left*; the desktop app's bar
+  moves with it. A zip or 7z counts the bytes its files come out to, a tar the bytes of the
+  archive read. The file being written keeps a passing name until it is whole, so the panel
+  shows its size only at the end.
 - After packing, the status line says `Packed "photos"` or `Packed 3 items`, and the new archive
   shows in the other panel.
 - After extracting, it says `Extracted "photos.zip"`.

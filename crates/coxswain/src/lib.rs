@@ -822,15 +822,22 @@ struct Job {
     rx: mpsc::Receiver<JobMsg>,
     /// Esc on the progress line sets it (`undo::run`); an undo has none.
     stop: Option<Arc<std::sync::atomic::AtomicBool>>,
+    /// How far inside the item it is on, where that is known (an extract).
+    bytes: Arc<coxswain_core::undo::Bytes>,
 }
 
 impl Job {
-    /// The progress line: `line`, then that Esc stops it, or that it is stopping.
+    /// The progress line: `line`, how far in bytes where known, then that Esc stops it, or
+    /// that it is stopping.
     fn shown(&self) -> String {
-        match &self.stop {
-            Some(s) if s.load(std::sync::atomic::Ordering::Relaxed) => format!("{} · {}", self.line, t!("searchable.stopping")),
-            Some(_) => format!("{} · {}", self.line, t!("searchable.stop_key", "key" => "Esc")),
+        let line = match self.bytes.line() {
+            Some(b) => format!("{} · {b}", self.line),
             None => self.line.clone(),
+        };
+        match &self.stop {
+            Some(s) if s.load(std::sync::atomic::Ordering::Relaxed) => format!("{line} · {}", t!("searchable.stopping")),
+            Some(_) => format!("{line} · {}", t!("searchable.stop_key", "key" => "Esc")),
+            None => line,
         }
     }
 }
@@ -3569,13 +3576,15 @@ impl App {
         let (items, to, pw) = (src.clone(), dst.clone(), password.clone());
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let flag = stop.clone();
+        let bytes = Arc::new(coxswain_core::undo::Bytes::default());
+        let counted = bytes.clone();
         std::thread::spawn(move || {
-            let r = coxswain_core::undo::run(job_op(op), &items, &to, pw.as_deref(), &flag, |i| drop(tx.send(JobMsg::At(i))));
+            let r = coxswain_core::undo::run_counted(job_op(op), &items, &to, pw.as_deref(), &flag, &counted, |i| drop(tx.send(JobMsg::At(i))));
             let _ = tx.send(JobMsg::Done(r.failed, r.rec, r.stopped));
         });
         let line = t!("status.busy", "what" => Self::describe(&src));
         let select = select.map(|n| (self.active, n));
-        let job = Job { op, src, dst, password, select, line, rx, stop: Some(stop) };
+        let job = Job { op, src, dst, password, select, line, rx, stop: Some(stop), bytes };
         self.status = Some(job.shown());
         self.job = Some(job);
     }
@@ -3629,8 +3638,9 @@ impl App {
             }
             return;
         }
-        // A key clears the status line; while the job runs, it comes back.
-        if self.status.is_none() {
+        // A key clears the status line; while the job runs, it comes back, and how far in
+        // bytes moves on.
+        if self.status.is_none() || self.status.as_ref().is_some_and(|s| s.starts_with(&job.line)) {
             self.status = Some(job.shown());
         }
         let Some((failed, rec, stopped)) = done else { return };
@@ -3721,7 +3731,7 @@ impl App {
             let _ = tx.send(JobMsg::Undone(u));
         });
         self.status = Some(line.clone());
-        self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx, stop: Some(stop) });
+        self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx, stop: Some(stop), bytes: Arc::default() });
     }
 
     fn pack(&mut self, src: Vec<PathBuf>, to: PathBuf, password: Option<String>) {
@@ -6256,7 +6266,7 @@ mod tests {
         let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d.clone());
         let (_tx, rx) = mpsc::channel();
-        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx, stop: None });
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx, stop: None, bytes: Arc::default() });
         app.act(Action::Quit);
         assert!(app.quit && app.job.is_some(), "the first waits");
         assert!(app.status.as_deref().is_some_and(|s| s.contains("F10")), "{:?}", app.status);
@@ -6289,7 +6299,7 @@ mod tests {
         let (tx, rx) = mpsc::channel();
         tx.send(JobMsg::At(0)).unwrap();
         drop(tx);
-        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx, stop: None });
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx, stop: None, bytes: Arc::default() });
         app.poll_job();
         assert!(app.job.is_none());
         assert!(matches!(app.dialog, Some(Dialog::Message { .. })), "and says so");
@@ -6303,7 +6313,7 @@ mod tests {
         let mut app = app(d.clone(), d.clone());
         let (tx, rx) = mpsc::channel();
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d.clone(), password: None, select: None, line: "busy".into(), rx, stop: Some(stop.clone()) });
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d.clone(), password: None, select: None, line: "busy".into(), rx, stop: Some(stop.clone()), bytes: Arc::default() });
         assert!(app.job.as_ref().unwrap().shown().contains("Esc"), "the line says Esc stops it");
         app.key_typed(Key::new(KeyCode::Esc, false, false, false));
         assert!(stop.load(std::sync::atomic::Ordering::Relaxed), "stopped");

@@ -3527,6 +3527,8 @@
  "space.zoom_out": "缩小",
  "state.favourites": "收藏夹",
  "status.busy": "正在处理 {what}…",
+ "job.bytes": "{done} / {all}",
+ "job.bytes_rate": "{of} · {rate}/秒 · 还剩 {left}",
  "status.busy_of": "正在处理 {what}…（{n}/{all}）",
  "status.copied": "已复制 {what}",
  "status.created": "已创建 {what}",

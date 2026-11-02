@@ -3597,6 +3597,8 @@
  "space.zoom_out": "დაშორება",
  "state.favourites": "რჩეულები",
  "status.busy": "მიმდინარეობს: {what}…",
+ "job.bytes": "{done} / {all}",
+ "job.bytes_rate": "{of} · {rate}/წმ · დარჩა {left}",
  "status.busy_of": "მიმდინარეობს: {what}… ({n}/{all})",
  "status.copied": "დაკოპირდა: {what}",
  "status.created": "შეიქმნა: {what}",

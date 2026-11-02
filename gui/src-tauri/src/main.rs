@@ -1721,8 +1721,14 @@ struct JobProgress {
     name: String,
     waiting: usize,
     stopping: bool,
+    /// Inside the item it is on, where that is known (an extract): how far (0 to 1), and the
+    /// line that says it ("1.2 GB of 4.5 GB · 80.0 MB/s · 2 min left").
+    part: Option<f64>,
+    bytes: Option<String>,
     #[serde(skip)]
     stop: Arc<std::sync::atomic::AtomicBool>,
+    #[serde(skip)]
+    counted: Arc<coxswain_core::undo::Bytes>,
 }
 
 static JOB: Mutex<Option<JobProgress>> = Mutex::new(None);
@@ -1745,9 +1751,10 @@ async fn job(ctx: &Ctx, op: Op, paths: Vec<PathBuf>, dst: PathBuf, password: Opt
     let touched = op.touches(&paths, &dst);
     touched.iter().for_each(|p| ctx.sizer.forget(p));
     let names: Vec<String> = paths.iter().map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned()).collect();
-    *JOB.lock().map_err(|e| e.to_string())? = Some(JobProgress { all: paths.len(), name: names.first().cloned().unwrap_or_default(), stop: stop.clone(), ..Default::default() });
+    let counted = Arc::new(coxswain_core::undo::Bytes::default());
+    *JOB.lock().map_err(|e| e.to_string())? = Some(JobProgress { all: paths.len(), name: names.first().cloned().unwrap_or_default(), stop: stop.clone(), counted: counted.clone(), ..Default::default() });
     let ran = tauri::async_runtime::spawn_blocking(move || {
-        coxswain_core::undo::run(op, &paths, &dst, password.as_deref(), &stop, |i| {
+        coxswain_core::undo::run_counted(op, &paths, &dst, password.as_deref(), &stop, &counted, |i| {
             if let Some(p) = JOB.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
                 (p.at, p.name) = (i, names.get(i).cloned().unwrap_or_default());
             }
@@ -1771,6 +1778,8 @@ fn job_progress() -> Option<JobProgress> {
     let mut p = JOB.lock().unwrap_or_else(|e| e.into_inner()).clone()?;
     p.waiting = WAITING.load(std::sync::atomic::Ordering::SeqCst);
     p.stopping = p.stop.load(std::sync::atomic::Ordering::SeqCst);
+    p.part = p.counted.now().map(|(done, all)| done as f64 / all as f64);
+    p.bytes = p.counted.line();
     Some(p)
 }
 

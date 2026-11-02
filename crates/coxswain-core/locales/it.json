@@ -3683,6 +3683,8 @@
  "space.zoom_out": "Riduci zoom",
  "state.favourites": "Preferiti",
  "status.busy": "Elaborazione di {what}…",
+ "job.bytes": "{done} di {all}",
+ "job.bytes_rate": "{of} · {rate}/s · mancano {left}",
  "status.busy_of": "Elaborazione di {what}… ({n}/{all})",
  "status.copied": "{what} copiato",
  "status.created": "{what} creato",

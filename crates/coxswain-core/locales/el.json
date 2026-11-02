@@ -3605,6 +3605,8 @@
  "space.zoom_out": "Σμίκρυνση",
  "state.favourites": "Αγαπημένα",
  "status.busy": "Εργασία σε {what}…",
+ "job.bytes": "{done} από {all}",
+ "job.bytes_rate": "{of} · {rate}/s · απομένουν {left}",
  "status.busy_of": "Εργασία σε {what}… ({n}/{all})",
  "status.copied": "Αντιγράφηκε: {what}",
  "status.created": "Δημιουργήθηκε: {what}",
