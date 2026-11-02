@@ -1438,17 +1438,24 @@ fn spilled(archive: &Path, name: &str) -> io::Result<Held> {
     made
 }
 
+/// `name`, and the other parts of the archive split into parts it opens from, as long as
+/// `exists` says each is there: a 7z's or zip's later ones (`x.7z.002` …), a zip's earlier
+/// ones (`x.z01` …). Just `name` for an archive in one piece.
+fn parts_of(name: &str, exists: impl Fn(&str) -> bool) -> Vec<String> {
+    let mut names = vec![name.to_string()];
+    if in_parts(Path::new(name)) {
+        names.extend((2..=999).map(|n| part_name(name, n)).take_while(|n| exists(n)));
+    }
+    names.extend(zip_parts(name, exists));
+    names
+}
+
 /// `spilled`'s copy, made: what the archive claims is looked at first.
 fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<Held> {
     let all = items(archive)?;
     let size_of = |n: &str| all.iter().find(|it| it.name == n && !it.dir).map(|it| it.size);
-    // A 7z split into parts is copied with all its parts there, next to each other.
-    let mut names = vec![name.to_string()];
-    if in_parts(Path::new(name)) {
-        names.extend((2..=999).map(|n| part_name(name, n)).take_while(|n| size_of(n).is_some()));
-    }
-    // A zip split into parts: its earlier parts (`x.z01` …) beside it too.
-    names.extend(zip_parts(name, |n| size_of(n).is_some()));
+    // An archive split into parts is copied with all its parts there, next to each other.
+    let names = parts_of(name, |n| size_of(n).is_some());
     // A zip or 7z (all its parts) stored as it is in a zip or a plain tar: read in place,
     // however large, never copied.
     let places = if matches!(ending_kind(Path::new(name)), Some(Kind::Zip | Kind::SevenZ)) {
@@ -2011,11 +2018,12 @@ pub(crate) const SEARCH_ENTRIES: usize = 50_000;
 /// own name only, until they were opened once.
 pub(crate) const SEARCH_UNPACK: u64 = 256 << 20;
 /// The most a 7z's list of contents unpacks to for search to look into it: what it reads stays
-/// small in memory. A 7z split into parts is found by its own name only.
+/// small in memory. A 7z split into parts on the disk is found by its own name only; one inside
+/// an archive (`depth` over 0) is looked into with all its parts (`copied_for_search`).
 const SEARCH_SEVEN_HEADER: u64 = 16 << 20;
 
-fn search_skips_seven(archive: &Path) -> bool {
-    in_parts(archive)
+fn search_skips_seven(archive: &Path, depth: usize) -> bool {
+    (in_parts(archive) && depth == 0)
         || Joined::open(archive)
             .and_then(|mut f| seven_header_size(&mut f))
             .map_or(true, |h| h > SEARCH_SEVEN_HEADER)
@@ -2059,10 +2067,10 @@ pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEnt
 /// How deep search looks into archives inside archives, the outer one not counted.
 const SEARCH_DEPTH: usize = 3;
 
-/// Whether an entry named `name` is an archive search looks into when it is inside another.
+/// Whether an entry named `name` is an archive search looks into when it is inside another: the
+/// first part of one split into parts too, with its other parts (`parts_of`).
 fn nests(name: &str) -> bool {
-    let p = Path::new(name);
-    ending_kind(p).is_some() && !in_parts(p)
+    ending_kind(Path::new(name)).is_some()
 }
 
 /// `search_entries` of an archive `depth` archives deep. The archives inside it, up to
@@ -2074,7 +2082,7 @@ fn entries_at(archive: &Path, size: u64, depth: usize) -> Option<Vec<ArchiveEntr
     if crate::cloud::keep_out(archive) || waits_to_be_opened(archive, size) {
         return None;
     }
-    if k == Kind::SevenZ && search_skips_seven(archive) {
+    if k == Kind::SevenZ && search_skips_seven(archive, depth) {
         return None;
     }
     // Never a password given in this run: what search knows is what anyone sees.
@@ -2098,9 +2106,11 @@ fn entries_at(archive: &Path, size: u64, depth: usize) -> Option<Vec<ArchiveEntr
         let mut more = vec![];
         let room = SEARCH_ENTRIES - out.len().min(SEARCH_ENTRIES);
         let sizes: std::collections::HashMap<String, u64> = out.iter().filter(|e| inner.contains(&e.name)).map(|e| (e.name.clone(), e.size)).collect();
+        let all: std::collections::HashSet<&str> = out.iter().filter(|e| !e.is_dir).map(|e| e.name.as_str()).collect();
         let _ = search_read_at(archive, size, depth, &|n, _| inner.contains(n), &|_| false, &mut |names, from| {
             let name = names[0];
-            let _ = copied_for_search(archive, name, sizes.get(name).copied().unwrap_or(u64::MAX), from, &mut |copy, len| {
+            let parts = parts_of(name, |n| all.contains(n));
+            let _ = copied_for_search(archive, &parts, sizes.get(name).copied().unwrap_or(u64::MAX), from, &mut |copy, len| {
                 for e in entries_at(copy, len, depth + 1).unwrap_or_default() {
                     more.push(ArchiveEntry { name: format!("{name}/{}", e.name), ..e });
                 }
@@ -2113,16 +2123,28 @@ fn entries_at(archive: &Path, size: u64, depth: usize) -> Option<Vec<ArchiveEntr
     Some(out)
 }
 
-/// `name` (`size` bytes), an archive inside `archive`, for `f` to look into with its size: read
-/// in place when it is stored there as it is (`in_place`), whatever its size; else `from` is
-/// copied into a folder of its own in this run's own folder of the cache, no more than
-/// `SEARCH_UNPACK` bytes, and the copy goes after. `false` when it could not be looked into.
+/// `parts[0]` (`size` bytes), an archive inside `archive`, for `f` to look into with its size:
+/// read in place when it is stored there as it is (`in_place`), whatever its size; else `from`
+/// is copied into a folder of its own in this run's own folder of the cache, no more than
+/// `SEARCH_UNPACK` bytes, and the copy goes after. An archive split into parts (`parts_of`) is
+/// read with all its parts beside it, each in place or copied out (no more than `SEARCH_UNPACK`
+/// bytes for all), `from` not read. `false` when it could not be looked into.
 // ponytail: a packed archive inside one is copied to be looked into, even a tar that could be
 // read as it streams by; read tars in place if the copies show.
-fn copied_for_search(archive: &Path, name: &str, size: u64, from: &mut dyn Read, f: &mut dyn FnMut(&Path, u64)) -> bool {
+fn copied_for_search(archive: &Path, parts: &[String], size: u64, from: &mut dyn Read, f: &mut dyn FnMut(&Path, u64)) -> bool {
     static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let place = in_place(archive, name).ok().flatten().filter(|_| matches!(ending_kind(Path::new(name)), Some(Kind::Zip | Kind::SevenZ)));
-    if place.is_none() && size > SEARCH_UNPACK {
+    let name = parts[0].as_str();
+    // A first part without the others here (a set split across archives) cannot be read.
+    if in_parts(Path::new(name)) && parts.len() == 1 {
+        return false;
+    }
+    let zipped = matches!(ending_kind(Path::new(name)), Some(Kind::Zip | Kind::SevenZ));
+    let places: Option<Vec<_>> = if zipped {
+        parts.iter().map(|n| in_place(archive, n).ok().flatten()).collect()
+    } else {
+        None
+    };
+    if places.is_none() && parts.len() == 1 && size > SEARCH_UNPACK {
         return false;
     }
     let Ok(base) = run_folder("search-nested", false) else { return false };
@@ -2131,17 +2153,38 @@ fn copied_for_search(archive: &Path, name: &str, size: u64, from: &mut dyn Read,
     if crate::fs::private_dir(&dir).is_err() {
         return false;
     }
-    let copy = dir.join(name.rsplit('/').next().unwrap_or("archive"));
-    let ok = match place {
-        // Its name only, empty: its bytes are read where they are.
-        Some((file, start, len)) => {
-            let made = File::create_new(&copy).is_ok();
+    let copy_of = |n: &str| dir.join(n.rsplit('/').next().unwrap_or("archive"));
+    let copy = copy_of(name);
+    let ok = match places {
+        // Their names only, empty: their bytes are read where they are.
+        Some(places) => {
+            let markers: Vec<PathBuf> = parts.iter().map(|n| copy_of(n)).collect();
+            let made = markers.iter().all(|m| File::create_new(m).is_ok());
             if made {
-                WINDOWS.lock().unwrap_or_else(|e| e.into_inner()).push(Window { marker: copy.clone(), file, start, len });
+                let len = places.iter().map(|p| p.2).sum();
+                WINDOWS.lock().unwrap_or_else(|e| e.into_inner()).extend(
+                    markers.iter().zip(places).map(|(m, (file, start, len))| Window { marker: m.clone(), file, start, len }),
+                );
                 f(&copy, len);
-                WINDOWS.lock().unwrap_or_else(|e| e.into_inner()).retain(|w| w.marker != copy);
+                WINDOWS.lock().unwrap_or_else(|e| e.into_inner()).retain(|w| !markers.contains(&w.marker));
             }
             made
+        }
+        // Each part copied out of the archive, all of them within the limit; never out of a
+        // compressed tar or a 7z, which would be unpacked from its start again for each part.
+        None if parts.len() > 1 && streamed(archive) => false,
+        None if parts.len() > 1 => {
+            let mut left = SEARCH_UNPACK;
+            let made = parts.iter().try_for_each(|n| {
+                let to = copy_of(n);
+                copy_out_with(archive, n, &to, None, Copy { limit: left, ..Copy::default() })?;
+                left = left.saturating_sub(std::fs::metadata(&to)?.len());
+                Ok::<_, io::Error>(())
+            });
+            if made.is_ok() {
+                f(&copy, SEARCH_UNPACK - left);
+            }
+            made.is_ok()
         }
         None => {
             let made = File::create_new(&copy).and_then(|mut to| io::copy(&mut from.take(SEARCH_UNPACK + 1), &mut to));
@@ -2206,13 +2249,22 @@ fn search_read_at(
 ) -> io::Result<()> {
     // An archive inside picked: read in place or through a copy, its files named through it.
     let looked = |name: &str, _: u64| depth < SEARCH_DEPTH && nests(name) && inside(name);
+    // The archive's names, once, for the parts of an archive split into parts inside it.
+    let listed: std::cell::OnceCell<std::collections::HashSet<String>> = std::cell::OnceCell::new();
     let mut read = |names: &[&str], from: &mut dyn Read| -> bool {
         let name = names[0];
         if !(depth < SEARCH_DEPTH && nests(name) && inside(name)) {
             return read(names, from);
         }
         let mut go = true;
-        copied_for_search(archive, name, 0, from, &mut |copy, len| {
+        // Its other parts, when it is split into parts: by the archive's list, read only then.
+        let parts = if in_parts(Path::new(name)) || name.to_ascii_lowercase().ends_with(".zip") {
+            let all = listed.get_or_init(|| items(archive).map(|all| all.iter().filter(|it| !it.dir).map(|it| it.name.to_string()).collect()).unwrap_or_default());
+            parts_of(name, |n| all.contains(n))
+        } else {
+            vec![name.to_string()]
+        };
+        copied_for_search(archive, &parts, 0, from, &mut |copy, len| {
             let _ = search_read_at(
                 copy,
                 len,
@@ -2293,7 +2345,7 @@ fn search_read_at(
             }
         }
         Kind::SevenZ => {
-            if search_skips_seven(archive) {
+            if search_skips_seven(archive, depth) {
                 return Ok(());
             }
             let mut r = seven(archive, None)?;
@@ -4195,6 +4247,20 @@ mod tests {
         let note = split.join("2d").join("2d.7z.001").join("games").join("note.txt");
         assert_eq!(std::fs::read(peek(&note).unwrap()).unwrap(), b"a game of go, black wins");
         assert_eq!(nested_bytes(), before, "nothing was copied into the cache for the parts either");
+        // Search looks into it too, its parts read in place.
+        let found = search_entries(&split, std::fs::metadata(&split).unwrap().len()).unwrap();
+        assert!(found.iter().any(|e| e.name == "2d/2d.7z.001/games/note.txt"), "search lists it");
+        assert!(found.iter().any(|e| e.name == "2d/2d.7z.002"), "the later part by its own name");
+        let mut read = vec![];
+        search_read(&split, 0, &|n, _| n == "2d/2d.7z.001/games/note.txt", &|n| n == "2d/2d.7z.001", &mut |n, from| {
+            let mut t = String::new();
+            from.read_to_string(&mut t).unwrap();
+            read.push((n[0].to_string(), t));
+            true
+        })
+        .unwrap();
+        assert_eq!(read, [("2d/2d.7z.001/games/note.txt".to_string(), "a game of go, black wins".to_string())]);
+        assert_eq!(nested_bytes(), before, "search copied nothing either");
         // Packed, it is still copied, and over the limit refused as before.
         let err = listing(&packed, "ranks.7z").unwrap_err();
         assert!(err.to_string().contains("ranks.7z"), "{err}");
@@ -5696,6 +5762,18 @@ mod tests {
         let listed: Vec<String> = crate::fs::list(&inner, true).unwrap().into_iter().map(|e| e.name).collect();
         assert_eq!(listed, ["..", "a.sgf", "b.sgf", "c.sgf"]);
         assert_eq!(std::fs::read_to_string(peek(&inner.join("b.sgf")).unwrap()).unwrap(), text("b.sgf"));
+        // Search looks into it with its parts too, and reads its games.
+        let found = search_entries(&outer, std::fs::metadata(&outer).unwrap().len()).unwrap();
+        assert!(found.iter().any(|e| e.name == "set/go.zip/c.sgf"), "search lists it");
+        let mut read = vec![];
+        search_read(&outer, 0, &|n, _| n == "set/go.zip/c.sgf", &|n| n == "set/go.zip", &mut |n, from| {
+            let mut t = String::new();
+            from.read_to_string(&mut t).unwrap();
+            read.push((n[0].to_string(), t));
+            true
+        })
+        .unwrap();
+        assert_eq!(read, [("set/go.zip/c.sgf".to_string(), text("c.sgf"))]);
         // A part missing: named.
         std::fs::remove_file(d.join("go.z02")).unwrap();
         let err = list(&last, 10).unwrap_err().to_string();
@@ -5755,6 +5833,19 @@ mod tests {
         create(&outer, std::slice::from_ref(&parts)).unwrap();
         let inside = outer.join("parts").join("go.7z.001");
         assert!(opens_inside(&inside));
+        // Search looks into it, its parts copied out together for the look.
+        let found = search_entries(&outer, std::fs::metadata(&outer).unwrap().len()).unwrap();
+        let names: Vec<&str> = found.iter().map(|e| e.name.as_str()).filter(|n| n.starts_with("parts/go.7z.001/")).collect();
+        assert_eq!(names, ["parts/go.7z.001/a.sgf", "parts/go.7z.001/b.sgf", "parts/go.7z.001/c.sgf"]);
+        let mut read = vec![];
+        search_read(&outer, 0, &|n, _| n == "parts/go.7z.001/c.sgf", &|n| n == "parts/go.7z.001", &mut |n, from| {
+            let mut t = String::new();
+            from.read_to_string(&mut t).unwrap();
+            read.push((n[0].to_string(), t));
+            true
+        })
+        .unwrap();
+        assert_eq!(read, [("parts/go.7z.001/c.sgf".to_string(), text("c.sgf"))]);
         assert_eq!(listed(&inside), ["..", "a.sgf", "b.sgf", "c.sgf"]);
         // Its preview lists it, all its parts there; the copy held until the next such preview.
         let copy = peek(&inside).unwrap();

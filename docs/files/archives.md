@@ -224,7 +224,9 @@ through an installed 7-Zip instead, read-only, like a disk image
   opens only with all its parts, numbered without a gap*. **Enter** or **F3** on its first part
   says so on the status line, whole (in the terminal app over two rows at 80 columns), rather
   than showing its bytes. Inside another archive it opens too, its parts copied together into
-  the cache folder (the limits above count them together). Search finds it by its own name only.
+  the cache folder (the limits above count them together). Search finds one on the disk by its
+  own name only; one inside an archive it looks into with all its parts ([Search inside
+  archives](../search/archives.md#limits)).
 - **A zip split into parts** by Info-ZIP (`zip -s`) or WinZip (`games.z01`, `games.z02`, …,
   `games.zip`) opens from its **last** part, the `.zip`: **Enter** on `games.zip` shows what the
   whole archive holds, its parts read one after the other. The `.z01`, `.z02` … parts stay
