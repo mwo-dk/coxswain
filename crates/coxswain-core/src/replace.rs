@@ -619,25 +619,29 @@ pub(crate) fn write_back(path: &Path, bytes: &[u8], pin: Pin) -> std::io::Result
     // The very file written, with the very content written.
     let Some(sum) = pin.sum else { return Err(pinned::changed()) };
     let now = same_content(&p, &pin.file, &sum)?;
-    p.rewrite(now, bytes).map(drop)
+    p.rewrite(now.id, bytes).map(drop)
 }
 
 /// What the file at `p` is now, while it is still `file` (device and inode) with the content
-/// `sum`, whatever its ctime: FreeBSD's UFS with soft updates moves a file's ctime by itself
-/// about half a second after a rename into its name.
-fn same_content(p: &pinned::Place, file: &Id, sum: &str) -> std::io::Result<Id> {
+/// `sum` and no ACL or extended attributes, whatever its ctime: FreeBSD's UFS with soft updates
+/// moves a file's ctime by itself half a second to seconds after a rename into its name.
+fn same_content(p: &pinned::Place, file: &Id, sum: &str) -> std::io::Result<pinned::Stat> {
     use std::io::Read as _;
     let now = p.stat()?;
     if !now.id.same_file(file) {
         return Err(pinned::changed());
     }
-    let (f, _) = p.open(now.id)?;
+    let (mut f, now) = p.open(now.id)?;
+    #[cfg(unix)]
+    if pinned::extra_permissions(&f) {
+        return Err(pinned::changed());
+    }
     let mut was = vec![];
-    f.take(edit::MOST + 1).read_to_end(&mut was)?;
+    (&mut f).take(edit::MOST + 1).read_to_end(&mut was)?;
     if hash(&was) != sum {
         return Err(pinned::changed());
     }
-    Ok(now.id)
+    Ok(now)
 }
 
 /// Write the ticked changes of `picks` in the files of `plan`, as the plan read them; `stop`
@@ -698,9 +702,14 @@ pub fn apply(plan: &Plan, picks: &[Pick], stop: &AtomicBool, progress: &Progress
                 .and_then(|_| {
                     // Its ctime moved by itself since it was read: written still when it is the
                     // same file with the content read.
-                    node.place.rewrite(node.stat.id, &bytes).or_else(|e| match same_content(&node.place, &node.stat.id, &file.hash) {
-                        Ok(now) => node.place.rewrite(now, &bytes),
-                        Err(_) => Err(e),
+                    node.place.rewrite(node.stat.id, &bytes).or_else(|e| {
+                        if e.to_string() != t!("pinned.changed") {
+                            return Err(e);
+                        }
+                        match same_content(&node.place, &node.stat.id, &file.hash) {
+                            Ok(now) if !read_only(&now) => node.place.rewrite(now.id, &bytes),
+                            _ => Err(e),
+                        }
                     })
                 });
             match written {
@@ -837,6 +846,25 @@ mod tests {
             std::fs::set_permissions(p, m.permissions()).unwrap();
             std::thread::yield_now();
         }
+    }
+
+    /// The run's retry and undo: the same file with the same content is met whatever its ctime,
+    /// one written since is not.
+    #[cfg(unix)]
+    #[test]
+    fn the_same_content_is_met_whatever_its_ctime() {
+        use std::os::unix::fs::MetadataExt;
+        let d = crate::fs::Scratch::named("replace-same");
+        let a = d.join("a");
+        std::fs::write(&a, "x").unwrap();
+        let m = std::fs::metadata(d.to_path_buf()).unwrap();
+        let p = pinned::Place::reopen(&a, (m.dev(), u128::from(m.ino()))).unwrap();
+        let was = p.stat().unwrap().id;
+        ctime_moves(&a);
+        let now = same_content(&p, &was, &hash(b"x")).unwrap();
+        assert!(now.id.same_file(&was) && now.id != was);
+        std::fs::write(&a, "y").unwrap();
+        assert!(same_content(&p, &was, &hash(b"x")).is_err());
     }
 
     /// FreeBSD's UFS with soft updates moves the ctime of a file renamed into its name (a replace

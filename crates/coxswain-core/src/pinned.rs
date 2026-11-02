@@ -669,7 +669,7 @@ mod imp {
             // system that settles a rename later (FreeBSD's UFS with soft updates gives the file
             // a new ctime when the rename's link counts are written out) has done so; and never
             // an error here, which would cost the kept copy its undo. One not to be told is
-            // recorded with no time, which undo refuses.
+            // recorded with no time; undo then goes by its content alone.
             let _ = f.sync_all();
             // SAFETY: the held folder.
             unsafe { libc::fsync(dir) };
@@ -1318,7 +1318,8 @@ mod imp {
                 return Err(e);
             }
             // Written: what it is now, for undo; never an error here, which would cost the kept
-            // copy its undo. One not to be told is recorded with no time, which undo refuses.
+            // copy its undo. One not to be told is recorded with no time; undo then goes by its
+            // content alone.
             Ok(stat_of(&f).map_or(Id { ctime: (-1, 0), ..want }, |s| s.id))
         }
     }

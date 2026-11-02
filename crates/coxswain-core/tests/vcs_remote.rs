@@ -112,14 +112,14 @@ fn fetch_and_pull_against_real_servers() {
     }
     // SAFETY: geteuid has no preconditions.
     let root = unsafe { libc::geteuid() } == 0;
-    if installed("cvs") && !root {
-        cvs(&t.join("cvs"));
-        ran.push("CVS");
+    if !installed("cvs") {
+        eprintln!("SKIPPED: CVS (cvs is not installed)");
     } else if root {
         // cvs refuses to commit as root (unless built with --enable-rootcommit); the BSD VMs run tests as root.
         eprintln!("SKIPPED: CVS (cvs will not commit as root)");
     } else {
-        eprintln!("SKIPPED: CVS (cvs is not installed)");
+        cvs(&t.join("cvs"));
+        ran.push("CVS");
     }
     eprintln!("tried: {ran:?}");
     let _ = std::fs::remove_dir_all(&t);
