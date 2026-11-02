@@ -79,7 +79,14 @@ pub struct Ctx {
     job_turn: tauri::async_runtime::Mutex<()>,
     /// The app, set at start: what tells the window that sizes changed.
     app: std::sync::OnceLock<tauri::AppHandle>,
+    /// Pick mode (`--pick`): what is asked for, and the stream the paths go to (the original
+    /// standard output; none with `--pick=FILE`).
+    pick: Option<coxswain_core::pick::Request>,
+    pick_out: Mutex<Option<std::fs::File>>,
 }
+
+/// Pick mode: something was chosen, so the exit status is 0, not cancelled's 1.
+static PICKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 impl Ctx {
     /// Keep what can be undone of an operation, done now: the folders it changed are measured again.
@@ -165,6 +172,12 @@ struct UiConfig {
     confirm_delete: bool,
     start: [PathBuf; 2],
     duplicates: Option<Vec<PathBuf>>,
+    /// Pick mode: what is asked for, its status line, and the actions it refuses.
+    pick: Option<coxswain_core::pick::Request>,
+    pick_ask: String,
+    /// The key of Show all (`pick::SHOW_ALL_KEY`).
+    pick_key: &'static str,
+    pick_refused: Vec<&'static str>,
     /// Start with Settings open, at this section ("" for the top).
     open_settings: Option<String>,
     /// The language in use (resolved from `language`), its texts, and whether it is written
@@ -267,6 +280,10 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         confirm_delete: cfg.confirm_delete,
         start: ctx.start.clone(),
         duplicates: ctx.duplicates.clone(),
+        pick: ctx.pick.clone(),
+        pick_ask: ctx.pick.as_ref().map(|r| r.ask()).unwrap_or_default(),
+        pick_key: coxswain_core::pick::SHOW_ALL_KEY,
+        pick_refused: Action::ALL.iter().filter(|a| coxswain_core::pick::changes_files(**a)).map(|a| a.name()).collect(),
         open_settings: ctx.open_settings.clone(),
         language: coxswain_core::i18n::language(),
         strings: coxswain_core::i18n::catalogue(coxswain_core::i18n::language()),
@@ -297,7 +314,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         media_endings: coxswain_core::media::endings(),
         media_ops: coxswain_core::media::Program::ALL.map(|p| coxswain_core::media::Op::menu(p).iter().map(|o| o.id()).collect()),
         geo_endings: coxswain_core::geo::endings(),
-        guide: ctx.guide,
+        guide: ctx.guide && ctx.pick.is_none(),
         guide_keys: coxswain_core::guide::keys(&cfg),
         guide_menu: coxswain_core::guide::menu_line(&cfg),
         guide_features: coxswain_core::guide::features_line(&cfg),
@@ -2115,6 +2132,71 @@ fn enter_on(path: PathBuf, is_dir: bool, inside: bool) -> EnterOn {
     EnterOn { enter: e, label: enter::key_line(&path, is_dir, place), maybe_games: inside && !is_dir && enter::may_be_games(&path) }
 }
 
+// ---------------------------------------------------------------- pick mode
+
+/// Pick mode, Enter or a double-click: `marked` and `cursor` are (path, is a folder), as
+/// `pick::Request::judge` takes them; `show_all`: the Show all switch. True: the page opens the
+/// entry as usual. Chosen: the paths are written and the app exits with 0.
+#[tauri::command(async)]
+fn pick_choose(marked: Vec<(PathBuf, bool)>, cursor: Option<(PathBuf, bool)>, goes_in: bool, show_all: bool, ctx: tauri::State<Ctx>) -> Res<bool> {
+    let Some(req) = &ctx.pick else { return Err("not in pick mode".into()) };
+    let req = coxswain_core::pick::Request { show_all, ..req.clone() };
+    match req.judge(&marked, cursor, goes_in) {
+        coxswain_core::pick::Verdict::Enter => Ok(true),
+        coxswain_core::pick::Verdict::Refuse(why) => Err(coxswain_core::t!(why)),
+        coxswain_core::pick::Verdict::Choose(paths) => {
+            let paths = paths.iter().map(|p| coxswain_core::pick::on_disk(p)).collect::<std::io::Result<Vec<_>>>().map_err(|e| e.to_string())?;
+            picked(&ctx, &paths).map(|()| false)
+        }
+    }
+}
+
+/// Pick mode with `--save`: `name` in the folder `dir`; `replace`: the question whether the
+/// file there may be replaced was said yes to. The name of a file that is there comes back, for
+/// that question; chosen, the path is written and the app exits with 0.
+#[tauri::command(async)]
+fn pick_save(dir: PathBuf, name: String, replace: bool, ctx: tauri::State<Ctx>) -> Res<Option<String>> {
+    let Some(req) = &ctx.pick else { return Err("not in pick mode".into()) };
+    match req.save_to(&dir, &name, replace) {
+        coxswain_core::pick::Save::Choose(path) => picked(&ctx, &[path]).map(|()| None),
+        coxswain_core::pick::Save::Ask(path) => Ok(Some(path.file_name().unwrap_or_default().to_string_lossy().into_owned())),
+        coxswain_core::pick::Save::Refuse(why) => Err(coxswain_core::t!(why)),
+    }
+}
+
+/// The paths chosen go to the file or the original standard output, and the app ends with 0.
+/// Once only: a second Enter while the window closes writes nothing more.
+fn picked(ctx: &Ctx, paths: &[PathBuf]) -> Res<()> {
+    let Some(req) = &ctx.pick else { return Err("not in pick mode".into()) };
+    let mut out = ctx.pick_out.lock().map_err(|e| e.to_string())?;
+    if PICKED.load(std::sync::atomic::Ordering::SeqCst) {
+        return Ok(());
+    }
+    match out.as_mut() {
+        Some(f) => req.write(paths, f),
+        None => req.write(paths, &mut std::io::sink()),
+    }
+    .map_err(|e| e.to_string())?;
+    PICKED.store(true, std::sync::atomic::Ordering::SeqCst);
+    // The caller's pipe is closed now, so `$(coxswain-gui --pick)` has its answer at once.
+    *out = None;
+    if let Some(app) = ctx.app.get() {
+        app.exit(0);
+    }
+    Ok(())
+}
+
+/// What pick mode refuses from the page, whatever reaches it (a key, a menu, a drop, the
+/// command line): every command that writes, moves or deletes files, runs a program on them,
+/// or writes settings or the session. A picker only chooses.
+const PICK_REFUSES: &[&str] = &[
+    "copy", "rename", "delete", "mkdir", "rename_apply", "replace_apply", "attrs_apply", "sync_apply", "undo", "edit_open", "edit_save", "edit_path", "compare_take", "compare_save", "compare_undo",
+    "open_keys", "open_config_at", "scripts_folder", "run_command", "run_script", "add_user_command", "extract", "pack", "set_flags", "set_permissions", "paste", "start_drag", "set_tags", "set_note",
+    "save_session", "save_favorites", "repo_edit", "git_switch", "git_new_branch", "git_tool", "remote_run", "bin_restore", "bin_delete", "bin_empty", "chess_save_line", "chess_save_origin",
+    "chess_review_save", "chess_engine_set", "ebook_run", "searchable_run", "viruses_run", "viruses_act", "media_run", "export_run", "sums_make", "split_file", "join_parts", "transcribe",
+    "save_settings", "set_preview_tool", "disk_clear", "models_action", "index_action", "meaning_action", "chat_action", "index_service", "meaning_pull", "pull_image", "remove_image", "clear_preview_cache", "suggest_translation",
+];
+
 /// The password of the locked archive `path` is in (or is), kept in memory for this run.
 #[tauri::command(async)]
 fn archive_password(path: PathBuf, password: String) {
@@ -2804,12 +2886,28 @@ fn local(url: &tauri::Url) -> bool {
 }
 
 const USAGE: &str = "coxswain-gui [LEFT] [RIGHT]   a folder, or a file to open its folder with the cursor on it
+  --pick[=FILE] [--folder] [--multiple] [--save NAME] [--filter EXT,EXT] [--start DIR] [--title TEXT]
+                            let another program choose files or folders, or a name to save
+                            under: the paths go to FILE or to standard output, one per line;
+                            exit 0 when chosen, 1 when cancelled
   --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, games,
                             looks, behaviour, keys, privacy, or an option such as show_hidden
   --duplicates [FOLDER …]   start with Find duplicates scanning these folders (default: this one)
   --version
   --help
 The terminal app, coxswain, has the rest: coxswain --help";
+
+/// The page's commands, with those `PICK_REFUSES` names answered "The picker only chooses" in
+/// pick mode, whatever part of the page sent them.
+fn refuse_in_pick_mode<R: tauri::Runtime>(picking: bool, handler: impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static) -> impl Fn(tauri::ipc::Invoke<R>) -> bool + Send + Sync + 'static {
+    move |invoke| {
+        if picking && PICK_REFUSES.contains(&invoke.message.command()) {
+            invoke.resolver.reject(coxswain_core::t!("pick.refused"));
+            return true;
+        }
+        handler(invoke)
+    }
+}
 
 fn main() {
     coxswain_core::sizes::deep_stacks();
@@ -2871,7 +2969,34 @@ fn main() {
         let roots: Vec<PathBuf> = args.drain(..).skip(1).map(|a| folder(&a)).collect();
         if roots.is_empty() { vec![cwd.clone()] } else { roots }
     });
-    let dir = |i: usize| args.get(i).map(|a| folder(a)).unwrap_or_else(|| cwd.clone());
+    // `coxswain-gui --pick[=FILE] [--folder] [--multiple] [--save NAME] [--filter …] [--start DIR]
+    // [--title TEXT]`: one window that only chooses, as the terminal app's `--pick`.
+    let pick = args.first().and_then(|a| a.to_str()?.strip_prefix("--pick")).filter(|r| r.is_empty() || r.starts_with('=')).map(|r| r.trim_start_matches('=').to_string());
+    let pick = pick.map(|out| {
+        let rest: Vec<String> = args.drain(..).skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
+        let req = coxswain_core::pick::Request::parse(Some(&out), &rest).and_then(|mut r| {
+            r.out = r.out.map(|o| folder(o.as_os_str()));
+            match r.start.take().map(|s| folder(s.as_os_str())) {
+                Some(s) if !s.is_dir() => Err(coxswain_core::t!("cli.no_folder", "path" => s.display())),
+                s => Ok(coxswain_core::pick::Request { start: s, ..r }),
+            }
+        });
+        req.unwrap_or_else(|e| {
+            eprintln!("coxswain-gui: {e}");
+            std::process::exit(2)
+        })
+    });
+    // Only the paths go to standard output: it becomes the null device for everything else
+    // (and every program started), and the stream it was is kept for the paths.
+    let pick_out = pick.as_ref().filter(|r| r.out.is_none()).map(|_| {
+        let null = std::fs::OpenOptions::new().write(true).open(if cfg!(windows) { "NUL" } else { "/dev/null" });
+        null.and_then(coxswain_core::pick::take_stdout).unwrap_or_else(|e| {
+            eprintln!("coxswain-gui: {e}");
+            std::process::exit(2)
+        })
+    });
+    let start = pick.as_ref().and_then(|r| r.start.clone());
+    let dir = |i: usize| start.clone().or_else(|| args.get(i).map(|a| folder(a))).unwrap_or_else(|| cwd.clone());
     let index = Client::start(&cfg.search);
     let ctx = Ctx {
         sizer: Arc::new(coxswain_core::sizes::Sizer::new(Some(index.clone()))),
@@ -2905,7 +3030,10 @@ fn main() {
         job_stop: Mutex::default(),
         job_turn: tauri::async_runtime::Mutex::new(()),
         app: std::sync::OnceLock::new(),
+        pick,
+        pick_out: Mutex::new(pick_out),
     };
+    let picking = ctx.pick.is_some();
     tauri::Builder::default()
         .manage(ctx)
         .manage(tabs::Tabs::default())
@@ -2922,7 +3050,7 @@ fn main() {
             tauri::WebviewWindowBuilder::from_config(app.handle(), &window)?.on_navigation(local).build()?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(refuse_in_pick_mode(picking, tauri::generate_handler![
             get_config, action_menu, hint, enter_on, hint_once, action_ran, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, terminals, git_config, places, disks, get_state, repos, repo_edit, save_session, save_favorites, set_tags, set_note, get_note, bin_summary, bin_question, bin_restore, bin_delete, bin_empty, bin_finder,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, folder_to_add, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, replace::replace_plan, replace::replace_apply, replace::replace_progress, replace::replace_stop, attrs::attrs_plan, attrs::attrs_apply, attrs::attrs_progress, attrs::attrs_stop, folders_sync::sync_check, folders_sync::sync_plan, folders_sync::sync_apply, folders_sync::sync_progress, folders_sync::sync_stop, undo, undo_next, open_path, suggest_translation, edit_path, edit_open, edit_save, compare::compare_open, compare::compare_close, compare::compare_state, compare::compare_rows, compare::compare_hex, compare::compare_next, compare::compare_take, compare::compare_undo, compare::compare_save, compare::folders_open, compare::folders_close, compare::folders_state, compare::folders_states, compare::folders_diff_only, compare::folders_ahead, open_keys, open_config_at, scripts_folder,
             plain_error, is_model, git_blame, git_line_history, git_lines_cancel, git_lines_here,
@@ -2930,14 +3058,14 @@ fn main() {
             clip_set, paste, start_drag, drop_keys, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, chess::chess_sniffed, chess::chess_moves, chess::chess_analyse, chess_engines, chess_engine_test, chess_engine_set, chess_engine_config, chess::chess_save_line, chess::chess_save_origin, chess::chess_review, chess::chess_review_save, chess::chess_position_games, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, logs::log_open, logs::log_close, logs::log_state, logs::log_rows, logs::log_shape, logs::log_row_of, logs::log_follow, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
             job_progress, job_stop, pack_room, convert::convert, convert::preview_tools, convert::preview_with, long_files_change, long_files_choices, convert::preview_sample, set_preview_tool, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, convert::pull_image, convert::remove_image, convert::pull_progress, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, viruses::viruses_plan, viruses::viruses_run, viruses::viruses_progress, viruses::viruses_stop, viruses::viruses_act, viruses::viruses_facts, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::export_plan, convert::export_run, convert::export_progress, convert::export_stop, convert::drawio_xml, convert::drawio_thumbnail, convert::adoc_blocks, convert::adoc_diagram, convert::gpx_map, dupes_scan,
-            dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, settings_find, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop, transcribe_plan, transcribe, transcript, whisper_models, work::split_sizes, work::split_size, work::split_file, work::join_plan, work::join_parts, remote::remote_run, remote::remote_progress, remote::remote_stop,
-        ])
+            dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, settings_find, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop, transcribe_plan, transcribe, transcript, whisper_models, work::split_sizes, work::split_size, work::split_file, work::join_plan, work::join_parts, remote::remote_run, remote::remote_progress, remote::remote_stop, pick_choose, pick_save,
+        ]))
         .build(tauri::generate_context!())
         .expect("error while running Coxswain")
         // The last window closed: a Make PDF searchable run, a conversion or Convert e-book is stopped
         // and waited for, so its container is killed and its scratch folder removed; a file
         // operation too, at the file it is on, so none is left half copied.
-        .run(|app, event| {
+        .run(move |app, event| {
             if let tauri::RunEvent::Exit = event {
                 if let Some(ctx) = app.try_state::<Ctx>() {
                     let _ = job_stop(ctx);
@@ -2957,6 +3085,10 @@ fn main() {
                 convert::export_end();
                 viruses::viruses_end();
                 coxswain_core::spill::at_exit();
+                // Pick mode closed without a choice (Cancel, Esc, the window's close): 1.
+                if picking && !PICKED.load(std::sync::atomic::Ordering::SeqCst) {
+                    std::process::exit(1);
+                }
             }
         });
 }
@@ -3004,6 +3136,19 @@ mod tests {
         let (files, all) = children(&s, &root.join("target/debug"));
         assert!(files.is_empty());
         assert_eq!(all.map(|s| s.kind), Some(git::Kind::Ignored), "in an ignored folder, everything is");
+    }
+
+    /// Every command pick mode refuses is one the page can call: a name mistyped there would
+    /// let its command through.
+    #[test]
+    fn pick_mode_refuses_real_commands() {
+        let src = include_str!("main.rs");
+        let list = &src[src.find("generate_handler![").unwrap()..];
+        let list = &list[..list.find("]))").unwrap()];
+        let names: std::collections::HashSet<&str> = list.split([',', ' ', '\n', '[']).map(|n| n.rsplit("::").next().unwrap_or(n).trim()).collect();
+        for c in PICK_REFUSES {
+            assert!(names.contains(c), "{c} is not a command");
+        }
     }
 
     #[test]

@@ -42,7 +42,7 @@ Both apps also open their Settings from the command line (`--settings`). For the
 | The status-line hints again | `coxswain --hints reset` | `coxswain-gui --settings=hints`, then *Show the hints again* |
 | What the new version brought | `coxswain --whats-new`, or `coxswain --settings=overview`: *What's new* is in the Overview | `coxswain-gui --settings=overview`, or click *⚙ Settings*: *What's new* is in the Overview |
 | Search by meaning on | `coxswain --meaning on` | `coxswain-gui --settings=search`, then the level *Names, text and meaning* |
-| Let another program choose files | `coxswain --pick=/tmp/choice` | – (see [Pick mode](pick-mode.md)) |
+| Let another program choose files | `coxswain --pick=/tmp/choice` | `coxswain-gui --pick=/tmp/choice` (see [Pick mode](pick-mode.md)) |
 | Find duplicates in a folder | – | `coxswain-gui --duplicates ~/Pictures` |
 
 ## The terminal app: `coxswain`
@@ -51,9 +51,10 @@ Both apps also open their Settings from the command line (`--settings`). For the
 
 ```
 coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
-  --pick[=FILE] [--folder] [--multiple] [--filter EXT,EXT] [--start DIR] [--title TEXT]
-                  let another program choose files or folders: the paths go to FILE or to
-                  standard output, one per line; exit 0 when chosen, 1 when cancelled
+  --pick[=FILE] [--folder] [--multiple] [--save NAME] [--filter EXT,EXT] [--start DIR] [--title TEXT]
+                  let another program choose files or folders, or a name to save under: the
+                  paths go to FILE or to standard output, one per line; exit 0 when chosen,
+                  1 when cancelled
   --settings[=AREA|OPTION]  start with Settings open (in the app: F12): search, previews,
                   games, looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
@@ -109,7 +110,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | `--disk clear NAME` | Clears one: `store` (through the search helper while it runs), `index`, `previews`, `peek`, `inside`, `libreoffice`, `log`, `clamav`, a model by its folder's name (as `--models delete`), `tectonic`, `images` or one image by its name. What is outside Coxswain's folder is listed first and asks *[y/N]*. Prints *previews/ cleared: 12.4 MB freed.* An unknown name: the names it takes, exit status 2 |
 | `--disk clear rebuildable` | Clears every row that is built again on its own (not the log, the models or what is outside): *Cleared: 12.9 MB freed.* |
 | `--index-helper` | Runs as the search helper instead of the app: see [below](#the-helper---index-helper) |
-| `--pick[=FILE]` | Pick mode: another program chooses files or folders with Coxswain. The paths go to `FILE` or standard output, one per line; exit status `0` when chosen, `1` when cancelled. With `--folder`, `--multiple`, `--filter EXT,EXT`, `--start DIR`, `--title TEXT`. See [Pick mode](pick-mode.md) |
+| `--pick[=FILE]` | Pick mode: another program chooses files or folders with Coxswain. The paths go to `FILE` or standard output, one per line; exit status `0` when chosen, `1` when cancelled. With `--folder`, `--multiple`, `--save NAME` (a name to save a new file under, asked before an existing file is replaced), `--filter EXT,EXT` (the other files dimmed; *Show all* lifts it), `--start DIR`, `--title TEXT`. See [Pick mode](pick-mode.md) |
 | `--hints reset` | Every hint on the status line shows three times again, in both apps (they share `state.json`), and says so. See [The action menu and hints](../panels/action-menu.md#hints-on-the-status-line) |
 | `--languages` | Prints every language under its region, one line each: code, own name, *new* for a fresh translation and *(current)* for the one in use, then where `language` is set and where to suggest a better word. In your language. See [Languages](../customise/languages.md) |
 | `--whats-new` | Prints the changes of the versions you have not read yet, newest first, or of the version you run when you have read them all, then counts them as read (in both apps). Each version is a line `1.29.0  2026-10-04`, then its changes, with each docs link as `Find <https://github.com/mwo-dk/coxswain/blob/master/docs/search/find-file.md>`. See [Notices and what's new](../panels/notices.md) |
@@ -192,6 +193,10 @@ See [The search helper](../search/helper.md).
 
 ```
 coxswain-gui [LEFT] [RIGHT]   a folder, or a file to open its folder with the cursor on it
+  --pick[=FILE] [--folder] [--multiple] [--save NAME] [--filter EXT,EXT] [--start DIR] [--title TEXT]
+                            let another program choose files or folders, or a name to save
+                            under: the paths go to FILE or to standard output, one per line;
+                            exit 0 when chosen, 1 when cancelled
   --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, games,
                             looks, behaviour, keys, privacy, or an option such as show_hidden
   --duplicates [FOLDER …]   start with Find duplicates scanning these folders (default: this one)
@@ -216,12 +221,13 @@ The terminal app, coxswain, has the rest: coxswain --help
 | `--settings=chess_engines` | …at *Games*, scrolled to *Chess engines* ([Choosing an engine](../previews/chess-play.md#choosing-an-engine)) |
 | `--settings=AREA` | …at that area: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
 | `--settings=OPTION` | …at the area of that option, with its group open, scrolled to it and lit up for a moment: an option's name, such as `check_updates` or `folder_sizes` |
+| `--pick[=FILE]` | Pick mode, with the terminal app's flags: one window that only chooses, with a bar to *Choose* (or *Save*) and *Cancel*. Only the paths go to standard output; exit status `0` when chosen, `1` when cancelled (closing the window too), `2` for a flag it does not know. See [Pick mode](pick-mode.md) |
 | `--duplicates [FOLDER …]` | Opens *Find duplicates* and scans these folders at once; without folders, the current one. The panes open as usual behind it |
 | `--version`, `-V` | Prints `coxswain-gui X.Y.Z` and exits. No window opens, so it works over ssh too |
 | `--help`, `-h` | Prints these flags and exits |
 | `--index-helper` | Runs as the search helper, with no window: see [below](#the-helper---index-helper) |
 
-`--settings` must come first, then `--duplicates`; everything else is taken as folders. Given
+`--settings` must come first, then `--duplicates`; everything else is taken as folders. `--pick` comes first too, and everything after it is its flags. Given
 both, *Find duplicates* opens (there is one window at a time); Settings is a **Ctrl+,** or **F12** away.
 Any other word after `--settings=` opens it at *Overview*; so do the section names of 1.x
 (`meaning`, `ask`, `news`, `cloud`), which 2.0 no longer knows.

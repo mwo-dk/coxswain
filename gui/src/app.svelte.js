@@ -9,6 +9,9 @@ const tr = t;
 
 export const ui = $state({
   cfg: null,
+  /** Pick mode (`--pick`): the Show all switch, and with `--save` the name typed. */
+  pickAll: false,
+  pickName: "",
   panes: [],
   activePane: 0,
   dual: true,
@@ -1304,13 +1307,16 @@ export async function init() {
   setTheme(ui.cfg.gui.theme);
   // Directories given on the command line win over the saved session.
   const fromArgs = ui.cfg.start;
-  ui.panes = (s.panes?.length === 2 ? s.panes : [{ tabs: [{ dir: fromArgs[0] }] }, { tabs: [{ dir: fromArgs[1] }] }]).map((p, i) => ({
+  // A picker starts in the folders it was given, not the tabs of the last session.
+  const keep = s.panes?.length === 2 && !ui.cfg.pick;
+  if (ui.cfg.pick) ui.pickName = ui.cfg.pick.save ?? "";
+  ui.panes = (keep ? s.panes : [{ tabs: [{ dir: fromArgs[0] }] }, { tabs: [{ dir: fromArgs[1] }] }]).map((p, i) => ({
     active: Math.min(p.active ?? 0, p.tabs.length - 1),
     tabs: p.tabs.map((x) => Object.assign(newTab(x.dir, x.view), { sort: x.sort ?? "name", reverse: !!x.reverse })),
   }));
   ui.activePane = s.activePane ?? 0;
   const t0 = tab(0);
-  if (s.panes && fromArgs[0] !== t0.dir && !ui.panes[0].tabs.some((t) => t.dir === fromArgs[0])) {
+  if (keep && fromArgs[0] !== t0.dir && !ui.panes[0].tabs.some((t) => t.dir === fromArgs[0])) {
     ui.panes[0].tabs.push(newTab(fromArgs[0]));
     ui.panes[0].active = ui.panes[0].tabs.length - 1;
   }
@@ -1401,7 +1407,9 @@ export const ociIndex = (tb, e) => !!e && !e.is_dir && e.name === "index.json" &
 /** Enter / double-click (`enter::enter`): into anything that holds things (a folder, an archive,
  *  a disk or container image, a mailbox); games, positions and opening books in the games window,
  *  a file of one game on its board; any other file in its default application. */
-export async function openItem(tb, i = tb.cursor) {
+export async function openItem(tb, i = tb.cursor, really = false) {
+  // Pick mode: a double-click chooses (Enter comes through `pickItem` with the marks).
+  if (ui.cfg.pick && !really) return pickItem(tb, i, false);
   const e = tb.items.at(i);
   if (!e) return;
   if (e.is_dir) return cd(tb, e.path);
@@ -1416,6 +1424,56 @@ export async function openItem(tb, i = tb.cursor) {
   if (!(tb.history || tb.package) && (await gamesOf(e, on, inside))) return;
   if (tb.archive) return void (ui.status = t(tb.diskImage ? "disk_image.copy_out_hint" : "archive.copy_out_hint", { archive: basename(tb.archive) }));
   openFile(tb, e);
+}
+
+/** Pick mode: a file the filter does not take is dimmed, unless Show all is on
+ *  (`pick::Request::dims`). */
+export function pickDim(e) {
+  const f = ui.cfg.pick?.filter;
+  if (!f?.length || ui.pickAll || e.is_dir) return false;
+  const name = e.name.toLowerCase();
+  return !f.some((x) => name.endsWith("." + x));
+}
+
+/** Pick mode, Enter (`marks`: the marked entries count) or a double-click: the backend says
+ *  whether it is chosen (the app then ends), opened as usual, or why not. With `--save` a folder
+ *  opens and a file's name goes into the name field. */
+export async function pickItem(tb, i = tb.cursor, marks = true) {
+  const e = tb.items.at(i);
+  const marked = marks && tb.marks.count ? (await pick(tb, "marked")).map((m) => [m.path, m.is_dir]) : [];
+  if (!e && !marked.length) return;
+  const real = e && e.name !== "..";
+  if (!real && !marked.length) return openItem(tb, i, true);
+  // A double-click on a folder opens it, also when folders are asked for (Enter chooses it).
+  if (!marks && e.is_dir) return openItem(tb, i, true);
+  let goesIn = !!e?.is_dir;
+  if (real && !e.is_dir) {
+    const on = await invoke("enter_on", { path: e.path, isDir: false, inside: !!tb.archive }).catch(() => null);
+    goesIn = ["archive", "disk_image", "image", "mailbox"].includes(on?.enter);
+  }
+  if (ui.cfg.pick.save != null) {
+    if (goesIn) return openItem(tb, i, true);
+    if (real) ui.pickName = e.name;
+    return;
+  }
+  try {
+    const enter = await invoke("pick_choose", { marked, cursor: real ? [e.path, e.is_dir] : null, goesIn, showAll: ui.pickAll });
+    if (enter) openItem(tb, i, true);
+  } catch (err) {
+    ui.status = String(err);
+  }
+}
+
+/** Pick mode with `--save`: the name typed, in the active tab's folder; a file that is there is
+ *  replaced only after the question is said yes to. */
+export async function pickSave(replace = false) {
+  try {
+    const there = await invoke("pick_save", { dir: tab().dir, name: ui.pickName, replace });
+    if (there != null)
+      ui.modal = { kind: "confirm", title: t("pick.overwrite_title"), text: t("pick.overwrite_text", { name: there }), ok: t("pick.overwrite_yes"), run: () => pickSave(true), feature: "pick" };
+  } catch (err) {
+    ui.status = String(err);
+  }
 }
 
 /** Games, positions or an opening book (`on`: `enter_on`'s answer, asked when not given) open in

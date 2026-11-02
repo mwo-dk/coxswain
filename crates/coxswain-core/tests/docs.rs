@@ -198,6 +198,11 @@ fn the_flags_page_shows_the_help_as_it_is() {
         page.contains(&format!("```\n{usage}\n```")),
         "docs/reference/command-line-flags.md must show coxswain --help as crates/coxswain/src/lib.rs's USAGE has it:\n{usage}"
     );
+    // And `coxswain-gui --help`, as gui/src-tauri/src/main.rs's USAGE has it.
+    let src = read(root().join("gui/src-tauri/src/main.rs"));
+    let start = src.find("const USAGE: &str = \"").expect("USAGE in gui/src-tauri/src/main.rs") + 21;
+    let usage = &src[start..start + src[start..].find("\";").unwrap()];
+    assert!(page.contains(&format!("```\n{usage}\n```")), "docs/reference/command-line-flags.md must show coxswain-gui --help as gui/src-tauri/src/main.rs's USAGE has it:\n{usage}");
 }
 
 /// F1 → Features (`feature.*`) and Help (`help.*`) in every language name an action's key as

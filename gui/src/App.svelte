@@ -3,7 +3,7 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, gamesOf, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders, remoteRun, stopRemote, refreshBin, openBin, binAct } from "./app.svelte.js";
+  import { ui, openFind, init, gamesOf, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, pickItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders, remoteRun, stopRemote, refreshBin, openBin, binAct } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { invoke, keyString, basename, parent, quote, isArchive, diskName, packFormat, LOCKED, inside, keyOwner } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
@@ -23,6 +23,7 @@
   import Settings from "./Settings.svelte";
   import SetupSearch from "./SetupSearch.svelte";
   import Guide from "./Guide.svelte";
+  import PickBar from "./PickBar.svelte";
 
   let dialogs = $state();
   let panes = $state([]);
@@ -54,6 +55,12 @@
   const dismissNotice = (n) => invoke("dismiss_notice", { id: n.id }).then(() => (ui.news.notices = ui.news.notices.filter((x) => x.id !== n.id)), () => {});
   init().then(
     () => {
+      // Pick mode: Enter chooses, and what would change files only says why not (the backend
+      // refuses those commands too, whatever sends them).
+      if (ui.cfg.pick) {
+        actions.open = () => pickItem(tab());
+        for (const n of ui.cfg.pick_refused) actions[n] = () => (ui.status = t("pick.refused"));
+      }
       ready = true;
       // Once a day (check_update itself throttles), so a window left open for weeks still hears.
       const check = () => invoke("check_update").then((v) => (update = v), () => {});
@@ -84,7 +91,8 @@
       (e) => saveFailed || ((saveFailed = true), (ui.status = String(e))),
     );
   $effect(() => {
-    if (!ready) return;
+    // A picker leaves the session as it was: its tabs are not saved.
+    if (!ready || ui.cfg.pick) return;
     const snap = JSON.stringify(snapshot());
     const timer = setTimeout(() => saveSession(JSON.parse(snap)), 600);
     return () => clearTimeout(timer);
@@ -843,6 +851,11 @@
       ui.showPreview = false;
       return;
     }
+    // Pick mode: Esc cancels; Show all has a key of its own (`pick::SHOW_ALL_KEY`).
+    if (ui.cfg.pick && k === "Esc" && !ui.cmd) return void (e.preventDefault(), getCurrentWindow().close());
+    // Ctrl+PageDown opens the folder under the cursor, also when `--folder` makes Enter choose it.
+    if (ui.cfg.pick && k === "Ctrl+PageDown" && !act && item()?.is_dir) return void (e.preventDefault(), openItem(tab(), undefined, true));
+    if (ui.cfg.pick?.filter.length && !act && k.toLowerCase() === ui.cfg.pick_key.toLowerCase()) return void (e.preventDefault(), (ui.pickAll = !ui.pickAll));
     if (!act && e.altKey && !e.ctrlKey && /^Key[A-Z]$|^Digit/.test(e.code)) {
       ui.quick = k.split("+").pop().toLowerCase();
       return quickJump(e);
@@ -866,7 +879,7 @@
       e.preventDefault();
       if (k === "Left") return actions.parent();
       const it = item();
-      return it?.is_dir && it.name !== ".." && openItem(tab());
+      return it?.is_dir && it.name !== ".." && openItem(tab(), undefined, true);
     }
     if (act) {
       e.preventDefault();
@@ -940,6 +953,7 @@
       {/if}
     </div>
 
+    {#if ui.cfg.pick}<PickBar />{/if}
     <label class="cmdline">
       <span class="prompt">{#if ui.quick !== null}{t("quick_search", { query: ui.quick })}{:else}<bdi dir="ltr">{tab().dir}</bdi> ❯{/if}</span>
       <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={ui.cfg.settings.typing === "find" && ui.cfg.actions.command_line?.[1] ? t("tui.command_line_key", { key: ui.cfg.actions.command_line?.[1] ?? "" }) : t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
