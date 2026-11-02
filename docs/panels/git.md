@@ -343,6 +343,16 @@ The folder is not inside a git work tree, or `git` is not on your `PATH`. On mac
 app started from the Dock reads `PATH` from your login shell; a `git` installed elsewhere is
 not found. Inside an archive there is no git line either.
 
+A repository that names a FIFO (a named pipe) or a device for git to read gets no git line
+either: in its config, an `[include]` of it (or an include of an include), `core.excludesFile`,
+`core.attributesFile`, `HEAD`, the index, `info/exclude` or the `.gitignore` at the top of the
+work tree. git would wait on it for ever, so Coxswain looks at what each one is before git
+runs, opens only plain files, and runs no git there: no status, no filters, no branch switch,
+and the git config view (**Alt+C**) says git could not read the config. A folder unpacked from
+someone else's archive can hold such a file; a clone cannot. A FIFO elsewhere in the
+repository (a ref, a pack) is not looked for: the git status, the filter check, the config
+view and the preview's diff are ended after two minutes instead.
+
 #### Why are the counts different from `git status`?
 
 They are the same counts, taken from `git status --porcelain=v2`, but grouped: a file both
