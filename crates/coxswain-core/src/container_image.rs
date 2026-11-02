@@ -1367,6 +1367,8 @@ pub(crate) mod tests {
         assert_eq!(enter(&zip.join("index.json"), false, Place::Archive), Enter::Other);
         let (entries, _) = crate::archive::listing(&zip, "rocket/index.json").unwrap();
         assert!(entries.iter().any(|e| e.name == "hello.txt" && e.size == 2), "{:?}", entries.iter().map(|e| &e.name).collect::<Vec<_>>());
+        // Inside it nothing is changed, as in any archive inside an archive; beside it, the zip is.
+        assert!(crate::archive::nested_dir(&ix) && !crate::archive::nested_dir(&zip.join("rocket")));
         let copy = crate::archive::peek(&zip.join("rocket/index.json/hello.txt")).unwrap();
         assert_eq!(std::fs::read(copy).unwrap(), b"hi");
         let _ = std::fs::remove_dir_all(&dir);

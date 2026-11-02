@@ -1475,13 +1475,20 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<Held> {
     if let Some(folder) = layout_folder(name).filter(|_| layout_in(&all, name)) {
         let prefix = if folder.is_empty() { String::new() } else { format!("{folder}/") };
         let claimed: u64 = all.iter().filter(|it| !it.dir && it.name.starts_with(&prefix)).map(|it| it.size).sum();
+        // Too large: the folder is what to copy out, not its index.json.
+        let shown = if folder.is_empty() { name } else { folder };
         if claimed > NESTED_MAX {
-            return Err(too_large(name));
+            return Err(too_large(shown));
         }
         let dir = run_folder("nested", false)?.join(NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed).to_string());
         let _ = std::fs::remove_dir_all(&dir);
         crate::fs::private_dir(&dir)?;
         let base = dir.join(folder.rsplit('/').next().filter(|n| !n.is_empty()).unwrap_or("layout"));
+        // The whole archive (a layout at its top): into a folder made here, as a disk image's
+        // top expects one.
+        if folder.is_empty() {
+            crate::fs::private_dir(&base)?;
+        }
         let how = Copy { limit: NESTED_MAX, ..Copy::default() };
         if let Err(e) = copy_out_with(archive, folder, &base, password_for(archive, None).as_deref(), how) {
             let _ = std::fs::remove_dir_all(&dir);
@@ -1591,6 +1598,10 @@ fn evict(kept: &mut Vec<Spilled>, i: usize) {
     forget(&gone.copy);
     if let Some(d) = gone.copy.parent() {
         let _ = std::fs::remove_dir_all(d);
+        // A layout's copy is a folder in the copy's own numbered folder: that goes too.
+        if layout_folder(&gone.name).is_some() && !opens_inside(Path::new(&gone.name)) {
+            let _ = d.parent().map(std::fs::remove_dir);
+        }
     }
     while let Some(j) = kept.iter().position(|k| k.outer == gone.copy) {
         evict(kept, j);

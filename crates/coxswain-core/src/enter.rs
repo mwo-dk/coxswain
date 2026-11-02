@@ -7,8 +7,8 @@ use serde::Serialize;
 use std::path::Path;
 
 /// Where an entry is: on the disk, or inside an archive (at any depth). Inside one only names
-/// count (an `index.json` is told by the `oci-layout` named beside it): nothing is read to say
-/// what Enter does there.
+/// count: nothing is unpacked to say what Enter does there, except that an `index.json` is
+/// told by an `oci-layout` named beside it in the listing of the archive it is in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Place {
     Disk,

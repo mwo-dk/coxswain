@@ -41,7 +41,7 @@ or Podman need not run.
    panel. **Ctrl+E** on the image unpacks its whole merged file system into a folder of its own.
 
 For an OCI layout folder, go into the folder (it holds `oci-layout`, `index.json` and `blobs`)
-and press **Enter** on `index.json`, on the disk or inside an archive. The first few times the cursor is on one, the status line
+and press **Enter** on `index.json`, on the disk or inside an archive. On the disk, the first few times the cursor is on one, the status line
 says *An OCI image layout: Enter on index.json opens the image like a folder, read-only*.
 
 | | Desktop app | Terminal app |
