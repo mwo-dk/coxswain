@@ -4586,7 +4586,6 @@
  "bin.finder_all_disks": "Finder はここに表示されたものだけでなく、すべてのディスクのゴミ箱を空にします。",
  "pick.needs_value": "{option} には値が必要です",
  "pick.unknown": "--pick の不明なオプション: {option}",
- "pick.needs_file": "--pick は標準出力に書きますが、ここでは端末ではありません。--pick=ファイル でファイルを指定してください",
  "pick.nothing": "ここには選べるものがありません",
  "pick.not_folder": "ここではフォルダだけ選べます",
  "pick.not_wanted": "求められた種類のファイルではありません",
@@ -4603,5 +4602,7 @@
  "feature.pick.q2": "複数のファイルやフォルダはどう選びますか?",
  "feature.pick.a2": "--multiple で起動し、{mark} でファイルをマークして Enter を押します。--folder では Enter がカーソル位置のフォルダを選びます。",
  "feature.pick.q3": "アーカイブの中のファイルは?",
- "feature.pick.a3": "アーカイブはいつもどおりフォルダとして開きます。中で選んだファイルはキャッシュに展開され、そのコピーのパスが返されます。"
+ "feature.pick.a3": "アーカイブはいつもどおりフォルダとして開きます。中で選んだファイルはキャッシュに展開され、そのコピーのパスが返されます。",
+ "pick.no_terminal": "選択モードには Coxswain を表示する端末が必要ですが、開けませんでした: {error}",
+ "pick.refused": "ピッカーは選ぶだけです。ファイルは変更しません"
 }

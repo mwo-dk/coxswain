@@ -409,7 +409,6 @@
  "pick.ask_files": "Elige archivos",
  "pick.ask_folder": "Elige una carpeta",
  "pick.ask_folders": "Elige carpetas",
- "pick.needs_file": "--pick escribe en la salida estándar, que acá no es una terminal: indica un archivo con --pick=ARCHIVO",
  "pinned.full": "Se detuvo en {n}: marca menos elementos.",
  "pkg.not_here": "Archivos de este paquete: primero pon el cursor sobre un archivo del sistema",
  "preview.comic_open": "{key} la abre como una carpeta: copia sus páginas al otro panel.",

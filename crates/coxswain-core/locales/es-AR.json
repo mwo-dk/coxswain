@@ -4782,7 +4782,6 @@
  "bin.finder_all_disks": "El Finder vacía la papelera de todos los discos, no solo la que se ve acá.",
  "pick.needs_value": "{option} necesita un valor",
  "pick.unknown": "opción de --pick desconocida: {option}",
- "pick.needs_file": "--pick escribe en la salida estándar, que acá no es una terminal: indicá un archivo con --pick=ARCHIVO",
  "pick.nothing": "No hay nada para elegir acá",
  "pick.not_folder": "Acá solo se pueden elegir carpetas",
  "pick.not_wanted": "No es un archivo del tipo pedido",
@@ -4799,5 +4798,7 @@
  "feature.pick.q2": "¿Cómo elijo varios archivos, o una carpeta?",
  "feature.pick.a2": "Empezá con --multiple, marcá los archivos con {mark} y apretá Enter. Con --folder, Enter elige la carpeta bajo el cursor.",
  "feature.pick.q3": "¿Y un archivo dentro de un archivo comprimido?",
- "feature.pick.a3": "Los comprimidos se abren como carpetas. Un archivo elegido adentro se descomprime en el caché y se da la ruta de esa copia."
+ "feature.pick.a3": "Los comprimidos se abren como carpetas. Un archivo elegido adentro se descomprime en el caché y se da la ruta de esa copia.",
+ "pick.no_terminal": "El modo de elección necesita una terminal para mostrar Coxswain y no se pudo abrir ninguna: {error}",
+ "pick.refused": "El selector solo elige: no cambia ningún archivo"
 }

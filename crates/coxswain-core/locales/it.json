@@ -4782,7 +4782,6 @@
  "bin.finder_all_disks": "Il Finder svuota il cestino di tutti i dischi, non solo quello elencato qui.",
  "pick.needs_value": "{option} richiede un valore",
  "pick.unknown": "opzione di --pick sconosciuta: {option}",
- "pick.needs_file": "--pick scrive sullo standard output, che qui non è un terminale: indica un file con --pick=FILE",
  "pick.nothing": "Niente da scegliere qui",
  "pick.not_folder": "Qui si possono scegliere solo cartelle",
  "pick.not_wanted": "Non è un file del tipo richiesto",
@@ -4799,5 +4798,7 @@
  "feature.pick.q2": "Come scelgo più file, o una cartella?",
  "feature.pick.a2": "Avvia con --multiple, segna i file con {mark} e premi Invio. Con --folder, Invio sceglie la cartella sotto il cursore.",
  "feature.pick.q3": "E un file dentro un archivio?",
- "feature.pick.a3": "Gli archivi si aprono come cartelle. Un file scelto al loro interno viene estratto nella cache e si dà il percorso di quella copia."
+ "feature.pick.a3": "Gli archivi si aprono come cartelle. Un file scelto al loro interno viene estratto nella cache e si dà il percorso di quella copia.",
+ "pick.no_terminal": "La modalità scelta ha bisogno di un terminale per mostrare Coxswain e non se n'è potuto aprire nessuno: {error}",
+ "pick.refused": "Il selettore sceglie soltanto: non modifica nessun file"
 }

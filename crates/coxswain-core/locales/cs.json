@@ -4785,7 +4785,6 @@
  "bin.finder_all_disks": "Finder vysype koš na všech discích, nejen ten zde vypsaný.",
  "pick.needs_value": "{option} potřebuje hodnotu",
  "pick.unknown": "neznámá volba --pick: {option}",
- "pick.needs_file": "--pick zapisuje na standardní výstup, který tu není terminál: zadejte soubor pomocí --pick=SOUBOR",
  "pick.nothing": "Není tu co vybrat",
  "pick.not_folder": "Zde lze vybrat jen složky",
  "pick.not_wanted": "Není to soubor požadovaného druhu",
@@ -4802,5 +4801,7 @@
  "feature.pick.q2": "Jak vyberu více souborů nebo složku?",
  "feature.pick.a2": "Spusťte s --multiple, soubory označte klávesou {mark} a stiskněte Enter. S --folder Enter vybere složku pod kurzorem.",
  "feature.pick.q3": "A soubor v archivu?",
- "feature.pick.a3": "Archivy se otevírají jako složky. Soubor vybraný uvnitř se rozbalí do mezipaměti a vrátí se cesta k této kopii."
+ "feature.pick.a3": "Archivy se otevírají jako složky. Soubor vybraný uvnitř se rozbalí do mezipaměti a vrátí se cesta k této kopii.",
+ "pick.no_terminal": "Režim výběru potřebuje terminál k zobrazení Coxswain a žádný nešlo otevřít: {error}",
+ "pick.refused": "Výběr jen vybírá: nemění žádné soubory"
 }

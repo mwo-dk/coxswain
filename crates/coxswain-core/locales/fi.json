@@ -4684,7 +4684,6 @@
  "bin.finder_all_disks": "Finder tyhjentää kaikkien levyjen roskakorit, ei vain tässä näkyvää.",
  "pick.needs_value": "{option} tarvitsee arvon",
  "pick.unknown": "tuntematon --pick-valinta: {option}",
- "pick.needs_file": "--pick kirjoittaa vakiotulosteeseen, joka ei ole tässä pääte: anna tiedosto valinnalla --pick=TIEDOSTO",
  "pick.nothing": "Täällä ei ole mitään valittavaa",
  "pick.not_folder": "Tässä voi valita vain kansioita",
  "pick.not_wanted": "Ei pyydettyä tiedostolajia",
@@ -4701,5 +4700,7 @@
  "feature.pick.q2": "Miten valitsen useita tiedostoja tai kansion?",
  "feature.pick.a2": "Käynnistä valinnalla --multiple, merkitse tiedostot näppäimellä {mark} ja paina Enter. Valinnalla --folder Enter valitsee kohdistimen alla olevan kansion.",
  "feature.pick.q3": "Entä tiedosto arkiston sisällä?",
- "feature.pick.a3": "Arkistot avautuvat kansioina. Niistä valittu tiedosto puretaan välimuistiin ja kopion polku annetaan."
+ "feature.pick.a3": "Arkistot avautuvat kansioina. Niistä valittu tiedosto puretaan välimuistiin ja kopion polku annetaan.",
+ "pick.no_terminal": "Valintatila tarvitsee päätteen Coxswainin näyttämiseen, eikä sellaista voitu avata: {error}",
+ "pick.refused": "Valitsin vain valitsee: se ei muuta tiedostoja"
 }

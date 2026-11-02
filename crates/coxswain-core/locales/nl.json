@@ -4684,7 +4684,6 @@
  "bin.finder_all_disks": "De Finder leegt de prullenbak van elke schijf, niet alleen die hier staat.",
  "pick.needs_value": "{option} heeft een waarde nodig",
  "pick.unknown": "onbekende --pick-optie: {option}",
- "pick.needs_file": "--pick schrijft naar de standaarduitvoer, die hier geen terminal is: geef een bestand op met --pick=BESTAND",
  "pick.nothing": "Hier valt niets te kiezen",
  "pick.not_folder": "Hier kunnen alleen mappen gekozen worden",
  "pick.not_wanted": "Geen bestand van het gevraagde soort",
@@ -4701,5 +4700,7 @@
  "feature.pick.q2": "Hoe kies ik meer bestanden, of een map?",
  "feature.pick.a2": "Start met --multiple, markeer de bestanden met {mark} en druk op Enter. Met --folder kiest Enter de map onder de cursor.",
  "feature.pick.q3": "En een bestand in een archief?",
- "feature.pick.a3": "Archieven openen als mappen. Een bestand dat daarin gekozen is, wordt naar de cache uitgepakt en het pad van die kopie wordt gegeven."
+ "feature.pick.a3": "Archieven openen als mappen. Een bestand dat daarin gekozen is, wordt naar de cache uitgepakt en het pad van die kopie wordt gegeven.",
+ "pick.no_terminal": "De kiesmodus heeft een terminal nodig om Coxswain te tonen en er kon er geen geopend worden: {error}",
+ "pick.refused": "De kiezer kiest alleen: hij wijzigt geen bestanden"
 }

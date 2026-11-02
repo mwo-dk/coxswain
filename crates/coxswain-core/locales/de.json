@@ -4684,7 +4684,6 @@
  "bin.finder_all_disks": "Der Finder leert den Papierkorb aller Laufwerke, nicht nur den hier gelisteten.",
  "pick.needs_value": "{option} braucht einen Wert",
  "pick.unknown": "unbekannte Option für --pick: {option}",
- "pick.needs_file": "--pick schreibt auf die Standardausgabe, die hier kein Terminal ist: gib mit --pick=DATEI eine Datei an",
  "pick.nothing": "Hier gibt es nichts zu wählen",
  "pick.not_folder": "Hier können nur Ordner gewählt werden",
  "pick.not_wanted": "Keine Datei der gewünschten Art",
@@ -4701,5 +4700,7 @@
  "feature.pick.q2": "Wie wähle ich mehrere Dateien oder einen Ordner?",
  "feature.pick.a2": "Mit --multiple starten, die Dateien mit {mark} markieren und Enter drücken. Mit --folder wählt Enter den Ordner unter dem Cursor.",
  "feature.pick.q3": "Und eine Datei in einem Archiv?",
- "feature.pick.a3": "Archive öffnen sich wie üblich als Ordner. Eine darin gewählte Datei wird in den Cache entpackt, und der Pfad dieser Kopie wird ausgegeben."
+ "feature.pick.a3": "Archive öffnen sich wie üblich als Ordner. Eine darin gewählte Datei wird in den Cache entpackt, und der Pfad dieser Kopie wird ausgegeben.",
+ "pick.no_terminal": "Der Auswahlmodus braucht ein Terminal, um Coxswain anzuzeigen, und keines ließ sich öffnen: {error}",
+ "pick.refused": "Die Auswahl wählt nur: sie ändert keine Dateien"
 }

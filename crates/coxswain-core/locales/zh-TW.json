@@ -4597,7 +4597,6 @@
  "bin.finder_all_disks": "Finder 會清空每個磁碟的垃圾桶，而不只是這裡列出的那個。",
  "pick.needs_value": "{option} 需要一個值",
  "pick.unknown": "--pick 的未知選項:{option}",
- "pick.needs_file": "--pick 寫到標準輸出,但這裡它不是終端機:請用 --pick=檔案 指定一個檔案",
  "pick.nothing": "這裡沒有可選的內容",
  "pick.not_folder": "這裡只能選擇資料夾",
  "pick.not_wanted": "不是所要求類型的檔案",
@@ -4614,5 +4613,7 @@
  "feature.pick.q2": "如何選擇多個檔案或一個資料夾?",
  "feature.pick.a2": "用 --multiple 啟動,用 {mark} 標記檔案,再按 Enter。用 --folder 時,Enter 會選擇游標處的資料夾。",
  "feature.pick.q3": "壓縮檔裡的檔案呢?",
- "feature.pick.a3": "壓縮檔照常以資料夾開啟。在裡面選的檔案會解壓到快取,並給出該副本的路徑。"
+ "feature.pick.a3": "壓縮檔照常以資料夾開啟。在裡面選的檔案會解壓到快取,並給出該副本的路徑。",
+ "pick.no_terminal": "選取模式需要終端機來顯示 Coxswain,但無法開啟終端機:{error}",
+ "pick.refused": "選取器只負責選擇:不會更改任何檔案"
 }

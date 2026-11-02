@@ -5,6 +5,7 @@
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+use crate::config::Action;
 use crate::t;
 
 /// What is asked for, from the command line after `--pick`.
@@ -83,12 +84,13 @@ impl Request {
         Verdict::Choose(chosen)
     }
 
-    /// Write the paths, one per line, UTF-8, to the file or standard output.
-    pub fn write(&self, paths: &[PathBuf]) -> io::Result<()> {
+    /// Write the paths, one per line, UTF-8, to the file, or to `stdout` (the program's own
+    /// standard output, kept apart from the terminal the panels are drawn on).
+    pub fn write(&self, paths: &[PathBuf], stdout: &mut dyn Write) -> io::Result<()> {
         let text: String = paths.iter().map(|p| format!("{}\n", p.to_string_lossy())).collect();
         match &self.out {
             Some(f) => std::fs::write(f, text),
-            None => io::stdout().write_all(text.as_bytes()),
+            None => stdout.write_all(text.as_bytes()).and_then(|()| stdout.flush()),
         }
     }
 }
@@ -97,6 +99,21 @@ impl Request {
 fn extensions(s: &str) -> Vec<String> {
     let list = s.rsplit_once(':').map_or(s, |(_, l)| l);
     list.split(',').map(|e| e.trim().trim_start_matches("*.").trim_start_matches('.').to_lowercase()).filter(|e| !e.is_empty()).collect()
+}
+
+/// Whether `a` changes files, runs a command or writes settings: a picker only chooses, so
+/// pick mode refuses these from every way to reach them (keys, the action menu, F9).
+pub fn changes_files(a: Action) -> bool {
+    use Action::*;
+    matches!(
+        a,
+        Copy | Move | Rename | Delete | Undo | NewFolder | ClipCut | Paste | DeleteForever | CompareFolders | BatchRename | Replace
+            | Attrs | Tag | Snapshots | Flags | Package | BinRestore | BinDelete | BinEmpty | Extract | Pack | DiskImages
+            | SearchablePdf | ConvertMedia | EditPictures | ConvertGeodata | ExportModel | ConvertEbook | ExportKicad
+            | MakeChecksums | SplitFile | JoinParts | AdocPdf | DrawioExport | ScanViruses | Duplicates | Transcribe
+            | SwitchBranch | NewBranch | Fetch | Pull | GitTool | GitConfig | Properties | Edit | EditHere | CommandLine
+            | UserMenu | Notes | Settings | SuggestTranslation
+    )
 }
 
 /// A file inside an archive is unpacked to the cache, and that path is what is chosen; any other
@@ -160,8 +177,23 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let out = dir.join("out.txt");
         let r = Request { out: Some(out.clone()), ..Request::default() };
-        r.write(&["/a b".into(), "/ü".into()]).unwrap();
+        r.write(&["/a b".into(), "/ü".into()], &mut Vec::new()).unwrap();
         assert_eq!(std::fs::read_to_string(&out).unwrap(), "/a b\n/ü\n");
         let _ = std::fs::remove_dir_all(&dir);
+        // Without a file, the paths go to the stream given (the program's own standard output).
+        let mut piped = Vec::new();
+        Request::default().write(&["/x".into(), "/y z".into()], &mut piped).unwrap();
+        assert_eq!(String::from_utf8(piped).unwrap(), "/x\n/y z\n");
+    }
+
+    #[test]
+    fn a_picker_changes_no_files() {
+        use Action::*;
+        for a in [Copy, Move, Rename, Delete, DeleteForever, Paste, NewFolder, Replace, BinDelete, BinEmpty, Edit, CommandLine, Pack, Extract, Settings, Undo] {
+            assert!(changes_files(a), "{a:?}");
+        }
+        for a in [Open, Parent, Mark, MarkAll, View, Quit, Help, Menu, Refresh, SortName, TogglePreview, Search, CopyPath, ClipCopy] {
+            assert!(!changes_files(a), "{a:?}");
+        }
     }
 }

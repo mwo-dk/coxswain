@@ -4880,7 +4880,6 @@
  "bin.finder_all_disks": "Finder opróżnia Kosz na każdym dysku, nie tylko ten pokazany tutaj.",
  "pick.needs_value": "{option} wymaga wartości",
  "pick.unknown": "nieznana opcja --pick: {option}",
- "pick.needs_file": "--pick pisze na standardowe wyjście, które tu nie jest terminalem: podaj plik przez --pick=PLIK",
  "pick.nothing": "Nie ma tu czego wybrać",
  "pick.not_folder": "Tu można wybrać tylko foldery",
  "pick.not_wanted": "To nie plik żądanego rodzaju",
@@ -4897,5 +4896,7 @@
  "feature.pick.q2": "Jak wybrać kilka plików albo folder?",
  "feature.pick.a2": "Uruchom z --multiple, zaznacz pliki klawiszem {mark} i naciśnij Enter. Z --folder Enter wybiera folder pod kursorem.",
  "feature.pick.q3": "A plik w archiwum?",
- "feature.pick.a3": "Archiwa otwierają się jak foldery. Plik wybrany w środku jest rozpakowywany do pamięci podręcznej i podawana jest ścieżka tej kopii."
+ "feature.pick.a3": "Archiwa otwierają się jak foldery. Plik wybrany w środku jest rozpakowywany do pamięci podręcznej i podawana jest ścieżka tej kopii.",
+ "pick.no_terminal": "Tryb wyboru potrzebuje terminala do wyświetlenia Coxswain, a żadnego nie dało się otworzyć: {error}",
+ "pick.refused": "Selektor tylko wybiera: nie zmienia żadnych plików"
 }

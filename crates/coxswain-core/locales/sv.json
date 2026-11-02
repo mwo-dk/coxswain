@@ -4684,7 +4684,6 @@
  "bin.finder_all_disks": "Finder tömmer papperskorgen på alla skivor, inte bara den som visas här.",
  "pick.needs_value": "{option} behöver ett värde",
  "pick.unknown": "okänt --pick-val: {option}",
- "pick.needs_file": "--pick skriver till standard ut, som inte är en terminal här: ange en fil med --pick=FIL",
  "pick.nothing": "Inget att välja här",
  "pick.not_folder": "Här kan bara mappar väljas",
  "pick.not_wanted": "Inte en fil av önskat slag",
@@ -4701,5 +4700,7 @@
  "feature.pick.q2": "Hur väljer jag flera filer eller en mapp?",
  "feature.pick.a2": "Starta med --multiple, markera filerna med {mark} och tryck Enter. Med --folder väljer Enter mappen under markören.",
  "feature.pick.q3": "Och en fil i ett arkiv?",
- "feature.pick.a3": "Arkiv öppnas som mappar. En fil som väljs där packas upp i cachen, och sökvägen till den kopian ges."
+ "feature.pick.a3": "Arkiv öppnas som mappar. En fil som väljs där packas upp i cachen, och sökvägen till den kopian ges.",
+ "pick.no_terminal": "Valläget behöver en terminal för att visa Coxswain, och ingen gick att öppna: {error}",
+ "pick.refused": "Väljaren väljer bara: den ändrar inga filer"
 }

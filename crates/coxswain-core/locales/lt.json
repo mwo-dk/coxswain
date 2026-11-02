@@ -4782,7 +4782,6 @@
  "bin.finder_all_disks": "„Finder“ išvalo visų diskų šiukšlines, ne tik čia rodomą.",
  "pick.needs_value": "{option} reikia reikšmės",
  "pick.unknown": "nežinoma --pick parinktis: {option}",
- "pick.needs_file": "--pick rašo į standartinę išvestį, kuri čia nėra terminalas: nurodykite failą su --pick=FAILAS",
  "pick.nothing": "Čia nėra ką pasirinkti",
  "pick.not_folder": "Čia galima rinktis tik aplankus",
  "pick.not_wanted": "Ne prašomo tipo failas",
@@ -4799,5 +4798,7 @@
  "feature.pick.q2": "Kaip pasirinkti kelis failus ar aplanką?",
  "feature.pick.a2": "Paleiskite su --multiple, failus pažymėkite {mark} ir spauskite Enter. Su --folder Enter pasirenka aplanką po žymekliu.",
  "feature.pick.q3": "O failas archyve?",
- "feature.pick.a3": "Archyvai atsidaro kaip aplankai. Viduje pasirinktas failas išpakuojamas į podėlį ir pateikiamas tos kopijos kelias."
+ "feature.pick.a3": "Archyvai atsidaro kaip aplankai. Viduje pasirinktas failas išpakuojamas į podėlį ir pateikiamas tos kopijos kelias.",
+ "pick.no_terminal": "Pasirinkimo režimui reikia terminalo Coxswain parodyti, o nė vieno atverti nepavyko: {error}",
+ "pick.refused": "Parinkiklis tik renkasi: jis nekeičia jokių failų"
 }

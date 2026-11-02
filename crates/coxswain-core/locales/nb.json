@@ -4684,7 +4684,6 @@
  "bin.finder_all_disks": "Finder tømmer papirkurven på alle disker, ikke bare den som vises her.",
  "pick.needs_value": "{option} trenger en verdi",
  "pick.unknown": "ukjent --pick-valg: {option}",
- "pick.needs_file": "--pick skriver til standard utdata, som ikke er en terminal her: oppgi en fil med --pick=FIL",
  "pick.nothing": "Ingenting å velge her",
  "pick.not_folder": "Her kan bare mapper velges",
  "pick.not_wanted": "Ikke en fil av ønsket slag",
@@ -4701,5 +4700,7 @@
  "feature.pick.q2": "Hvordan velger jeg flere filer eller en mappe?",
  "feature.pick.a2": "Start med --multiple, merk filene med {mark} og trykk Enter. Med --folder velger Enter mappen under markøren.",
  "feature.pick.q3": "Hva med en fil i et arkiv?",
- "feature.pick.a3": "Arkiver åpnes som mapper. En fil valgt der pakkes ut i hurtigbufferen, og stien til den kopien gis."
+ "feature.pick.a3": "Arkiver åpnes som mapper. En fil valgt der pakkes ut i hurtigbufferen, og stien til den kopien gis.",
+ "pick.no_terminal": "Velgemodusen trenger en terminal for å vise Coxswain, og ingen kunne åpnes: {error}",
+ "pick.refused": "Velgeren velger bare: den endrer ingen filer"
 }

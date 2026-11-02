@@ -4782,7 +4782,6 @@
  "bin.finder_all_disks": "Le Finder vide la corbeille de tous les disques, pas seulement celle listée ici.",
  "pick.needs_value": "{option} demande une valeur",
  "pick.unknown": "option de --pick inconnue : {option}",
- "pick.needs_file": "--pick écrit sur la sortie standard, qui n'est pas un terminal ici : donnez un fichier avec --pick=FICHIER",
  "pick.nothing": "Rien à choisir ici",
  "pick.not_folder": "Seuls des dossiers peuvent être choisis ici",
  "pick.not_wanted": "Pas un fichier du genre demandé",
@@ -4799,5 +4798,7 @@
  "feature.pick.q2": "Comment choisir plusieurs fichiers, ou un dossier ?",
  "feature.pick.a2": "Lancez avec --multiple, marquez les fichiers avec {mark} et appuyez sur Entrée. Avec --folder, Entrée choisit le dossier sous le curseur.",
  "feature.pick.q3": "Et un fichier dans une archive ?",
- "feature.pick.a3": "Les archives s'ouvrent comme des dossiers. Un fichier choisi dedans est extrait dans le cache, et le chemin de cette copie est donné."
+ "feature.pick.a3": "Les archives s'ouvrent comme des dossiers. Un fichier choisi dedans est extrait dans le cache, et le chemin de cette copie est donné.",
+ "pick.no_terminal": "Le mode choix a besoin d'un terminal pour afficher Coxswain, et aucun n'a pu être ouvert : {error}",
+ "pick.refused": "Le sélecteur ne fait que choisir : il ne change aucun fichier"
 }

@@ -4782,7 +4782,6 @@
  "bin.finder_all_disks": "Finder iztukšo visu disku atkritnes, ne tikai šeit redzamo.",
  "pick.needs_value": "{option} nepieciešama vērtība",
  "pick.unknown": "nezināma --pick opcija: {option}",
- "pick.needs_file": "--pick raksta standarta izvadē, kas šeit nav terminālis: norādiet failu ar --pick=FAILS",
  "pick.nothing": "Šeit nav ko izvēlēties",
  "pick.not_folder": "Šeit var izvēlēties tikai mapes",
  "pick.not_wanted": "Nav pieprasītā veida fails",
@@ -4799,5 +4798,7 @@
  "feature.pick.q2": "Kā izvēlēties vairākus failus vai mapi?",
  "feature.pick.a2": "Startējiet ar --multiple, atzīmējiet failus ar {mark} un nospiediet Enter. Ar --folder Enter izvēlas mapi zem kursora.",
  "feature.pick.q3": "Un fails arhīvā?",
- "feature.pick.a3": "Arhīvi atveras kā mapes. Tajā izvēlētais fails tiek izpakots kešatmiņā, un tiek dots šīs kopijas ceļš."
+ "feature.pick.a3": "Arhīvi atveras kā mapes. Tajā izvēlētais fails tiek izpakots kešatmiņā, un tiek dots šīs kopijas ceļš.",
+ "pick.no_terminal": "Izvēles režīmam vajag termināli, lai parādītu Coxswain, un nevienu neizdevās atvērt: {error}",
+ "pick.refused": "Izvēlnis tikai izvēlas: tas nemaina nevienu failu"
 }

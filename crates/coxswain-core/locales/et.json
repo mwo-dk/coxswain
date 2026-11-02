@@ -4684,7 +4684,6 @@
  "bin.finder_all_disks": "Finder tühjendab kõigi ketaste prügikastid, mitte ainult siin näidatud.",
  "pick.needs_value": "{option} vajab väärtust",
  "pick.unknown": "tundmatu --pick valik: {option}",
- "pick.needs_file": "--pick kirjutab standardväljundisse, mis pole siin terminal: anna fail valikuga --pick=FAIL",
  "pick.nothing": "Siin pole midagi valida",
  "pick.not_folder": "Siin saab valida ainult kaustu",
  "pick.not_wanted": "Pole nõutud liiki fail",
@@ -4701,5 +4700,7 @@
  "feature.pick.q2": "Kuidas valida mitu faili või kaust?",
  "feature.pick.a2": "Käivita valikuga --multiple, märgi failid klahviga {mark} ja vajuta Enter. Valikuga --folder valib Enter kursori all oleva kausta.",
  "feature.pick.q3": "Aga fail arhiivi sees?",
- "feature.pick.a3": "Arhiivid avanevad kaustadena. Seal valitud fail pakitakse vahemällu lahti ja antakse selle koopia tee."
+ "feature.pick.a3": "Arhiivid avanevad kaustadena. Seal valitud fail pakitakse vahemällu lahti ja antakse selle koopia tee.",
+ "pick.no_terminal": "Valimisrežiim vajab terminali Coxswaini näitamiseks ja ühtegi ei õnnestunud avada: {error}",
+ "pick.refused": "Valija ainult valib: ta ei muuda ühtegi faili"
 }

@@ -4597,7 +4597,6 @@
  "bin.finder_all_disks": "访达会清空每个磁盘的回收站，而不只是这里列出的那个。",
  "pick.needs_value": "{option} 需要一个值",
  "pick.unknown": "--pick 的未知选项:{option}",
- "pick.needs_file": "--pick 写到标准输出,但这里它不是终端:请用 --pick=文件 指定一个文件",
  "pick.nothing": "这里没有可选的内容",
  "pick.not_folder": "这里只能选择文件夹",
  "pick.not_wanted": "不是所要求类型的文件",
@@ -4614,5 +4613,7 @@
  "feature.pick.q2": "如何选择多个文件或一个文件夹?",
  "feature.pick.a2": "用 --multiple 启动,用 {mark} 标记文件,再按 Enter。用 --folder 时,Enter 选择光标处的文件夹。",
  "feature.pick.q3": "压缩包里的文件呢?",
- "feature.pick.a3": "压缩包照常作为文件夹打开。在里面选的文件会解压到缓存,并给出该副本的路径。"
+ "feature.pick.a3": "压缩包照常作为文件夹打开。在里面选的文件会解压到缓存,并给出该副本的路径。",
+ "pick.no_terminal": "选取模式需要终端来显示 Coxswain,但无法打开终端:{error}",
+ "pick.refused": "选取器只负责选择:不会更改任何文件"
 }

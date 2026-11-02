@@ -4695,7 +4695,6 @@
  "bin.finder_all_disks": "Finder empties the bin of every disk, not only the one listed here.",
  "pick.needs_value": "{option} needs a value",
  "pick.unknown": "unknown --pick option: {option}",
- "pick.needs_file": "--pick writes to standard output, which is not a terminal here: give a file with --pick=FILE",
  "pick.nothing": "Nothing to choose here",
  "pick.not_folder": "Only folders can be chosen here",
  "pick.not_wanted": "Not a file of the kind asked for",
@@ -4712,5 +4711,7 @@
  "feature.pick.q2": "How do I choose several files, or a folder?",
  "feature.pick.a2": "Start with --multiple, mark the files with {mark} and press Enter. With --folder, Enter chooses the folder under the cursor.",
  "feature.pick.q3": "What about a file inside an archive?",
- "feature.pick.a3": "Archives open as folders as usual. A file chosen inside one is unpacked to the cache, and the path of that copy is given."
+ "feature.pick.a3": "Archives open as folders as usual. A file chosen inside one is unpacked to the cache, and the path of that copy is given.",
+ "pick.no_terminal": "Pick mode needs a terminal to show Coxswain in, and none could be opened: {error}",
+ "pick.refused": "The picker only chooses: it changes no files"
 }

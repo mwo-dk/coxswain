@@ -21,16 +21,16 @@ coxswain --pick[=FILE] [--folder] [--multiple] [--filter EXT,EXT] [--start DIR] 
 
 | Flag | Does |
 |---|---|
-| `--pick` | Pick mode. The paths go to standard output when it is a terminal |
-| `--pick=FILE` | The paths go to `FILE` instead. Needed when standard output is not a terminal, as in `$(coxswain --pick)`: the panels are drawn there |
+| `--pick` | Pick mode. The paths go to standard output, and only they do: the panels are drawn on the terminal itself (`/dev/tty`, `CONOUT$` on Windows), so `x=$(coxswain --pick)` works |
+| `--pick=FILE` | The paths go to `FILE` instead |
 | `--folder` | Folders are chosen, not files |
 | `--multiple` | Several may be chosen, the marked ones |
 | `--filter EXT,EXT` | Only files with these extensions can be chosen: `--filter pgn,pgn.gz`. A name before a colon, `"Games:pgn,pgn.gz"`, is ignored. Case does not matter |
 | `--start DIR` | The folder both panels start in; the current folder without it |
 | `--title TEXT` | Replaces the status line's *Choose a file* with your own text |
 
-A flag it does not know, or `--start` with a folder that is not there, is said and nothing
-starts (exit status 2).
+A flag it does not know, `--start` with a folder that is not there, or no terminal to draw on
+(a cron job, for one) is said and nothing starts (exit status 2).
 
 ## Choosing
 
@@ -47,13 +47,17 @@ mode instead of the F-keys:
 
 An entry that does not fit (a file with `--folder`, a folder among the marked files, a file
 without the extension asked for, two with no `--multiple`) is not chosen: the status line says
-why. The whole app is there, so a picker can also copy or delete; pick mode only decides what
-**Enter** and **Esc** do.
+why. A picker only chooses, so it changes nothing: every action that copies, moves, renames, deletes,
+writes or edits a file, runs a command (the command line, the user menu) or writes settings is
+refused with *The picker only chooses: it changes no files*, whether you reach it by its key,
+the action menu (**Shift+F10**) or the command list (**F9**). Looking, marking, searching,
+sorting, the preview and moving about work as always. A double-click on a file chooses it, as
+**Enter** does.
 
 ## What comes back
 
-- Each chosen path is one line, UTF-8, in `FILE` or on standard output, and the exit status is
-  `0`.
+- Each chosen path is one line, UTF-8, in `FILE` or on standard output (nothing else is
+  printed there), and the exit status is `0`.
 - Cancelling, or closing the terminal, prints nothing and exits `1`; a `FILE` left by an earlier run is not touched, so read the exit status first.
 - A file chosen **inside an archive** is first unpacked into the cache folder (`picked/` in
   [the cache](where-things-are-kept.md)), and the path of that copy is what comes back, since the
@@ -63,20 +67,25 @@ why. The whole app is there, so a picker can also copy or delete; pick mode only
 - Nothing is sent anywhere: the paths go to your file or your terminal.
 
 Not in this version: asking for a new file name to save under (`--save`), dimming the files the
-filter excludes, and the desktop app's window. They are separate issues.
+filter excludes, and the desktop app's window. They are a separate issue.
 
 ## Questions
 
 #### How does the program that calls Coxswain get the paths?
 
-Give it `--pick=FILE` and read the file after Coxswain exits: one path per line, UTF-8. Without a
-file the paths are printed on standard output, which works only when that is a terminal.
-Exit status `0` means something was chosen, `1` that it was cancelled.
+Read its standard output (`x=$(coxswain --pick)`), or give it `--pick=FILE` and read the file
+after Coxswain exits: one path per line, UTF-8. Exit status `0` means something was chosen, `1`
+that it was cancelled.
 
-#### Why does `$(coxswain --pick)` say it needs a file?
+#### Where are the panels drawn when standard output is a pipe?
 
-Coxswain draws its panels on standard output, and in `$(…)` that is a pipe. Use
-`coxswain --pick=/tmp/choice` and read `/tmp/choice`.
+On the terminal itself, as `fzf` does, so only the paths are printed on standard output. With no
+terminal (no controlling terminal in a cron job) it says so and exits with `2`.
+
+#### Why does the picker say it changes no files?
+
+You pressed something that would copy, move, delete, edit or run a command. A program that asked
+to choose files must not find them changed; use the normal `coxswain` for that.
 
 #### How do I choose several files, or a folder?
 

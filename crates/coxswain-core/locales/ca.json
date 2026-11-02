@@ -4782,7 +4782,6 @@
  "bin.finder_all_disks": "El Finder buida la paperera de tots els discs, no només la que es mostra aquí.",
  "pick.needs_value": "{option} necessita un valor",
  "pick.unknown": "opció de --pick desconeguda: {option}",
- "pick.needs_file": "--pick escriu a la sortida estàndard, que aquí no és un terminal: indiqueu un fitxer amb --pick=FITXER",
  "pick.nothing": "No hi ha res per triar aquí",
  "pick.not_folder": "Aquí només es poden triar carpetes",
  "pick.not_wanted": "No és un fitxer del tipus demanat",
@@ -4799,5 +4798,7 @@
  "feature.pick.q2": "Com trio diversos fitxers o una carpeta?",
  "feature.pick.a2": "Inicieu amb --multiple, marqueu els fitxers amb {mark} i premeu Retorn. Amb --folder, Retorn tria la carpeta sota el cursor.",
  "feature.pick.q3": "I un fitxer dins d'un arxiu?",
- "feature.pick.a3": "Els arxius s'obren com a carpetes. Un fitxer triat a dins es desempaqueta a la memòria cau i es dóna la ruta d'aquesta còpia."
+ "feature.pick.a3": "Els arxius s'obren com a carpetes. Un fitxer triat a dins es desempaqueta a la memòria cau i es dóna la ruta d'aquesta còpia.",
+ "pick.no_terminal": "El mode de selecció necessita un terminal per mostrar Coxswain i no se n'ha pogut obrir cap: {error}",
+ "pick.refused": "El selector només tria: no canvia cap fitxer"
 }
