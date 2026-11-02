@@ -1429,7 +1429,7 @@
  "feature.chess_play.q2": "Per què Motor diu que no s'ha trobat cap motor d'escacs?",
  "feature.chess_play.q3": "Com recorro una de les línies del motor sense jugar-la?",
  "feature.chess_play.title": "Escacs: continuar jugant i el motor",
- "feature.chess_play.what": "Jugueu les vostres jugades des de qualsevol posició, guardades com una línia al costat de la partida i desades només com a PGN nou quan ho demaneu; un Stockfish instal·lat mostra les seves millors línies, analitza una partida sencera amb marques i un gràfic, i l'escriu anotada.",
+ "feature.chess_play.what": "Jugueu les vostres jugades des de qualsevol posició, guardades com una línia al costat de la partida i desades només com a PGN nou quan ho demaneu; un Stockfish instal·lat mostra les seves millors línies, analitza una partida sencera amb marques i un gràfic, i l'escriu anotada. Cada posició analitzada es recorda: en tornar-hi, les línies del motor apareixen de seguida.",
  "feature.game_pieces.title": "Peces de joc al terminal",
  "feature.game_pieces.what": "L'app de terminal dibuixa les peces d'escacs, dames, go, shogi i xiangqi amb caràcters de bloc segons les imatges de l'app d'escriptori, tan grans com hi cap el tauler. On el terminal mostra imatges, les imatges mateixes.",
  "feature.game_pieces.q1": "Les peces es veuen com a quadrets o forats.",
@@ -4826,5 +4826,8 @@
  "pick.showing_all": "Mostra-ho tot: cada fitxer es mostra i es pot triar",
  "pick.showing_filtered": "Només es poden tornar a triar els fitxers demanats",
  "pick.show_all": "Mostra-ho tot",
- "pick.choose": "Tria"
+ "pick.choose": "Tria",
+ "chess.engine_from_review": "de l’anàlisi de la partida, cerca més a fons…",
+ "chess.memory": "Posicions recordades",
+ "chess.memory_hint": "Cada posició que el motor ha analitzat, en directe o en una anàlisi de partida, es desa aquí amb el motor i la seva configuració, perquè no s’analitzi de nou. Com a màxim {most} posicions (menys de 40 MB); les més antigues marxen primer. Ús del disc les esborra."
 }

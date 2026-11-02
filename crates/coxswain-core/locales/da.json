@@ -1379,7 +1379,7 @@
  "feature.chess_play.q2": "Hvorfor siger Motor, at der ikke er fundet en skakmotor?",
  "feature.chess_play.q3": "Hvordan går jeg gennem en af motorens varianter uden at spille den?",
  "feature.chess_play.title": "Skak: spil videre og motoren",
- "feature.chess_play.what": "Spil dine egne træk fra en hvilken som helst stilling, gemt som en variant ved siden af partiet og kun gemt som en ny PGN-fil, når du beder om det; en installeret Stockfish viser sine bedste varianter, analyserer et helt parti med mærker og en graf og skriver det ud kommenteret.",
+ "feature.chess_play.what": "Spil dine egne træk fra en hvilken som helst stilling, gemt som en variant ved siden af partiet og kun gemt som en ny PGN-fil, når du beder om det; en installeret Stockfish viser sine bedste varianter, analyserer et helt parti med mærker og en graf og skriver det ud kommenteret. Hver analyseret stilling huskes, så motorens varianter vises med det samme, når du går tilbage til den.",
  "feature.game_pieces.title": "Spillebrikker i terminalen",
  "feature.game_pieces.what": "Terminalprogrammet tegner brikkerne i skak, dam, go, shogi og xiangqi af blokketegn efter skrivebordsprogrammets billeder, så store som brættet tillader. Hvor terminalen viser billeder, billederne selv.",
  "feature.game_pieces.q1": "Brikkerne vises som firkanter eller huller.",
@@ -4728,5 +4728,8 @@
  "pick.showing_all": "Vis alle: alle filer vises og kan vælges",
  "pick.showing_filtered": "Kun de ønskede filer kan vælges igen",
  "pick.show_all": "Vis alle",
- "pick.choose": "Vælg"
+ "pick.choose": "Vælg",
+ "chess.engine_from_review": "fra partianalysen, ser dybere …",
+ "chess.memory": "Huskede stillinger",
+ "chess.memory_hint": "Hver stilling, motoren har analyseret, live eller i en partianalyse, gemmes her med motor og indstillinger, så den ikke analyseres igen. Højst {most} stillinger (under 40 MB); de ældste går først. Diskforbrug rydder dem."
 }

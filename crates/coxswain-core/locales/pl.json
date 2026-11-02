@@ -1479,7 +1479,7 @@
  "feature.chess_play.q2": "Dlaczego Silnik mówi, że nie znaleziono silnika szachowego?",
  "feature.chess_play.q3": "Jak przejść przez jedną z linii silnika bez jej rozgrywania?",
  "feature.chess_play.title": "Szachy: gra dalej i silnik",
- "feature.chess_play.what": "Graj własne ruchy z dowolnej pozycji, trzymane jako wariant obok partii i zapisywane jako nowy PGN tylko na twoją prośbę; zainstalowany Stockfish pokazuje najlepsze warianty, analizuje całą partię ze znakami i wykresem i zapisuje ją z komentarzem.",
+ "feature.chess_play.what": "Graj własne ruchy z dowolnej pozycji, trzymane jako wariant obok partii i zapisywane jako nowy PGN tylko na twoją prośbę; zainstalowany Stockfish pokazuje najlepsze warianty, analizuje całą partię ze znakami i wykresem i zapisuje ją z komentarzem. Każda przeanalizowana pozycja jest zapamiętywana, więc po powrocie do niej warianty silnika pojawiają się od razu.",
  "feature.game_pieces.title": "Bierki w terminalu",
  "feature.game_pieces.what": "Aplikacja terminalowa rysuje bierki szachów, warcabów, go, shōgi i xiangqi ze znaków blokowych według obrazków aplikacji desktopowej, tak duże, jak mieści szachownica. Tam, gdzie terminal pokazuje obrazki, same obrazki.",
  "feature.game_pieces.q1": "Bierki wyglądają jak kwadraciki lub dziury.",
@@ -4924,5 +4924,8 @@
  "pick.showing_all": "Pokaż wszystkie: każdy plik jest widoczny i można go wybrać",
  "pick.showing_filtered": "Znowu można wybrać tylko żądane pliki",
  "pick.show_all": "Pokaż wszystkie",
- "pick.choose": "Wybierz"
+ "pick.choose": "Wybierz",
+ "chess.engine_from_review": "z analizy partii, szuka głębiej…",
+ "chess.memory": "Zapamiętane pozycje",
+ "chess.memory_hint": "Każda pozycja przeanalizowana przez silnik, na żywo lub w analizie partii, jest trzymana tutaj z silnikiem i jego ustawieniami, więc nie jest analizowana ponownie. Najwyżej {most} pozycji (poniżej 40 MB); najstarsze odchodzą pierwsze. Użycie dysku je czyści."
 }

@@ -1429,7 +1429,7 @@
  "feature.chess_play.q2": "Kāpēc Dzinējs saka, ka šaha dzinējs nav atrasts?",
  "feature.chess_play.q3": "Kā iziet cauri kādam dzinēja variantam, to neizspēlējot?",
  "feature.chess_play.title": "Šahs: turpināšana un dzinējs",
- "feature.chess_play.what": "Izdariet savus gājienus no jebkuras pozīcijas, saglabātus kā variantu blakus partijai un ierakstītus kā jaunu PGN tikai pēc jūsu lūguma; instalēts Stockfish parāda savus labākos variantus, analizē visu partiju ar zīmēm un grafiku un ieraksta to anotētu.",
+ "feature.chess_play.what": "Izdariet savus gājienus no jebkuras pozīcijas, saglabātus kā variantu blakus partijai un ierakstītus kā jaunu PGN tikai pēc jūsu lūguma; instalēts Stockfish parāda savus labākos variantus, analizē visu partiju ar zīmēm un grafiku un ieraksta to anotētu. Katra analizētā pozīcija tiek atcerēta, tāpēc, atgriežoties pie tās, dzinēja varianti redzami uzreiz.",
  "feature.game_pieces.title": "Spēles kauliņi terminālī",
  "feature.game_pieces.what": "Termināļa lietotne zīmē šaha, dambretes, go, šogi un sjanci figūras no bloku rakstzīmēm pēc darbvirsmas lietotnes attēliem, tik lielas, cik ietilpst galdiņš. Kur terminālis rāda attēlus, pašus attēlus.",
  "feature.game_pieces.q1": "Figūras redzamas kā kastītes vai caurumi.",
@@ -4826,5 +4826,8 @@
  "pick.showing_all": "Rādīt visus: katrs fails ir redzams un izvēlams",
  "pick.showing_filtered": "Atkal var izvēlēties tikai prasītos failus",
  "pick.show_all": "Rādīt visus",
- "pick.choose": "Izvēlēties"
+ "pick.choose": "Izvēlēties",
+ "chess.engine_from_review": "no partijas analīzes, skatās dziļāk…",
+ "chess.memory": "Atcerētās pozīcijas",
+ "chess.memory_hint": "Katra dzinēja analizētā pozīcija, tiešraidē vai partijas analīzē, tiek glabāta šeit ar dzinēju un tā iestatījumiem, lai to neanalizētu vēlreiz. Ne vairāk kā {most} pozīcijas (zem 40 MB); vecākās aiziet pirmās. Diska lietojums tās notīra."
 }

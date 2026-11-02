@@ -137,7 +137,7 @@ fn cached(engine: &str, settings: &str, game: &Game) -> Option<PathBuf> {
 const KEPT: usize = 1000;
 
 /// The newest `most` analyses in `dir` kept, the rest removed.
-fn keep_newest(dir: &Path, most: usize) {
+pub(super) fn keep_newest(dir: &Path, most: usize) {
     let mut all: Vec<(std::time::SystemTime, std::path::PathBuf)> = std::fs::read_dir(dir)
         .into_iter()
         .flatten()
@@ -217,17 +217,30 @@ impl Reviewer {
 
 fn run(program: &Program, chess: &ChessConfig, game: &Game, plies: &[u32], shared: &Mutex<Review>, stop: &AtomicBool) -> std::io::Result<()> {
     let halt = || stop.load(Ordering::Relaxed);
-    let mut engine = Engine::start(program, &halt)?;
-    // Options it does not take: the live analysis says so; the game is analysed without them.
-    engine.configure(chess)?;
+    // Started at the first position not kept in `memory`.
+    let mut engine: Option<Engine> = None;
     let limit = Limit::of(chess, true);
-    shared.lock().unwrap_or_else(|e| e.into_inner()).engine = engine.name.clone();
+    let (key, settings) = (program.key(), super::memory::review(chess));
     // The position before each move: its score, the engine's line, and how much worse its
     // second choice is (from the mover's side).
     let mut before: Option<(i32, Vec<String>, Option<i32>)> = None;
     let fens = std::iter::once(game.start.clone()).chain(plies.iter().map(|&n| game.nodes[n as usize].fen.clone().unwrap_or_default()));
     for (i, fen) in fens.enumerate() {
-        let a = engine.think(&fen, limit, 2, &halt)?;
+        let a = match super::memory::recall(&key, &settings, &fen) {
+            Some(a) => a,
+            None => {
+                if engine.is_none() {
+                    let mut e = Engine::start(program, &halt)?;
+                    // Options it does not take: the live analysis says so; the game is analysed without them.
+                    e.configure(chess)?;
+                    shared.lock().unwrap_or_else(|e| e.into_inner()).engine = e.name.clone();
+                    engine = Some(e);
+                }
+                let a = engine.as_mut().expect("started above").think(&fen, limit, 2, &halt)?;
+                super::memory::keep(&key, &settings, &fen, &a);
+                a
+            }
+        };
         let b = pgn::board(&fen).ok_or_else(|| std::io::Error::other("no position"))?;
         let white = b.side_to_move() == cozy_chess::Color::White;
         let v = match a.lines.first().and_then(|l| score(l.cp, l.mate)) {
@@ -431,6 +444,52 @@ mod tests {
         std::fs::remove_file(&p).unwrap();
         let again = Reviewer::start(&Program::Installed(p.clone()), &chess, &g).now();
         assert!(again.done && again.plies.len() == 3, "{again:?}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// Engine calls counted: a position asked about again, live or by a review, is not asked
+    /// again; the review's result shows in the live analysis at once, marked as the review's.
+    #[cfg(unix)]
+    #[test]
+    fn positions_seen_once_are_not_analysed_again() {
+        use std::os::unix::fs::PermissionsExt;
+        // A folder no earlier run had: the engine's path is part of the key.
+        let d = std::env::temp_dir().join(format!("coxswain-memory-{}-{}", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        std::fs::create_dir_all(&d).unwrap();
+        let (p, log) = (d.join("engine"), d.join("asked"));
+        std::fs::write(
+            &p,
+            format!("#!/bin/sh\nwhile read l; do case \"$l\" in uci) echo 'id name Fake 3'; echo uciok;; isready) echo readyok;; go*) echo go >> '{}'; echo 'info depth 3 multipv 1 score cp 20 pv a2a3'; echo 'bestmove a2a3';; quit) exit 0;; esac; done\n", log.display()),
+        )
+        .unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let asked = || std::fs::read_to_string(&log).map_or(0, |s| s.lines().count());
+        let program = Program::Installed(p.clone());
+        let chess = ChessConfig { review_time: 50, engine_time: 50, ..Default::default() };
+        let wait = |r: &Reviewer| {
+            let t = std::time::Instant::now();
+            while !r.now().done && t.elapsed() < crate::test_limit(std::time::Duration::from_secs(20)) {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            r.now()
+        };
+        // Live: the second visit makes no engine call.
+        let fen = "rnbqkbnr/pppppppp/8/8/8/5N2/PPPPPPPP/RNBQKB1R b KQkq - 1 1";
+        let first = super::super::play::analyse(&program, &chess, fen, &|| false).unwrap();
+        assert_eq!(asked(), 1);
+        assert_eq!(super::super::play::analyse(&program, &chess, fen, &|| false).unwrap(), first);
+        assert_eq!(asked(), 1);
+        // A review asks each of its four positions once; another game through the same first
+        // positions asks only its new ones.
+        let r = wait(&Reviewer::start(&program, &chess, &pgn::parse("1.d4 d5 2.c4 *")));
+        assert_eq!((r.plies.len(), r.error.as_deref(), asked()), (3, None, 5));
+        let r = wait(&Reviewer::start(&program, &chess, &pgn::parse("1.d4 d5 2.Nf3 *")));
+        assert_eq!((r.plies.len(), r.error.as_deref(), asked()), (3, None, 6));
+        // The live analysis of a reviewed position: the review's at once, without the engine.
+        let after_d4 = pgn::parse("1.d4 *").nodes[0].fen.clone().unwrap();
+        let known = super::super::play::remembered(&program, &chess, &after_d4).unwrap();
+        assert!(known.review && known.depth == 3, "{known:?}");
+        assert_eq!(asked(), 6);
         std::fs::remove_dir_all(&d).unwrap();
     }
 }

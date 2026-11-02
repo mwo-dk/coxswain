@@ -1347,7 +1347,7 @@
  "feature.chess_play.q2": "Why does Engine say no chess engine was found?",
  "feature.chess_play.q3": "How do I look through one of the engine's lines without playing it?",
  "feature.chess_play.title": "Chess: playing on and the engine",
- "feature.chess_play.what": "Play your own moves from any position, kept as a line beside the game and saved only as a new PGN file when you ask; an installed Stockfish shows its best lines, analyses a whole game with marks and a graph, and writes it out annotated.",
+ "feature.chess_play.what": "Play your own moves from any position, kept as a line beside the game and saved only as a new PGN file when you ask; an installed Stockfish shows its best lines, analyses a whole game with marks and a graph, and writes it out annotated. Each position analysed is remembered, so going back to it shows the engine's lines at once.",
  "feature.game_pieces.title": "Game pieces in the terminal",
  "feature.game_pieces.what": "The terminal app draws the pieces of chess, draughts, Go, shogi and xiangqi from block characters, after the desktop app's pictures, as large as the board fits. Where the terminal shows pictures, the pictures themselves.",
  "feature.game_pieces.q1": "The pieces show as boxes or gaps.",
@@ -4739,5 +4739,8 @@
  "pick.showing_all": "Show all: every file is shown and can be chosen",
  "pick.showing_filtered": "Only the files asked for can be chosen again",
  "pick.show_all": "Show all",
- "pick.choose": "Choose"
+ "pick.choose": "Choose",
+ "chess.engine_from_review": "from the game review, looking deeper…",
+ "chess.memory": "Positions remembered",
+ "chess.memory_hint": "Each position the engine analysed, live or in a game review, is kept here with its engine and settings, so it is not analysed again. At most {most} positions (under 40 MB); the oldest go first. Disk use clears them."
 }

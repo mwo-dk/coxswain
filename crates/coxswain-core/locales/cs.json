@@ -1429,7 +1429,7 @@
  "feature.chess_play.q2": "Proč Engine říká, že nebyl nalezen žádný šachový engine?",
  "feature.chess_play.q3": "Jak projdu jednu z variant enginu, aniž bych ji zahrál?",
  "feature.chess_play.title": "Šachy: hraní dál a engine",
- "feature.chess_play.what": "Hrajte vlastní tahy z libovolné pozice, uchované jako varianta vedle partie a uložené jen jako nové PGN, když o to požádáte; nainstalovaný Stockfish ukáže své nejlepší varianty, analyzuje celou partii se značkami a grafem a zapíše ji s komentáři.",
+ "feature.chess_play.what": "Hrajte vlastní tahy z libovolné pozice, uchované jako varianta vedle partie a uložené jen jako nové PGN, když o to požádáte; nainstalovaný Stockfish ukáže své nejlepší varianty, analyzuje celou partii se značkami a grafem a zapíše ji s komentáři. Každá rozebraná pozice se pamatuje, takže po návratu k ní se varianty motoru ukážou hned.",
  "feature.game_pieces.title": "Herní kameny v terminálu",
  "feature.game_pieces.what": "Terminálová aplikace kreslí kameny a figury šachů, dámy, go, šógi a siang-čchi z blokových znaků podle obrázků desktopové aplikace, tak velké, jak se vejde šachovnice. Kde terminál zobrazuje obrázky, přímo obrázky.",
  "feature.game_pieces.q1": "Figury se zobrazují jako čtverečky nebo mezery.",
@@ -4829,5 +4829,8 @@
  "pick.showing_all": "Zobrazit vše: každý soubor je vidět a lze jej vybrat",
  "pick.showing_filtered": "Vybrat lze opět jen požadované soubory",
  "pick.show_all": "Zobrazit vše",
- "pick.choose": "Vybrat"
+ "pick.choose": "Vybrat",
+ "chess.engine_from_review": "z rozboru partie, hledá hlouběji…",
+ "chess.memory": "Zapamatované pozice",
+ "chess.memory_hint": "Každá pozice, kterou motor rozebral, živě nebo v rozboru partie, se tu uchovává s motorem a jeho nastavením, takže se znovu nerozebírá. Nejvýše {most} pozic (pod 40 MB); nejstarší odcházejí první. Využití disku je smaže."
 }

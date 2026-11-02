@@ -1298,7 +1298,7 @@
  "feature.chess_play.q2": "为什么“引擎”说找不到国际象棋引擎？",
  "feature.chess_play.q3": "如何浏览引擎的某条变着而不实际走棋？",
  "feature.chess_play.title": "国际象棋：续下与引擎",
- "feature.chess_play.what": "从任何局面走自己的棋，作为对局旁的变着保留，只在你要求时存为新的 PGN 文件；已安装的 Stockfish 会显示最佳变着、以标记和图表分析整局，并写出带注解的棋谱。",
+ "feature.chess_play.what": "从任何局面走自己的棋，作为对局旁的变着保留，只在你要求时存为新的 PGN 文件；已安装的 Stockfish 会显示最佳变着、以标记和图表分析整局，并写出带注解的棋谱。每个分析过的局面都会记住，回到该局面时立即显示引擎的变着。",
  "feature.game_pieces.title": "终端中的棋子",
  "feature.game_pieces.what": "终端版依照桌面版的图片，用块字符绘制国际象棋、跳棋、围棋、将棋和象棋的棋子，在棋盘容许的范围内尽量大。终端能显示图片时，就直接用图片。",
  "feature.game_pieces.q1": "棋子显示为方框或空白。",
@@ -4641,5 +4641,8 @@
  "pick.showing_all": "显示全部：所有文件都会显示，也都能选",
  "pick.showing_filtered": "又只能选所要的文件了",
  "pick.show_all": "显示全部",
- "pick.choose": "选择"
+ "pick.choose": "选择",
+ "chess.engine_from_review": "来自对局分析，正在更深入计算…",
+ "chess.memory": "记住的局面",
+ "chess.memory_hint": "引擎分析过的每个局面，不论是实时分析还是对局分析，都连同引擎与其设置保存在这里，因此不会再分析一次。最多 {most} 个局面（少于 40 MB）；最旧的先删除。“磁盘占用”可清除它们。"
 }

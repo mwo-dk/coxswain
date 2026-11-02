@@ -558,6 +558,11 @@ fn groups(v: &mut Vec<Row>, s: &Settings, area: Area, poor: &[coxswain_core::set
                 v.push(Row::Translate);
             }
         }
+        // Where the analysed positions are kept, and how many.
+        if g.id == "review" {
+            let dir = coxswain_core::chess::memory::dir().map(|d| d.display().to_string()).unwrap_or_default();
+            v.push(Row::Info(t!("chess.memory"), dir, t!("chess.memory_hint", "most" => coxswain_core::chess::memory::KEPT)));
+        }
         if matches!(g.id, "ask" | "meaning") {
             v.extend(poor.iter().filter(|p| p.ask == (g.id == "ask")).cloned().map(Row::Poor));
         }
