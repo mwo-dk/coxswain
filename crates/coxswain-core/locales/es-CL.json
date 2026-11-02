@@ -2,6 +2,7 @@
  "action.ask": "Pregúntale a tus archivos",
  "app.cmd_placeholder": "Escribe un comando…",
  "app.update_how": "Actualiza con: {how}. Haz clic para ver las notas de la versión.",
+ "archive.cab_too_much": "Este cabinet descomprimiría más de 4 GB para llegar a estos archivos: copia menos por vez",
  "archive.locked_again": "Esa contraseña no lo abrió. Prueba de nuevo:",
  "archive.nested_read_only": "Solo lectura: es un archivo comprimido dentro de otro, abierto desde una copia. Copia el archivo interior afuera con F5 para cambiarlo",
  "archive.nested_too_deep": "Los archivos comprimidos dentro de otros se abren hasta {depth} niveles: copia este afuera con F5 para abrirlo",

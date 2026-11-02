@@ -323,6 +323,7 @@
  "archive.part_missing": "Trūkst {name}: daļās sadalīts 7z atveras tikai ar visām daļām, numurētām bez iztrūkumiem",
  "archive.zip_part_missing": "Trūkst {name}: daļās sadalīts zip atveras tikai ar visām daļām, numurētām bez iztrūkumiem",
  "archive.zip_parts_zip64": "Tik liels daļās sadalīts zip (zip64) netiek lasīts: vispirms apvienojiet tā daļas (zip -s 0)",
+ "archive.cab_too_much": "Šis cabinet, lai sasniegtu šos failus, izpakotu vairāk nekā 4 GB: kopējiet mazāk vienlaikus",
  "archive.nested_too_deep": "Arhīvi arhīvos atveras līdz {depth} līmeņiem: izkopējiet šo ar F5, lai to atvērtu",
  "archive.overlapping": "Šī zip faili koplieto savus saspiestos baitus, tāpēc tas izpakotos daudz lielāks, nekā satur: tas var būt veidots, lai piepildītu disku. Vienu tā failu joprojām var izkopēt",
  "archive.pack_confirm": "Parole vēlreiz:",

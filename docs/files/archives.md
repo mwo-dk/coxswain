@@ -4,7 +4,9 @@
 
 A zip, tar or 7z archive opens like a folder, in both apps. Inside it the usual keys work:
 **F5** copies out, **F6** moves out or renames, **F7** makes a folder, **F8** takes things out,
-and **F5** from another panel copies into it. Copies between two archives work too.
+and **F5** from another panel copies into it. Copies between two archives work too. A cpio, a
+Debian or RPM package and a Windows cabinet open like folders too, read-only
+([cpio, .deb, .rpm and .cab](#cpio-deb-rpm-and-cab)).
 
 ![The desktop app's right pane inside ~/Downloads/website-0.3.0.tar.gz/website, tinted, the archive's name marked in the path bar and the archive badge at its right end; the left pane shows an ordinary folder](../screenshots/files-inside-archive.png)
 
@@ -71,7 +73,10 @@ program is needed.
 | Zip split into parts | `.zip.001`, with `.002`, `.003` … beside it (7-Zip's *Split to volumes*, or `split`) | yes: the parts read as one | no: read-only | as a zip |
 | Zip split into parts | `.zip`, with `.z01`, `.z02` … beside it (Info-ZIP's `zip -s`, WinZip) | yes: the parts read as one | no: read-only | as a zip |
 | RAR | `.rar` | no | no | ([why](#why-not-rar)) |
-| cpio, `.deb`, `.rpm`, `.cab` | | no: opened in their own program | no | |
+| cpio | `.cpio` (newc and odc headers) | yes | no: read-only | none |
+| Debian package | `.deb`, `.udeb`: its members, `control.tar.*` and `data.tar.*` | yes | no: read-only | none |
+| RPM package | `.rpm`: its files, unpacked from gzip, bzip2, xz or zstd | yes | no: read-only | none |
+| Windows cabinet | `.cab` (stored, MSZIP or LZX) | yes | no: read-only | none |
 | A lone `.gz`, `.bz2`, `.xz`, `.zst` | | no: it holds one file, not a folder | no | |
 | Comic | `.cbz` (a zip of pictures) | yes; the desktop app's preview shows it page by page | yes | as a zip |
 | Mailbox | `.mbox`: one `.eml` file a message | yes | no: read-only | none |
@@ -246,6 +251,36 @@ through an installed 7-Zip instead, read-only, like a disk image
   zip64 (over 4 GB, or more than 65,535 files) is not read: join its parts first with
   `zip -s 0 games.zip --out whole.zip`. A zip cut into equal pieces by 7-Zip (`games.zip.001`)
   is not a split zip: join those with `cat` or `copy /b` first.
+- <a id="cpio-deb-rpm-and-cab"></a>**cpio, `.deb`, `.rpm` and `.cab`** open with **Enter** like
+  any archive, read-only: the badge (desktop app) and the panel title (terminal app) say
+  *Read-only*, and **F6**, **F7**, **F8** and copies into them say so on the status line. **F5**
+  and **Ctrl+E** copy out; **Space** and **F3** show a file inside as in any archive, and search
+  looks into them. Each is read from its start as it streams by, the format having no list of
+  its contents (a cabinet has one). What each shows:
+  - a **cpio** (`.cpio`): its files and folders, from the newc header (`070701`, what Linux's
+    initramfs and RPM write) or the odc one (`070707`, POSIX `cpio -H odc`). The old binary
+    header is not read, nor a `.cpio.gz`: unpack that with `gunzip` first.
+  - a **Debian package** (`.deb`, `.udeb`): its three members, `debian-binary`,
+    `control.tar.xz` (or `.gz`, `.zst`) and `data.tar.xz`. **Enter** on `data.tar.xz` opens the
+    files the package installs, as an archive inside an archive (above).
+  - an **RPM package** (`.rpm`): the files it installs, `usr/bin/…`, read from its payload past
+    its lead and headers. The payload may be packed with gzip, bzip2, xz or zstd; one packed
+    with plain lzma (RPMs from before about 2010) is not read.
+  - a **Windows cabinet** (`.cab`): its files, stored, MSZIP or LZX. One of a set spread over
+    several cabinets (`disk1.cab`, `disk2.cab`) and one packed with Quantum are not read. Each
+    file is unpacked from the start of the block it is packed in, so taking many files at once
+    out of one large cabinet repeats work: past 4 GB unpacked in all it stops with *This
+    cabinet would unpack more than 4 GB to reach these files: copy out fewer at a time*. Of
+    two files by one name, the first is shown.
+
+  Symbolic links, devices and hard links in a cpio or RPM are listed but not made when copying
+  out (a hard link's bytes come with the last of its names, which comes out as a file); a file
+  keeps its date and, on the BSDs, illumos, Linux and macOS, its executable bit. Names that
+  lead outside (`../…`) are not listed; a name over 4 KB, or a header that does not add up,
+  stops the reading with an error, and a cpio cut short shows what comes before the cut. Search
+  looks into an RPM or a cabinet up to 256 MB, as into a compressed tar; a larger one it finds
+  by its own name only. Packages that were already in the search store when
+  you installed this version are looked into the next time they change.
 - **A part's facts above its bytes:** in the desktop app's preview, a file shown as a hex dump
   (a later part of a split archive, any other binary file with facts) has its facts above the
   dump, not under it, so *Part: …* is the first thing you read.
@@ -374,6 +409,31 @@ back.
 
 Yes. Open one in each panel and press **F5**. The files pass through a work folder in Coxswain's
 cache (`scratch/`, removed when the copy ends) and are added to the other archive.
+
+#### Can I look inside a .deb or .rpm package without installing it?
+
+Yes: **Enter** on it. An RPM shows the files it installs (`usr/bin/…`); a `.deb` shows
+`debian-binary`, `control.tar.xz` and `data.tar.xz`, and **Enter** on `data.tar.xz` shows the
+files it installs. **F5** copies a file out, **Space** or **F3** shows it
+([cpio, .deb, .rpm and .cab](#cpio-deb-rpm-and-cab)).
+
+#### How do I install a .deb or .rpm now that Enter goes into it?
+
+**Enter** opens it like a folder, so hand it to your installer another way: a
+[user-menu](../commands/user-menu.md) entry such as `command = "xdg-open %f"`, or
+`sudo apt install ./name.deb` (`sudo dnf install ./name.rpm`) typed at Coxswain's
+[command line](../commands/command-line.md).
+
+#### Why can I not add files to a .deb, .rpm, .cpio or .cab?
+
+They are read-only: a package carries checksums and signatures that a changed file would
+break, and Coxswain does not write those formats. Copy the files out with **F5**, change them,
+and build the package with its own tools (`dpkg-deb`, `rpmbuild`, `makecab`).
+
+#### Why does a .cab say it cannot be read?
+
+It is one of a set spread over several cabinets, packed with Quantum, or damaged. Coxswain reads
+a single cabinet that is stored, MSZIP or LZX, which is what Windows updates and installers use.
 
 #### Why does opening a .rar do something else?
 

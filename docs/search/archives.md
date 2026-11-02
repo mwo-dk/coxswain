@@ -44,7 +44,8 @@ Nothing to do: *Look inside archives* is on from the start.
 
 The formats are those Coxswain opens as folders: zip (and jar, apk, whl, nupkg, vsix), 7z, tar,
 and tar compressed with gzip, bzip2, xz or zstd (`.tar.gz`, `.tgz`, `.tar.bz2`, `.tar.xz`,
-`.tar.zst` …). Files inside are read with the same readers as files on disk, by their
+`.tar.zst` …), cpio, Debian and RPM packages and Windows cabinets (`.cpio`, `.deb`, `.rpm`,
+`.cab`; a `.deb`'s `data.tar.xz` as an archive inside it). Files inside are read with the same readers as files on disk, by their
 extension: a PDF in a zip is read as a PDF ([Documents it reads](documents.md)). A plain `.tar`
 that is a container image (`docker save`, `podman save`) is searched as the files of its merged
 layers, what **Enter** shows in it, never its blobs: one larger than 256 MB only once it has

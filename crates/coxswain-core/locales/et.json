@@ -318,6 +318,7 @@
  "archive.part_missing": "{name} puudub: osadeks jagatud 7z avaneb ainult kõigi osadega, mis on nummerdatud vahedeta",
  "archive.zip_part_missing": "{name} puudub: osadeks jagatud zip avaneb ainult kõigi osadega, mis on nummerdatud vahedeta",
  "archive.zip_parts_zip64": "Nii suurt osadeks jagatud zip-faili (zip64) ei loeta: ühenda enne selle osad (zip -s 0)",
+ "archive.cab_too_much": "See cabinet pakiks nende failideni jõudmiseks lahti üle 4 GB: kopeeri korraga vähem",
  "archive.nested_too_deep": "Arhiivid arhiivides avanevad kuni {depth} taseme sügavuseni: kopeerige see F5-ga välja, et seda avada",
  "archive.overlapping": "Selle zipi failid jagavad oma pakitud baite, nii et see pakiks lahti palju rohkem, kui sisaldab: see võib olla tehtud ketta täitmiseks. Ühe faili saab sellest siiski välja kopeerida",
  "archive.pack_confirm": "Parool uuesti:",

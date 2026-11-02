@@ -323,6 +323,7 @@
  "archive.part_missing": "Manca {name}: un 7z diviso in parti si apre solo con tutte le sue parti, numerate senza buchi",
  "archive.zip_part_missing": "Manca {name}: uno zip diviso in parti si apre solo con tutte le sue parti, numerate senza buchi",
  "archive.zip_parts_zip64": "Uno zip diviso in parti così grande (zip64) non viene letto: unisci prima le sue parti (zip -s 0)",
+ "archive.cab_too_much": "Questo cabinet decomprimerebbe più di 4 GB per arrivare a questi file: copiane meno alla volta",
  "archive.nested_too_deep": "Gli archivi dentro archivi si aprono fino a {depth} livelli: copia fuori questo con F5 per aprirlo",
  "archive.overlapping": "I file di questo zip condividono i loro byte compressi, quindi si estrarrebbe in molto più di quanto contiene: potrebbe essere fatto per riempire il disco. Un singolo file si può ancora copiare fuori",
  "archive.pack_confirm": "Di nuovo la password:",

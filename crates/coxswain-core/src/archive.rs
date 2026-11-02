@@ -4,7 +4,8 @@
 //! (`..`, absolute paths) are refused. Disk images open here too, read-only, when that option
 //! is on: `disk_image` lists them and copies out of them with an installed 7-Zip. So do a
 //! comic (`.cbz`, a zip of pictures) and a mailbox (`.mbox`, read-only: one `.eml` a message),
-//! which search does not look into as archives.
+//! which search does not look into as archives. A cpio, a Debian or RPM package and a cabinet
+//! are read, never written (`archive_ro`).
 
 use serde::Serialize;
 use std::fs::File;
@@ -33,6 +34,8 @@ enum Kind {
     Mbox,
     /// A container image, its layers merged (`container_image`): never written.
     Image,
+    /// A cpio, a Debian or RPM package, a cabinet (`archive_ro`): never written.
+    Ro(crate::archive_ro::Format),
 }
 
 /// How a tar is compressed.
@@ -68,6 +71,12 @@ const ENDINGS: &[(&str, Kind)] = &[
     (".nupkg", Kind::Zip),
     (".whl", Kind::Zip),
     (".vsix", Kind::Zip),
+    // Read, never written (`archive_ro`).
+    (".cpio", Kind::Ro(crate::archive_ro::Format::Cpio)),
+    (".deb", Kind::Ro(crate::archive_ro::Format::Deb)),
+    (".udeb", Kind::Ro(crate::archive_ro::Format::Deb)),
+    (".rpm", Kind::Ro(crate::archive_ro::Format::Rpm)),
+    (".cab", Kind::Ro(crate::archive_ro::Format::Cab)),
 ];
 
 /// What opens like a folder but is no archive search looks into: a comic, a mailbox.
@@ -150,7 +159,7 @@ pub(crate) fn plain_tar(path: &Path) -> bool {
 fn enter_of(k: Kind) -> crate::enter::Enter {
     use crate::enter::Enter;
     match k {
-        Kind::Zip | Kind::Tar(_) | Kind::SevenZ => Enter::Archive,
+        Kind::Zip | Kind::Tar(_) | Kind::SevenZ | Kind::Ro(_) => Enter::Archive,
         Kind::Disk => Enter::DiskImage,
         Kind::Mbox => Enter::Mailbox,
         Kind::Image => Enter::Image,
@@ -160,7 +169,7 @@ fn enter_of(k: Kind) -> crate::enter::Enter {
 /// `archive` is opened like a folder read-only: a disk image, a mailbox, a container image, or
 /// an archive split into parts.
 pub fn read_only(archive: &Path) -> bool {
-    matches!(kind(archive), Some(Kind::Disk | Kind::Mbox | Kind::Image)) || in_parts(archive) || split_zip(archive)
+    matches!(kind(archive), Some(Kind::Disk | Kind::Mbox | Kind::Image | Kind::Ro(_))) || in_parts(archive) || split_zip(archive)
 }
 
 /// `name` is the first part of a 7z or zip split into parts by 7-Zip or `split` (`x.7z.001`,
@@ -1114,7 +1123,7 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
     // which keeps them inside; its names are read first (from the last look, when it was
     // browsed), since the crate would read a crafted long-name record whole, however large:
     // `TAR_META` at most.
-    let r = if matches!(k, Kind::SevenZ | Kind::Zip | Kind::Disk | Kind::Mbox | Kind::Image) {
+    let r = if matches!(k, Kind::SevenZ | Kind::Zip | Kind::Disk | Kind::Mbox | Kind::Image | Kind::Ro(_)) {
         // How far, by the bytes its files come out to (a solid 7z's one large file too). A disk
         // image comes out through 7-Zip, uncounted.
         if k != Kind::Disk
@@ -1879,6 +1888,20 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
             })
             .collect());
     }
+    if let Kind::Ro(format) = k {
+        crate::archive_ro::each(open_raw(archive)?, format, &|_| false, &mut |e, _| {
+            out.push(Item {
+                name: e.name.clone(),
+                size: e.size,
+                dir: e.dir,
+                modified: e.modified,
+                locked: false,
+                link: false,
+            });
+            Ok(out.seen < max)
+        })?;
+        return Ok(out);
+    }
     if k == Kind::Zip {
         // Its directory gone through an entry at a time, never built whole (`zip_dir`).
         let mut walked = Items::default();
@@ -2034,7 +2057,7 @@ pub(crate) const SEARCH_READ: u64 = 128 << 20;
 /// Whether getting at `archive`'s entries means unpacking all before them.
 fn streamed(archive: &Path) -> bool {
     matches!(kind(archive), Some(Kind::Tar(p)) if p != Pack::None)
-        || kind(archive) == Some(Kind::SevenZ)
+        || matches!(kind(archive), Some(Kind::SevenZ | Kind::Ro(crate::archive_ro::Format::Rpm | crate::archive_ro::Format::Cab)))
 }
 
 /// A name inside an archive that can be a path through it: no `..`, nothing empty, and no
@@ -2083,6 +2106,10 @@ fn entries_at(archive: &Path, size: u64, depth: usize) -> Option<Vec<ArchiveEntr
         return None;
     }
     if k == Kind::SevenZ && search_skips_seven(archive, depth) {
+        return None;
+    }
+    // An RPM is unpacked whole to be listed: a large one is found by its own name.
+    if matches!(k, Kind::Ro(_)) && streamed(archive) && size > SEARCH_UNPACK {
         return None;
     }
     // Never a password given in this run: what search knows is what anyone sees.
@@ -2369,6 +2396,14 @@ fn search_read_at(
             .map_err(seven_error)?;
         }
         Kind::Disk | Kind::Mbox | Kind::Image => {}
+        Kind::Ro(format) => {
+            let mut seen = 0;
+            let pick = |e: &crate::archive_ro::Entry| e.file && sound(&e.name) && wanted(&e.name, e.size);
+            crate::archive_ro::each(open_raw(archive)?, format, &pick, &mut |e, from| {
+                seen += 1;
+                Ok(seen <= SEARCH_ENTRIES && !(pick(e) && !read(&[&e.name], from)))
+            })?;
+        }
         Kind::Tar(_) => {
             let mut seen = 0;
             tar_named(tar_reader(archive, k)?.entries()?, |name, _, e| {
@@ -3093,6 +3128,39 @@ fn copy_entries(
             .collect();
         return crate::disk_image::copy_tree(archive, inner, &entries, to);
     }
+    if let Kind::Ro(format) = k {
+        // Each entry below `inner` in order; a file read only when it comes out.
+        let pick = |e: &crate::archive_ro::Entry| e.file && below(&e.name);
+        let mut done = false;
+        crate::archive_ro::each(open_raw(archive)?, format, &pick, &mut |e, from| {
+            if !below(&e.name) {
+                return Ok(true);
+            }
+            let Some(path) = place(&e.name) else {
+                skip(&e.name)?;
+                return Ok(true);
+            };
+            *any = true;
+            if e.dir {
+                std::fs::create_dir_all(&path)?;
+            } else if e.file {
+                let mut from = Noting { from, left: e.size, failed: false };
+                write(&path, &mut from, e.modified).map_err(|err| copy_error(err, &from, false))?;
+                // A program stays one; nothing but the permission bits is taken.
+                #[cfg(unix)]
+                if e.mode & 0o111 != 0 {
+                    std::fs::set_permissions(&path, std::os::unix::fs::PermissionsExt::from_mode(e.mode & 0o755))?;
+                }
+                // The one file asked for is out: nothing after it is read.
+                done = e.name == inner;
+            } else {
+                // A link or a device: not made here.
+                skip(&e.name)?;
+            }
+            Ok(!done)
+        })?;
+        return Ok(());
+    }
     if k == Kind::Zip {
         // One file, not locked: found in the directory as it is gone through, and unpacked from
         // its place, without building the whole directory (`zip_dir`).
@@ -3445,7 +3513,7 @@ fn rewrite(
     hide_names: bool,
 ) -> io::Result<()> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
-    if matches!(k, Kind::Disk | Kind::Mbox) || in_parts(archive) || split_zip(archive) {
+    if matches!(k, Kind::Disk | Kind::Mbox | Kind::Ro(_)) || in_parts(archive) || split_zip(archive) {
         return Err(crate::disk_image::read_only());
     }
     let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
@@ -4896,6 +4964,64 @@ mod tests {
             );
         }
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn cpio_deb_rpm_and_cab_open_read_only() {
+        use crate::archive_ro::tests::{ar_of, cab_of, gz, newc, rpm_of};
+        let d = std::env::temp_dir().join(format!("coxswain-test-archive-ro-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let files: &[(&str, &[u8])] = &[("./usr/", b""), ("./usr/notes.txt", b"rocket fuel"), ("usr/go.sh", b"echo"), ("../evil", b"x")];
+        let mut data = tar::Builder::new(vec![]);
+        let mut h = tar::Header::new_gnu();
+        h.set_size(11);
+        h.set_cksum();
+        data.append_data(&mut h, "usr/notes.txt", &b"rocket fuel"[..]).unwrap();
+        let data = gz(&data.into_inner().unwrap());
+        let made = [
+            ("a.cpio", newc(files)),
+            ("a.rpm", rpm_of(&gz(&newc(files)))),
+            ("a.cab", cab_of(&[("usr\\notes.txt", b"rocket fuel")])),
+            ("a.deb", ar_of(&[("debian-binary", b"2.0\n"), ("data.tar.gz", &data)])),
+        ];
+        for (name, bytes) in made {
+            let p = d.join(name);
+            std::fs::write(&p, bytes).unwrap();
+            assert!(opens(&p) && is_archive(&p) && read_only(&p), "{name}");
+            let names: Vec<String> = list(&p, 10).unwrap().0.into_iter().map(|e| e.name).collect();
+            // `..` is never listed, so nothing that acts on an entry is led outside.
+            assert!(!names.iter().any(|n| n.contains("..")), "{name}: {names:?}");
+            let inner = if name == "a.deb" { "data.tar.gz" } else { "usr/notes.txt" };
+            assert!(names.iter().any(|n| n == inner), "{name}: {names:?}");
+            let out = d.join(format!("{name}-out"));
+            std::fs::create_dir_all(&out).unwrap();
+            let one = copy_out(&p, inner, &out, None, false).unwrap();
+            if name != "a.deb" {
+                assert_eq!(std::fs::read(&one).unwrap(), b"rocket fuel", "{name}");
+            }
+            let all = extract(&p, &out).unwrap();
+            assert!(all.join(inner).is_file(), "{name}");
+            assert!(!out.join("evil").exists() && !d.join("evil").exists(), "{name}");
+            #[cfg(unix)]
+            if name == "a.cpio" || name == "a.rpm" {
+                use std::os::unix::fs::PermissionsExt;
+                assert_eq!(std::fs::metadata(all.join("usr/go.sh")).unwrap().permissions().mode() & 0o777, 0o755, "{name}");
+            }
+            assert!(add(&p, &[("x".into(), one.clone())], None).is_err(), "{name} is never written");
+            // Search reads its files, and those of the tar inside a Debian package.
+            let size = std::fs::metadata(&p).unwrap().len();
+            let found = search_entries(&p, size).unwrap();
+            assert!(found.iter().any(|e| e.name == "usr/notes.txt" || e.name == "data.tar.gz/usr/notes.txt"), "{name}: {found:?}");
+            let mut text = vec![];
+            search_read(&p, size, &|n, _| n.ends_with("notes.txt"), &|n| n == "data.tar.gz", &mut |_, from| {
+                from.read_to_end(&mut text).unwrap();
+                false
+            })
+            .unwrap();
+            assert_eq!(text, b"rocket fuel", "{name}");
+        }
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]

@@ -66,9 +66,10 @@ cache folder; the archive is never changed.
 
 ![The desktop app inside chess-club.zip › Chess with the cursor on Classics.cbh: the status bar at the bottom reads Enter: Open games · Inside an archive: F5 copies files out to the other panel](../screenshots/opening-enter-gui.png)
 
-**Not read as archives:** `.rar` ([Why not RAR](../files/archives.md#why-not-rar); a `.cbr` comic opens through 7-Zip), `.cpio`, `.deb`, `.rpm`
-and `.cab`. **Enter** hands them to their application
-as any other file. **F3** shows their bytes.
+**Not read as archives:** `.rar` ([Why not RAR](../files/archives.md#why-not-rar); a `.cbr` comic opens through 7-Zip).
+**Enter** hands it to its application as any other file. **F3** shows its bytes. A `.cpio`,
+`.deb`, `.rpm` or `.cab` opens like a folder, read-only
+([cpio, .deb, .rpm and .cab](../files/archives.md#cpio-deb-rpm-and-cab)).
 
 **ZFS snapshots** are folders: **Enter** goes into a snapshot as into any folder
 ([ZFS snapshots](../files/zfs-snapshots.md)); on a file in one it shows what changed in it since.
@@ -150,10 +151,11 @@ program, add a [user-menu](user-menu.md) entry (`command = "scid %s"`), or type
 **F3** shows the file itself, and a zip's bytes are what it is. **Enter** goes into it; the
 desktop app's preview pane lists its entries.
 
-#### Why does Enter on a .rar or .deb not go into it?
+#### Why does Enter on a .rar not go into it?
 
-Coxswain does not read those archives; **Enter** hands them to the application your desktop
-uses for them. A `.cbr` comic (a RAR) opens through 7-Zip while *Open disk images, CHM and CBR
+Coxswain does not read RAR archives; **Enter** hands them to the application your desktop
+uses for them. A `.deb` or `.rpm` does open like a folder: to install one, see
+[How do I install a .deb or .rpm now that Enter goes into it?](../files/archives.md#how-do-i-install-a-deb-or-rpm-now-that-enter-goes-into-it). A `.cbr` comic (a RAR) opens through 7-Zip while *Open disk images, CHM and CBR
 like folders* is on.
 
 #### Can Enter open several marked files at once?
