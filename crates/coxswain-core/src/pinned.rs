@@ -11,7 +11,7 @@
 //! The run walks the same way, but goes only into folders in that set and hands on only entries
 //! in it: an entry or folder whose identity, ctime, kind or path is not exactly what the plan saw
 //! (swapped, renamed in, renamed away, written meanwhile) is left as it is; in a set made
-//! `by_content` the ctime does not count, as its caller checks each file's content. The path counts on its
+//! `any_ctime` the ctime does not count, as its caller checks each file's content or bits. The path counts on its
 //! own: where a file system's clock ticks coarsely (OpenBSD's every 10 ms) an entry renamed in the
 //! same tick keeps its ctime, but not its name. Nothing compares a ctime with the local clock. Files are opened in their held folder,
 //! never through a link, never blocking on a pipe, and checked to be that very file and a file
@@ -114,18 +114,18 @@ pub struct Pin {
 pub struct Set {
     touch: HashMap<Id, (PathBuf, Kind)>,
     route: HashMap<Id, (PathBuf, Kind)>,
-    /// `by_content`: each entry's device and inode, to the Id the plan saw.
+    /// `any_ctime`: each entry's device and inode, to the Id the plan saw.
     inodes: Option<HashMap<(u64, u128), Id>>,
 }
 
 impl Set {
     /// A set whose entries are met whatever their ctime (still by device, inode, path and kind),
-    /// for a caller that checks each file's content against the plan before it writes it
-    /// (`replace`). FreeBSD's UFS with soft updates moves the ctime of a file renamed into its
+    /// for a caller that checks each file against the plan before it changes it: its content
+    /// (`replace`), its bits and time of last change (`attrs`). FreeBSD's UFS with soft updates moves the ctime of a file renamed into its
     /// name (an editor's save, a replace's own write), and at times of its folder, by itself half
     /// a second to a few seconds later, even after fsync of both: a plan made in that time would
     /// otherwise miss the file in its run.
-    pub fn by_content() -> Set {
+    pub fn any_ctime() -> Set {
         Set { inodes: Some(HashMap::new()), ..Set::default() }
     }
 
@@ -149,7 +149,7 @@ impl Set {
         }
     }
 
-    /// The Id the plan saw for `id`: in a `by_content` set, the one of the same device and inode.
+    /// The Id the plan saw for `id`: in an `any_ctime` set, the one of the same device and inode.
     fn planned(&self, id: &Id) -> Id {
         self.inodes.as_ref().and_then(|m| m.get(&(id.dev, id.ino))).copied().unwrap_or(*id)
     }
