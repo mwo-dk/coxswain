@@ -1814,6 +1814,37 @@ fn kept_with(last: &mut Vec<Looked>, archive: &Path, stamp: Stamp, items: Arc<It
     last.push((archive.to_path_buf(), stamp, items));
 }
 
+/// A list kept past this many bytes is kept only while a panel shows a folder of its archive
+/// (`hold`): a list of millions is not kept beside the panel's own once the panel has left.
+const HELD_ONLY: usize = LAST_BYTES / LAST_KEPT;
+
+/// A panel's hold on the list kept of the archive it shows a folder of (`hold`). When the last
+/// hold on a list larger than `HELD_ONLY` goes, the list goes too.
+pub struct Hold(Option<Arc<Items>>);
+
+/// The hold on the kept list of the archive `dir` is inside of, when one is kept. Looks at no
+/// disk: `dir` is matched against the archives kept.
+pub fn hold(dir: &Path) -> Option<Hold> {
+    let last = LAST.lock().unwrap_or_else(|e| e.into_inner());
+    last.iter().rev().find(|(p, ..)| dir.starts_with(p)).map(|(.., items)| Hold(Some(items.clone())))
+}
+
+impl Drop for Hold {
+    fn drop(&mut self) {
+        if let Some(mine) = self.0.take() {
+            let_go(&mut LAST.lock().unwrap_or_else(|e| e.into_inner()), mine);
+        }
+    }
+}
+
+/// `mine`, a hold's list, let go of: out of `last` too when it is large and nothing else holds
+/// it (only `last` and `mine` do: every clone is made under `last`'s lock).
+fn let_go(last: &mut Vec<Looked>, mine: Arc<Items>) {
+    if mine.bytes() > HELD_ONLY {
+        last.retain(|(.., i)| !(Arc::ptr_eq(i, &mine) && Arc::strong_count(i) == 2));
+    }
+}
+
 fn read_items(archive: &Path) -> io::Result<Items> {
     read_items_with(archive, password_for(archive, None).as_deref(), usize::MAX)
 }
@@ -4030,6 +4061,27 @@ mod tests {
         assert_eq!(names(&last), ["small.zip", "one.7z"]);
         kept_with(&mut last, Path::new("two.7z"), stamp, big(LAST_BYTES * 3 / 4));
         assert_eq!(names(&last), ["two.7z"], "the older went to make room for the newest");
+    }
+
+    /// A large list goes when the last panel holding it leaves; a small one stays for the next
+    /// look, and so does a large one another panel still holds.
+    #[test]
+    fn a_large_list_goes_with_its_last_hold() {
+        let big = |n: usize| {
+            let mut i = Items::default();
+            i.push(Item { name: "x".repeat(n), size: 1, dir: false, modified: 2, locked: false, link: false });
+            Arc::new(i.done())
+        };
+        let (mut last, stamp) = (vec![], (0, None));
+        let (small, large) = (big(10), big(HELD_ONLY + 1));
+        kept_with(&mut last, Path::new("small.zip"), stamp, small.clone());
+        kept_with(&mut last, Path::new("large.7z"), stamp, large.clone());
+        let (other, panel) = (large.clone(), large);
+        let_go(&mut last, small);
+        let_go(&mut last, panel);
+        assert_eq!(last.len(), 2, "the other panel still holds the large one");
+        let_go(&mut last, other);
+        assert_eq!(last.iter().map(|(p, ..)| p.to_str().unwrap()).collect::<Vec<_>>(), ["small.zip"]);
     }
 
     fn nested_alone() -> std::sync::MutexGuard<'static, ()> {
