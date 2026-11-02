@@ -73,13 +73,20 @@ pub struct Mark {
     pub to: u8,
 }
 
-/// Comment `c` without its `[%csl …]` and `[%cal …]` commands, which are added to `marks`.
+/// Comment `c` without its `[%csl …]` and `[%cal …]` commands, which are added to `marks`, and
+/// without ChessBase's `[%evp …]`: its evaluation profile, the engine's score of every ply of
+/// the game as a long run of numbers, which is not shown.
 pub fn take_marks(c: &str, marks: &mut Vec<Mark>) -> String {
     let mut out = String::new();
     let mut rest = c;
-    while let Some(i) = rest.find("[%c") {
+    while let Some(i) = rest.find("[%") {
         let Some(end) = rest[i..].find(']').map(|e| i + e) else { break };
         let cmd = &rest[i + 2..end];
+        if cmd.starts_with("evp ") {
+            out.push_str(&rest[..i]);
+            rest = &rest[end + 1..];
+            continue;
+        }
         let arrows = cmd.starts_with("cal ");
         if !arrows && !cmd.starts_with("csl ") {
             out.push_str(&rest[..=end]);
@@ -881,6 +888,11 @@ mod tests {
         let n = &g.nodes[0];
         assert_eq!(n.marks, vec![Mark { colour: 'G', from: 6, to: 21 }, Mark { colour: 'R', from: 11, to: 27 }, Mark { colour: 'R', from: 53, to: 53 }]);
         assert_eq!(n.after, "Good [%clk 0:05:00]");
+        // ChessBase's evaluation profile is not comment text.
+        let g = parse("1. e4 {[%evp 0,53,31,24,18,40] Annotated by a coach} e5");
+        assert_eq!(g.nodes[0].after, "Annotated by a coach");
+        let g = parse("{[%evp 0,53,31] Round 1} 1. e4");
+        assert_eq!(g.comment, "Round 1");
         // At a variation's start: on its first move, not on the main line's move it replaces.
         let g = parse("1. e4 ({[%csl Gd4]} 1. d4 d5) 1... e5");
         assert!(g.nodes[0].marks.is_empty());

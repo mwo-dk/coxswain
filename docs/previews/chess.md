@@ -117,6 +117,11 @@ app: the squares tinted, an arrow's end square in its colour and its start light
 arrows written under the board in their colours, `→ b3–f7`. A move you play on from there
 shows none. ChessBase's annotations come in this way ([ChessBase databases](#chessbase-databases)).
 
+**ChessBase's evaluation profile.** A game ChessBase has analysed can carry `[%evp 0,53,31,…]`
+in its first comment: the engine's score of every ply of the game, in hundredths of a pawn. The
+comment shows its text without it; the profile itself is not drawn (an `[%eval]` after a move
+is, on the bar beside the board).
+
 ![The Opera Game at 7.Qb3 read from an annotated ChessBase database in the desktop app: a green arrow from b3 to f7, f7 and b7 tinted red, the comment with the engine's evaluation beside the moves, and that evaluation on the bar beside the board and as +1.50 under it, with no engine running](../screenshots/gui-chess-cbh-notes.png)
 
 | Key | Desktop app | Terminal app |
@@ -470,6 +475,13 @@ as ChessBase, Lichess and other programs write them, and as a ChessBase database
 come in. They show with the move the comment follows and leave the comment's text; in the
 terminal app the arrows are also written under the board (`→ b3–f7`). A PGN file keeps them as
 they are: Coxswain never changes it.
+
+#### What happened to the numbers at the start of a ChessBase game's comment?
+
+A run such as `[%evp 0,53,31,24,…]` is ChessBase's evaluation profile: the engine's score
+of every ply, in hundredths of a pawn. Coxswain leaves it out of the comment in both apps and
+does not draw it; the comment's own text stays. A position's `[%eval]` still shows on the bar
+beside the board. The PGN file keeps it as it is.
 
 #### Why does a ChessBase game say castling rights were added?
 
