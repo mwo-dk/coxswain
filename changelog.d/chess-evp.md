@@ -1,0 +1,1 @@
+| **A ChessBase game no longer starts its comment with a long run of numbers.** ChessBase's evaluation profile, `[%evp 0,53,31,…]`, the engine's score of every ply, is left out of the comment in both apps; the comment's text stays. | [Chess](previews/chess.md#what-happened-to-the-numbers-at-the-start-of-a-chessbase-games-comment) |
