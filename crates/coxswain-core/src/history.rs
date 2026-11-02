@@ -85,7 +85,13 @@ impl Scope {
 }
 
 pub(crate) fn git(dir: &Path) -> Command {
-    git_with(dir, &crate::git::repo_filters(dir))
+    let keys = crate::git::repo_filters(dir);
+    let mut c = git_with(dir, keys.as_deref().unwrap_or_default());
+    if keys.is_none() {
+        // After the store `git_with` names: its filters are not known either.
+        crate::git::no_repository(&mut c);
+    }
+    c
 }
 
 /// `git` with the filter settings given (`git::command_with`): none for a command that runs no
@@ -149,6 +155,49 @@ pub(crate) fn records_within(mut c: Command, sep: u8, budget: Duration, mut f: i
     }
     drop(done);
     Ok(watch.join().unwrap_or(false) || cut)
+}
+
+/// Ends `child` (and what it started) when the `Ticking` reader of its output got nothing for
+/// `limit`, or once the sender is dropped; the thread says whether it was the limit.
+fn quiet_watch(
+    mut child: std::process::Child,
+    start: std::time::Instant,
+    last: Arc<std::sync::atomic::AtomicU64>,
+    limit: Duration,
+) -> (std::sync::mpsc::Sender<()>, std::thread::JoinHandle<bool>) {
+    let (done, told) = std::sync::mpsc::channel::<()>();
+    let watch = std::thread::spawn(move || {
+        loop {
+            if told.recv_timeout(Duration::from_secs(1).min(limit)) != Err(std::sync::mpsc::RecvTimeoutError::Timeout) {
+                // Still running (a copy stopped by an error): with what it started.
+                if !matches!(child.try_wait(), Ok(Some(_))) {
+                    crate::tools::kill_tree(&mut child);
+                }
+                return false;
+            }
+            let quiet = start.elapsed().saturating_sub(Duration::from_millis(last.load(std::sync::atomic::Ordering::Relaxed)));
+            if quiet > limit {
+                crate::tools::kill_tree(&mut child);
+                return true;
+            }
+        }
+    });
+    (done, watch)
+}
+
+/// A reader that notes when it last got something, in milliseconds from `start`.
+struct Ticking<R> {
+    r: R,
+    start: std::time::Instant,
+    last: Arc<std::sync::atomic::AtomicU64>,
+}
+
+impl<R: Read> Read for Ticking<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let n = self.r.read(buf)?;
+        self.last.store(self.start.elapsed().as_millis() as u64, std::sync::atomic::Ordering::Relaxed);
+        Ok(n)
+    }
 }
 
 /// The most of one record (a line of a diff) that is kept: a line of a 400 MB file with no
@@ -831,6 +880,7 @@ pub(crate) fn git_write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     // One git for every file: the ids in, the contents out.
     let mut c = git(&at.base);
     c.args(["cat-file", "--batch"]);
+    crate::tools::own_group(&mut c);
     let mut child = c
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -842,12 +892,15 @@ pub(crate) fn git_write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
         .ok_or_else(|| io::Error::other("no input"))?;
     let ids: String = files.iter().map(|(oid, ..)| format!("{oid}\n")).collect();
     let feed = std::thread::spawn(move || input.write_all(ids.as_bytes()));
-    let mut out = BufReader::new(
-        child
-            .stdout
-            .take()
-            .ok_or_else(|| io::Error::other("no output"))?,
-    );
+    let start = std::time::Instant::now();
+    let last = Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let mut out = BufReader::new(Ticking {
+        r: child.stdout.take().ok_or_else(|| io::Error::other("no output"))?,
+        start,
+        last: last.clone(),
+    });
+    // A big copy may take long, so the limit is on silence, as a git waiting on a FIFO is.
+    let (done, watch) = quiet_watch(child, start, last, crate::git::LIMIT);
     // Links are made last: a file listed after a link must not be written through it.
     let mut links = vec![];
     let r = (|| -> io::Result<()> {
@@ -899,9 +952,12 @@ pub(crate) fn git_write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
         }
         Ok(())
     })();
+    drop(done);
+    let late = watch.join().unwrap_or(false);
     let _ = feed.join();
-    let _ = child.kill();
-    let _ = child.wait();
+    if late {
+        return Err(io::Error::new(io::ErrorKind::TimedOut, "took too long"));
+    }
     r
 }
 
@@ -1480,6 +1536,36 @@ pub fn changes_cost(root: &Path, max: usize) -> (usize, u64) {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+
+    /// A program that prints a line and then nothing is ended once it has been quiet for the
+    /// limit; one that is told to stop is not counted as late.
+    #[cfg(unix)]
+    #[test]
+    fn a_quiet_program_is_ended() {
+        let run = |limit| {
+            let mut c = std::process::Command::new("sh");
+            c.args(["-c", "echo one; sleep 600"]);
+            crate::tools::own_group(&mut c);
+            let mut child = c.stdout(Stdio::piped()).spawn().unwrap();
+            let start = std::time::Instant::now();
+            let last = Arc::new(std::sync::atomic::AtomicU64::new(0));
+            let mut out = BufReader::new(Ticking { r: child.stdout.take().unwrap(), start, last: last.clone() });
+            // Read before the watch starts, so a slow machine cannot make it quiet too soon.
+            let mut line = String::new();
+            out.read_line(&mut line).unwrap();
+            assert_eq!(line, "one\n");
+            let (done, watch) = quiet_watch(child, start, last, limit);
+            (out, done, watch)
+        };
+        let (mut out, _done, watch) = run(Duration::from_secs(1));
+        // Ended, so its output ends (the sleep in its group too, or this would wait 600 s).
+        let mut rest = vec![];
+        out.read_to_end(&mut rest).unwrap();
+        assert!(watch.join().unwrap(), "ended by the limit");
+        let (_out, done, watch) = run(crate::test_limit(Duration::from_secs(60)));
+        drop(done);
+        assert!(!watch.join().unwrap(), "told to stop");
+    }
 
     /// A record longer than any line worth keeping (a diff line of a file without line
     /// breaks) is cut at `RECORD_MOST`, the rest passed over, and the records after it read.
