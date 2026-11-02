@@ -32,8 +32,8 @@ pub fn path() -> Option<PathBuf> {
 /// spelled: through a link to it, too.
 pub fn is_bin(dir: &Path) -> bool {
     dir.file_name().is_some_and(|n| n == MARKER)
-        && path().is_some_and(|p| p == dir || same_folder(p.parent(), dir.parent()))
         && fs::symlink_metadata(dir).is_err()
+        && path().is_some_and(|p| p == dir || same_folder(p.parent(), dir.parent()))
 }
 
 fn same_folder(a: Option<&Path>, b: Option<&Path>) -> bool {

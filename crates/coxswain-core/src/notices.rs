@@ -237,7 +237,7 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         all.push(Notice::new("bin-limited", text, None));
     }
     // A real folder named @bin in the home (another program made it): it hides the bin. Once.
-    if !seen("bin-shadowed") && let Some(p) = crate::bin::shadowed() {
+    if let Some(p) = crate::bin::shadowed() {
         all.push(Notice::new("bin-shadowed", t!("notice.bin_shadowed", "path" => p.display()), None));
     }
     // A Mercurial repository was opened and hg is not installed.
