@@ -21,6 +21,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
+pub mod pulls;
+
 use crate::config::PreviewConfig;
 use crate::state::AppState;
 use crate::t;

@@ -99,6 +99,8 @@ enum Request {
     Transcribe {
         paths: Vec<PathBuf>,
     },
+    /// Pull again at once every image that waits to be pulled again.
+    RetryPulls,
     /// Pause transcribing, or go on; `stop`: let every file waiting go.
     TranscribePause {
         pause: bool,
@@ -230,7 +232,10 @@ pub struct Status {
     pub clouds: Vec<(String, PathBuf)>,
     /// Apache Tika, when `[search] tika` is on: pulling its image, ready, or why not.
     #[serde(default)]
-    pub tika: Option<crate::extract::tika::State>,
+    pub tika: Option<crate::images::pulls::State>,
+    /// calibre for the search, when e-books and text search are on and it runs in a container.
+    #[serde(default)]
+    pub ebooks: Option<crate::images::pulls::State>,
     /// Transcripts, when `[search] whisper` is on: how many wait, are done, how far.
     #[serde(default)]
     pub transcripts: Option<crate::transcribe::Status>,
@@ -835,6 +840,10 @@ fn answer(
                 quit.store(true, Ordering::SeqCst);
                 Reply::Done
             }
+            Request::RetryPulls => {
+                crate::images::pulls::retry_now();
+                Reply::Done
+            }
             Request::Unload => {
                 crate::chat::unload();
                 Reply::Done
@@ -898,7 +907,8 @@ fn answer(
                     roots,
                     tools,
                     clouds: store.map(Store::clouds).unwrap_or_default(),
-                    tika: store.and(crate::extract::tika::state()).map(|s| s.for_app(&app_version)),
+                    tika: store.and(crate::extract::tika::state()).map(|s| s.for_app(&app_version, "Tika")),
+                    ebooks: store.and(crate::ebook::state()).map(|s| s.for_app(&app_version, "calibre")),
                     transcripts: store.and_then(crate::transcribe::status),
                     outdated: None,
                     changes_left: store.map_or(0, |s| s.changes_left.load(Ordering::Relaxed)),
@@ -1159,6 +1169,12 @@ impl Client {
             Some(Reply::Transcribing { files }) => Some(files),
             _ => None,
         }
+    }
+
+    /// *Retry now*: every image waiting to be pulled again is pulled at once.
+    pub fn retry_pulls(&self) {
+        self.ask(&Request::RetryPulls);
+        *self.status.lock().unwrap() = None;
     }
 
     /// Pause transcribing or go on; `stop` lets every file waiting go.

@@ -170,6 +170,11 @@ the image is not counted.
 
 ## Pulling and removing images
 
+- **The search helper's pulls try again by themselves.** The images of Apache Tika and of calibre
+  for e-book search are pulled in the background; one that fails for no network is tried again
+  after 5, 10, 20 and 40 minutes, then every hour, and at once when the network is back. The
+  line in *Settings → Finding files* has **Retry now** and **Details** (the runtime's own error).
+  The other images are pulled when you ask, and a failure stops that job with its error.
 - **The first run pulls the image,** and only after a click (calibre's also when you turn on
   [e-books](ebooks.md) with text search on). The engine button's note says so
   beforehand (*First run pulls docker.io/texlive/texlive:latest (about 2.8 GB)*, or *First run

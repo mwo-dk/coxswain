@@ -391,7 +391,7 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     // Apache Tika is turned on, but there is no podman or docker to run it in. Once.
     if cfg.search.tika
         && cfg.search.text
-        && status.tika == Some(crate::extract::tika::State::NoRuntime)
+        && status.tika == Some(crate::images::pulls::State::NoRuntime)
     {
         all.push(Notice::new("tika-runtime", t!("notice.tika_no_runtime"), Some("search_tika")));
     }
@@ -619,6 +619,7 @@ mod tests {
             error: None,
             clouds: vec![],
             tika: None,
+            ebooks: None,
             transcripts: None,
             outdated: None,
             changes_left: 0,
