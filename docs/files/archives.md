@@ -192,13 +192,15 @@ through an installed 7-Zip instead, read-only, like a disk image
   app ends.
 - **Text and pictures inside are read as they are unpacked, with no copy on the disk**: the
   desktop app's preview pane shows a text file's first 512 KB (*Showing the first 512 KB* under
-  it when there is more) and a picture up to 64 MB straight from the archive, and **F3** in the
+  it when there is more), and a picture, a PDF, a song, a video or a font up to 64 MB, straight
+  from the archive (a player's seeking too, from one unpacking), and **F3** in the
   terminal app shows a file's first 16 MB in the viewer (*Showing the first 16 MB.* on its
   status line when there is more), whatever the file's size. Copy the file out with **F5** to
   see all of a larger one.
-- **Other files inside are previewed and viewed from a copy** (PDFs, documents, media, games, a
-  log in the terminal app's log view, a locked file once its password is given, a picture over
-  64 MB, and every file when you set a
+- **Other files inside are previewed and viewed from a copy** (documents, spreadsheets,
+  notebooks, old picture formats, a PDF, song, video or font over 64 MB, games, a log in the log
+  view, a locked file once its password is given, every PDF, song, video and font in the
+  terminal app, whose readers and players need a file, and every file when you set a
   `viewer` of your own in the terminal app), not opened or edited: **Enter** and **F4** say on
   the status line that **F5** copies the file out, since changes to a copy would be lost. The
   copy is made in the cache folder (`coxswain/peek/`, readable by you alone), one at
@@ -348,7 +350,8 @@ panel title says `[archive]` instead of a tint and a badge, and there is no prev
 
 Yes. Put the cursor on it with the preview pane open (**Space** in the desktop app), or press
 **F3** in the terminal app. A text file or a picture is read straight out of the archive, into
-memory: the preview pane shows its first 512 KB (a picture up to 64 MB), the terminal app's
+memory: the preview pane shows its first 512 KB (a picture, PDF, song, video or font up to
+64 MB, whole), the terminal app's
 viewer its first 16 MB, and nothing is written to the disk. Any other file is copied out, just
 that file, into Coxswain's cache folder, and the copy is shown; it goes when you look at the next
 file. Nothing next to the archive is written either way. A games file shows as outside the archive: its table of games, a game on its board

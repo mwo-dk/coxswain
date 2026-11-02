@@ -1,0 +1,1 @@
+| **PDFs, songs, videos and fonts inside an archive are shown without a copy on the disk.** The desktop app's preview reads them straight out of the archive, up to 64 MB, and a player seeks in them from that one unpacking; larger or locked ones are still copied for the look. | [Archives as folders](files/archives.md#can-i-look-at-a-file-inside-an-archive-without-unpacking-it) |
