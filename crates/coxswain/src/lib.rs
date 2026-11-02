@@ -2780,6 +2780,10 @@ impl App {
         let src = b.missing();
         self.open_after = Some(b.open.clone());
         self.transfer(Transfer::Copy, src, b.folder.clone(), None, None);
+        // Not started (another job runs): nothing opens after a later copy.
+        if self.job.is_none() {
+            self.open_after = None;
+        }
     }
 
     fn searchable_start(&mut self, pdfs: Vec<PathBuf>) {
@@ -3931,7 +3935,7 @@ impl App {
             self.panels[side].select_name(&n);
         }
         // A game database unpacked beside its archive: opened there.
-        if let Some(open) = self.open_after.take().filter(|_| whole && op == Transfer::Copy) {
+        if let Some(open) = self.open_after.take().filter(|o| whole && op == Transfer::Copy && o.parent() == Some(dst.as_path())) {
             self.chess(&open, None);
         }
     }

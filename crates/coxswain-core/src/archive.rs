@@ -4167,19 +4167,24 @@ impl Beside {
     /// The paths through the archive of the files not in the folder whole yet: what a copy
     /// into the folder brings out.
     pub fn missing(&self) -> Vec<PathBuf> {
-        let within = self.files[0].rsplit_once('/').map_or(0, |(f, _)| f.len() + 1);
         self.files
             .iter()
             .zip(&self.sizes)
-            .filter(|(f, size)| !std::fs::metadata(self.folder.join(&f[within..])).is_ok_and(|m| m.is_file() && m.len() == **size))
+            .filter(|(f, size)| !self.whole(f, **size))
             .map(|(f, _)| f.split('/').fold(self.archive.clone(), |p, s| p.join(s)))
             .collect()
     }
 
+    /// The file `f` of the archive is in the folder, a file (not a link) of its size (any size
+    /// when the archive does not say it).
+    fn whole(&self, f: &str, size: u64) -> bool {
+        let name = f.rsplit('/').next().unwrap_or(f);
+        one_name(name) && std::fs::symlink_metadata(self.folder.join(name)).is_ok_and(|m| m.is_file() && (m.len() == size || size == 0))
+    }
+
     /// Every file is in the folder already, whole: unpacked before, opened as it is.
     pub fn unpacked(&self) -> bool {
-        let within = self.files[0].rsplit_once('/').map_or(0, |(f, _)| f.len() + 1);
-        self.files.iter().zip(&self.sizes).all(|(f, size)| std::fs::metadata(self.folder.join(&f[within..])).is_ok_and(|m| m.is_file() && m.len() == *size))
+        !self.files.is_empty() && self.files.iter().zip(&self.sizes).all(|(f, size)| self.whole(f, *size))
     }
 }
 
@@ -4189,10 +4194,12 @@ fn bare_name(archive: &Path) -> String {
     let name = archive.file_name().unwrap_or_default().to_string_lossy().into_owned();
     let lower = name.to_ascii_lowercase();
     let cut = ENDINGS.iter().map(|(e, _)| *e).chain([".7z", ".zip", ".rar", ".tar"]).filter(|e| lower.ends_with(e) && lower.len() > e.len()).map(str::len).max();
-    match cut {
+    let bare = match cut {
         Some(n) => name[..name.len() - n].to_string(),
         None => name.rsplit_once('.').map_or(name.clone(), |(s, _)| s.to_string()),
-    }
+    };
+    // An archive named by its ending alone (`.7z`): a folder of its whole name.
+    if bare.is_empty() { name } else { bare }
 }
 
 /// The offer for the game file `path` (through an archive on the disk), when it is one and too
@@ -4236,7 +4243,8 @@ fn beside_past(path: &Path, most: u64) -> Option<Beside> {
     let parent = archive.parent()?.to_path_buf();
     let bare = bare_name(&archive);
     let folder = (1..100).map(|n| parent.join(if n == 1 { bare.clone() } else { format!("{bare} ({n})") })).find(|f| {
-        f.is_dir() && files.iter().all(|(n, size)| std::fs::metadata(f.join(&n[within.len()..])).map_or(true, |m| m.is_file() && m.len() == *size))
+        std::fs::symlink_metadata(f).is_ok_and(|m| m.is_dir())
+            && files.iter().all(|(n, size)| std::fs::symlink_metadata(f.join(&n[within.len()..])).map_or(true, |m| m.is_file() && (m.len() == *size || *size == 0)))
             || std::fs::symlink_metadata(f).is_err()
     })?;
     let open = folder.join(&name);
@@ -4258,7 +4266,7 @@ pub fn unpack_beside(b: &Beside) -> io::Result<PathBuf> {
     for f in &b.files {
         let to = b.folder.join(&f[within..]);
         if to.parent() != Some(b.folder.as_path()) {
-            continue;
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, f.clone()));
         }
         if std::fs::metadata(&to).is_ok_and(|m| m.is_file() && m.len() == size(f)) {
             continue;
@@ -4301,6 +4309,9 @@ mod tests {
         let zip = d.join("Big base.zip");
         create(&zip, &[d.join("src/db")]).unwrap();
         let path = zip.join("db/club.si5");
+        for (n, bare) in [("Lumbras_si5.7z", "Lumbras_si5"), ("games.tar.gz", "games"), ("a.b.zip", "a.b"), ("noend", "noend"), (".7z", ".7z")] {
+            assert_eq!(bare_name(Path::new(n)), bare);
+        }
         assert_eq!(beside(&path), None, "small: looked at in place");
         assert_eq!(beside_past(&zip.join("db/notes.txt"), 0), None, "no game file");
         let b = beside_past(&path, 0).unwrap();

@@ -2231,6 +2231,9 @@ async fn archive_beside(path: PathBuf) -> Option<(coxswain_core::archive::Beside
 /// copies them (its progress, Stop, Undo); the ones there whole already are left.
 #[tauri::command]
 async fn archive_unpack_beside(beside: coxswain_core::archive::Beside, ctx: tauri::State<'_, Ctx>) -> Res<Option<String>> {
+    if beside.files.is_empty() || beside.files.len() != beside.sizes.len() {
+        return Err("nothing to unpack".into());
+    }
     std::fs::create_dir_all(&beside.folder).map_err(|e| e.to_string())?;
     let paths = beside.missing();
     job(&ctx, Op::Copy, paths, beside.folder.clone(), None).await

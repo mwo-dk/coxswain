@@ -1530,7 +1530,19 @@ async function unpackBeside(b) {
     stopped = await invoke("archive_unpack_beside", { beside: b });
   } catch (e) {
     ui.status = "";
-    ui.modal = failure(t("chess.beside_failed", { name: what }), e);
+    // A locked archive: its password, kept for this run, then again.
+    if (String(e).includes(LOCKED))
+      ui.modal = {
+        kind: "input",
+        feature: "archive_passwords",
+        secret: true,
+        title: t("archive.locked_title"),
+        label: t("archive.locked_label"),
+        value: "",
+        ok: t("verb.unlock"),
+        run: (password) => invoke("archive_password", { path: b.archive, password }).then(() => unpackBeside(b)),
+      };
+    else ui.modal = failure(t("chess.beside_failed", { name: what }), e);
     return;
   } finally {
     ended();
