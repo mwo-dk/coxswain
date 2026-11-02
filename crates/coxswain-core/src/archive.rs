@@ -4858,10 +4858,11 @@ mod tests {
         got.sort();
         assert_eq!(got, ["EVIL.cbp", "evil.cbg", "evil.cbh"]);
         assert_eq!(std::fs::read(folder.join("evil.cbg")).unwrap(), b"x/evil.cbg");
-        // Crafted names looked at themselves stay in the folder too (or are not listed).
+        // Crafted names looked at themselves stay in a folder of their own beside it too (or
+        // are not listed).
         for name in ["x/..\\..\\evil.cbh", "x/C:evil.cbh"] {
             if let Ok(c) = peek(&zp.join(name)) {
-                assert_eq!(c.parent(), Some(folder), "{name}");
+                assert_eq!(c.parent().and_then(Path::parent), folder.parent(), "{name}");
             }
         }
         for up in [folder.parent().unwrap(), folder.parent().unwrap().parent().unwrap()] {
