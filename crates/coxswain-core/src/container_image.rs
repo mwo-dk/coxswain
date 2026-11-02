@@ -1348,6 +1348,32 @@ pub(crate) mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// An OCI layout folder inside a zip opens as the image, as on the disk: Enter says so, and
+    /// its `index.json` lists the merged layers from a copy of the folder.
+    #[test]
+    fn oci_layout_folder_inside_an_archive() {
+        let dir = crate::pictures::tests::folder("image-oci-in-zip");
+        let src = dir.join("src");
+        let layout = src.join("rocket");
+        std::fs::create_dir_all(&layout).unwrap();
+        oci_dir(&layout, &[tar_of(&[("hello.txt", b"hi")])]);
+        std::fs::write(src.join("index.json"), b"{}").unwrap();
+        let zip = dir.join("all.zip");
+        crate::archive::create(&zip, &[layout.clone(), src.join("index.json")]).unwrap();
+        let ix = zip.join("rocket/index.json");
+        use crate::enter::{Enter, Place, enter};
+        assert_eq!(enter(&ix, false, Place::Archive), Enter::Image);
+        // An index.json with no oci-layout beside it is a file.
+        assert_eq!(enter(&zip.join("index.json"), false, Place::Archive), Enter::Other);
+        let (entries, _) = crate::archive::listing(&zip, "rocket/index.json").unwrap();
+        assert!(entries.iter().any(|e| e.name == "hello.txt" && e.size == 2), "{:?}", entries.iter().map(|e| &e.name).collect::<Vec<_>>());
+        // Inside it nothing is changed, as in any archive inside an archive; beside it, the zip is.
+        assert!(crate::archive::nested_dir(&ix) && !crate::archive::nested_dir(&zip.join("rocket")));
+        let copy = crate::archive::peek(&zip.join("rocket/index.json/hello.txt")).unwrap();
+        assert_eq!(std::fs::read(copy).unwrap(), b"hi");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// Text that packs as text does, different for each `seed`.
     fn text(n: usize, seed: u32) -> Vec<u8> {
         let mut x = seed.wrapping_mul(2_654_435_761) | 1;
