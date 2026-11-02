@@ -147,13 +147,14 @@ bin, also when your home is reached through a link to it (`/home` a link to `/us
 Two Coxswains (the terminal app and the desktop app) take turns: while one restores, deletes
 for good or empties, the other says *Another Coxswain is working in the bin* and does nothing. Other programs (the
 desktop's file manager, `gio trash`, `trash-cli`) take no turn of ours, as the freedesktop.org
-bin has no lock. So on the BSDs, illumos and Linux Coxswain looks at each item again just
-before each removal: the file and its info file must still be the ones listed (the same inode
+bin has no lock. So on the BSDs, illumos, Linux and Termux Coxswain looks at each item again
+just before each removal: the file and its info file must still be the ones listed (the same inode
 and change time). One that another program took away meanwhile counts as done; another file put
 under its name meanwhile stays in the bin, listed, and the dialog names it *Not in the bin*.
 What is left is the instant between that last look and the removal itself, a few microseconds,
-which no program can close alone: emptying or deleting from the bin in two programs at once is
-not guarded.
+and, for *Empty the bin*, the time it takes to list the bin before it looks at the first item
+(longer in a bin of thousands); no program can close these alone: emptying or deleting from the
+bin in two programs at once is not guarded.
 
 #### Can Find search inside the files in the bin?
 

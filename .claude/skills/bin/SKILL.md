@@ -123,11 +123,16 @@ Not modelled, so not proven:
   missing source).
 - More than two programs or files: a trace needing three has not been looked for.
 - `fd::id` is the device, inode and change time: a file freed and another made since may get
-  the same inode number, but not the same change time. The model's `Make` reuses a file only
+  the same inode number, and on a coarse clock (Linux before 6.13: 1–4 ms ticks) the same change
+  time only if made within the tick of the old item's last change (its trashing): negligible,
+  not zero. Two bin items that are hard links of one file share a change time, so removing one
+  makes the other "another file": left and said, not lost. The model's `Make` reuses a file only
   while no program holds it (`Reusable`). A program that changes an item's metadata in the bin
   (a `chmod`) makes it "another file" to the re-check: left, and said.
 - The listing and its `fd::ids` are one step in the model (`EmptyStart`, `DeleteStart`,
-  `RestoreStart`); in the code they are a few system calls apart.
+  `RestoreStart`); in the code `find` and `ids` are a few system calls apart, and Empty takes the
+  ids after `list_in` has read the whole bin, so an outside empty and put during the listing is
+  taken as the item. The docs say so.
 - Liveness (an operation finishes): safety only.
 
 ## What it found
@@ -176,9 +181,9 @@ order of system calls in them, needs the model looked at (and the sync commit mo
 | `Free`, `Take`, `Done`, `lock` | `fd::hold` (`bin.rs` 346–388, `lock_all`): `flock` on `<bin>/.coxswain-lock` (`try_lock`; when busy, nothing is done) at the start of `restore_in`, `delete_in`, `empty_in`; `fd::wait` (waits, until Stop) for `undo::Record::undo` and `fs::trash_named`. Let go when they return or the program dies. |
 | `Listed`, `RestoreStart`, `DeleteStart`, `EmptyStart`, `iid`, `SameFile`, `SameInfo` | `fd::list_in` (`bin.rs` 562–576: an info file whose `parse` succeeds and whose item exists), `fd::find` (657–664) and `fd::ids` (670–672: `fd::id`, 408–417, of the file and its info file). |
 | `RCheck`, `RId` | `fd::restore_in` (694–736): `symlink_metadata(&to)`, `taken`, `free_in` with `name_candidates`; then `id(&item.path)` against the one found. |
-| `RLink`, `RUnlinkCheck`, `RUnlink` | `fd::move_new` (748–829), the file branch: `hard_link(from, to)`, `id(from) == id(to)`, then `remove_file(from)`; `false` when either finds the file gone or another's; also `xdg_trash::restore_in` (101–131). |
+| `RLink`, `RUnlinkCheck`, `RUnlink` | `fd::move_new` (748–829), the file branch: `hard_link(from, to)`, `id(from) == id(to)`, then `remove_file(from)`; `false` when either finds the file gone or another's; also `xdg_trash::restore_in` (101–136), which takes the ids before reading the info file and re-checks the file before `move_new`. |
 | `RInfoCheck`, `RInfo` | `fd::restore_in`: when `move_new` says `true`, `remove_info` (676–681: `id(info)` against the one found, then `remove_file`). |
-| `DCheck`, `DRemove`, `DInfoCheck`, `DInfo` | `fd::delete_in` (839–860: `find` and `ids` per path) and `fd::delete_listed` (863–890): `id(p)` against the one listed, `remove(p)`, then `remove_info`. |
+| `DCheck`, `DRemove`, `DInfoCheck`, `DInfo` | `fd::delete_in` (839–858: `find` and `ids` per path) and `fd::delete_listed` (863–889): `id(p)` against the one listed, `remove(p)`, then `remove_info`. |
 | `EFile`, `ECheck`, `ERemove`, `EInfoCheck`, `EInfo`, `ESweepCheck`, `ESweepRm` | `fd::empty_in` (896–935): `list_in` with `ids` of each item, and the strays of `read_dir(files)` (`unlisted`: info file missing or empty) with their `id`, `delete_listed` on the list, then for each stray `unlisted` and the same `id` again before `remove`. `ESweepFiles`, `ESweepInfo` are the `sweep_all` variant only. |
 | `ODelete`, `ORestore`, `OInfo` | Not Coxswain: another program's delete for good, restore and Empty (`--outside`), taking no lock. |
 | `Make` | Not Coxswain: the user or any program saving a file at a free place. |

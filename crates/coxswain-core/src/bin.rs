@@ -1452,8 +1452,11 @@ mod tests {
         let d = crate::fs::Scratch::named("bin-outside");
         let other = |dir: PathBuf, put: bool| -> Box<dyn FnMut()> {
             let mut once = true;
+            let mut kept = vec![];
             Box::new(move || {
                 if std::mem::take(&mut once) {
+                    // Held open, so the new file cannot get its inode number.
+                    kept.push(fs::File::open(dir.join("files/a.txt")).unwrap());
                     fs::remove_file(dir.join("files/a.txt")).unwrap();
                     if put {
                         fs::remove_file(dir.join("info/a.txt.trashinfo")).unwrap();
@@ -1475,7 +1478,9 @@ mod tests {
         };
         let not_in_bin = |r: &Done| r.failed.len() == 1 && r.done == 0;
         for op in 0..3 {
-            let b = bin(&d.join(format!("{op}")), &[("a.txt", "/x/a.txt", "2026-10-01T12:00:00")]);
+            let at = d.join(format!("{op}"));
+            let origin = at.join("home/a.txt");
+            let b = bin(&at, &[("a.txt", &origin.to_string_lossy(), "2026-10-01T12:00:00")]);
             let bins = [b.clone()];
             let a = b.dir.join("files/a.txt");
             MIDWAY.set(Some(other(b.dir.clone(), true)));
@@ -1486,6 +1491,7 @@ mod tests {
             };
             MIDWAY.set(None);
             assert!(not_in_bin(&r), "{op}: {r:?}");
+            assert!(!origin.exists(), "{op}: the new file is not restored in its place");
             new_one_stays(&b);
         }
         // Only gone (another program's delete, its info file next): done, and its info file
