@@ -114,13 +114,13 @@ is the order shown: 4 bytes a game the filters let through (8 while it is sorted
 |---|---|
 | Games | 12,294,960 (the table in memory before stopped at 10,000,000) |
 | First rows shown | after 0.2 s |
-| The whole file read | in 95 s, about 130 MB a second |
-| Memory while it is read | 61 MB at most |
-| Opened again | in under 1 ms: the file is not read |
-| All games; a player (*carlsen*: 6,632 games); four filters at once | 0.2 s; 0.25 s; 0.3 s |
-| Sorted by White, or by date | 0.3 s; 180 MB of memory while 12.3 million games are sorted |
+| The whole file read | in 100 s, about 120 MB a second |
+| Memory while it is read | 74 MB at most |
+| Opened again | in under 2 ms: the file is not read |
+| All games; a player (*carlsen*: 6,632 games); four filters at once | at once; 0.25 s; 0.33 s |
+| Sorted by White, or by date | 0.4 s; 190 MB of memory while 12.3 million games are sorted |
 | A game opened, the first, the middle or the last | under 6 ms |
-| The table on the disk | 677 MB (563 MB of rows, 114 MB of names) |
+| The table on the disk | 727 MB (610 MB of rows, 117 MB of names) |
 
 A table goes by itself when its file changes (it is read anew the next time) or goes, when it
 was not opened for 30 days, and when all tables take more than 4 GB (the ones opened longest ago
@@ -561,7 +561,7 @@ fills; the next one, of the same file unchanged, shows the table at once.
 
 #### Why is my cache folder bigger after I opened a large database?
 
-Its table of games is kept there (`chess/tables/`), 52 bytes a game and the names: 677 MB for
+Its table of games is kept there (`chess/tables/`), 52 bytes a game and the names: 727 MB for
 12.3 million games. It goes by itself 30 days after you last opened the file, when the file changes
 or goes, or past 4 GB of tables in all; **Clear** on the *chess/* row of Disk use removes them
 at once.

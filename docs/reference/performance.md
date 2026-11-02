@@ -320,9 +320,9 @@ What the numbers say:
   are unpacked, writing what it read every 64 MB, so it reads every file and holds less.
 - **A PGN collection's table** is kept on the disk (52 bytes a game, [Large
   databases](../previews/chess.md#large-databases)), not in memory: Lumbra's Gigabase, 12.3
-  million games in a 12 GB PGN file, is read in 95 s at 61 MB of memory at most (before: 48
+  million games in a 12 GB PGN file, is read in 100 s at 74 MB of memory at most (before: 48
   bytes a game in memory, stopped at 10 million games), shows its first games within 0.2 s and
-  opens again in under 1 ms; its search text stops after 4 MB. An SGF collection is read game by game
+  opens again in under 2 ms; its search text stops after 4 MB. An SGF collection is read game by game
   as it streams by (before, whole up to 64 MB: 100 MB at its peak and 68,257 games); its list
   fills while it is read, up to 100,000 games.
 
