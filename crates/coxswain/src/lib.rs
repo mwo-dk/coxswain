@@ -2215,6 +2215,8 @@ impl App {
             Err(e) if e.to_string().contains(coxswain_core::archive::LOCKED) => {
                 self.input(&t!("archive.locked_title"), t!("archive.locked_label"), String::new(), Prompt::Peek(path));
             }
+            // A game database too large to look at here: offered to be unpacked beside it.
+            Err(_) if coxswain_core::archive::beside(&path).is_some() => self.chess(&path, None),
             Err(e) => self.status = Some(e.to_string()),
         }
     }
