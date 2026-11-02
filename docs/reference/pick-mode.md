@@ -68,6 +68,17 @@ refused with *The picker only chooses: it changes no files*, whether you reach i
 the action menu (**Shift+F10**), the command list (**F9**), a button or, in the desktop app, by
 dragging. Looking, marking, searching, sorting, the preview and moving about work as always.
 
+The desktop app (`coxswain-gui --pick --multiple --filter rs,toml`): a bar with *Show all*,
+**Choose** and **Cancel**, the files that do not fit dimmed, and the F-keys of actions that change
+files greyed out.
+
+![The desktop app in pick mode: the bar above the command line reads Choose files (*.rs *.toml) with Show all, Choose and Cancel; Cargo.toml is marked, other files are dimmed and F2, F4 to F8 are greyed out](../screenshots/pick-gui.png)
+
+The terminal app (`coxswain --pick --multiple --filter rs,toml`): the status line says what is
+asked for, and the key line shows the keys of pick mode.
+
+![The terminal app in pick mode: the status line reads Choose files (*.rs *.toml), the key line reads Enter choose, Esc cancel, Insert mark, Ctrl+PageDown open folder, Alt+E show all; Cargo.toml is marked](../screenshots/pick-tui.png)
+
 ## Saving under a new name
 
 With `--save NAME` the program asks where to save a new file, and under which name.

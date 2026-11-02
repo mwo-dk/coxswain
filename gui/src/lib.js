@@ -506,3 +506,8 @@ export function previewKind(item) {
   if (ext === "md" || ext === "markdown") return "markdown";
   return "text";
 }
+
+/** The action an F-key runs: none while picking and the action is one pick mode refuses. */
+export function fkeyAction(act, pick, refused) {
+  return act && !(pick && refused.includes(act)) ? act : undefined;
+}

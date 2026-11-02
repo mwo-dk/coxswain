@@ -5,7 +5,7 @@
   import { listen } from "@tauri-apps/api/event";
   import { ui, openFind, init, gamesOf, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, pickItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders, remoteRun, stopRemote, refreshBin, openBin, binAct } from "./app.svelte.js";
   import { failure } from "./errors.js";
-  import { invoke, keyString, basename, parent, quote, isArchive, diskName, packFormat, LOCKED, inside, keyOwner } from "./lib.js";
+  import { invoke, keyString, basename, parent, quote, isArchive, diskName, packFormat, LOCKED, inside, keyOwner, fkeyAction } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -919,7 +919,7 @@
   const fkeys = $derived.by(() => {
     if (!ui.cfg) return [];
     return Array.from({ length: 10 }, (_, i) => {
-      const act = ui.cfg.keymap[`F${i + 1}`];
+      const act = fkeyAction(ui.cfg.keymap[`F${i + 1}`], ui.cfg.pick, ui.cfg.pick_refused);
       return { n: i + 1, act, label: act ? ui.cfg.actions[act][0] : "" };
     });
   });
