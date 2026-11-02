@@ -46,7 +46,7 @@ libc = "0.2"
 
 # Windows Terminal's answer about pictures, read through the console's input (`pictures`).
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61.2", features = ["Win32_System_Console", "Win32_System_Threading"] }
+windows-sys = { version = "0.61.2", features = ["Win32_Foundation", "Win32_System_Console", "Win32_System_Threading"] }
 
 # The VC runtime linked in (the UCRT stays Windows' own), as the desktop app does through
 # tauri-build: a Windows without the Visual C++ Redistributable has no vcruntime140.dll.

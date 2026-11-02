@@ -1578,20 +1578,21 @@ impl App {
         let goes_in = e.is_parent() || matches!(enter::enter(&e.path, e.is_dir, place), Enter::Folder | Enter::Archive | Enter::DiskImage | Enter::Image | Enter::Mailbox);
         match (key.code, key.ctrl) {
             (KeyCode::PageDown, true) if goes_in => self.open(),
-            (KeyCode::Enter, false) => self.pick_choose(),
+            (KeyCode::Enter, false) => self.pick_choose(true),
             _ => return false,
         }
         true
     }
 
     /// Pick mode: what Enter or a double-click does on the entry under the cursor.
-    fn pick_choose(&mut self) {
+    fn pick_choose(&mut self, use_marks: bool) {
         let Some(req) = self.pick.clone() else { return };
         let Some(e) = self.panel().current() else { return };
         use coxswain_core::enter::{self, Enter, Place};
         let place = if coxswain_core::archive::split(&self.panel().dir).is_some() { Place::Archive } else { Place::Disk };
         let goes_in = e.is_parent() || matches!(enter::enter(&e.path, e.is_dir, place), Enter::Folder | Enter::Archive | Enter::DiskImage | Enter::Image | Enter::Mailbox);
-        let marked: Vec<(PathBuf, bool)> = self.panel().marked_entries().into_iter().map(|e| (e.path, e.is_dir)).collect();
+        // A double-click means the row clicked, not the marks.
+        let marked: Vec<(PathBuf, bool)> = if use_marks { self.panel().marked_entries().into_iter().map(|e| (e.path, e.is_dir)).collect() } else { Vec::new() };
         if e.is_parent() && marked.is_empty() {
             return self.open();
         }
@@ -1694,6 +1695,7 @@ impl App {
             Action::Home => self.panel_mut().cursor = 0,
             Action::End => self.panel_mut().move_cursor(isize::MAX / 2),
             Action::SwitchPanel => self.active ^= 1,
+            Action::Open if self.pick.is_some() => self.pick_choose(true),
             Action::Open => self.open(),
             // Where `..` leads: out of a history's commits, back to the folder on disk.
             Action::Parent => {
@@ -3352,7 +3354,19 @@ impl App {
     }
 
     /// `file` in the editor at `line`: config.toml at `[keys]` (Settings) or `[[user_menu]]` (F2).
+    /// Pick mode: whether to stop here, the status line saying a picker only chooses.
+    fn picker_refuses(&mut self) -> bool {
+        let yes = self.pick.is_some();
+        if yes {
+            self.status = Some(t!("pick.refused"));
+        }
+        yes
+    }
+
     pub fn edit_at(&mut self, file: &Path, line: usize) {
+        if self.picker_refuses() {
+            return;
+        }
         let Some(editor) = self.editor() else { return self.edit_here(file, Some(line), None) };
         if let Some(prog) = editor_missing(&editor) {
             return self.status = Some(t!("edit.not_found", "name" => prog));
@@ -3508,6 +3522,9 @@ impl App {
 
     /// `file` in the built-in editor, at `line` (from 1); `back` is shown again when it closes.
     fn edit_here(&mut self, file: &Path, line: Option<usize>, back: Option<Box<Dialog>>) {
+        if self.picker_refuses() {
+            return;
+        }
         match editor::Editor::open(file) {
             Ok(e) => {
                 let mut e = e.git_keys(self.key_label(Action::Blame), self.key_label(Action::LineHistory));
@@ -3567,6 +3584,9 @@ impl App {
 
     /// `prog` run on `file`, in the file's folder, with the panels hidden meanwhile.
     fn run_on(&mut self, prog: &str, file: &Path) {
+        if self.picker_refuses() {
+            return;
+        }
         let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
         let mut line = Line::default();
         line.cmd = format!("{prog} {}", line.word(&file.to_string_lossy()));
@@ -4784,7 +4804,7 @@ impl App {
                     if double {
                         self.last_click = None;
                         if self.pick.is_some() {
-                            self.pick_choose();
+                            self.pick_choose(false);
                         } else {
                             self.open();
                         }
@@ -5718,7 +5738,8 @@ fn take_terminal() -> std::io::Result<Box<dyn std::io::Write>> {
     {
         use std::os::fd::{AsRawFd, FromRawFd};
         // SAFETY: fd 1 is duplicated, then pointed at the terminal; the copy is owned by the File.
-        let saved = unsafe { libc::dup(1) };
+        // Close-on-exec: a helper or tool started later must not hold the caller's pipe open.
+        let saved = unsafe { libc::fcntl(1, libc::F_DUPFD_CLOEXEC, 3) };
         if saved < 0 || unsafe { libc::dup2(tty.as_raw_fd(), 1) } < 0 {
             return Err(std::io::Error::last_os_error());
         }
@@ -5730,6 +5751,7 @@ fn take_terminal() -> std::io::Result<Box<dyn std::io::Write>> {
         use windows_sys::Win32::System::Console::{GetStdHandle, STD_OUTPUT_HANDLE, SetStdHandle};
         // SAFETY: the old standard output handle becomes the File's; the terminal replaces it.
         let old = unsafe { GetStdHandle(STD_OUTPUT_HANDLE) };
+        unsafe { windows_sys::Win32::Foundation::SetHandleInformation(old, windows_sys::Win32::Foundation::HANDLE_FLAG_INHERIT, 0) };
         if unsafe { SetStdHandle(STD_OUTPUT_HANDLE, tty.into_raw_handle()) } == 0 {
             return Err(std::io::Error::last_os_error());
         }
@@ -5765,10 +5787,14 @@ pub fn main() {
         })
     });
     // The panels are drawn on the terminal, standard output stays for the paths (as fzf does).
-    let mut pick_out = pick.as_ref().map(|_| {
+    let mut pick_out = pick.as_ref().map(|r| {
         take_terminal().unwrap_or_else(|e| {
-            eprintln!("coxswain: {}", t!("pick.no_terminal", "error" => e));
-            std::process::exit(2)
+            // With a file to write to, a missing terminal is not fatal here (the app draws on stdout).
+            if r.out.is_none() {
+                eprintln!("coxswain: {}", t!("pick.no_terminal", "error" => e));
+                std::process::exit(2)
+            }
+            Box::new(std::io::stdout())
         })
     });
     // An option or a folder that is not known is said, and nothing starts.

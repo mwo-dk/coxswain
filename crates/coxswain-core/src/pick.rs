@@ -112,7 +112,7 @@ pub fn changes_files(a: Action) -> bool {
             | SearchablePdf | ConvertMedia | EditPictures | ConvertGeodata | ExportModel | ConvertEbook | ExportKicad
             | MakeChecksums | SplitFile | JoinParts | AdocPdf | DrawioExport | ScanViruses | Duplicates | Transcribe
             | SwitchBranch | NewBranch | Fetch | Pull | GitTool | GitConfig | Properties | Edit | EditHere | CommandLine
-            | UserMenu | Notes | Settings | SuggestTranslation
+            | UserMenu | Notes | Settings | SuggestTranslation | DiskUse | PreviewWith
     )
 }
 
