@@ -31,10 +31,18 @@
   // So is one in a history: the copy is the file as it was at that commit.
   const inside = $derived((!!pane?.archive || !!pane?.history) && !!raw && !raw.is_dir && raw.name !== "..");
   const inHistory = $derived(!!pane?.history && inside);
+  /** Text and pictures inside an archive are read as they are unpacked, no copy made
+   *  (`archive::head`, through `read_text` and `asset:`); a file that cannot be read so (locked,
+   *  too large a picture, a game to put on its board) is listed here and gets its copy. */
+  let copied = $state([]);
+  const DIRECT = ["text", "markdown", "data", "image"];
+  const direct = $derived(inside && !inHistory && DIRECT.includes(previewKind(raw)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
+  /** `path` gets its copy after all. */
+  const needsCopy = (path) => !copied.includes(path) && (copied = [...copied.slice(-50), path]);
   let peeked = $state({ from: "", to: "", error: "" });
   $effect(() => {
     const cur = raw;
-    if (!inside || untrack(() => peeked.from === cur.path && !peeked.error)) return;
+    if (!inside || direct || untrack(() => peeked.from === cur.path && !peeked.error)) return;
     peeked = { from: cur.path, to: "", error: "" };
     const timer = setTimeout(() => peek(cur.path), 150);
     return () => clearTimeout(timer);
@@ -75,7 +83,7 @@
     invoke("is_model", { path: cur.path }).then((yes) => yes && e?.path === cur.path && (sniffed = { path: cur.path, kind: "netron" }), () => {});
   });
   const kind = $derived(
-    output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
+    output ? "output" : online ? "online" : inside && e === raw && !direct ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
   );
   /** A blob of a model store that holds weights (Ollama's, a Hugging Face one's): by the name the
    *  store gives it (`local_models::names`), as its own name says nothing. */
@@ -197,8 +205,16 @@
         }
         // A log is read a screen at a time, whatever its size.
         if (k === "log") return void (logPath = cur.path);
-        const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT });
+        const unpacked = direct;
+        const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT }).catch((err) => {
+          // Locked, or not to be read as it is unpacked: from a copy, as before.
+          if (unpacked) needsCopy(cur.path);
+          throw err;
+        });
         if (e?.path !== cur.path) return;
+        // Games, provenance and BOMs are read by readers that need a file: from a copy.
+        const special = !bin && ((k === "text" && looksLikeDhtml(cur.name, s)) || (/\.(json|jsonl|ndjson|xml)$/i.test(cur.name) && (looksLikeProvenance(s) || looksLikeBom(s))));
+        if (unpacked && special) return void needsCopy(cur.path);
         // A DhtmlXQ xiangqi game (`chess::sniff`): on its board, unless the source is asked for.
         if (!bin && k === "text" && !src && looksLikeDhtml(cur.name, s)) {
           ui.book = cur.path;
@@ -228,7 +244,8 @@
           }
         }
         // JSON Lines, and a text larger than what is read here: in the log view, every line.
-        if (!bin && (k === "jsonl" || (k === "text" && trunc))) return void (logPath = cur.path);
+        // Inside an archive the first part is shown, said so below (`truncated`).
+        if (!bin && !unpacked && (k === "jsonl" || (k === "text" && trunc))) return void (logPath = cur.path);
         if (!bin && k === "calendar" && !src) return void (cards = { events: calendar(s) });
         if (!bin && k === "contacts" && !src) return void (cards = { people: contacts(s) });
         if (!bin && k === "html" && !src) return void (page = pageUrl(convertFileSrc(cur.path), cur.path));
@@ -993,7 +1010,7 @@
         {/if}
         <div class="drawio" use:drawioView={rich.drawio}></div>
       {:else if kind === "image"}
-        <div class="media checker"><img src={convertFileSrc(e.path)} alt={e.name} /></div>
+        <div class="media checker"><img src={convertFileSrc(e.path) + (direct ? "?inside" : "")} alt={e.name} onerror={() => direct && needsCopy(e.path)} /></div>
       {:else if kind === "picture"}
         {#if pic?.error}
           <p class="more">{pic.error}</p>

@@ -37,7 +37,7 @@ pub(crate) use coxswain_core::logs::LONGEST_READ;
 
 /// Files bigger than this are shown without colours: a log of that size is read for its
 /// lines, not its syntax.
-const PLAIN_OVER: u64 = 16 << 20;
+pub(crate) const PLAIN_OVER: u64 = 16 << 20;
 /// A line longer than this is not highlighted (a minified file): it would take the grammar long.
 const LONGEST_HIGHLIGHTED: usize = 4000;
 /// Highlighting keeps where it stands every this many lines, to start from there again.
@@ -334,6 +334,35 @@ impl Viewer {
         Ok(v)
     }
 
+    /// The first part of a file held in memory (a file inside an archive, unpacked as it is read,
+    /// no copy on the disk; `PLAIN_OVER` at most), read as `open` reads a file: text, UTF-16, or a
+    /// hex dump. `more`: the file goes on past it, which the viewer says.
+    pub fn bytes(path: &Path, bytes: &[u8], more: bool, labels: [&str; 2]) -> Viewer {
+        let utf16 = bytes.starts_with(&[0xff, 0xfe]) || bytes.starts_with(&[0xfe, 0xff]);
+        let binary = !utf16 && bytes[..bytes.len().min(8192)].contains(&0);
+        let (lines, encoding) = match coxswain_core::view::decode(bytes).filter(|_| !binary) {
+            Some(text) => (text.lines().map(str::to_owned).collect(), match () {
+                _ if utf16 => Encoding::Utf16,
+                _ if coxswain_core::view::is_utf8(bytes) => Encoding::Utf8,
+                _ => Encoding::Latin1,
+            }),
+            None => (coxswain_core::view::hex(bytes, HEX_LINES), Encoding::Binary),
+        };
+        let head = if encoding == Encoding::Binary { String::new() } else { lines.iter().take(20).cloned().collect::<Vec<String>>().join("\n") };
+        let syntax = (encoding != Encoding::Binary && !more && bytes.len() as u64 <= PLAIN_OVER).then(|| syntax_for(path, &head)).flatten();
+        let [edit, view] = labels;
+        let mut v = Viewer::text(path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned()), "");
+        v.path = path.to_path_buf();
+        v.body = Body::Whole(lines);
+        v.encoding = encoding;
+        v.points = syntax.map(|s| vec![Point::new(s)]).unwrap_or_default();
+        v.syntax = syntax;
+        v.numbers = true;
+        v.key_line = t!("viewer.keys", "edit" => edit, "view" => view);
+        v.said = more.then(|| t!("viewer.first_part"));
+        v
+    }
+
     /// Long lines wrapped from the start, as **w** does: a text of paragraphs, not of lines.
     pub fn wrapped(mut self) -> Viewer {
         self.wrap = true;
@@ -435,6 +464,11 @@ impl Viewer {
             self.said = Some(text);
         }
         self
+    }
+
+    /// `text` on the viewer's line now, in place of what it said.
+    pub fn say(&mut self, text: String) {
+        self.said = Some(text);
     }
 
     /// Rows known so far, and whether that is all of them.
@@ -1227,6 +1261,20 @@ mod tests {
         assert!(matches!(v.key(key(KeyCode::Esc), None), Outcome::Close));
         drop(v);
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// A file inside an archive, shown from its first bytes in memory: text with its lines and
+    /// grammar, binary as hex, and the first part said to be the first part.
+    #[test]
+    fn a_files_first_bytes_are_shown_from_memory() {
+        let p = Path::new("/x/logs.zip/src/main.rs");
+        let v = Viewer::bytes(p, b"fn main() {}\nlet x = 1;\n", false, ["F4", "F3"]);
+        assert_eq!((v.count().0, v.encoding, v.syntax.is_some(), v.said.is_none()), (2, Encoding::Utf8, true, true));
+        assert_eq!((v.path.as_path(), v.title.as_str()), (p, "main.rs"));
+        let v = Viewer::bytes(p, b"fn main", true, ["F4", "F3"]);
+        assert_eq!((v.syntax.is_none(), v.said.as_deref()), (true, Some(t!("viewer.first_part").as_str())));
+        let v = Viewer::bytes(Path::new("/x/a.zip/b.bin"), &[0, 1, 2, 3], false, ["F4", "F3"]);
+        assert_eq!(v.encoding, Encoding::Binary);
     }
 
     #[test]

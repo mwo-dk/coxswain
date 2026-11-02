@@ -2766,6 +2766,34 @@ fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     Ok(to)
 }
 
+/// The first `max` bytes of the file `path` inside an archive, read as it is unpacked with
+/// nothing written to the disk (an archive inside it read in place, or through its copy as
+/// browsing does), and whether it has more: the preview's and the viewer's text and pictures.
+/// A locked one wants its password (`LOCKED`) unless it was given in this run.
+pub fn head(path: &Path, max: u64) -> io::Result<(Vec<u8>, bool)> {
+    let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty()).ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.not_in_archive"))
+    })?;
+    let (archive, inner, _held) = resolve(&archive, &inner, false)?;
+    let it = items(&archive)?.iter().find(|it| it.name == inner).map(ItemRef::owned).ok_or_else(|| {
+        io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_the_archive", "name" => inner))
+    })?;
+    if it.dir {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.is_folder", "name" => inner)));
+    }
+    // 7-Zip reads a disk image's file whole: a part of it is no head, so the caller copies it.
+    if kind(&archive) == Some(Kind::Disk) && it.size > max {
+        return Err(too_large(&inner));
+    }
+    // shortcut: a wrong ZipCrypto password that passes its check byte (1 in 256) shows as bytes
+    // when only a head is read, since the CRC at the entry's end is never reached.
+    let got = std::cell::RefCell::new((Vec::new(), false));
+    // Nothing lands anywhere: `head` keeps the bytes, so the path is never made.
+    let nowhere = Path::new("");
+    copy_out_with(&archive, &inner, nowhere, password_for(&archive, None).as_deref(), Copy { limit: max, head: Some(&got), ..Copy::default() })?;
+    Ok(got.into_inner())
+}
+
 /// A name that is one file's in a folder: no `/` or `..`, and on Windows no `\\`, `:` (a drive
 /// or a stream) or device name, which are only characters elsewhere.
 fn one_name(n: &str) -> bool {
@@ -2839,7 +2867,7 @@ fn copy_out_with(
     let (mut any, mut used) = (false, false);
     let r = copy_entries(archive, inner, to, password, how, &mut any, &mut used);
     // Stopped, what came out stays, unless it all must (a move).
-    if r.is_err() && !inner.is_empty() && (how.whole || !crate::stop::asked()) {
+    if r.is_err() && how.head.is_none() && !inner.is_empty() && (how.whole || !crate::stop::asked()) {
         let _ = if to.is_dir() {
             std::fs::remove_dir_all(to)
         } else {
@@ -2860,18 +2888,21 @@ fn copy_out_with(
 }
 
 /// How `copy_out_with` copies: `whole`, an entry below it that cannot come out is an error, not
-/// left behind; `limit`, the most bytes it writes in all.
+/// left behind; `limit`, the most bytes it writes in all; `head`, one file's first `limit`
+/// bytes kept in memory instead, nothing written, and whether there were more (`head`).
 #[derive(Clone, Copy)]
-struct Copy {
+struct Copy<'a> {
     whole: bool,
     limit: u64,
+    head: Option<&'a std::cell::RefCell<(Vec<u8>, bool)>>,
 }
 
-impl Default for Copy {
-    fn default() -> Copy {
+impl Default for Copy<'_> {
+    fn default() -> Self {
         Copy {
             whole: false,
             limit: u64::MAX,
+            head: None,
         }
     }
 }
@@ -2921,6 +2952,14 @@ fn copy_entries(
     // Written under a passing name (noted, so a kill leaves nothing that looks whole) and given
     // its own only when whole.
     let write = |path: &Path, from: &mut dyn Read, secs: u64| -> io::Result<()> {
+        if let Some(head) = how.head {
+            let (bytes, more) = &mut *head.borrow_mut();
+            bytes.clear();
+            let n = crate::stop::Reader(from.take(left.get().saturating_add(1))).read_to_end(bytes)?;
+            *more = n as u64 > left.get();
+            bytes.truncate(left.get() as usize);
+            return Ok(());
+        }
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -2969,7 +3008,7 @@ fn copy_entries(
         crate::container_image::read_out(archive, &wanted, &write)?;
         // A script stays one; nothing but the permission bits is taken.
         #[cfg(unix)]
-        for (_, path, mode, _) in files.iter().filter(|(_, _, m, _)| m & 0o111 != 0) {
+        for (_, path, mode, _) in files.iter().filter(|(_, _, m, _)| how.head.is_none() && m & 0o111 != 0) {
             std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(mode & 0o755))?;
         }
         return Ok(());
@@ -3058,7 +3097,7 @@ fn copy_entries(
                 return Err(copy_error(err, &from, false));
             }
             #[cfg(unix)]
-            if let Some(m) = c.unix_mode().filter(|m| m & 0o111 != 0) {
+            if let Some(m) = c.unix_mode().filter(|m| how.head.is_none() && m & 0o111 != 0) {
                 std::fs::set_permissions(
                     &path,
                     std::os::unix::fs::PermissionsExt::from_mode(m & 0o777 & !NOT_SHARED),
@@ -3123,7 +3162,7 @@ fn copy_entries(
             }
             // A script stays one; nothing but the permission bits is taken.
             #[cfg(unix)]
-            if let Some(m) = mode.filter(|m| m & 0o111 != 0) {
+            if let Some(m) = mode.filter(|m| how.head.is_none() && m & 0o111 != 0) {
                 std::fs::set_permissions(
                     &path,
                     std::os::unix::fs::PermissionsExt::from_mode(m & 0o777 & !NOT_SHARED),
@@ -4961,6 +5000,33 @@ mod tests {
         assert!(one_name("a.cbg") && !one_name("../a.cbg") && !one_name("..") && !one_name("a/b"));
         assert_eq!(one_name("..\\a.cbg"), !cfg!(windows));
         assert_eq!(one_name("C:a.cbg"), !cfg!(windows));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A file's first bytes come out of a zip, a tar.gz and a 7z, and out of a zip inside a zip,
+    /// nothing written to the peek folder; the rest is said to be there.
+    #[test]
+    fn a_files_head_comes_out_in_memory() {
+        let _alone = nested_alone();
+        let d = crate::pictures::tests::folder("head");
+        let src = d.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let text = "a line of the log\n".repeat(1000);
+        std::fs::write(src.join("app.log"), &text).unwrap();
+        let peeked = || peek_folder().ok().and_then(|f| std::fs::read_dir(f).ok()).map_or(0, |r| r.count());
+        let before = peeked();
+        for name in ["logs.zip", "logs.tar.gz", "logs.7z"] {
+            let a = d.join(name);
+            create(&a, &[src.join("app.log")]).unwrap();
+            assert_eq!(head(&a.join("app.log"), 1 << 20).unwrap(), (text.clone().into_bytes(), false), "{name}");
+            let (some, more) = head(&a.join("app.log"), 18).unwrap();
+            assert_eq!((some.as_slice(), more), (&b"a line of the log\n"[..], true), "{name}");
+            assert!(head(&a.join("nothing.txt"), 10).is_err());
+        }
+        let outer = d.join("outer.zip");
+        create(&outer, &[d.join("logs.zip")]).unwrap();
+        assert_eq!(head(&outer.join("logs.zip").join("app.log"), 9).unwrap(), (b"a line of".to_vec(), true));
+        assert_eq!(peeked(), before, "no copy to look at was made");
         std::fs::remove_dir_all(d).unwrap();
     }
 

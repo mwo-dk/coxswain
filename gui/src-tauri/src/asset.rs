@@ -24,6 +24,9 @@ const MAX_RANGE: u64 = 1000 * 1024;
 /// read in ranges or not at all, so no request fills the memory.
 const MAX_WHOLE: u64 = 512 * 1024 * 1024;
 
+/// The most a file inside an archive is served: it is unpacked into memory whole.
+const MAX_INSIDE: u64 = 64 * 1024 * 1024;
+
 /// The type a file is served as, from its first bytes and its name. A document type that could
 /// run script (HTML, XHTML, XML) is served as plain text, so a `.pdf` that holds a web page shows
 /// as text, never as a page; an unknown type is plain bytes, not HTML as Tauri's default.
@@ -102,6 +105,25 @@ pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Respo
         return status(StatusCode::FORBIDDEN);
     }
     let read = || -> std::io::Result<Response<Vec<u8>>> {
+        // A file inside an archive (a picture in a zip): unpacked into memory, never copied to
+        // the disk, served whole; one larger than `MAX_INSIDE` is not.
+        // Only the preview's picture asks so (`?inside`): a grid of thumbnails would unpack each.
+        let asked = req.uri().query().is_some_and(|q| q.split('&').any(|p| p == "inside"));
+        if asked && !path.exists() && coxswain_core::archive::split(&path).is_some() {
+            let (bytes, more) = coxswain_core::archive::head(&path, MAX_INSIDE)?;
+            if more {
+                return Ok(status(StatusCode::PAYLOAD_TOO_LARGE));
+            }
+            let mime = content_type(&bytes[..bytes.len().min(8192)], &path);
+            let csp = if mime == "application/pdf" { None } else { Some("sandbox") };
+            let mut resp = answer().header(header::CONTENT_TYPE, &mime).header(header::X_CONTENT_TYPE_OPTIONS, "nosniff");
+            if let Some(csp) = csp {
+                resp = resp.header(header::CONTENT_SECURITY_POLICY, csp);
+            }
+            let resp = resp.header(header::CONTENT_LENGTH, bytes.len());
+            let body = if req.method() == tauri::http::Method::HEAD { Vec::new() } else { bytes };
+            return Ok(resp.body(body).expect("a file's answer"));
+        }
         let mut file = File::open(&path)?;
         let len = file.metadata()?.len();
         let mut magic = Vec::with_capacity(len.min(8192) as usize);
