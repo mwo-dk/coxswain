@@ -1208,21 +1208,34 @@ pub fn find(query: &str, within: &dyn Fn(&Path) -> bool, max: usize) -> Vec<(Pat
 /// over the highest rated, and some games with their numbers. Each file's text up to `bytes`.
 pub fn ask_about(question: &str, within: &dyn Fn(&Path) -> bool, bytes: usize) -> Vec<(PathBuf, String)> {
     use std::collections::HashMap;
-    let words: Vec<String> = question
+    let mut words: Vec<String> = question
         .split(|c: char| !c.is_alphanumeric())
         .map(str::to_lowercase)
         .filter(|w| w.chars().count() >= 3 && !w.chars().all(|c| c.is_ascii_digit()))
         .collect();
+    words.sort();
+    words.dedup();
     if words.is_empty() || bytes == 0 {
         return vec![];
     }
-    let mut out = vec![];
+    // A word of a name as a whole word of it: "levon" in "Aronian, Levon", not "the" in
+    // "Matthews".
+    let whole_word = |name: &str, w: &str| name.to_lowercase().split(|c: char| !c.is_alphanumeric()).any(|p| p == w);
+    let (mut out, mut left) = (vec![], bytes);
     for (table, done) in super::table::whole(within) {
-        // How many of the words each name holds.
+        // How many of the words each name holds as a whole word. A word inside very many names
+        // ("the", "who") names no one: left out, and the table is passed over at once when no
+        // word is left.
         let mut hold: HashMap<u32, usize> = HashMap::new();
         for w in &words {
-            for (id, _) in table.matching(w).iter().enumerate().filter(|(_, m)| **m) {
-                *hold.entry(id as u32).or_default() += 1;
+            let ids: Vec<u32> = table.matching(w).iter().enumerate().filter(|(_, m)| **m).map(|(id, _)| id as u32).collect();
+            if ids.len() > 500 {
+                continue;
+            }
+            for id in ids {
+                if whole_word(&table.name(id), w) {
+                    *hold.entry(id).or_default() += 1;
+                }
             }
         }
         if hold.is_empty() {
@@ -1270,6 +1283,9 @@ pub fn ask_about(question: &str, within: &dyn Fn(&Path) -> bool, bytes: usize) -
                 _ => None,
             };
             let (opp, opp_elo) = if white { (r.black, r.black_elo) } else { (r.white, r.white_elo) };
+            if opp == player {
+                return;
+            }
             if let Some(k) = res {
                 if white { t.white[k] += 1 } else { t.black[k] += 1 }
                 t.opponents.entry(opp).or_default()[k] += 1;
@@ -1320,12 +1336,22 @@ pub fn ask_about(question: &str, within: &dyn Fn(&Path) -> bool, bytes: usize) -
         for i in &t.some {
             text.push_str(&format!("- {}\n", line(*i)));
         }
-        let mut end = text.len().min(bytes);
-        while !text.is_char_boundary(end) {
-            end -= 1;
+        // Whole lines, all files' together within `bytes`.
+        if text.len() > left {
+            let mut end = left;
+            while !text.is_char_boundary(end) {
+                end -= 1;
+            }
+            end = text[..end].rfind('\n').map_or(end, |n| n + 1);
+            text.truncate(end);
         }
-        text.truncate(end);
-        out.push((done.source.clone(), text));
+        left -= text.len();
+        if !text.is_empty() {
+            out.push((done.source.clone(), text));
+        }
+        if left == 0 {
+            break;
+        }
     }
     out
 }
@@ -1752,6 +1778,8 @@ mod tests {
         assert!(s.contains("C60 Ruy Lopez") && s.contains("Other, One (0 won, 20 drawn, 0 lost)"), "{s}");
         assert!(s.contains("Wins over the highest rated:\n- game 39:"), "{s}");
         assert!(ask_about("what about Kasparov?", &only, 4000).is_empty());
+        // No player named: no one is picked for a word inside a name ("the" in "Other").
+        assert!(ask_about("what are the most played openings?", &only, 4000).is_empty());
         assert!(ask_about("Aronian", &only, 30)[0].1.len() <= 30);
     }
 
