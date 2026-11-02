@@ -4786,5 +4786,5 @@
  "convert.pull_fault_space": "spazio esaurito sul disco; liberane un po’",
  "ptools.pull_waiting": "Download non riuscito: {fault}. Il prossimo lavoro riprova dopo le {time}.",
  "ptools.pull_unpulled": "Download non riuscito: {fault}.",
- "ptools.keys_tui_retry": "Invio: scelta successiva · C: copia la riga di installazione · P: Riprova ora (scarica l’immagine) · Canc: rimuovila"
+ "ptools.keys_tui_retry": "Invio: scelta successiva · C: copia la riga di installazione · P: Riprova ora (scarica l’immagine) · Delete: Dettagli"
 }

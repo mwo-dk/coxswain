@@ -4590,5 +4590,5 @@
  "convert.pull_fault_space": "디스크에 남은 공간이 없습니다. 공간을 확보하세요",
  "ptools.pull_waiting": "내려받기 실패: {fault}. 다음 작업이 {time} 이후에 다시 시도합니다.",
  "ptools.pull_unpulled": "내려받기 실패: {fault}.",
- "ptools.keys_tui_retry": "Enter: 다음 선택 · C: 설치 줄 복사 · P: 지금 다시 시도(이미지 내려받기) · Delete: 제거"
+ "ptools.keys_tui_retry": "Enter: 다음 선택 · C: 설치 줄 복사 · P: 지금 다시 시도(이미지 내려받기) · Delete: 자세히"
 }

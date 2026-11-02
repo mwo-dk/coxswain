@@ -4688,5 +4688,5 @@
  "convert.pull_fault_space": "ez dago lekurik diskoan; egin lekua",
  "ptools.pull_waiting": "Deskargak huts egin du: {fault}. Hurrengo lanak {time} ondoren saiatuko da berriro.",
  "ptools.pull_unpulled": "Deskargak huts egin du: {fault}.",
- "ptools.keys_tui_retry": "Sartu: hurrengo aukera · C: kopiatu instalazio-lerroa · P: Saiatu berriro orain (deskargatu irudia) · Delete: kendu"
+ "ptools.keys_tui_retry": "Sartu: hurrengo aukera · C: kopiatu instalazio-lerroa · P: Saiatu berriro orain (deskargatu irudia) · Delete: Xehetasunak"
 }

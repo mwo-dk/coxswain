@@ -4884,5 +4884,5 @@
  "convert.pull_fault_space": "brak miejsca na dysku; zwolnij trochę",
  "ptools.pull_waiting": "Pobieranie się nie udało: {fault}. Następne zadanie spróbuje ponownie po {time}.",
  "ptools.pull_unpulled": "Pobieranie się nie udało: {fault}.",
- "ptools.keys_tui_retry": "Enter: następny wybór · C: kopiuj wiersz instalacji · P: Spróbuj ponownie teraz (pobierz obraz) · Delete: usuń go"
+ "ptools.keys_tui_retry": "Enter: następny wybór · C: kopiuj wiersz instalacji · P: Spróbuj ponownie teraz (pobierz obraz) · Delete: Szczegóły"
 }

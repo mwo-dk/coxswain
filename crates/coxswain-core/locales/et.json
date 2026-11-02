@@ -4688,5 +4688,5 @@
  "convert.pull_fault_space": "kettal on ruum otsas; vabasta ruumi",
  "ptools.pull_waiting": "Allalaadimine nurjus: {fault}. Järgmine töö proovib uuesti pärast kellaaega {time}.",
  "ptools.pull_unpulled": "Allalaadimine nurjus: {fault}.",
- "ptools.keys_tui_retry": "Enter: järgmine valik · C: kopeeri paigaldusrida · P: Proovi kohe uuesti (lae tõmmis alla) · Delete: eemalda see"
+ "ptools.keys_tui_retry": "Enter: järgmine valik · C: kopeeri paigaldusrida · P: Proovi kohe uuesti (lae tõmmis alla) · Delete: Üksikasjad"
 }

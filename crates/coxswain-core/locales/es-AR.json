@@ -4786,5 +4786,5 @@
  "convert.pull_fault_space": "no queda espacio en el disco; liberá algo",
  "ptools.pull_waiting": "Falló la descarga: {fault}. La próxima tarea reintenta después de {time}.",
  "ptools.pull_unpulled": "Falló la descarga: {fault}.",
- "ptools.keys_tui_retry": "Enter: próxima opción · C: copiar la línea de instalación · P: Reintentar ahora (descargar la imagen) · Supr: quitarla"
+ "ptools.keys_tui_retry": "Enter: próxima opción · C: copiar la línea de instalación · P: Reintentar ahora (descargar la imagen) · Supr: Detalles"
 }

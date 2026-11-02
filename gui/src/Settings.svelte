@@ -1025,8 +1025,10 @@
                       {#if im.image && !tools.no_runtime}
                         <button disabled={tools.pulling[im.image] != null} onclick={() => imageAction("pull_image", im.image)}>{t(tools.failed?.[im.image] ? "settings.step.retry_now" : "settings.pull")}</button>
                         <button disabled={tools.pulling[im.image] != null || im.pulled == null} onclick={() => imageAction("remove_image", im.image)}>{t("common.remove")}</button>
+                        {#if tools.failed_details?.[im.image]}<button onclick={() => (details[im.image] = !details[im.image])}>{t("settings.step.details")}</button>{/if}
                       {/if}
                     </div>
+                    {#if details[im.image] && tools.failed_details?.[im.image]}<small class="hint err"><code class="details">{tools.failed_details[im.image]}</code></small>{/if}
                   {/each}
                   <div class="ptool-use">
                     <small class:err={r.missing}>{t("ptools.uses", { engine: r.uses })}</small>
