@@ -688,7 +688,12 @@ pub(crate) fn while_programs_start<T>(f: impl FnOnce() -> T) -> T {
         }
     });
     // Programs start already when `f` begins.
-    first.recv_timeout(crate::test_limit(std::time::Duration::from_secs(10))).expect("no program started");
+    let begun = first.recv_timeout(crate::test_limit(std::time::Duration::from_secs(10)));
+    drop(first);
+    if begun.is_err() {
+        stop.store(true, Ordering::Relaxed);
+        panic!("no program started");
+    }
     let out = f();
     stop.store(true, Ordering::Relaxed);
     t.join().unwrap();
