@@ -972,8 +972,10 @@ fn pull_line(mut l: Line, state: Option<&crate::images::pulls::State>, name: &st
             l.bad = true;
         }
     }
-    if let Some(details) = state.and_then(State::details) {
+    if matches!(state, Some(State::Waiting { .. } | State::Unpulled { .. })) {
         l.step = Some(Step::RetryNow);
+    }
+    if let Some(details) = state.and_then(State::details) {
         l.also = Some(Step::Details);
         l.details = Some(details.to_string());
     }

@@ -207,6 +207,8 @@ pub fn until_there(
     mut rest: impl FnMut(Duration, u64) -> bool,
 ) {
     let mut tries = 0;
+    // The network coming back pulls at once once: a link that flaps goes by the schedule.
+    let mut back = false;
     loop {
         let since = RETRIES.load(Ordering::SeqCst);
         let e = match pull() {
@@ -234,7 +236,8 @@ pub fn until_there(
             }
             if fault == Fault::Network {
                 let up = reachable();
-                if up && down {
+                if up && down && !back {
+                    back = true;
                     break false;
                 }
                 down = !up;
