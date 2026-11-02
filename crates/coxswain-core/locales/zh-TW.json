@@ -1298,7 +1298,7 @@
  "feature.chess_play.q2": "為什麼「引擎」說找不到西洋棋引擎？",
  "feature.chess_play.q3": "如何瀏覽引擎的某條變化而不實際走棋？",
  "feature.chess_play.title": "西洋棋：續下與引擎",
- "feature.chess_play.what": "從任何局面走自己的棋，作為對局旁的變化保留，只在你要求時存成新的 PGN 檔案；已安裝的 Stockfish 會顯示最佳變化、以標記和圖表分析整局，並寫出附註解的棋譜。",
+ "feature.chess_play.what": "從任何局面走自己的棋，作為對局旁的變化保留，只在你要求時存成新的 PGN 檔案；已安裝的 Stockfish 會顯示最佳變化、以標記和圖表分析整局，並寫出附註解的棋譜。每個分析過的局面都會記住，回到該局面時立即顯示引擎的變著。",
  "feature.game_pieces.title": "終端機中的棋子",
  "feature.game_pieces.what": "終端機版依照桌面版的圖片，用區塊字元繪製西洋棋、跳棋、圍棋、將棋和象棋的棋子，在棋盤容許的範圍內盡量大。終端機能顯示圖片時，就直接用圖片。",
  "feature.game_pieces.q1": "棋子顯示為方框或空白。",
@@ -4641,5 +4641,8 @@
  "pick.showing_all": "顯示全部：所有檔案都會顯示，也都能選",
  "pick.showing_filtered": "又只能選所要的檔案了",
  "pick.show_all": "顯示全部",
- "pick.choose": "選擇"
+ "pick.choose": "選擇",
+ "chess.engine_from_review": "來自對局分析，正在更深入計算…",
+ "chess.memory": "記住的局面",
+ "chess.memory_hint": "引擎分析過的每個局面，不論是即時分析還是對局分析，都連同引擎與其設定保存在這裡，因此不會再分析一次。最多 {most} 個局面（少於 40 MB）；最舊的先刪除。「磁碟用量」可清除它們。"
 }

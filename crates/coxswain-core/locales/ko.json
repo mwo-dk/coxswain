@@ -1329,7 +1329,7 @@
  "feature.chess_play.q2": "엔진이 체스 엔진을 찾지 못했다고 하는 이유는?",
  "feature.chess_play.q3": "엔진의 수순을 두지 않고 따라가려면?",
  "feature.chess_play.title": "체스: 이어 두기와 엔진",
- "feature.chess_play.what": "어떤 국면에서든 직접 수를 둘 수 있으며, 대국 옆에 수순으로 남고 요청할 때만 새 PGN으로 저장됩니다. 설치된 Stockfish가 최선의 수순을 보여 주고, 대국 전체를 표시와 그래프로 분석하며, 주석을 달아 저장합니다.",
+ "feature.chess_play.what": "어떤 국면에서든 직접 수를 둘 수 있으며, 대국 옆에 수순으로 남고 요청할 때만 새 PGN으로 저장됩니다. 설치된 Stockfish가 최선의 수순을 보여 주고, 대국 전체를 표시와 그래프로 분석하며, 주석을 달아 저장합니다.분석한 국면은 기억되므로, 다시 돌아가면 엔진의 수순이 바로 보입니다.",
  "feature.game_pieces.title": "터미널의 게임 말",
  "feature.game_pieces.what": "터미널 앱은 데스크톱 앱의 그림을 따라 체스·체커·바둑·쇼기·샹치 말을 블록 문자로 판에 맞는 크기만큼 크게 그립니다. 터미널이 그림을 보여 주는 곳에서는 그림 그대로.",
  "feature.game_pieces.q1": "말이 네모나 빈칸으로 보입니다.",
@@ -4630,5 +4630,8 @@
  "pick.showing_all": "모두 보기: 모든 파일이 보이고 고를 수 있습니다",
  "pick.showing_filtered": "요청한 파일만 다시 고를 수 있습니다",
  "pick.show_all": "모두 보기",
- "pick.choose": "고르기"
+ "pick.choose": "고르기",
+ "chess.engine_from_review": "대국 분석에서, 더 깊이 읽는 중…",
+ "chess.memory": "기억한 국면",
+ "chess.memory_hint": "엔진이 분석한 국면은 실시간이든 대국 분석이든 엔진과 그 설정과 함께 여기에 보관되어 다시 분석되지 않습니다. 최대 {most}개 국면(40MB 미만), 오래된 것부터 지워집니다. 디스크 사용량에서 지울 수 있습니다."
 }

@@ -1379,7 +1379,7 @@
  "feature.chess_play.q2": "Kvifor seier Motor at ingen sjakkmotor vart funnen?",
  "feature.chess_play.q3": "Korleis går eg gjennom ein av variantane til motoren utan å spele han?",
  "feature.chess_play.title": "Sjakk: spel vidare og motoren",
- "feature.chess_play.what": "Spel dine eigne trekk frå kva stilling som helst, haldne som ein variant ved sida av partiet og lagra som ny PGN berre når du ber om det; ein installert Stockfish viser dei beste variantane sine, analyserer eit heilt parti med merke og ein graf og skriv det ut kommentert.",
+ "feature.chess_play.what": "Spel dine eigne trekk frå kva stilling som helst, haldne som ein variant ved sida av partiet og lagra som ny PGN berre når du ber om det; ein installert Stockfish viser dei beste variantane sine, analyserer eit heilt parti med merke og ein graf og skriv det ut kommentert. Kvar analysert stilling vert hugsa, så motoren sine variantar vert viste med ein gong når du går tilbake til ho.",
  "feature.game_pieces.title": "Spelebrikker i terminalen",
  "feature.game_pieces.what": "Terminalappen teiknar brikkene i sjakk, dam, go, shogi og xiangqi av blokkteikn etter skrivebordsappen sine bilete, så store som brettet tillèt. Der terminalen viser bilete, sjølve bileta.",
  "feature.game_pieces.q1": "Brikkene blir viste som boksar eller hol.",
@@ -4728,5 +4728,8 @@
  "pick.showing_all": "Vis alle: alle filer blir viste og kan veljast",
  "pick.showing_filtered": "Berre dei ønskte filene kan veljast att",
  "pick.show_all": "Vis alle",
- "pick.choose": "Vel"
+ "pick.choose": "Vel",
+ "chess.engine_from_review": "frå partianalysen, ser djupare …",
+ "chess.memory": "Hugsa stillingar",
+ "chess.memory_hint": "Kvar stilling motoren har analysert, live eller i ein partianalyse, vert lagra her med motor og innstillingar, så ho ikkje vert analysert på nytt. Høgst {most} stillingar (under 40 MB); dei eldste går først. Diskbruk slettar dei."
 }

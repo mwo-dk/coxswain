@@ -1379,7 +1379,7 @@
  "feature.chess_play.q2": "Miksi Moottori sanoo, ettei shakkimoottoria löytynyt?",
  "feature.chess_play.q3": "Miten käyn moottorin muunnelman läpi pelaamatta sitä?",
  "feature.chess_play.title": "Shakki: pelin jatkaminen ja moottori",
- "feature.chess_play.what": "Pelaa omia siirtojasi mistä tahansa asemasta, pidettynä muunnelmana pelin vieressä ja tallennettuna uutena PGN-tiedostona vain pyynnöstäsi; asennettu Stockfish näyttää parhaat muunnelmansa, analysoi koko pelin merkkeineen ja kaavioineen ja kirjoittaa sen kommentoituna.",
+ "feature.chess_play.what": "Pelaa omia siirtojasi mistä tahansa asemasta, pidettynä muunnelmana pelin vieressä ja tallennettuna uutena PGN-tiedostona vain pyynnöstäsi; asennettu Stockfish näyttää parhaat muunnelmansa, analysoi koko pelin merkkeineen ja kaavioineen ja kirjoittaa sen kommentoituna. Jokainen analysoitu asema muistetaan, joten moottorin muunnelmat näkyvät heti, kun palaat siihen.",
  "feature.game_pieces.title": "Pelinappulat päätteessä",
  "feature.game_pieces.what": "Pääteohjelma piirtää shakin, tammen, gon, shogin ja xiangqin nappulat lohkomerkeistä työpöytäohjelman kuvien mukaan, niin suurina kuin lauta sallii. Missä pääte näyttää kuvia, itse kuvat.",
  "feature.game_pieces.q1": "Nappulat näkyvät laatikkoina tai aukkoina.",
@@ -4728,5 +4728,8 @@
  "pick.showing_all": "Näytä kaikki: jokainen tiedosto näkyy ja on valittavissa",
  "pick.showing_filtered": "Vain pyydetyt tiedostot ovat taas valittavissa",
  "pick.show_all": "Näytä kaikki",
- "pick.choose": "Valitse"
+ "pick.choose": "Valitse",
+ "chess.engine_from_review": "pelin analyysistä, katsoo syvemmälle…",
+ "chess.memory": "Muistetut asemat",
+ "chess.memory_hint": "Jokainen moottorin analysoima asema, suorana tai pelin analyysissä, pidetään täällä moottorin ja asetusten kanssa, joten sitä ei analysoida uudelleen. Enintään {most} asemaa (alle 40 Mt); vanhimmat poistuvat ensin. Levyn käyttö tyhjentää ne."
 }

@@ -1379,7 +1379,7 @@
  "feature.chess_play.q2": "Zergatik dio Motorrak ez dela xake-motorrik aurkitu?",
  "feature.chess_play.q3": "Nola zeharkatu motorraren lerro bat jokatu gabe?",
  "feature.chess_play.title": "Xakea: jokatzen jarraitu eta motorra",
- "feature.chess_play.what": "Jokatu zure jokaldiak edozein posiziotatik, partidaren ondoan lerro gisa gordeta eta PGN berri gisa soilik zuk eskatzean idatzita; instalatutako Stockfish-ek bere lerro onenak erakusten ditu, partida osoa markekin eta grafiko batekin aztertzen du eta iruzkinduta idazten du.",
+ "feature.chess_play.what": "Jokatu zure jokaldiak edozein posiziotatik, partidaren ondoan lerro gisa gordeta eta PGN berri gisa soilik zuk eskatzean idatzita; instalatutako Stockfish-ek bere lerro onenak erakusten ditu, partida osoa markekin eta grafiko batekin aztertzen du eta iruzkinduta idazten du. Aztertutako posizio bakoitza gogoratzen da: hara itzultzean, motorraren aldaerak berehala agertzen dira.",
  "feature.game_pieces.title": "Joko-piezak terminalean",
  "feature.game_pieces.what": "Terminaleko aplikazioak xake, dama, go, shogi eta xiangqi piezak bloke-karaktereekin marrazten ditu, mahaigaineko aplikazioaren irudien arabera, taulan sartzen diren bezain handi. Terminalak irudiak erakusten dituen tokian, irudiak berak.",
  "feature.game_pieces.q1": "Piezak kutxa edo hutsune gisa ageri dira.",
@@ -4728,5 +4728,8 @@
  "pick.showing_all": "Erakutsi denak: fitxategi guztiak ikusten dira eta aukeratu daitezke",
  "pick.showing_filtered": "Eskatutako fitxategiak soilik aukera daitezke berriro",
  "pick.show_all": "Erakutsi denak",
- "pick.choose": "Aukeratu"
+ "pick.choose": "Aukeratu",
+ "chess.engine_from_review": "partidaren analisitik, sakonago begiratzen…",
+ "chess.memory": "Gogoratutako posizioak",
+ "chess.memory_hint": "Motorrak aztertutako posizio bakoitza, zuzenean edo partida baten analisian, hemen gordetzen da motorrarekin eta haren ezarpenekin, berriro azter ez dadin. Gehienez {most} posizio (40 MB baino gutxiago); zaharrenak joaten dira lehenik. Diskoaren erabilerak ezabatzen ditu."
 }

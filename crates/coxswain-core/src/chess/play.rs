@@ -267,7 +267,7 @@ fn file_name(p: &Path) -> String {
 }
 
 /// What the engine says about a position: its best lines, the best first.
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Analysis {
     /// The engine's name, as it gives it (`Stockfish 17.1`).
     pub engine: String,
@@ -276,10 +276,13 @@ pub struct Analysis {
     /// Options set for this engine that were not sent (not offered, or a value that does not
     /// hold), said once a session: shown on the status line.
     pub note: Option<String>,
+    /// From the game review (`memory`): shown at once while the live analysis looks deeper.
+    #[serde(default)]
+    pub review: bool,
 }
 
 /// One of the engine's lines (UCI's MultiPV).
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct EngineLine {
     /// The evaluation from White's side: in centipawns, or mate in so many moves (minus: Black
     /// mates).
@@ -715,13 +718,26 @@ fn ignored_note(engine: &str, ignored: &[(String, String)]) -> Option<String> {
 /// options), over UCI on its standard input and output; it runs here and nothing leaves the
 /// machine. `stop` is asked at each line the engine writes: true ends it at once (the position
 /// on screen changed).
+/// A position analysed before the same way comes from `memory` without the engine.
 pub fn analyse(program: &Program, chess: &crate::config::ChessConfig, fen: &str, stop: &dyn Fn() -> bool) -> std::io::Result<Analysis> {
     pgn::board(&pgn::full_fen(fen)).ok_or_else(|| std::io::Error::other("no position"))?;
+    let (key, settings) = (program.key(), super::memory::live(chess));
+    if let Some(a) = super::memory::recall(&key, &settings, fen) {
+        return Ok(a);
+    }
     let mut e = Engine::start(program, stop)?;
     let ignored = e.configure(chess)?;
     let mut a = e.think(fen, Limit::of(chess, false), chess.engine_lines, stop)?;
+    super::memory::keep(&key, &settings, fen, &a);
     a.note = ignored_note(&e.name, &ignored);
     Ok(a)
+}
+
+/// What is known of `fen` without asking the engine: its live analysis kept before, else the
+/// game review's (marked `review`: the live analysis goes on to look deeper).
+pub fn remembered(program: &Program, chess: &crate::config::ChessConfig, fen: &str) -> Option<Analysis> {
+    let key = program.key();
+    super::memory::recall(&key, &super::memory::live(chess), fen).or_else(|| Some(Analysis { review: true, ..super::memory::recall(&key, &super::memory::review(chess), fen)? }))
 }
 
 /// The engine of these settings, asked what it is and what options it offers (Settings' *Test

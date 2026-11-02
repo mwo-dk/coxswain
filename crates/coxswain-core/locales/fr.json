@@ -1429,7 +1429,7 @@
  "feature.chess_play.q2": "Pourquoi Moteur dit-il qu’aucun moteur d’échecs n’a été trouvé ?",
  "feature.chess_play.q3": "Comment parcourir une des lignes du moteur sans la jouer ?",
  "feature.chess_play.title": "Échecs : continuer à jouer et le moteur",
- "feature.chess_play.what": "Jouez vos propres coups depuis n’importe quelle position, gardés comme une ligne à côté de la partie et enregistrés comme nouveau PGN seulement si vous le demandez ; un Stockfish installé montre ses meilleures lignes, analyse une partie entière avec signes et graphique, et l’écrit annotée.",
+ "feature.chess_play.what": "Jouez vos propres coups depuis n’importe quelle position, gardés comme une ligne à côté de la partie et enregistrés comme nouveau PGN seulement si vous le demandez ; un Stockfish installé montre ses meilleures lignes, analyse une partie entière avec signes et graphique, et l’écrit annotée. Chaque position analysée est retenue : y revenir montre aussitôt les lignes du moteur.",
  "feature.game_pieces.title": "Pièces de jeu dans le terminal",
  "feature.game_pieces.what": "L’app terminal dessine les pièces des échecs, des dames, du go, du shogi et du xiangqi en caractères de bloc d’après les images de l’app de bureau, aussi grandes que l’échiquier le permet. Là où le terminal affiche des images, les images elles-mêmes.",
  "feature.game_pieces.q1": "Les pièces s’affichent en carrés ou en trous.",
@@ -4826,5 +4826,8 @@
  "pick.showing_all": "Tout afficher : chaque fichier est affiché et peut être choisi",
  "pick.showing_filtered": "Seuls les fichiers demandés peuvent de nouveau être choisis",
  "pick.show_all": "Tout afficher",
- "pick.choose": "Choisir"
+ "pick.choose": "Choisir",
+ "chess.engine_from_review": "de l’analyse de la partie, cherche plus loin…",
+ "chess.memory": "Positions retenues",
+ "chess.memory_hint": "Chaque position analysée par le moteur, en direct ou dans une analyse de partie, est gardée ici avec le moteur et ses réglages, pour ne pas être analysée de nouveau. Au plus {most} positions (moins de 40 Mo) ; les plus anciennes partent d’abord. Espace disque les efface."
 }

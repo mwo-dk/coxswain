@@ -200,6 +200,24 @@ pub async fn chess_analyse(fen: String, ctx: tauri::State<'_, crate::Ctx>) -> Re
     .map_err(|e| e.to_string())?
 }
 
+/// What is known of the position `fen` without the engine: its live analysis kept before, or
+/// the game review's (`review`: shown while `chess_analyse` looks deeper).
+#[tauri::command]
+pub async fn chess_remembered(fen: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<Option<chess::play::Analysis>> {
+    // A newer question: the engine still on the last position stops.
+    ASKED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let cfg = ctx.cfg().clone();
+    tauri::async_runtime::spawn_blocking(move || Ok(chess::play::engine_for(&cfg).ok().and_then(|p| chess::play::remembered(&p, &cfg.chess, &fen))))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Where the analysed positions are kept, and how many at most, for Settings.
+#[tauri::command]
+pub fn chess_memory() -> (String, usize) {
+    (chess::memory::dir().map(|d| d.display().to_string()).unwrap_or_default(), chess::memory::KEPT)
+}
+
 /// The archive that the game file `path` was copied out of, for the choice of where a new PGN
 /// goes; `None` for a file that is not such a copy.
 #[tauri::command]

@@ -7,6 +7,7 @@
 pub mod cbh;
 pub mod cbv;
 pub mod games;
+pub mod memory;
 pub(crate) mod lex;
 pub mod openings;
 pub mod pgn;

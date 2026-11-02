@@ -1379,7 +1379,7 @@
  "feature.chess_play.q2": "Varför säger Motor att ingen schackmotor hittades?",
  "feature.chess_play.q3": "Hur går jag igenom en av motorns varianter utan att spela den?",
  "feature.chess_play.title": "Schack: spela vidare och motorn",
- "feature.chess_play.what": "Spela dina egna drag från vilken ställning som helst, hållna som en variant bredvid partiet och sparade som ny PGN bara när du ber om det; en installerad Stockfish visar sina bästa varianter, analyserar ett helt parti med tecken och en graf och skriver ut det kommenterat.",
+ "feature.chess_play.what": "Spela dina egna drag från vilken ställning som helst, hållna som en variant bredvid partiet och sparade som ny PGN bara när du ber om det; en installerad Stockfish visar sina bästa varianter, analyserar ett helt parti med tecken och en graf och skriver ut det kommenterat. Varje analyserad ställning kommer ihåg, så motorns varianter visas direkt när du går tillbaka till den.",
  "feature.game_pieces.title": "Spelpjäser i terminalen",
  "feature.game_pieces.what": "Terminalappen ritar pjäserna i schack, damspel, go, shogi och xiangqi av blocktecken efter skrivbordsappens bilder, så stora som brädet tillåter. Där terminalen visar bilder, bilderna själva.",
  "feature.game_pieces.q1": "Pjäserna visas som rutor eller luckor.",
@@ -4728,5 +4728,8 @@
  "pick.showing_all": "Visa alla: varje fil visas och kan väljas",
  "pick.showing_filtered": "Bara de önskade filerna kan väljas igen",
  "pick.show_all": "Visa alla",
- "pick.choose": "Välj"
+ "pick.choose": "Välj",
+ "chess.engine_from_review": "från partianalysen, ser djupare …",
+ "chess.memory": "Ihågkomna ställningar",
+ "chess.memory_hint": "Varje ställning som motorn har analyserat, live eller i en partianalys, sparas här med motor och inställningar, så att den inte analyseras igen. Högst {most} ställningar (under 40 MB); de äldsta går först. Diskanvändning rensar dem."
 }

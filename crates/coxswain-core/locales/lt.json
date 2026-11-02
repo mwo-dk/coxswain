@@ -1429,7 +1429,7 @@
  "feature.chess_play.q2": "Kodėl Variklis sako, kad šachmatų variklio nerasta?",
  "feature.chess_play.q3": "Kaip peržiūrėti vieną iš variklio variantų jo nesužaidžiant?",
  "feature.chess_play.title": "Šachmatai: tęsimas ir variklis",
- "feature.chess_play.what": "Darykite savo ėjimus iš bet kurios pozicijos, laikomus kaip variantas šalia partijos ir įrašomus kaip naujas PGN tik jums paprašius; įdiegtas Stockfish rodo geriausius variantus, analizuoja visą partiją su ženklais ir grafiku ir įrašo ją su komentarais.",
+ "feature.chess_play.what": "Darykite savo ėjimus iš bet kurios pozicijos, laikomus kaip variantas šalia partijos ir įrašomus kaip naujas PGN tik jums paprašius; įdiegtas Stockfish rodo geriausius variantus, analizuoja visą partiją su ženklais ir grafiku ir įrašo ją su komentarais. Kiekviena išanalizuota pozicija įsimenama, todėl grįžus prie jos variklio variantai rodomi iš karto.",
  "feature.game_pieces.title": "Žaidimo figūros terminale",
  "feature.game_pieces.what": "Terminalo programa piešia šachmatų, šaškių, go, šogi ir siangči figūras iš blokinių simbolių pagal darbalaukio programos paveikslėlius, tokio dydžio, kiek telpa lenta. Kur terminalas rodo paveikslėlius, pačius paveikslėlius.",
  "feature.game_pieces.q1": "Figūros rodomos kaip langeliai ar tarpai.",
@@ -4826,5 +4826,8 @@
  "pick.showing_all": "Rodyti visus: kiekvienas failas rodomas ir gali būti pasirinktas",
  "pick.showing_filtered": "Vėl galima rinktis tik prašytus failus",
  "pick.show_all": "Rodyti visus",
- "pick.choose": "Pasirinkti"
+ "pick.choose": "Pasirinkti",
+ "chess.engine_from_review": "iš partijos analizės, žiūri giliau…",
+ "chess.memory": "Įsimintos pozicijos",
+ "chess.memory_hint": "Kiekviena variklio išanalizuota pozicija, tiesiogiai ar partijos analizėje, laikoma čia su varikliu ir jo nustatymais, kad nebūtų analizuojama iš naujo. Daugiausia {most} pozicijų (mažiau nei 40 MB); seniausios išeina pirmos. Disko naudojimas jas išvalo."
 }

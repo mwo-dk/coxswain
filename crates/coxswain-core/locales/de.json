@@ -1379,7 +1379,7 @@
  "feature.chess_play.q2": "Warum sagt Engine, dass keine Schach-Engine gefunden wurde?",
  "feature.chess_play.q3": "Wie gehe ich eine Variante der Engine durch, ohne sie zu spielen?",
  "feature.chess_play.title": "Schach: Weiterspielen und die Engine",
- "feature.chess_play.what": "Eigene Züge aus jeder Stellung spielen, als Variante neben der Partie gehalten und nur auf Wunsch als neue PGN-Datei gespeichert; ein installierter Stockfish zeigt seine besten Varianten, analysiert eine ganze Partie mit Zeichen und Grafik und schreibt sie kommentiert aus.",
+ "feature.chess_play.what": "Eigene Züge aus jeder Stellung spielen, als Variante neben der Partie gehalten und nur auf Wunsch als neue PGN-Datei gespeichert; ein installierter Stockfish zeigt seine besten Varianten, analysiert eine ganze Partie mit Zeichen und Grafik und schreibt sie kommentiert aus. Jede analysierte Stellung wird gemerkt, sodass die Varianten der Engine sofort erscheinen, wenn Sie zu ihr zurückgehen.",
  "feature.game_pieces.title": "Spielfiguren im Terminal",
  "feature.game_pieces.what": "Die Terminal-App zeichnet die Figuren von Schach, Dame, Go, Shogi und Xiangqi aus Blockzeichen nach den Bildern der Desktop-App, so groß das Brett es zulässt. Wo das Terminal Bilder zeigt, die Bilder selbst.",
  "feature.game_pieces.q1": "Die Figuren erscheinen als Kästchen oder Lücken.",
@@ -4728,5 +4728,8 @@
  "pick.showing_all": "Alle zeigen: jede Datei wird gezeigt und kann gewählt werden",
  "pick.showing_filtered": "Nur die gewünschten Dateien können wieder gewählt werden",
  "pick.show_all": "Alle zeigen",
- "pick.choose": "Wählen"
+ "pick.choose": "Wählen",
+ "chess.engine_from_review": "aus der Partieanalyse, sucht tiefer …",
+ "chess.memory": "Gemerkte Stellungen",
+ "chess.memory_hint": "Jede Stellung, die die Engine analysiert hat, live oder in einer Partieanalyse, wird hier mit Engine und Einstellungen gehalten und nicht erneut analysiert. Höchstens {most} Stellungen (unter 40 MB); die ältesten gehen zuerst. Speicherbelegung löscht sie."
 }
