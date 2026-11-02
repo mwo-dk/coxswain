@@ -28,11 +28,22 @@ pub fn path() -> Option<PathBuf> {
     crate::dirs::home_dir().map(|h| h.join(MARKER))
 }
 
-/// Whether `dir` is the bin's path (and not a real folder of that name).
+/// Whether `dir` is the bin's path (and not a real folder of that name), however the home is
+/// spelled: through a link to it, too.
 pub fn is_bin(dir: &Path) -> bool {
     dir.file_name().is_some_and(|n| n == MARKER)
-        && path().is_some_and(|p| p == dir)
+        && path().is_some_and(|p| p == dir || same_folder(p.parent(), dir.parent()))
         && fs::symlink_metadata(dir).is_err()
+}
+
+fn same_folder(a: Option<&Path>, b: Option<&Path>) -> bool {
+    let real = |p: Option<&Path>| p.and_then(|p| fs::canonicalize(p).ok());
+    real(a).is_some_and(|a| real(b).is_some_and(|b| a == b))
+}
+
+/// A real folder named `@bin` in the home: it hides the bin, which the panels then cannot show.
+pub fn shadowed() -> Option<PathBuf> {
+    path().filter(|p| fs::symlink_metadata(p).is_ok())
 }
 
 /// Whether `path` is the bin's path or under it: nothing is put there, as a real `@bin` folder
@@ -1672,6 +1683,22 @@ mod tests {
                 b.join(format!(".Trash/{uid}"))
             ]
         );
+    }
+
+    /// The home reached through a link to it is the same home: its `@bin` is the bin, and
+    /// nothing is put there.
+    #[cfg(unix)]
+    #[test]
+    fn bin_is_found_through_a_link_to_the_home() {
+        let d = crate::fs::Scratch::named("bin-link-home");
+        let home = crate::dirs::home_dir().unwrap();
+        let link = d.join("home");
+        std::os::unix::fs::symlink(&home, &link).unwrap();
+        let bin = link.join(MARKER);
+        assert!(is_bin(&bin) && inside(&bin.join("a.txt")));
+        assert!(!is_bin(&d.join(MARKER)) && !inside(&d.join("a.txt")));
+        assert!(crate::fs::mkdir(&bin.join("n")).is_err());
+        assert!(fs::symlink_metadata(&bin).is_err(), "no @bin made");
     }
 
     #[test]

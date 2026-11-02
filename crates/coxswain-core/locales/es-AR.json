@@ -4755,6 +4755,7 @@
  "tui.keybar.bin_delete": "Borrar",
  "notice.bin_mac": "macOS: Coxswain lista la papelera solo con acceso total al disco (Configuración del Sistema → Privacidad y seguridad → Acceso total al disco); sin él, la papelera se abre en el Finder. Desde Coxswain los archivos no se pueden devolver, solo eliminar definitivamente.",
  "notice.bin_flatpak": "En el Flatpak, Coxswain ve solo su propia papelera, no la del sistema: lo que otras apps y Eliminar de Coxswain ponen en la papelera no aparece ahí.",
+ "notice.bin_shadowed": "Una carpeta real llamada @bin en tu carpeta personal ({path}) oculta la papelera: Papelera abre esa carpeta en su lugar. Cambiale el nombre o movela para ver la papelera de nuevo.",
  "hint.bin": "{key}: restaurar lo que está bajo el cursor, eliminarlo definitivamente o vaciar la papelera",
  "feature.bin.title": "La papelera",
  "feature.bin.what": "{bin} muestra la papelera del sistema en un panel, cada archivo con la carpeta de la que vino y cuándo se eliminó. {bin_restore} devuelve archivos; {bin_delete} y {bin_empty} eliminan definitivamente.",

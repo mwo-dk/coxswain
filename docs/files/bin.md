@@ -135,6 +135,14 @@ Each disk keeps its own bin at its top (`.Trash-1000` on a stick). It is listed 
 is mounted; files deleted on a disk without a bin were deleted for good (see
 [Delete](delete.md)).
 
+#### The bin opens a folder called @bin instead.
+
+`~/@bin` is the bin only while no real folder of that name is in your home. When another
+program made one, the *Bin* row, **F9** → *The bin* and `~/@bin` open that folder, and a notice
+says once *A real folder named @bin in your home (…) hides the bin*. Rename or move that folder
+and the bin is back. Coxswain itself never makes it: nothing is copied, moved or made into the
+bin, also when your home is reached through a link to it (`/home` a link to `/usr/home`, say).
+
 #### Can Find search inside the files in the bin?
 
 Only by name, with Find limited to the bin (*In Bin*). Their text is not read, and Find

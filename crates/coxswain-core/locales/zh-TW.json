@@ -4570,6 +4570,7 @@
  "tui.keybar.bin_delete": "Erase",
  "notice.bin_mac": "macOS：只有取得「完整磁碟取用權限」（系統設定 → 隱私權與安全性 → 完整磁碟取用權限），Coxswain 才能列出垃圾桶；沒有它，垃圾桶會在 Finder 中開啟。檔案不能從 Coxswain 放回，只能永久刪除。",
  "notice.bin_flatpak": "在 Flatpak 中，Coxswain 只能看到它自己的垃圾桶，而不是系統的：其他 App 以及 Coxswain 的刪除放進垃圾桶的內容不會列在那裡。",
+ "notice.bin_shadowed": "主資料夾裡有一個名為 @bin 的真實資料夾（{path}），它擋住了垃圾桶：打開垃圾桶時會打開這個資料夾。把它改名或移走，就能再次看到垃圾桶。",
  "hint.bin": "{key}：還原游標所在的內容、永久刪除它，或清空垃圾桶",
  "feature.bin.title": "垃圾桶",
  "feature.bin.what": "{bin} 把系統的垃圾桶顯示為面板，每個檔案附有它來自的資料夾和刪除時間。{bin_restore} 把檔案放回；{bin_delete} 和 {bin_empty} 永久刪除。",

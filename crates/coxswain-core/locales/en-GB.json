@@ -4668,6 +4668,7 @@
  "tui.keybar.bin_delete": "Erase",
  "notice.bin_mac": "macOS: Coxswain lists the bin only with Full Disk Access (System Settings → Privacy & Security → Full Disk Access); without it the bin opens in Finder. Files cannot be put back from Coxswain, only deleted for good.",
  "notice.bin_flatpak": "In the Flatpak, Coxswain sees only its own bin, not the system's: what other apps, and Coxswain's Delete, put in the bin is not listed there.",
+ "notice.bin_shadowed": "A real folder named @bin in your home ({path}) hides the bin: Bin opens that folder instead. Rename or move it to see the bin again.",
  "hint.bin": "{key}: restore what is under the cursor, delete it for good, or empty the bin",
  "feature.bin.title": "The bin",
  "feature.bin.what": "{bin} shows the system's bin as a panel, each file with the folder it came from and when it was deleted. {bin_restore} puts files back; {bin_delete} and {bin_empty} delete for good.",

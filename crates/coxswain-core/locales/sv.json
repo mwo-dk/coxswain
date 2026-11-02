@@ -4657,6 +4657,7 @@
  "tui.keybar.bin_delete": "Utplåna",
  "notice.bin_mac": "macOS: Coxswain visar papperskorgen bara med full skivåtkomst (Systeminställningar → Integritet och säkerhet → Full skivåtkomst); utan den öppnas papperskorgen i Finder. Filer kan inte läggas tillbaka från Coxswain, bara raderas för gott.",
  "notice.bin_flatpak": "I Flatpak ser Coxswain bara sin egen papperskorg, inte systemets: det andra appar och Coxswains Radera lägger i papperskorgen visas inte där.",
+ "notice.bin_shadowed": "En riktig mapp som heter @bin i din hemmapp ({path}) döljer papperskorgen: Papperskorg öppnar den mappen i stället. Byt namn på den eller flytta den för att se papperskorgen igen.",
  "hint.bin": "{key}: återställ det under markören, radera det för gott, eller töm papperskorgen",
  "feature.bin.title": "Papperskorgen",
  "feature.bin.what": "{bin} visar systemets papperskorg som en panel, varje fil med mappen den kom från och när den raderades. {bin_restore} lägger tillbaka filer; {bin_delete} och {bin_empty} raderar för gott.",

@@ -4657,6 +4657,7 @@
  "tui.keybar.bin_delete": "Udslet",
  "notice.bin_mac": "macOS: Coxswain viser kun papirkurven med fuld diskadgang (Systemindstillinger → Anonymitet & sikkerhed → Fuld diskadgang); uden den åbnes papirkurven i Finder. Filer kan ikke lægges tilbage fra Coxswain, kun slettes endeligt.",
  "notice.bin_flatpak": "I Flatpak ser Coxswain kun sin egen papirkurv, ikke systemets: det, andre apps og Coxswains Slet lægger i papirkurven, vises ikke der.",
+ "notice.bin_shadowed": "En rigtig mappe ved navn @bin i din hjemmemappe ({path}) skjuler papirkurven: Papirkurv åbner den mappe i stedet. Omdøb eller flyt den for at se papirkurven igen.",
  "hint.bin": "{key}: gendan det under markøren, slet det endeligt, eller tøm papirkurven",
  "feature.bin.title": "Papirkurven",
  "feature.bin.what": "{bin} viser systemets papirkurv som et panel, hver fil med mappen den kom fra og hvornår den blev slettet. {bin_restore} lægger filer tilbage; {bin_delete} og {bin_empty} sletter endeligt.",

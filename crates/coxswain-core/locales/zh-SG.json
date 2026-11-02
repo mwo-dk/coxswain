@@ -4570,6 +4570,7 @@
  "tui.keybar.bin_delete": "Erase",
  "notice.bin_mac": "macOS：只有获得“完全磁盘访问权限”（系统设置 → 隐私与安全性 → 完全磁盘访问权限），Coxswain 才能列出回收站；没有它，回收站会在访达中打开。文件不能从 Coxswain 放回，只能永久删除。",
  "notice.bin_flatpak": "在 Flatpak 中，Coxswain 只能看到它自己的回收站，而不是系统的：其他应用以及 Coxswain 的删除放进回收站的内容不会列在那里。",
+ "notice.bin_shadowed": "主文件夹里有一个名为 @bin 的真实文件夹（{path}），它挡住了回收站：打开回收站时会打开这个文件夹。把它改名或移走，就能再次看到回收站。",
  "hint.bin": "{key}：还原光标所在的内容、永久删除它，或清空回收站",
  "feature.bin.title": "回收站",
  "feature.bin.what": "{bin} 把系统的回收站显示为面板，每个文件附有它来自的文件夹和删除时间。{bin_restore} 把文件放回；{bin_delete} 和 {bin_empty} 永久删除。",

@@ -4755,6 +4755,7 @@
  "tui.keybar.bin_delete": "Esborra",
  "notice.bin_mac": "macOS: Coxswain llista la paperera només amb accés total al disc (Configuració del Sistema → Privacitat i seguretat → Accés total al disc); sense, la paperera s’obre al Finder. Des de Coxswain els fitxers no es poden tornar, només suprimir definitivament.",
  "notice.bin_flatpak": "Al Flatpak, Coxswain només veu la seva pròpia paperera, no la del sistema: el que altres apps i Suprimeix de Coxswain hi posen no hi surt.",
+ "notice.bin_shadowed": "Una carpeta real anomenada @bin a la carpeta personal ({path}) amaga la paperera: Paperera obre aquesta carpeta. Canvieu-li el nom o moveu-la per tornar a veure la paperera.",
  "hint.bin": "{key}: restaura el que hi ha sota el cursor, suprimeix-ho definitivament o buida la paperera",
  "feature.bin.title": "La paperera",
  "feature.bin.what": "{bin} mostra la paperera del sistema en un plafó, cada fitxer amb la carpeta d’on ve i quan es va suprimir. {bin_restore} torna fitxers; {bin_delete} i {bin_empty} suprimeixen definitivament.",

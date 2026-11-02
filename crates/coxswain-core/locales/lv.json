@@ -4755,6 +4755,7 @@
  "tui.keybar.bin_delete": "Iznīcināt",
  "notice.bin_mac": "macOS: Coxswain uzskaita atkritni tikai ar pilnu diska piekļuvi (Sistēmas iestatījumi → Privātums un drošība → Pilna diska piekļuve); bez tās atkritne atveras Finder. No Coxswain failus nevar likt atpakaļ, tikai dzēst neatgriezeniski.",
  "notice.bin_flatpak": "Flatpak vidē Coxswain redz tikai savu atkritni, ne sistēmas: tas, ko tur ieliek citas lietotnes un Coxswain Dzēst, tur nav redzams.",
+ "notice.bin_shadowed": "Īsta mape ar nosaukumu @bin jūsu mājas mapē ({path}) aizsedz atkritni: Atkritne tās vietā atver šo mapi. Pārdēvējiet vai pārvietojiet to, lai atkal redzētu atkritni.",
  "hint.bin": "{key}: atjaunojiet to, kas zem kursora, dzēsiet neatgriezeniski vai iztukšojiet atkritni",
  "feature.bin.title": "Atkritne",
  "feature.bin.what": "{bin} rāda sistēmas atkritni panelī, katru failu ar mapi, no kuras tas nāca, un dzēšanas laiku. {bin_restore} liek failus atpakaļ; {bin_delete} un {bin_empty} dzēš neatgriezeniski.",

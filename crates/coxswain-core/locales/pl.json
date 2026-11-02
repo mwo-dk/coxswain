@@ -4853,6 +4853,7 @@
  "tui.keybar.bin_delete": "Wymaż",
  "notice.bin_mac": "macOS: Coxswain pokazuje Kosz tylko z pełnym dostępem do dysku (Ustawienia systemowe → Prywatność i ochrona → Pełny dostęp do dysku); bez niego Kosz otwiera się w Finderze. Z Coxswaina plików nie da się odłożyć, tylko usunąć na zawsze.",
  "notice.bin_flatpak": "We Flatpaku Coxswain widzi tylko własny Kosz, nie systemowy: to, co wkładają tam inne aplikacje i Usuń w Coxswainie, nie jest tam widoczne.",
+ "notice.bin_shadowed": "Prawdziwy folder o nazwie @bin w folderze domowym ({path}) zasłania Kosz: Kosz otwiera zamiast niego ten folder. Zmień jego nazwę lub przenieś go, aby znów widzieć Kosz.",
  "hint.bin": "{key}: przywróć to, co pod kursorem, usuń na zawsze albo opróżnij Kosz",
  "feature.bin.title": "Kosz",
  "feature.bin.what": "{bin} pokazuje Kosz systemu w panelu, każdy plik z folderem, z którego pochodzi, i datą usunięcia. {bin_restore} odkłada pliki; {bin_delete} i {bin_empty} usuwają na zawsze.",
