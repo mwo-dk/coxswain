@@ -465,7 +465,7 @@
   const parts = (s) => s.split(/\{(\w+)\}/);
 
   // Screen-reader name for modals that have no title of their own.
-  const KIND_LABEL = { linehistory: "action.line_history", help: "help.title", search: "search.title", rename: "action.batch_rename", props: "action.properties", tag: "action.tag" };
+  const KIND_LABEL = { keytest: "keytest.title", linehistory: "action.line_history", help: "help.title", search: "search.title", rename: "action.batch_rename", props: "action.properties", tag: "action.tag" };
 
   // ------------------------------------------------------------ pack
 
@@ -725,6 +725,12 @@
         </div>
         <div class="buttons"><button class="primary" onclick={close}>{t("common.close")}</button></div>
         <p class="keys">{t("dialog.keys_one", { verb: t("common.close") })}</p>
+      {:else if m.kind === "keytest"}
+        <h2>{t("keytest.title")}</h2>
+        <p>{t("keytest.intro")}</p>
+        <pre class="keylog">{m.lines.join("\n")}</pre>
+        <div class="buttons"><button class="primary" onclick={close}>{t("common.close")}</button></div>
+        <p class="keys">{t("keytest.keys", { verb: t("common.close") })}</p>
       {:else if m.kind === "message"}
         <h2>{m.title}</h2>
         <p>{m.text}</p>
@@ -1413,6 +1419,10 @@
     white-space: pre-wrap;
     font-family: var(--mono-font), var(--scripts);
     overflow: auto;
+  }
+  /* Room for the twelve lines it keeps, so the dialog does not grow as keys come. */
+  .keylog {
+    min-height: 12lh;
   }
   .glyph {
     font-family: var(--icon-font);

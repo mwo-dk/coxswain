@@ -366,6 +366,7 @@
  "install.copy_tui": "Instálalo con: {command} · Space copia la línea; Coxswain nunca la ejecuta.",
  "install.get": "{program} no tiene paquete acá: bájalo de su sitio web y ponlo en el PATH.",
  "install.with": "Instálalo:",
+ "keytest.intro": "Presiona cualquier tecla. Cada una aparece como llega a Coxswain, como Coxswain la lee y con la acción que ejecuta. Una tecla que no agrega ninguna línea la toma otro antes de llegar acá: la terminal, el escritorio o la distribución del teclado. Mientras esto está abierto no se ejecuta nada.",
  "kicad.install": "Instálalo (kicad.org), o córrelo en un contenedor:",
  "logs.columns_tip": "Los campos de cada línea como columnas; haz clic en un valor para ver solo las líneas que lo tienen (c)",
  "logs.hint": "Haz clic en las líneas para usar sus teclas: F seguir, e nivel, & filtro, c columnas, z plegar",

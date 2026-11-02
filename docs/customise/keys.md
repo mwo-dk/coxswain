@@ -17,6 +17,7 @@ table, so a key you change works the same in the terminal app and the desktop ap
 - [Keys you cannot change](#keys-you-cannot-change)
 - [What you see](#what-you-see)
 - [Settings and config.toml](#settings-and-configtoml)
+- [Which keys reach Coxswain](#which-keys-reach-coxswain)
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
 
@@ -140,7 +141,7 @@ not modifiers Coxswain reads; use **Ctrl** or **Alt**.
 | `transcribe` | none | `compare_files` | **Shift+F2** |
 | `adoc_pdf` | none | `drawio_export` | none |
 | `scan_viruses` | **Alt+I** | `compare_folders` | **Ctrl+F2** |
-| `replace` | **Alt+R** | | |
+| `replace` | **Alt+R** | `key_test` | none |
 
 ¹ The desktop app only. In the terminal app the key still belongs to the action, and pressing it
 says *… is available in the desktop app (coxswain-gui)* on the command line.
@@ -154,7 +155,7 @@ These belong to where they are, not to an action:
 
 | Where | Keys | Desktop app | Terminal app |
 |---|---|---|---|
-| Every dialog | **Esc** closes, **Enter** confirms | Yes | Yes; the `quit` key (**F10**) closes a dialog too |
+| Every dialog | **Esc** closes, **Enter** confirms (*Keys as they arrive*: **Esc** twice) | Yes | Yes; the `quit` key (**F10**) closes a dialog too, but not *Keys as they arrive*, which lists it |
 | A *Delete* or other question | **Y** / **N** as well as Enter / Esc | Yes | Yes |
 | Find | **Tab** / **Shift+Tab** go to the next / previous kind, **Up**/**Down**/**PageUp**/**PageDown** move over the rows, **Ctrl+Enter** (desktop) / **Alt+Enter** (terminal) asks, **F1** shows the syntax, **Delete** sends a tip away (the `search`, `search_text` and `ask` keys, which you can change, switch the scope, *In files* and ask) | Yes | Yes |
 | *Colour tag* | The digits pick a colour | Yes | (not there) |
@@ -194,6 +195,26 @@ In the terminal app, Settings → *Keys* starts with the row *Change keys in con
 [keys]*: **Enter** on it opens your editor (`editor`, `$VISUAL`, `$EDITOR`, else the
 [built-in editor](../commands/editor.md)) at `[keys]`, and Settings comes back when you quit the editor.
 
+## Which keys reach Coxswain
+
+A key can be taken before Coxswain sees it: by the terminal, the desktop (a shortcut of the
+window manager or the compositor), an input method or the keyboard layout. *Show keys as they
+arrive* shows what does reach it. It is in **F9** (*Show keys as they arrive*) and in the
+action menu (**Shift+F10**) on `..` with nothing marked, in both apps; it has no key of its
+own (`key_test` in `[keys]` gives it one).
+
+It opens a dialog, *Keys as they arrive*, and lists every key you press, the newest last, the
+last twelve kept. Nothing runs while it is open. Each line has three parts:
+
+| Part | Terminal app | Desktop app |
+|---|---|---|
+| What arrived | The key as crossterm reports it: `Char('u') ALT Press` | The web view's key event: `key "u" code KeyU alt` |
+| As Coxswain reads it | `Alt+U`, or *not read as a key* (a key Coxswain has no name for) | The same |
+| What it runs | The action in your keymap, or *no action* | The same |
+
+A key that adds no line at all never reached Coxswain. **Esc** twice closes the dialog (the
+first **Esc** is listed like any key); in the desktop app *Close* does too.
+
 ## In the terminal app
 
 The same `[keys]` table, read at start. Two differences come from the terminal:
@@ -226,6 +247,33 @@ A key name it does not know, such as `"Ctlr+P"` or `"Hyper+Q"`, or a key an earl
 the line: in the terminal app a dialog at start, where **Enter** opens `config.toml` there; in
 the desktop app the status line, where a click opens it there. Check the spelling against
 [Key names](#key-names).
+
+If the line is right and the key still does nothing, see whether it arrives: **F9** → *Show
+keys as they arrive*, then press it ([Which keys reach Coxswain](#which-keys-reach-coxswain)).
+
+#### A key does nothing at all, but the action works from F9. Why?
+
+The key does not reach Coxswain. Open **F9** → *Show keys as they arrive* and press it: when no
+line is added, something before Coxswain took it. Find it by where it happens:
+
+- **Only in one terminal.** Its own shortcuts come first. GNOME Terminal and Konsole open their
+  menus on **Alt**+letter while menu shortcuts are on (GNOME Terminal: Preferences → General →
+  *Enable mnemonics*; Konsole: the letters underlined in its menu bar, **Alt+F**, **Alt+E**,
+  **Alt+V**, **Alt+B**, **Alt+S**, **Alt+H**). kitty, WezTerm, foot, Alacritty and Windows
+  Terminal list theirs in their configuration; a multiplexer (tmux, Zellij, screen) inside the
+  terminal takes its own keys too.
+- **In every app on the desktop.** A shortcut of the desktop takes it: the window manager or
+  compositor's key bindings (GNOME, KDE, sway, Hyprland, niri), a shell such as a panel or a
+  launcher, a key remapper, or an input method (IBus, Fcitx).
+- **On macOS, Option+letter.** Option types a character instead (**Option+U** starts an
+  umlaut), unless the terminal sends Option as Alt: Terminal's *Use Option as Meta key*,
+  iTerm2's *Left Option key: Esc+*, `option_as_alt` in Alacritty, `macos_option_as_alt` in
+  kitty, `macos-option-as-alt` in Ghostty.
+
+Then free the key there, or give the action another one in `[keys]`. When the line is there
+but says *no action*, the key reaches Coxswain and no action in `[keys]` has it: check
+`[keys]`. A fixed key, such as **Enter** and **Esc** in a dialog or a letter that jumps to a name,
+also says *no action* there ([Keys you cannot change](#keys-you-cannot-change)).
 
 #### My `[keys] mkdir` stopped working in 2.0. Why?
 

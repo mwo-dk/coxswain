@@ -183,6 +183,7 @@ On a Mac the shortcuts are the same, with **Ctrl**, not Cmd.
 | **Ctrl+,**, **F12** | Settings | `settings` | The Settings window ([Settings](../customise/settings.md)) | The terminal app's Settings; most terminals pass only **F12** on, shown as *12 Settings* on the F-key bar. **Shift+F10** → *Settings* and **F9** → *Settings* always work |
 | – | Disk use | `disk_use` | Settings at *Privacy and updates* → *Disk use* ([Disk use](../reference/disk-use.md)) | The same, in the terminal app's Settings |
 | – | Suggest a better translation | `suggest_translation` | A new GitHub issue for the language in use, in the browser ([Languages](../customise/languages.md#improving-a-translation)) | The same, and its address copied |
+| – | Show keys as they arrive | `key_test` | A dialog listing each key as the web view reports it, how Coxswain reads it and the action it runs; nothing runs ([Which keys reach Coxswain](../customise/keys.md#which-keys-reach-coxswain)) | The same, each key as crossterm reports it |
 | **F10** | Quit | `quit` | Close the window | Quit |
 
 ### Keys that are not actions

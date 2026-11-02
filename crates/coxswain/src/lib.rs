@@ -500,6 +500,9 @@ pub(crate) fn menu_visible(items: &[MenuItem], filter: &str) -> Vec<usize> {
 }
 
 pub enum Dialog {
+    /// Show keys as they arrive: a line per key event, newest last; `esc`: the last was Esc,
+    /// so another closes it.
+    Keys { lines: Vec<String>, esc: bool },
     Input { title: String, label: String, value: String, prompt: Prompt },
     /// Delete `paths`; `forever` skips the trash.
     Confirm { title: String, text: String, paths: Vec<PathBuf>, forever: bool },
@@ -620,6 +623,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Settings(_) => "settings_window",
         Dialog::Guide(_) => "first_run",
         Dialog::Refused { .. } => "configuration",
+        Dialog::Keys { .. } => "change_keys",
         Dialog::Help { .. } | Dialog::Features { .. } | Dialog::Message { .. } => return None,
     })
 }
@@ -1435,8 +1439,35 @@ impl App {
     // ------------------------------------------------------------ input
 
     fn on_key(&mut self, ev: KeyEvent) {
+        if matches!(self.dialog, Some(Dialog::Keys { .. })) {
+            return self.key_seen(ev);
+        }
         if let Some(key) = to_key(ev) {
             self.key_typed(key);
+        }
+    }
+
+    /// Show keys as they arrive: `ev` as crossterm reports it, the key Coxswain reads in it and
+    /// the action that key runs; nothing runs. Esc twice closes.
+    fn key_seen(&mut self, ev: KeyEvent) {
+        let key = to_key(ev);
+        let mods: String = ev.modifiers.iter_names().map(|(n, _)| format!(" {n}")).collect();
+        let read = match key {
+            Some(k) => format!("{} → {}", config::written(&k.to_string()), self.keymap.get(&k).map_or_else(|| t!("keytest.unbound"), |&a| self.action_label(a))),
+            None => t!("keytest.unread"),
+        };
+        let line = format!("{:?}{mods} {:?} → {read}", ev.code, ev.kind);
+        let plain_esc = key.is_some_and(|k| k == Key::new(KeyCode::Esc, false, false, false));
+        let Some(Dialog::Keys { lines, esc }) = &mut self.dialog else { return };
+        if plain_esc && *esc {
+            self.dialog = None;
+            return;
+        }
+        *esc = plain_esc;
+        lines.push(line);
+        // As many as the dialog shows.
+        if lines.len() > 12 {
+            lines.remove(0);
         }
     }
 
@@ -1972,6 +2003,7 @@ impl App {
             Action::Settings => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "")))),
             Action::DiskUse => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "disk")))),
             Action::SuggestTranslation => self.status = Some(Self::suggest_translation()),
+            Action::KeyTest => self.dialog = Some(Dialog::Keys { lines: vec![], esc: false }),
             Action::DiskImages => {
                 let Some(path) = Config::path() else { return self.status = Some(t!("err.no_config_folder")) };
                 let on = serde_json::json!({ "disk_images": true });
@@ -4392,6 +4424,8 @@ impl App {
                 _ => {}
             },
             Dialog::Message { .. } => {}
+            // Its keys come raw, before this (`key_seen`).
+            d @ Dialog::Keys { .. } => self.dialog = Some(d),
             Dialog::Refused { line, .. } if key.code == KeyCode::Enter => match Config::path() {
                 Some(path) => self.edit_at(&path, line),
                 None => self.status = Some(t!("err.no_config_folder")),
@@ -6118,6 +6152,25 @@ mod tests {
         assert_eq!(app.status, Some(t!("undo.done", "what" => t!("undo.what.move", "what" => "\"one.txt\"", "dir" => "b"))));
         app.undo_last();
         assert_eq!(app.status, Some(t!("undo.nothing")));
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// Show keys as they arrive lists a key with what it runs, runs nothing, and closes on a
+    /// second Esc only.
+    #[test]
+    fn keys_are_shown_as_they_arrive_and_run_nothing() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-keys-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("other")).unwrap();
+        let mut app = app(d.clone(), d.join("other"));
+        app.act(Action::KeyTest);
+        app.on_key(KeyEvent::new(CK::Char('u'), KeyModifiers::ALT));
+        app.on_key(KeyEvent::new(CK::Esc, KeyModifiers::NONE));
+        let Some(Dialog::Keys { lines, .. }) = &app.dialog else { panic!("Space view ran: {:?}", app.status) };
+        assert!(lines[0].contains("ALT") && lines[0].contains(&format!("Alt+U → {}", Action::SpaceView.label())), "{lines:?}");
+        assert_eq!(lines.len(), 2, "Esc is listed too");
+        app.on_key(KeyEvent::new(CK::Esc, KeyModifiers::NONE));
+        assert!(app.dialog.is_none(), "the second Esc closes it");
         let _ = std::fs::remove_dir_all(d);
     }
 

@@ -230,7 +230,8 @@ impl Action {
             SpaceView => disk,
             CompareFolders => s.place != Place::Branches,
             // On `..` with nothing marked: the panels themselves.
-            SwapPanels | SameDir | TogglePanels => n == 0,
+            // Show keys as they arrive too, where it crowds no file's menu.
+            SwapPanels | SameDir | TogglePanels | KeyTest => n == 0,
             // What Coxswain can do, and Settings, from any menu.
             Features | Settings => true,
             // Where letters jump to names, the command line is a key away.
