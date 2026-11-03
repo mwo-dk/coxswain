@@ -52,7 +52,7 @@ pub const LIMIT: std::time::Duration = std::time::Duration::from_millis(2500);
 fn within(path: &Path, rows: usize, limit: std::time::Duration) -> Result<Vec<Table>, String> {
     use rusqlite::types::ValueRef;
     use rusqlite::{Connection, OpenFlags};
-    let db = Connection::open_with_flags(
+    let mut db = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
@@ -81,7 +81,7 @@ fn within(path: &Path, rows: usize, limit: std::time::Duration) -> Result<Vec<Ta
             continue;
         };
         t.sample
-            .push(q.column_names().iter().map(|c| cell(c)).collect());
+            .push(q.column_names().map(cell).collect());
         let n = q.column_count();
         let Ok(mut it) = q.query([]) else { continue };
         while let Ok(Some(row)) = it.next() {
