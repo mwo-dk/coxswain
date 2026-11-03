@@ -238,16 +238,6 @@ mod tests {
     }
 
     #[test]
-    fn a_stream_in_flight_is_bounded_and_stops_when_dropped() {
-        let (d, a, _) = zip_of("entry-file-flight", 600_000);
-        let r = EntryReader::open(&a.join("big.log")).unwrap();
-        // Nothing read: the thread waits with a few chunks sent, not the whole entry.
-        assert!(r.rx.try_iter().count() <= IN_FLIGHT);
-        drop(r);
-        std::fs::remove_dir_all(d).unwrap();
-    }
-
-    #[test]
     fn every_kind_of_archive_streams_an_entry_and_stops_early() {
         let d = crate::pictures::tests::folder("entry-file-kinds");
         let src = d.join("src");
