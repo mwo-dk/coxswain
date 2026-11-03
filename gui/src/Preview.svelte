@@ -1693,11 +1693,16 @@
     color: var(--cursor-fg);
     border-color: transparent;
   }
-  .engines button:disabled {
+  .engines button:disabled,
+  .render:disabled {
     opacity: 0.45;
     cursor: default;
   }
   .render {
+    /* the app's own size and the accent's weight, like .primary (looks.css), even inside a .more
+       line: dark text on the accent smeared at 0.85em */
+    font-size: var(--font-size, 13px);
+    font-weight: var(--accent-weight);
     background: var(--accent-bg);
     color: var(--accent-fg);
     border-color: transparent;
