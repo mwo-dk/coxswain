@@ -283,6 +283,7 @@
  "archive.zip_part_missing": "缺少 {name}：分卷的 zip 需要所有分卷齐全、编号连续才能打开",
  "archive.zip_parts_zip64": "不读取这么大的分卷 zip（zip64）：请先合并其分卷（zip -s 0）",
  "archive.cab_too_much": "要取到这些文件，这个 cabinet 需要解压超过 4 GB：请每次少复制一些",
+ "archive.cab_part_missing": "这个 cabinet 属于一组文件：{name} 必须在同一个文件夹",
  "archive.nested_too_deep": "压缩包中的压缩包最多只打开 {depth} 层：请用 F5 把这个复制出来再打开",
  "archive.overlapping": "这个 zip 的文件共用压缩后的字节，解开会远大于它的内容：它可能是故意做来占满磁盘的。仍可从中复制出单个文件",
  "archive.pack_confirm": "再输入一次密码：",

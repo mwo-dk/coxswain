@@ -324,6 +324,7 @@
  "archive.zip_part_missing": "Chybí {name}: zip rozdělený na části se otevře jen se všemi částmi, číslovanými bez mezery",
  "archive.zip_parts_zip64": "Tak velký zip rozdělený na části (zip64) se nečte: nejdřív jeho části spojte (zip -s 0)",
  "archive.cab_too_much": "Tento cabinet by pro tyto soubory rozbalil víc než 4 GB: kopírujte jich najednou méně",
+ "archive.cab_part_missing": "Tento cabinet je součást sady: {name} musí být ve stejné složce",
  "archive.nested_too_deep": "Archivy v archivech se otevírají nejvýše do hloubky {depth}: zkopírujte tento ven klávesou F5 a otevřete ho",
  "archive.overlapping": "Soubory tohoto zipu sdílejí své zabalené bajty, takže by se rozbalil na mnohem víc, než obsahuje: může být vytvořen k zaplnění disku. Jeden jeho soubor lze stále zkopírovat",
  "archive.pack_confirm": "Heslo znovu:",

@@ -324,6 +324,7 @@
  "archive.zip_part_missing": "Falta {name}: un zip dividido en partes solo se abre con todas sus partes, numeradas sin huecos",
  "archive.zip_parts_zip64": "Un zip dividido en partes tan grande (zip64) no se lee: uní primero sus partes (zip -s 0)",
  "archive.cab_too_much": "Este cabinet descomprimiría más de 4 GB para llegar a estos archivos: copiá menos por vez",
+ "archive.cab_part_missing": "Este cabinet es parte de un conjunto: {name} tiene que estar en la misma carpeta",
  "archive.nested_too_deep": "Los archivos comprimidos dentro de otros se abren hasta {depth} niveles: copiá este afuera con F5 para abrirlo",
  "archive.overlapping": "Los archivos de este zip comparten sus bytes comprimidos, así que se descomprimiría en mucho más de lo que contiene: puede estar hecho para llenar el disco. Todavía se puede copiar un archivo suyo",
  "archive.pack_confirm": "La contraseña de nuevo:",

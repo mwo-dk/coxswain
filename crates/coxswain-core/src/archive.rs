@@ -73,6 +73,13 @@ const ENDINGS: &[(&str, Kind)] = &[
     (".vsix", Kind::Zip),
     // Read, never written (`archive_ro`).
     (".cpio", Kind::Ro(crate::archive_ro::Format::Cpio)),
+    // A cpio packed in gzip (`.cpgz` as macOS names it), bzip2, xz, zstd or lzma.
+    (".cpio.gz", Kind::Ro(crate::archive_ro::Format::CpioPacked)),
+    (".cpgz", Kind::Ro(crate::archive_ro::Format::CpioPacked)),
+    (".cpio.bz2", Kind::Ro(crate::archive_ro::Format::CpioPacked)),
+    (".cpio.xz", Kind::Ro(crate::archive_ro::Format::CpioPacked)),
+    (".cpio.zst", Kind::Ro(crate::archive_ro::Format::CpioPacked)),
+    (".cpio.lzma", Kind::Ro(crate::archive_ro::Format::CpioPacked)),
     (".deb", Kind::Ro(crate::archive_ro::Format::Deb)),
     (".udeb", Kind::Ro(crate::archive_ro::Format::Deb)),
     (".rpm", Kind::Ro(crate::archive_ro::Format::Rpm)),
@@ -1922,7 +1929,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
             .collect());
     }
     if let Kind::Ro(format) = k {
-        crate::archive_ro::each(open_raw(archive)?, format, &|_| false, &mut |e, _| {
+        crate::archive_ro::each(open_raw(archive)?, archive, format, &|_| false, &mut |e, _| {
             out.push(Item {
                 name: e.name.clone(),
                 size: e.size,
@@ -2090,7 +2097,7 @@ pub(crate) const SEARCH_READ: u64 = 128 << 20;
 /// Whether getting at `archive`'s entries means unpacking all before them.
 fn streamed(archive: &Path) -> bool {
     matches!(kind(archive), Some(Kind::Tar(p)) if p != Pack::None)
-        || matches!(kind(archive), Some(Kind::SevenZ | Kind::Ro(crate::archive_ro::Format::Rpm | crate::archive_ro::Format::Cab)))
+        || matches!(kind(archive), Some(Kind::SevenZ | Kind::Ro(crate::archive_ro::Format::CpioPacked | crate::archive_ro::Format::Rpm | crate::archive_ro::Format::Cab)))
 }
 
 /// A name inside an archive that can be a path through it: no `..`, nothing empty, and no
@@ -2432,7 +2439,7 @@ fn search_read_at(
         Kind::Ro(format) => {
             let mut seen = 0;
             let pick = |e: &crate::archive_ro::Entry| e.file && sound(&e.name) && wanted(&e.name, e.size);
-            crate::archive_ro::each(open_raw(archive)?, format, &pick, &mut |e, from| {
+            crate::archive_ro::each(open_raw(archive)?, archive, format, &pick, &mut |e, from| {
                 seen += 1;
                 Ok(seen <= SEARCH_ENTRIES && !(pick(e) && !read(&[&e.name], from)))
             })?;
@@ -3165,7 +3172,7 @@ fn copy_entries(
         // Each entry below `inner` in order; a file read only when it comes out.
         let pick = |e: &crate::archive_ro::Entry| e.file && below(&e.name);
         let mut done = false;
-        crate::archive_ro::each(open_raw(archive)?, format, &pick, &mut |e, from| {
+        crate::archive_ro::each(open_raw(archive)?, archive, format, &pick, &mut |e, from| {
             if !below(&e.name) {
                 return Ok(true);
             }
@@ -5256,6 +5263,7 @@ mod tests {
         let data = gz(&data.into_inner().unwrap());
         let made = [
             ("a.cpio", newc(files)),
+            ("a.cpio.gz", gz(&newc(files))),
             ("a.rpm", rpm_of(&gz(&newc(files)))),
             ("a.cab", cab_of(&[("usr\\notes.txt", b"rocket fuel")])),
             ("a.deb", ar_of(&[("debian-binary", b"2.0\n"), ("data.tar.gz", &data)])),
@@ -5279,7 +5287,7 @@ mod tests {
             assert!(all.join(inner).is_file(), "{name}");
             assert!(!out.join("evil").exists() && !d.join("evil").exists(), "{name}");
             #[cfg(unix)]
-            if name == "a.cpio" || name == "a.rpm" {
+            if name == "a.cpio" || name == "a.cpio.gz" || name == "a.rpm" {
                 use std::os::unix::fs::PermissionsExt;
                 assert_eq!(std::fs::metadata(all.join("usr/go.sh")).unwrap().permissions().mode() & 0o777, 0o755, "{name}");
             }
@@ -5296,6 +5304,22 @@ mod tests {
             .unwrap();
             assert_eq!(text, b"rocket fuel", "{name}");
         }
+        // A cabinet set: opening the second part lists and copies out files of all of them,
+        // finding the others by the names they hold (any case) in the same folder.
+        use crate::archive_cab::tests::{cab_bytes, stored};
+        let first = cab_bytes((5, 0), (None, Some("DISK2.cab")), &[(0, vec![stored(b"one")])], &[("a.txt", 3, 0, 0)]);
+        let second = cab_bytes((5, 1), (Some("disk1.cab"), None), &[(0, vec![stored(b"two")])], &[("b.txt", 3, 0, 0)]);
+        std::fs::write(d.join("disk1.cab"), first).unwrap();
+        std::fs::write(d.join("disk2.cab"), second).unwrap();
+        let p = d.join("disk2.cab");
+        let names: Vec<String> = list(&p, 10).unwrap().0.into_iter().map(|e| e.name).collect();
+        assert_eq!(names, ["a.txt", "b.txt"]);
+        let out = d.join("set-out");
+        std::fs::create_dir_all(&out).unwrap();
+        assert_eq!(std::fs::read(copy_out(&p, "a.txt", &out, None, false).unwrap()).unwrap(), b"one");
+        let lone = cab_bytes((6, 0), (None, Some("gone.cab")), &[(0, vec![stored(b"x")])], &[("c.txt", 1, 0, 0)]);
+        std::fs::write(d.join("lone.cab"), lone).unwrap();
+        assert_eq!(list(&d.join("lone.cab"), 10).unwrap().0.len(), 1, "its own files are listed");
         let _ = std::fs::remove_dir_all(&d);
     }
 

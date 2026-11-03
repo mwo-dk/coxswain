@@ -319,6 +319,7 @@
  "archive.zip_part_missing": "{name} mangler: en zip delt i deler åpnes bare med alle delene, nummerert uten hull",
  "archive.zip_parts_zip64": "En så stor zip delt i deler (zip64) leses ikke: slå først sammen delene (zip -s 0)",
  "archive.cab_too_much": "Dette cabinet ville pakke ut mer enn 4 GB for å nå disse filene: kopier ut færre om gangen",
+ "archive.cab_part_missing": "Dette cabinet er en del av et sett: {name} må ligge i samme mappe",
  "archive.nested_too_deep": "Arkiver i arkiver åpnes høyst {depth} nivåer ned: kopier dette ut med F5 for å åpne det",
  "archive.overlapping": "Filene i denne zip-en deler de pakkede bytene sine, så den ville pakkes ut til langt mer enn den inneholder: den kan være laget for å fylle disken. Én fil fra den kan fortsatt kopieres ut",
  "archive.pack_confirm": "Passordet en gang til:",
