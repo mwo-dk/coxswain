@@ -230,6 +230,8 @@ struct UiConfig {
     media_ops: [Vec<String>; 5],
     /// Geodata's endings (`geo::endings`): `vector`, and `raster` (TIFF, geodata when GDAL says so).
     geo_endings: BTreeMap<&'static str, Vec<&'static str>>,
+    /// Which viewer shows a file (`viewers::rules`), evaluated by `previewKind`.
+    viewer_rules: &'static [coxswain_core::viewers::Rule],
     /// Open the first-run guide at start; its keys and themes.
     guide: bool,
     guide_keys: Vec<(String, String)>,
@@ -314,6 +316,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         media_endings: coxswain_core::media::endings(),
         media_ops: coxswain_core::media::Program::ALL.map(|p| coxswain_core::media::Op::menu(p).iter().map(|o| o.id()).collect()),
         geo_endings: coxswain_core::geo::endings(),
+        viewer_rules: coxswain_core::viewers::rules(),
         guide: ctx.guide && ctx.pick.is_none(),
         guide_keys: coxswain_core::guide::keys(&cfg),
         guide_menu: coxswain_core::guide::menu_line(&cfg),

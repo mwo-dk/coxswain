@@ -1,0 +1,1439 @@
+{
+  "cases": [
+    {
+      "is_dir": true,
+      "kind": "folder",
+      "name": "rocket"
+    },
+    {
+      "is_dir": true,
+      "kind": "netron",
+      "name": "model.mlpackage"
+    },
+    {
+      "is_dir": true,
+      "kind": "folder",
+      "name": "weights.onnx"
+    },
+    {
+      "is_dir": false,
+      "kind": "netron",
+      "name": "weights.onnx"
+    },
+    {
+      "is_dir": false,
+      "kind": "netron",
+      "name": "net.TFLite"
+    },
+    {
+      "is_dir": false,
+      "kind": "drawio",
+      "name": "flow.drawio"
+    },
+    {
+      "is_dir": false,
+      "kind": "drawio",
+      "name": "flow.drawio.svg"
+    },
+    {
+      "is_dir": false,
+      "kind": "drawio",
+      "name": "flow.drawio.png"
+    },
+    {
+      "is_dir": false,
+      "kind": "go",
+      "name": "game.sgf"
+    },
+    {
+      "is_dir": false,
+      "kind": "chess",
+      "name": "club.pgn"
+    },
+    {
+      "is_dir": false,
+      "kind": "chess",
+      "name": "club.pgn.gz"
+    },
+    {
+      "is_dir": false,
+      "kind": "chess",
+      "name": "club.pgn.zst"
+    },
+    {
+      "is_dir": false,
+      "kind": "chess",
+      "name": "club.si4"
+    },
+    {
+      "is_dir": false,
+      "kind": "chess",
+      "name": "Classics.cbh"
+    },
+    {
+      "is_dir": false,
+      "kind": "chess",
+      "name": "twic.cbv"
+    },
+    {
+      "is_dir": false,
+      "kind": "chess",
+      "name": "mates.epd"
+    },
+    {
+      "is_dir": false,
+      "kind": "chess",
+      "name": "start.fen"
+    },
+    {
+      "is_dir": false,
+      "kind": "chess",
+      "name": "draughts.pdn"
+    },
+    {
+      "is_dir": false,
+      "kind": "chess",
+      "name": "shogi.kifu"
+    },
+    {
+      "is_dir": false,
+      "kind": "chess",
+      "name": "shogi.csa"
+    },
+    {
+      "is_dir": false,
+      "kind": "chess",
+      "name": "bridge.pbn"
+    },
+    {
+      "is_dir": false,
+      "kind": "provenance",
+      "name": "build.intoto.jsonl"
+    },
+    {
+      "is_dir": false,
+      "kind": "provenance",
+      "name": "bundle.sigstore.json"
+    },
+    {
+      "is_dir": false,
+      "kind": "provenance",
+      "name": "provenance.json"
+    },
+    {
+      "is_dir": false,
+      "kind": "bom",
+      "name": "app.cdx.json"
+    },
+    {
+      "is_dir": false,
+      "kind": "bom",
+      "name": "bom.xml"
+    },
+    {
+      "is_dir": false,
+      "kind": "bom",
+      "name": "BOM.json"
+    },
+    {
+      "is_dir": false,
+      "kind": "comic",
+      "name": "comic.cbz"
+    },
+    {
+      "is_dir": false,
+      "kind": "archive",
+      "name": "all.zip"
+    },
+    {
+      "is_dir": false,
+      "kind": "archive",
+      "name": "all.tar.gz"
+    },
+    {
+      "is_dir": false,
+      "kind": "archive",
+      "name": "all.7z.001"
+    },
+    {
+      "is_dir": false,
+      "kind": "disk_image",
+      "name": "disk.iso"
+    },
+    {
+      "is_dir": false,
+      "kind": "disk_image",
+      "name": "disk.vhd"
+    },
+    {
+      "is_dir": false,
+      "kind": "model",
+      "name": "llama.gguf"
+    },
+    {
+      "is_dir": false,
+      "kind": "model",
+      "name": "pytorch_model-00001.bin"
+    },
+    {
+      "is_dir": false,
+      "kind": "text",
+      "name": "openings.bin"
+    },
+    {
+      "is_dir": false,
+      "kind": "pdf",
+      "name": "paper.pdf"
+    },
+    {
+      "is_dir": false,
+      "kind": "gpx",
+      "name": "track.gpx"
+    },
+    {
+      "is_dir": false,
+      "kind": "geo",
+      "name": "roads.shp"
+    },
+    {
+      "is_dir": false,
+      "kind": "geo",
+      "name": "map.geojson"
+    },
+    {
+      "is_dir": false,
+      "kind": "geo",
+      "name": "map.kml"
+    },
+    {
+      "is_dir": false,
+      "kind": "font",
+      "name": "font.woff2"
+    },
+    {
+      "is_dir": false,
+      "kind": "sheet",
+      "name": "sheet.xlsx"
+    },
+    {
+      "is_dir": false,
+      "kind": "sheet",
+      "name": "table.csv"
+    },
+    {
+      "is_dir": false,
+      "kind": "docx",
+      "name": "letter.docx"
+    },
+    {
+      "is_dir": false,
+      "kind": "notebook",
+      "name": "analysis.ipynb"
+    },
+    {
+      "is_dir": false,
+      "kind": "mermaid",
+      "name": "chart.mmd"
+    },
+    {
+      "is_dir": false,
+      "kind": "html",
+      "name": "page.html"
+    },
+    {
+      "is_dir": false,
+      "kind": "log",
+      "name": "app.log"
+    },
+    {
+      "is_dir": false,
+      "kind": "log",
+      "name": "app.log.1"
+    },
+    {
+      "is_dir": false,
+      "kind": "jsonl",
+      "name": "events.jsonl"
+    },
+    {
+      "is_dir": false,
+      "kind": "log",
+      "name": "events.jsonl.2"
+    },
+    {
+      "is_dir": false,
+      "kind": "jsonl",
+      "name": "events.ndjson"
+    },
+    {
+      "is_dir": false,
+      "kind": "log",
+      "name": "syslog"
+    },
+    {
+      "is_dir": false,
+      "kind": "log",
+      "name": "syslog.3"
+    },
+    {
+      "is_dir": false,
+      "kind": "log",
+      "name": "messages"
+    },
+    {
+      "is_dir": false,
+      "kind": "log",
+      "name": ".log"
+    },
+    {
+      "is_dir": false,
+      "kind": "sqlite",
+      "name": "store.sqlite"
+    },
+    {
+      "is_dir": false,
+      "kind": "sqlite",
+      "name": "table.dbf"
+    },
+    {
+      "is_dir": false,
+      "kind": "epub",
+      "name": "book.epub"
+    },
+    {
+      "is_dir": false,
+      "kind": "cert",
+      "name": "site.pem"
+    },
+    {
+      "is_dir": false,
+      "kind": "mail",
+      "name": "note.eml"
+    },
+    {
+      "is_dir": false,
+      "kind": "plist",
+      "name": "Info.plist"
+    },
+    {
+      "is_dir": false,
+      "kind": "calendar",
+      "name": "dates.ics"
+    },
+    {
+      "is_dir": false,
+      "kind": "contacts",
+      "name": "people.vcf"
+    },
+    {
+      "is_dir": false,
+      "kind": "data",
+      "name": "config.json"
+    },
+    {
+      "is_dir": false,
+      "kind": "data",
+      "name": "ci.yml"
+    },
+    {
+      "is_dir": false,
+      "kind": "data",
+      "name": "Cargo.toml"
+    },
+    {
+      "is_dir": false,
+      "kind": "graphviz",
+      "name": "graph.dot"
+    },
+    {
+      "is_dir": false,
+      "kind": "asciidoc",
+      "name": "guide.adoc"
+    },
+    {
+      "is_dir": false,
+      "kind": "scad",
+      "name": "part.scad"
+    },
+    {
+      "is_dir": false,
+      "kind": "kicad",
+      "name": "board.kicad_pcb"
+    },
+    {
+      "is_dir": false,
+      "kind": "parquet",
+      "name": "data.parquet"
+    },
+    {
+      "is_dir": false,
+      "kind": "latex",
+      "name": "paper.tex"
+    },
+    {
+      "is_dir": false,
+      "kind": "typst",
+      "name": "notes.typ"
+    },
+    {
+      "is_dir": false,
+      "kind": "postscript",
+      "name": "figure.eps"
+    },
+    {
+      "is_dir": false,
+      "kind": "office",
+      "name": "old.doc"
+    },
+    {
+      "is_dir": false,
+      "kind": "office",
+      "name": "slides.pptx"
+    },
+    {
+      "is_dir": false,
+      "kind": "xps",
+      "name": "doc.xps"
+    },
+    {
+      "is_dir": false,
+      "kind": "plantuml",
+      "name": "seq.puml"
+    },
+    {
+      "is_dir": false,
+      "kind": "d2",
+      "name": "arch.d2"
+    },
+    {
+      "is_dir": false,
+      "kind": "svgbob",
+      "name": "tree.bob"
+    },
+    {
+      "is_dir": false,
+      "kind": "vegalite",
+      "name": "spec.vl"
+    },
+    {
+      "is_dir": false,
+      "kind": "dbml",
+      "name": "schema.dbml"
+    },
+    {
+      "is_dir": false,
+      "kind": "rst",
+      "name": "readme.rst"
+    },
+    {
+      "is_dir": false,
+      "kind": "duckdb",
+      "name": "ducks.duckdb"
+    },
+    {
+      "is_dir": false,
+      "kind": "ebook",
+      "name": "novel.mobi"
+    },
+    {
+      "is_dir": false,
+      "kind": "video_other",
+      "name": "clip.avi"
+    },
+    {
+      "is_dir": false,
+      "kind": "audio_other",
+      "name": "song.wma"
+    },
+    {
+      "is_dir": false,
+      "kind": "heif",
+      "name": "photo.heic"
+    },
+    {
+      "is_dir": false,
+      "kind": "magick",
+      "name": "art.xcf"
+    },
+    {
+      "is_dir": false,
+      "kind": "raw",
+      "name": "shot.cr2"
+    },
+    {
+      "is_dir": false,
+      "kind": "image",
+      "name": "logo.png"
+    },
+    {
+      "is_dir": false,
+      "kind": "image",
+      "name": "logo.SVG"
+    },
+    {
+      "is_dir": false,
+      "kind": "picture",
+      "name": "scan.tif"
+    },
+    {
+      "is_dir": false,
+      "kind": "picture",
+      "name": "art.psd"
+    },
+    {
+      "is_dir": false,
+      "kind": "tracker",
+      "name": "tune.xm"
+    },
+    {
+      "is_dir": false,
+      "kind": "tracker",
+      "name": "tune.mod"
+    },
+    {
+      "is_dir": false,
+      "kind": "video",
+      "name": "film.mp4"
+    },
+    {
+      "is_dir": false,
+      "kind": "audio",
+      "name": "song.flac"
+    },
+    {
+      "is_dir": false,
+      "kind": "markdown",
+      "name": "README.md"
+    },
+    {
+      "is_dir": false,
+      "kind": "text",
+      "name": "notes.txt"
+    },
+    {
+      "is_dir": false,
+      "kind": "text",
+      "name": "Makefile"
+    },
+    {
+      "is_dir": false,
+      "kind": "text",
+      "name": "main.rs"
+    },
+    {
+      "is_dir": false,
+      "kind": "archive",
+      "name": "archive.tar"
+    },
+    {
+      "is_dir": false,
+      "kind": "bom",
+      "name": "App.CDX.XML"
+    },
+    {
+      "is_dir": false,
+      "kind": "bom",
+      "name": "x.cbom.json"
+    },
+    {
+      "is_dir": false,
+      "kind": "text",
+      "name": "x.cbom.xml"
+    },
+    {
+      "is_dir": false,
+      "kind": "data",
+      "name": "package.json"
+    },
+    {
+      "is_dir": false,
+      "kind": "text",
+      "name": "sbom.txt"
+    },
+    {
+      "is_dir": false,
+      "kind": "provenance",
+      "name": "X.INTOTO.JSON"
+    },
+    {
+      "is_dir": false,
+      "kind": "provenance",
+      "name": "a.sigstore"
+    },
+    {
+      "is_dir": false,
+      "kind": "provenance",
+      "name": "a.dsse.json"
+    },
+    {
+      "is_dir": false,
+      "kind": "provenance",
+      "name": "rocket.provenance.json"
+    },
+    {
+      "is_dir": false,
+      "kind": "provenance",
+      "name": "b.build.slsa"
+    },
+    {
+      "is_dir": false,
+      "kind": "text",
+      "name": "intoto.txt"
+    },
+    {
+      "is_dir": false,
+      "kind": "text",
+      "name": "provenance.json.bak"
+    }
+  ],
+  "rules": [
+    {
+      "kind": "netron",
+      "when": {
+        "m": "dir",
+        "re": "\\.mlpackage$"
+      }
+    },
+    {
+      "kind": "folder",
+      "when": {
+        "m": "dir",
+        "re": null
+      }
+    },
+    {
+      "kind": "netron",
+      "when": {
+        "m": "name",
+        "re": "\\.(onnx|tflite|mlmodel|keras)$"
+      }
+    },
+    {
+      "kind": "drawio",
+      "when": {
+        "m": "name",
+        "re": "\\.(drawio|dio|drawio\\.svg|drawio\\.png)$"
+      }
+    },
+    {
+      "kind": "go",
+      "when": {
+        "m": "name",
+        "re": "\\.sgf$"
+      }
+    },
+    {
+      "kind": "chess",
+      "when": {
+        "m": "name",
+        "re": "\\.(pgn(\\.gz|\\.zst)?|si[45]|cbh|cbv|epd|fen|pdn|kif|kifu|csa|pbn)$"
+      }
+    },
+    {
+      "kind": "provenance",
+      "when": {
+        "m": "name",
+        "re": "(\\.intoto\\.jsonl?|\\.sigstore(\\.json)?|\\.dsse\\.json|\\.provenance\\.json|\\.build\\.slsa|^provenance\\.json)$"
+      }
+    },
+    {
+      "kind": "bom",
+      "when": {
+        "m": "name",
+        "re": "(\\.cdx\\.(json|xml)|\\.cbom\\.json|^bom\\.(json|xml))$"
+      }
+    },
+    {
+      "kind": "comic",
+      "when": {
+        "m": "name",
+        "re": "\\.cbz$"
+      }
+    },
+    {
+      "kind": "archive",
+      "when": {
+        "m": "suffix",
+        "suffixes": [
+          ".tar.gz",
+          ".tgz",
+          ".tar.bz2",
+          ".tbz2",
+          ".tbz",
+          ".tar.xz",
+          ".txz",
+          ".tar.zst",
+          ".tzst",
+          ".tar",
+          ".7z",
+          ".7z.001",
+          ".zip",
+          ".zip.001",
+          ".jar",
+          ".apk",
+          ".nupkg",
+          ".whl",
+          ".vsix",
+          ".cpio",
+          ".cpio.gz",
+          ".cpgz",
+          ".cpio.bz2",
+          ".cpio.xz",
+          ".cpio.zst",
+          ".cpio.lzma",
+          ".deb",
+          ".udeb",
+          ".rpm",
+          ".cab",
+          ".cbz",
+          ".mbox"
+        ]
+      }
+    },
+    {
+      "kind": "disk_image",
+      "when": {
+        "m": "suffix",
+        "suffixes": [
+          ".dmg",
+          ".vhdx",
+          ".vmdk",
+          ".qcow2",
+          ".qcow",
+          ".vdi",
+          ".iso",
+          ".wim",
+          ".chm",
+          ".cbr",
+          ".vhd",
+          ".img"
+        ]
+      }
+    },
+    {
+      "kind": "model",
+      "when": {
+        "m": "name",
+        "re": "\\.(gguf|safetensors|pt|pth|ckpt)$|^pytorch_model.*\\.bin$"
+      }
+    },
+    {
+      "kind": "pdf",
+      "when": {
+        "endings": [
+          "pdf"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "gpx",
+      "when": {
+        "endings": [
+          "gpx"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "geo",
+      "when": {
+        "endings": [
+          "gpkg",
+          "shp",
+          "geojson",
+          "kml"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "font",
+      "when": {
+        "endings": [
+          "ttf",
+          "otf",
+          "woff",
+          "woff2"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "sheet",
+      "when": {
+        "endings": [
+          "csv",
+          "tsv",
+          "xlsx",
+          "xlsm",
+          "xlsb",
+          "xls",
+          "ods"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "docx",
+      "when": {
+        "endings": [
+          "docx"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "notebook",
+      "when": {
+        "endings": [
+          "ipynb"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "mermaid",
+      "when": {
+        "endings": [
+          "mmd",
+          "mermaid"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "html",
+      "when": {
+        "endings": [
+          "html",
+          "htm",
+          "xhtml"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "log",
+      "when": {
+        "m": "name",
+        "re": "\\.log(\\.[0-9]+)?$|\\.(jsonl|ndjson)\\.[0-9]+$|^(syslog|messages|kern\\.log|auth\\.log|daemon\\.log|secure|maillog|access_log|error_log|dmesg)(\\.[0-9]+)?$"
+      }
+    },
+    {
+      "kind": "sqlite",
+      "when": {
+        "endings": [
+          "db",
+          "sqlite",
+          "sqlite3",
+          "db3",
+          "dbf"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "epub",
+      "when": {
+        "endings": [
+          "epub"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "cert",
+      "when": {
+        "endings": [
+          "pem",
+          "crt",
+          "cer",
+          "der"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "mail",
+      "when": {
+        "endings": [
+          "eml",
+          "msg"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "plist",
+      "when": {
+        "endings": [
+          "plist"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "calendar",
+      "when": {
+        "endings": [
+          "ics"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "contacts",
+      "when": {
+        "endings": [
+          "vcf"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "jsonl",
+      "when": {
+        "endings": [
+          "jsonl",
+          "ndjson"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "data",
+      "when": {
+        "endings": [
+          "json",
+          "geojson",
+          "yaml",
+          "yml",
+          "toml"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "log",
+      "when": {
+        "endings": [
+          "log"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "graphviz",
+      "when": {
+        "endings": [
+          "dot",
+          "gv"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "asciidoc",
+      "when": {
+        "endings": [
+          "adoc",
+          "asciidoc"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "scad",
+      "when": {
+        "endings": [
+          "scad"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "kicad",
+      "when": {
+        "endings": [
+          "kicad_sch",
+          "kicad_pcb"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "parquet",
+      "when": {
+        "endings": [
+          "parquet",
+          "pq"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "latex",
+      "when": {
+        "endings": [
+          "tex",
+          "ltx"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "typst",
+      "when": {
+        "endings": [
+          "typ"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "postscript",
+      "when": {
+        "endings": [
+          "ps",
+          "eps"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "office",
+      "when": {
+        "endings": [
+          "doc",
+          "docm",
+          "dot",
+          "dotx",
+          "odt",
+          "ott",
+          "rtf",
+          "wri",
+          "ppt",
+          "pptx",
+          "pps",
+          "ppsx",
+          "pot",
+          "potx",
+          "odp",
+          "otp",
+          "odg",
+          "vsd",
+          "vsdx",
+          "pub",
+          "wpd",
+          "wps",
+          "wk1",
+          "wks",
+          "123",
+          "lwp",
+          "sxw",
+          "sxc",
+          "sxi",
+          "sxd",
+          "abw",
+          "cwk",
+          "pages",
+          "key",
+          "numbers",
+          "fodt",
+          "fods",
+          "fodp",
+          "fodg",
+          "cdr",
+          "pmd",
+          "wmf",
+          "emf"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "xps",
+      "when": {
+        "endings": [
+          "xps",
+          "oxps"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "plantuml",
+      "when": {
+        "endings": [
+          "puml",
+          "plantuml",
+          "pu",
+          "iuml",
+          "wsd"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "d2",
+      "when": {
+        "endings": [
+          "d2"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "ditaa",
+      "when": {
+        "endings": [
+          "ditaa"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "svgbob",
+      "when": {
+        "endings": [
+          "bob",
+          "svgbob"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "pikchr",
+      "when": {
+        "endings": [
+          "pikchr"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "nomnoml",
+      "when": {
+        "endings": [
+          "nomnoml",
+          "noml"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "wavedrom",
+      "when": {
+        "endings": [
+          "wavedrom"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "vega",
+      "when": {
+        "endings": [
+          "vg",
+          "vega"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "vegalite",
+      "when": {
+        "endings": [
+          "vl",
+          "vegalite"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "dbml",
+      "when": {
+        "endings": [
+          "dbml"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "erd",
+      "when": {
+        "endings": [
+          "er",
+          "erd"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "bytefield",
+      "when": {
+        "endings": [
+          "bytefield"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "rst",
+      "when": {
+        "endings": [
+          "rst",
+          "rest"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "drawio",
+      "when": {
+        "endings": [
+          "drawio",
+          "dio"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "duckdb",
+      "when": {
+        "endings": [
+          "duckdb",
+          "ddb"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "ebook",
+      "when": {
+        "endings": [
+          "mobi",
+          "azw",
+          "azw3",
+          "fb2",
+          "lit"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "video_other",
+      "when": {
+        "endings": [
+          "avi",
+          "wmv",
+          "flv",
+          "mpg",
+          "mpeg",
+          "m2v",
+          "ts",
+          "m2ts",
+          "mts",
+          "3gp",
+          "3g2",
+          "vob",
+          "asf",
+          "rm",
+          "rmvb",
+          "divx",
+          "ogm",
+          "f4v",
+          "mxf",
+          "dv",
+          "nut"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "audio_other",
+      "when": {
+        "endings": [
+          "wma",
+          "ape",
+          "ac3",
+          "dts",
+          "amr",
+          "aiff",
+          "aif",
+          "au",
+          "mka",
+          "wv",
+          "tta",
+          "caf",
+          "w64",
+          "mp2",
+          "oga",
+          "spx",
+          "ra"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "heif",
+      "when": {
+        "endings": [
+          "heic",
+          "heif"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "magick",
+      "when": {
+        "endings": [
+          "xcf",
+          "dpx",
+          "cin",
+          "fits",
+          "fts",
+          "sgi",
+          "sun",
+          "ras",
+          "xwd",
+          "pict",
+          "pct",
+          "miff",
+          "wbmp"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "raw",
+      "when": {
+        "endings": [
+          "dng",
+          "cr2",
+          "cr3",
+          "crw",
+          "nef",
+          "nrw",
+          "arw",
+          "srf",
+          "sr2",
+          "orf",
+          "rw2",
+          "raf",
+          "pef",
+          "srw",
+          "x3f",
+          "erf",
+          "kdc",
+          "dcr",
+          "mrw",
+          "3fr",
+          "iiq",
+          "rwl"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "image",
+      "when": {
+        "endings": [
+          "png",
+          "jpg",
+          "jpeg",
+          "gif",
+          "webp",
+          "bmp",
+          "ico",
+          "svg",
+          "avif"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "picture",
+      "when": {
+        "endings": [
+          "tif",
+          "tiff",
+          "tga",
+          "ppm",
+          "pgm",
+          "pbm",
+          "pnm",
+          "pam",
+          "dds",
+          "hdr",
+          "exr",
+          "qoi",
+          "ff",
+          "jxl",
+          "iff",
+          "lbm",
+          "ilbm",
+          "pcx",
+          "xpm",
+          "xbm",
+          "psd",
+          "psb"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "tracker",
+      "when": {
+        "endings": [
+          "mod",
+          "xm",
+          "s3m",
+          "it"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "video",
+      "when": {
+        "endings": [
+          "mp4",
+          "webm",
+          "mkv",
+          "mov",
+          "m4v",
+          "ogv"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "audio",
+      "when": {
+        "endings": [
+          "mp3",
+          "flac",
+          "wav",
+          "ogg",
+          "m4a",
+          "opus",
+          "aac"
+        ],
+        "m": "ending"
+      }
+    },
+    {
+      "kind": "markdown",
+      "when": {
+        "endings": [
+          "md",
+          "markdown"
+        ],
+        "m": "ending"
+      }
+    }
+  ]
+}
