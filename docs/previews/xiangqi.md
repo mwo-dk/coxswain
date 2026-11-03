@@ -39,9 +39,9 @@ that window.
 the action menu (**Shift+F10**) and **F9**. **Esc** closes it.
 
 **Inside an archive.** A games file inside a `.zip` or another archive opened as a folder
-(**Enter** on it) shows the same way: in the desktop app the preview pane shows the copy
-Coxswain takes out of the archive when the cursor rests on it, and **Enter** opens that copy in
-the games window; in the terminal app **Enter** or **F3** opens it full screen.
+(**Enter** on it) shows the same way: in the desktop app the preview pane shows the game as the
+archive unpacks it, with no copy on the disk, and **Enter** opens it in the games window; in the
+terminal app **Enter** or **F3** opens it full screen.
 
 It is the same action as for chess, [Go](go.md) and [draughts](draughts.md): while the cursor is on it the command line (the status bar in the desktop app) says *Enter: Open games*, and the first few times the cursor rests on a PGN file, the status line says *Alt+K opens its games: a table,
 then a board with every move*. Whether the file is chess or xiangqi is told by its first tags

@@ -42,9 +42,9 @@ Debian or RPM package and a Windows cabinet open like folders too, read-only
 | **F6** | Moves out: copies out, then takes them out of the archive. With a new name, or a folder in the same archive, it **renames** or moves within the archive | Adds the files, then deletes the originals |
 | **F7** | Makes a folder inside the archive | |
 | **F8**, **Shift+F8** | **Takes out** of the archive, after a question: there is no trash inside an archive | |
-| **Enter** on a file | Games (a PGN, SCID or ChessBase database, SGF …) open in the games window from a copy; an archive inside opens like a folder; any other file: the status line says it must be copied out first ([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)) | |
+| **Enter** on a file | Games (a PGN, SCID or ChessBase database, SGF …) open in the games window (a PGN family file as it is unpacked, the others from a copy); an archive inside opens like a folder; any other file: the status line says it must be copied out first ([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)) | |
 | **Space** | The preview pane shows the file: a copy of it is made when the cursor rests on it | |
-| **F3** (terminal app) | Views the file: a copy of it goes to your viewer; a games file (PGN, SGF, PDN, KIF, CSA, PBN, EPD, FEN, a Polyglot book, a DhtmlXQ xiangqi game, a SCID or ChessBase database with the files beside it, a `.cbv`) opens in the games view, as outside the archive | |
+| **F3** (terminal app) | Views the file: a text, a log or a long file is read out of the archive into the built-in viewer, a copy of it goes to a `viewer` of your own; a games file (PGN, SGF, PDN, KIF, CSA, PBN, EPD, FEN, a Polyglot book, a DhtmlXQ xiangqi game, a SCID or ChessBase database with the files beside it, a `.cbv`) opens in the games view, as outside the archive | |
 | **Ctrl+E** on an archive | [Extracts](pack-and-extract.md) it into a new folder | |
 | **Alt+F5** | [Packs](pack-and-extract.md) files on disk into a new archive | |
 
@@ -195,11 +195,19 @@ through an installed 7-Zip instead, read-only, like a disk image
   it when there is more), and a picture, a PDF, a song, a video or a font up to 64 MB, straight
   from the archive (a player's seeking too, from one unpacking), and **F3** in the
   terminal app shows a file's first 16 MB in the viewer (*Showing the first 16 MB.* on its
-  status line when there is more), whatever the file's size. Copy the file out with **F5** to
-  see all of a larger one.
+  status line when there is more), whatever the file's size.
+- **Logs, JSON Lines and long texts are paged through as they are unpacked**: a log or JSON
+  Lines file in either app, a text over 512 KB in the desktop app and a text over 16 MB in the
+  terminal app open in the log view (the terminal app's viewer) with every line, nothing
+  written to the disk and a few megabytes in memory. Going back to a line far above unpacks the
+  file again from its start ([Logs](../previews/logs.md#logs-inside-an-archive)).
+- **Games are read as they are unpacked**: a PGN file (also packed), a draughts, shogi or bridge
+  file and a DhtmlXQ game open in the games window with no copy on the disk
+  ([Chess](../previews/chess.md)).
 - **Other files inside are previewed and viewed from a copy** (documents, spreadsheets,
-  notebooks, old picture formats, a PDF, song, video or font over 64 MB, games, a log in the log
-  view, a locked file once its password is given, every PDF, song, video and font in the
+  notebooks, old picture formats, a PDF, song, video or font over 64 MB, a SCID or ChessBase
+  database, an EPD or FEN file, a Go file, an opening book, provenance and bills of materials,
+  a locked file once its password is given, every PDF, song, video and font in the
   terminal app, whose readers and players need a file, and every file when you set a
   `viewer` of your own in the terminal app), not opened or edited: **Enter** and **F4** say on
   the status line that **F5** copies the file out, since changes to a copy would be lost. The
@@ -354,7 +362,8 @@ Yes. Put the cursor on it with the preview pane open (**Space** in the desktop a
 **F3** in the terminal app. A text file or a picture is read straight out of the archive, into
 memory: the preview pane shows its first 512 KB (a picture, PDF, song, video or font up to
 64 MB, whole), the terminal app's
-viewer its first 16 MB, and nothing is written to the disk. Any other file is copied out, just
+viewer its first 16 MB, and nothing is written to the disk. A log, JSON Lines file or longer text
+is paged through the same way, all of it, in the log view; a PGN file's games likewise. Any other file is copied out, just
 that file, into Coxswain's cache folder, and the copy is shown; it goes when you look at the next
 file. Nothing next to the archive is written either way. A games file shows as outside the archive: its table of games, a game on its board
 ([Xiangqi games](../previews/xiangqi.md#using-it)).

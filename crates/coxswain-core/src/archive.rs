@@ -2827,21 +2827,33 @@ fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     Ok(to)
 }
 
-/// The first `max` bytes of the file `path` inside an archive, read as it is unpacked with
-/// nothing written to the disk (an archive inside it read in place, or through its copy as
-/// browsing does), and whether it has more: the preview's and the viewer's text and pictures.
-/// A locked one wants its password (`LOCKED`) unless it was given in this run.
-pub fn head(path: &Path, max: u64) -> io::Result<(Vec<u8>, bool)> {
+/// The file `path` inside an archive, found: the archive and the name inside it (as `resolve`
+/// makes them, with what holds a nested archive's copy) and its listing.
+fn entry_of(path: &Path) -> io::Result<(PathBuf, String, Item, Held)> {
     let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty()).ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.not_in_archive"))
     })?;
-    let (archive, inner, _held) = resolve(&archive, &inner, false)?;
+    let (archive, inner, held) = resolve(&archive, &inner, false)?;
     let it = items(&archive)?.iter().find(|it| it.name == inner).map(ItemRef::owned).ok_or_else(|| {
         io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_the_archive", "name" => inner))
     })?;
     if it.dir {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.is_folder", "name" => inner)));
     }
+    Ok((archive, inner, it, held))
+}
+
+/// The size of the file `path` inside an archive, as the archive lists it.
+pub fn entry_size(path: &Path) -> io::Result<u64> {
+    entry_of(path).map(|(_, _, it, _)| it.size)
+}
+
+/// The first `max` bytes of the file `path` inside an archive, read as it is unpacked with
+/// nothing written to the disk (an archive inside it read in place, or through its copy as
+/// browsing does), and whether it has more: the preview's and the viewer's text and pictures.
+/// A locked one wants its password (`LOCKED`) unless it was given in this run.
+pub fn head(path: &Path, max: u64) -> io::Result<(Vec<u8>, bool)> {
+    let (archive, inner, it, _held) = entry_of(path)?;
     // 7-Zip reads a disk image's file whole: a part of it is no head, so the caller copies it.
     if kind(&archive) == Some(Kind::Disk) && it.size > max {
         return Err(too_large(&inner));
@@ -2849,10 +2861,44 @@ pub fn head(path: &Path, max: u64) -> io::Result<(Vec<u8>, bool)> {
     // A locked zip entry is read to its end all the same, up to `PEEK_MAX`: ZipCrypto's check
     // byte lets one wrong password in 256 through, and only the checksum at the end tells.
     let got = std::cell::RefCell::new((Vec::new(), false));
-    // Nothing lands anywhere: `head` keeps the bytes, so the path is never made.
+    let keep = |from: &mut dyn Read| -> io::Result<()> {
+        let (bytes, more) = &mut *got.borrow_mut();
+        bytes.clear();
+        let n = crate::stop::Reader(from.take(max.saturating_add(1))).read_to_end(bytes)?;
+        *more = n as u64 > max;
+        bytes.truncate(max as usize);
+        Ok(())
+    };
+    // Nothing lands anywhere: the sink keeps the bytes, so the path is never made.
     let nowhere = Path::new("");
-    copy_out_with(&archive, &inner, nowhere, password_for(&archive, None).as_deref(), Copy { limit: max, head: Some(&got), ..Copy::default() })?;
+    copy_out_with(&archive, &inner, nowhere, password_for(&archive, None).as_deref(), Copy { limit: max, head: Some(&keep), ..Copy::default() })?;
     Ok(got.into_inner())
+}
+
+/// Whether `stream` reads the file `path` inside an archive: not a locked one, nor one in a
+/// disk image.
+pub fn streamable(path: &Path) -> bool {
+    entry_of(path).is_ok_and(|(archive, _, it, _)| !it.locked && kind(&archive) != Some(Kind::Disk))
+}
+
+/// `f` given the file `path` inside an archive as a reader, its bytes as they are unpacked and
+/// never written anywhere (a viewer that pages through a long entry: `logs`, the games). When
+/// `f` fails or stops reading early, so does the unpacking. A locked file is refused (its
+/// password is only proved by the checksum at the end, so a copy is read instead), and so is
+/// one in a disk image (7-Zip reads those whole).
+pub fn stream<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>) -> io::Result<T> {
+    let (archive, inner, it, _held) = entry_of(path)?;
+    if it.locked || kind(&archive) == Some(Kind::Disk) {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, inner));
+    }
+    let (f, out) = (std::cell::RefCell::new(Some(f)), std::cell::RefCell::new(None));
+    let sink = |from: &mut dyn Read| -> io::Result<()> {
+        let f = f.borrow_mut().take().ok_or_else(|| io::Error::other("read twice"))?;
+        *out.borrow_mut() = Some(f(from)?);
+        Ok(())
+    };
+    copy_out_with(&archive, &inner, Path::new(""), password_for(&archive, None).as_deref(), Copy { head: Some(&sink), ..Copy::default() })?;
+    out.into_inner().ok_or_else(|| io::Error::other("nothing read"))
 }
 
 /// A name that is one file's in a folder: no `/` or `..`, and on Windows no `\\`, `:` (a drive
@@ -2976,13 +3022,13 @@ fn copy_out_with(
 }
 
 /// How `copy_out_with` copies: `whole`, an entry below it that cannot come out is an error, not
-/// left behind; `limit`, the most bytes it writes in all; `head`, one file's first `limit`
-/// bytes kept in memory instead, nothing written, and whether there were more (`head`).
+/// left behind; `limit`, the most bytes it writes in all; `head`, where one file's bytes go
+/// instead of the disk, nothing written (`head` keeps its first bytes, `stream` hands it on).
 #[derive(Clone, Copy)]
 struct Copy<'a> {
     whole: bool,
     limit: u64,
-    head: Option<&'a std::cell::RefCell<(Vec<u8>, bool)>>,
+    head: Option<&'a dyn Fn(&mut dyn Read) -> io::Result<()>>,
 }
 
 impl Default for Copy<'_> {
@@ -3040,13 +3086,8 @@ fn copy_entries(
     // Written under a passing name (noted, so a kill leaves nothing that looks whole) and given
     // its own only when whole.
     let write = |path: &Path, from: &mut dyn Read, secs: u64| -> io::Result<()> {
-        if let Some(head) = how.head {
-            let (bytes, more) = &mut *head.borrow_mut();
-            bytes.clear();
-            let n = crate::stop::Reader(from.take(left.get().saturating_add(1))).read_to_end(bytes)?;
-            *more = n as u64 > left.get();
-            bytes.truncate(left.get() as usize);
-            return Ok(());
+        if let Some(sink) = how.head {
+            return sink(from);
         }
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -5998,6 +6039,8 @@ mod tests {
         assert_eq!(head(&zp.join("a.txt"), 4).unwrap_err().to_string(), LOCKED, "the head's look notices too");
         remember(&zp, "hunter2");
         assert_eq!(head(&zp.join("a.txt"), 4).unwrap(), (b"secr".to_vec(), true));
+        // A stream would show bytes before the checksum could tell: a locked file is refused.
+        assert_eq!(stream(&zp.join("a.txt"), |_| Ok(())).unwrap_err().kind(), io::ErrorKind::Unsupported);
         forget(&zp);
         assert_eq!(
             add(&zp, &[("b.txt".into(), d.join("b.txt"))], Some(&wrong))

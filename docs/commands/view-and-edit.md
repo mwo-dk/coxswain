@@ -235,8 +235,8 @@ it, so an editor it opens still shows.
 #### Can I edit a file inside an archive with F4?
 
 No: the editor would change a copy, and the change would be lost. Copy it out with **F5** first
-([Archives as folders](../files/archives.md)). **F3** in the terminal app views it (a copy goes
-to the viewer; a games file opens in the games view), and the desktop app's preview pane shows it.
+([Archives as folders](../files/archives.md)). **F3** in the terminal app views it (a text is read out
+of the archive into the viewer, a log or a very long text paged through as it is unpacked; a games file opens in the games view), and the desktop app's preview pane shows it.
 
 #### F4 on a hit in Find: does the search close?
 

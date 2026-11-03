@@ -45,10 +45,16 @@ window of its own; **Esc** closes that window.
 the action menu (**Shift+F10**) and **F9**. **Esc** closes it.
 
 **Inside an archive.** A games file inside a zip, 7z, tar or another archive opened as a folder,
-nested ones too, opens the same way from a copy Coxswain takes out of the archive: **Enter** in
-both apps, **F3** in the terminal app, the preview pane in the desktop app. A SCID or ChessBase
-database comes out with the files beside it under the same name; a `.cbv` holds its own
-([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)).
+nested ones too, opens the same way: **Enter** in both apps, **F3** in the terminal app, the
+preview pane in the desktop app. A PGN file (also `.pgn.gz` and `.pgn.zst`), a draughts, shogi
+or bridge file and a DhtmlXQ game are read as they are unpacked, with no copy on the disk: the
+table fills while the archive is read, and a game far into a big file is found by unpacking the
+file again from its start (the way a packed PGN file is read). A SCID or ChessBase
+database, an EPD or FEN file, a Go file and an opening book are read from a copy Coxswain takes
+out of the archive, a SCID or ChessBase database with the files beside it under the same name;
+a `.cbv` holds its own, and so does a locked file once its password is given
+([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)). *Save as new PGN*
+on a game read so asks where, as it does for a copy ([the choices](chess-play.md#a-game-from-inside-an-archive)).
 
 While the cursor is on a chess file the command line (the status bar in the desktop app) says
 *Enter: Open games* (*Enter: Open positions* on an EPD or FEN file, *Enter: Open opening book*

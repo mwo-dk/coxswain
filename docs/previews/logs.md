@@ -63,6 +63,17 @@ columns, and its stack traces fold under the line they belong to.
 
 A compressed log (`syslog.2.gz`) opens as an [archive](media.md); extract it first.
 
+### Logs inside an archive
+
+A log, a JSON Lines file or (desktop app) a text over 512 KB inside a zip,
+7z, tar or another archive opened as a folder opens in the log view too, with every line and
+all the keys, and no copy on the disk: the view reads the file as the archive unpacks it, a
+megabyte at a time (a few megabytes in memory, whatever the file's size). Scrolling down or
+finding the lines reads on; going back to a line far above unpacks the file again from its
+start, so it can take a moment in a big file. **F** (follow) does nothing there, since a file
+in an archive does not grow. A locked file, and one in a disk image, is read from a copy once
+its password is given ([Archives as folders](../files/archives.md#limits)).
+
 ## Formats and their fields
 
 The format is told from the first 50 lines. Empty lines are left out.

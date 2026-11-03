@@ -1490,10 +1490,11 @@ export async function gamesOf(e, on, inside = !!tab().archive) {
   return true;
 }
 
-/** The games window on `path` (inside an archive: on a copy of it), as Open games does. */
+/** The games window on `path` (inside an archive: as it is unpacked, else on a copy of it), as Open games does. */
 export async function openGames(path, inside) {
   let file = path;
-  if (inside) {
+  // PGN family files and DhtmlXQ games are read as they are unpacked (`chess::games::streams`).
+  if (inside && !(await invoke("chess_streams", { path }).catch(() => false))) {
     try {
       file = await invoke("archive_peek", { path });
     } catch (err) {

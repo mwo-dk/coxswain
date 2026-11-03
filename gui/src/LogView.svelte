@@ -9,7 +9,7 @@
   import { ui } from "./app.svelte.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
-  let { path } = $props();
+  let { path, onfail = () => {} } = $props();
 
   /** What `log_open` said: { id, log, format, columns, widths, fold }, or null when it is no text. */
   let info = $state(null);
@@ -77,7 +77,7 @@
     invoke("log_open", { path: p }).then(
       (o) => {
         if (gone) return o && invoke("log_close", { id: o.id });
-        if (!o) return void (error = t("logs.no_text"));
+        if (!o) return void ((error = t("logs.no_text")), onfail());
         id = o.id;
         info = o;
         fold = o.fold;
@@ -89,7 +89,11 @@
         if (o.log) invoke("hint_once", { id: "log_view" }).then((b) => (hint = b), () => {});
         refresh();
       },
-      (err) => (error = String(err)),
+      (err) => {
+        error = String(err);
+        // Not to be read as it is unpacked (a locked file): the caller reads a copy instead.
+        if (!gone) onfail();
+      },
     );
     return () => {
       gone = true;

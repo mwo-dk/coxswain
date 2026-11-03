@@ -14,7 +14,7 @@
   import { invoke, basename, parent, keysToBoard, browseKey, chessFormat, viewEnd } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
 
-  let { path, full = false } = $props();
+  let { path, full = false, onfail = () => {} } = $props();
 
   // A .bin file comes here only when it is a Polyglot opening book (Preview, chess_is_book).
   // A games file known by its bytes, not its name (a DhtmlXQ xiangqi game): read as PGN.
@@ -189,7 +189,11 @@
         if (r.progress.games === 1 && !game && !ui.chessAt) openGame(0);
       }
     } catch (e) {
-      if (seq === rowsSeq) error = String(e);
+      if (seq === rowsSeq) {
+        error = String(e);
+        // Not to be read as it is unpacked (locked): the caller reads a copy instead.
+        onfail();
+      }
     }
   }
   let lonePath = null;

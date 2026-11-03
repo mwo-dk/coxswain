@@ -212,7 +212,9 @@ pub struct Origin {
 /// file that is not such a copy; an error when the archive it came from is gone, so nothing is
 /// ever saved into the cache instead.
 pub fn origin(source: &Path) -> Result<Option<Origin>, String> {
-    let Some(from) = crate::archive::peeked_from(source) else { return Ok(None) };
+    // A copy `peek` made, or a game file read from inside its archive (`games::streams`).
+    let from = crate::archive::peeked_from(source).or_else(|| super::games::in_archive(source).then(|| source.to_path_buf()));
+    let Some(from) = from else { return Ok(None) };
     let (archive, inner) = crate::archive::split(&from).ok_or_else(|| crate::t!("chess.save_archive_gone"))?;
     let writable = !crate::archive::read_only(&archive) && !crate::archive::nested(&archive, &inner, false);
     Ok(Some(Origin { archive, inner, writable }))

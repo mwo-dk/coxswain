@@ -145,7 +145,12 @@ fn stamp(path: &Path) -> String {
     let mut h = blake3::Hasher::new();
     h.update(FORM.as_bytes());
     h.update(path.as_os_str().as_encoded_bytes());
-    for p in parts(path) {
+    // A file inside an archive (read as it is unpacked): the archive's size and date, and the entry's size.
+    let outer = (!path.exists()).then(|| crate::archive::split(path)).flatten().map(|(a, _)| a);
+    if outer.is_some() {
+        h.update(&crate::archive::entry_size(path).unwrap_or(0).to_le_bytes());
+    }
+    for p in parts(path).into_iter().chain(outer) {
         if let Ok(m) = std::fs::metadata(&p) {
             let when = m.modified().ok().and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok()).map_or(0, |d| d.as_nanos());
             h.update(&m.len().to_le_bytes());
