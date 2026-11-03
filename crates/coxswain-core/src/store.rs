@@ -695,8 +695,11 @@ impl Store {
     /// tables were kept (`chess::table`, 2.36): each is read once more, to make its table, so
     /// Find looks through all its games (`chess::games::find`). Nothing the store holds of them
     /// changes: no text is read again, no vector made again. Until `until`, then on at the next
-    /// scan (a table made stays made); `stop` ends it between files and inside one.
-    fn games_tables_made(&self, key: &str, tag: &str, stop: &dyn Fn() -> bool, until: Instant) -> rusqlite::Result<()> {
+    /// scan (a table made stays made); `stop` ends it between files and inside one. A file read
+    /// whole takes as long as it takes (the pass runs before the walk). A stop mid-file
+    /// starts that file again at the next scan. A file in the cloud, on a disk not plugged in
+    /// or left out is skipped for good: its table is made when it is next opened or changes.
+    fn games_tables_made(&self, key: &str, tag: &str, left_out: &dyn Fn(&str) -> bool, stop: &dyn Fn() -> bool, until: Instant) -> rusqlite::Result<()> {
         if self.tag_reached(key, tag) {
             return Ok(());
         }
@@ -707,16 +710,13 @@ impl Store {
             .prepare("SELECT path FROM files WHERE has_text = 1 AND inside IS NULL AND size > ?1")?
             .query_map([crate::extract::MAX_TEXT as i64], |r| r.get(0))?
             .collect::<rusqlite::Result<_>>()?;
-        // A file in the cloud or on a disk not plugged in: looked for again at the next scan.
-        let mut away = false;
         for path in paths {
             let p = Path::new(&path);
             let games = matches!(crate::chess::format(p), Some(crate::chess::Format::Pgn | crate::chess::Format::Pdn | crate::chess::Format::Kif | crate::chess::Format::Csa | crate::chess::Format::Pbn));
             if !games {
                 continue;
             }
-            if crate::cloud::keep_out(p) || !p.is_file() {
-                away = true;
+            if left_out(&path) || crate::cloud::keep_out(p) || !p.is_file() {
                 continue;
             }
             if stop() || Instant::now() > until {
@@ -731,9 +731,6 @@ impl Store {
                     std::thread::sleep(Duration::from_millis(50));
                 }
             }
-        }
-        if away {
-            return Ok(());
         }
         self.set_tag(key, tag)
     }
@@ -3230,9 +3227,9 @@ fn scan_for(
     let halt = || stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed);
     store.pgn_positions_renumbered("readers.pgn", "3", &halt)?;
     // Game files over 4 MB get their games table (2.36), so Find looks through every game: each
-    // read once, up to a minute a scan; nothing in the store is read or made again.
+    // read once; nothing in the store is read or made again.
     if MAKE_GAMES_TABLES {
-        store.games_tables_made("tables.games", "1", &halt, Instant::now() + PDF_SLICE)?;
+        store.games_tables_made("tables.games", "1", &|p| left_out_file(p, cfg), &halt, Instant::now() + PDF_SLICE)?;
     }
     // PDFs of 1 MB or more are looked at once by the page-at-a-time reader (2.35), up to a
     // minute a scan: only those whose own text is now longer are read again, never by OCR.
