@@ -277,7 +277,8 @@ through an installed 7-Zip instead, read-only, like a disk image
     (`disk1.cab`, `disk2.cab` …) opens from any one of them as one list of all the files: the
     others are found by the names the cabinets hold for each other, in the same folder (any
     case), and a file that runs over from one into the next comes out whole. With a part
-    missing it says *This cabinet is part of a set: disk2.cab must be in the same folder*. A
+    missing, the files that are whole in the others still show, and one that runs over into the
+    missing part says *This cabinet is part of a set: disk2.cab must be in the same folder*. A
     cabinet is unpacked folder by folder, front to back: past 4 GB unpacked in all, it stops
     with *This cabinet would unpack more than 4 GB to reach these files: copy out fewer at a
     time*. Of two files by one name, the first is shown. A name in a cabinet that points

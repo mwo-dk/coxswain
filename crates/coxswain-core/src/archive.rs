@@ -5319,7 +5319,7 @@ mod tests {
         assert_eq!(std::fs::read(copy_out(&p, "a.txt", &out, None, false).unwrap()).unwrap(), b"one");
         let lone = cab_bytes((6, 0), (None, Some("gone.cab")), &[(0, vec![stored(b"x")])], &[("c.txt", 1, 0, 0)]);
         std::fs::write(d.join("lone.cab"), lone).unwrap();
-        assert!(list(&d.join("lone.cab"), 10).unwrap_err().to_string().contains("gone.cab"));
+        assert_eq!(list(&d.join("lone.cab"), 10).unwrap().0.len(), 1, "its own files are listed");
         let _ = std::fs::remove_dir_all(&d);
     }
 

@@ -122,23 +122,32 @@ fn bare_name(n: &str) -> io::Result<&str> {
     if bare { Ok(n) } else { Err(bad("a cabinet set names a file outside its folder")) }
 }
 
-fn missing(name: &str, e: io::Error) -> io::Error {
-    if e.kind() == io::ErrorKind::NotFound { io::Error::other(crate::t!("archive.cab_part_missing", "name" => name)) } else { e }
+/// What a read says when a part of the set is not there: the file it ran over into is cut short.
+fn missing(name: &str) -> io::Error {
+    io::Error::other(crate::t!("archive.cab_part_missing", "name" => name))
 }
 
-type Set = (Vec<Box<dyn Src>>, Vec<Cab>);
+/// The cabinets found, in order, and the name of a neighbour that was not there.
+type Set = (Vec<Box<dyn Src>>, Vec<Cab>, Option<String>);
 
 fn set(first: Box<dyn Src>, open: Open) -> io::Result<Set> {
     let mut first = first;
     let c = header(&mut *first)?;
     let (mut before, mut after) = (vec![], vec![]);
+    let mut gone = None;
     let (mut lo, mut hi) = (c.prev.clone(), c.next.clone());
     let (set, mut lo_index, mut hi_index) = (c.set, c.index, c.index);
     while let Some(name) = lo {
         if before.len() + 1 >= MAX_CABS {
             return Err(bad("too many cabinets in a set"));
         }
-        let mut s = open(bare_name(&name)?).map_err(|e| missing(&name, e))?;
+        let mut s = match open(bare_name(&name)?) {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                gone = Some(name);
+                break;
+            }
+            r => r?,
+        };
         let c = header(&mut *s)?;
         if c.set != set || lo_index.checked_sub(1) != Some(c.index) {
             return Err(bad("a cabinet of another set"));
@@ -151,7 +160,13 @@ fn set(first: Box<dyn Src>, open: Open) -> io::Result<Set> {
         if before.len() + after.len() + 2 >= MAX_CABS {
             return Err(bad("too many cabinets in a set"));
         }
-        let mut s = open(bare_name(&name)?).map_err(|e| missing(&name, e))?;
+        let mut s = match open(bare_name(&name)?) {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                gone = Some(name);
+                break;
+            }
+            r => r?,
+        };
         let c = header(&mut *s)?;
         if c.set != set || hi_index.checked_add(1) != Some(c.index) {
             return Err(bad("a cabinet of another set"));
@@ -165,7 +180,7 @@ fn set(first: Box<dyn Src>, open: Open) -> io::Result<Set> {
         srcs.push(s);
         cabs.push(c);
     }
-    Ok((srcs, cabs))
+    Ok((srcs, cabs, gone))
 }
 
 /// A folder of data: the parts of it in each cabinet, in order.
@@ -189,7 +204,7 @@ fn items(cabs: &[Cab]) -> io::Result<(Vec<Run>, Vec<Item>)> {
         }
         // The first folder goes on from the last of the cabinet before when a file says so.
         let goes_on = cab.files.iter().any(|f| f.folder == FROM_PREV || f.folder == BOTH);
-        let first_run = runs.len() - usize::from(goes_on && i > 0);
+        let first_run = runs.len().checked_sub(usize::from(goes_on && i > 0)).ok_or_else(|| bad("a broken cabinet"))?;
         for (k, f) in cab.folders.iter().enumerate() {
             let part = (i, f.at, f.blocks);
             match (k, goes_on && i > 0) {
@@ -248,8 +263,12 @@ pub(crate) fn each(
     wanted: &dyn Fn(&Entry) -> bool,
     f: &mut dyn FnMut(&Entry, &mut dyn Read) -> io::Result<bool>,
 ) -> io::Result<()> {
-    let (mut srcs, cabs) = set(first, open)?;
+    let (mut srcs, cabs, gone) = set(first, open)?;
     let (runs, items) = items(&cabs)?;
+    let cut = |e: io::Error| match &gone {
+        Some(n) if matches!(e.kind(), io::ErrorKind::UnexpectedEof | io::ErrorKind::InvalidData) => missing(n),
+        _ => e,
+    };
     let mut work = 0u64;
     let mut open_run: Option<(usize, Unpack)> = None;
     for it in &items {
@@ -262,9 +281,9 @@ pub(crate) fn each(
                 open_run = Some((it.run, Unpack::new(&runs[it.run])?));
             }
             let u = &mut open_run.as_mut().unwrap().1;
-            u.skip_to(it.offset, &mut srcs, &cabs, &mut work)?;
+            u.skip_to(it.offset, &mut srcs, &cabs, &mut work).map_err(cut)?;
             let mut body = Body { u, srcs: &mut srcs, cabs: &cabs, work: &mut work }.take(it.entry.size);
-            f(&it.entry, &mut body)?
+            f(&it.entry, &mut body).map_err(cut)?
         } else {
             f(&it.entry, &mut io::empty())?
         };
