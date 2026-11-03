@@ -1039,6 +1039,7 @@ dependencies = [
  "libc",
  "lofty",
  "lzma-rust2 0.25.0",
+ "lzxd",
  "mail-parser",
  "md-5 0.11.0",
  "memchr",
