@@ -3659,8 +3659,8 @@ const PDF_LOOKED_AT: u64 = 1 << 20;
 /// The most of one scan spent looking at them; the rest wait for the next.
 const PDF_SLICE: Duration = Duration::from_secs(60);
 /// The one-time pass that reads each game file over 4 MB already in the store once more, to
-/// make its games table (`games_tables_made`). A proposal awaiting the owner's word: false
-/// leaves those files' tables to be made when they next change or are opened.
+/// make its games table (`games_tables_made`). The owner decided yes (3 Nov); false would leave
+/// those files' tables to be made when they next change or are opened.
 const MAKE_GAMES_TABLES: bool = true;
 
 /// How far below `extract::MAX_TEXT` a text may end and still be one that was cut.
