@@ -100,11 +100,13 @@
   /** GeoJSON, KML, GPX and OpenSCAD models with Source chosen: their text instead of their map
    *  or model. */
   const geoSource = $derived(!!e && !e.is_dir && ui.previewSource === true && (isGeoText(e.name) || isScad(e.name)));
-  // A .h5 file holding a Keras model is drawn by Netron; any other HDF5 file is shown as before.
+  // What a file's bytes say where its name is not enough (`viewers::detect`): a .h5 holding a
+  // Keras model is drawn by Netron, a .dot that is a Word template goes to the Office preview.
+  // Inside an archive only once there is a copy: nothing is unpacked for this.
   $effect(() => {
     const cur = e;
-    if (!cur || cur.is_dir || !/\.h5$/i.test(cur.name) || sniffed.path === cur.path) return;
-    invoke("is_model", { path: cur.path }).then((yes) => yes && e?.path === cur.path && (sniffed = { path: cur.path, kind: "netron" }), () => {});
+    if (!cur || cur.is_dir || cur.online || !/\.(h5|dot)$/i.test(cur.name) || sniffed.path === cur.path || (inside && cur === raw)) return;
+    invoke("viewer_detect", { path: cur.path }).then((k) => e?.path === cur.path && k !== previewKind(cur) && (sniffed = { path: cur.path, kind: k }), () => {});
   });
   const kind = $derived(
     output ? "output" : online ? "online" : inside && e === raw && !direct && !chessInside ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
@@ -236,11 +238,8 @@
           throw err;
         });
         if (e?.path !== cur.path) return;
-        // A `.dot` that is no text is a Word template (an OLE file), not a Graphviz graph.
-        if (bin && k === "graphviz") {
-          [truncated, binary] = [trunc, bin];
-          return void (sniffed = { path: cur.path, kind: "office" });
-        }
+        // A `.dot` that is no text is a Word template: `viewer_detect` (above) sends it to Office.
+        if (bin && k === "graphviz") return;
         // Provenance and BOMs are read by readers that need a file: from a copy.
         const special = !bin && /\.(json|jsonl|ndjson|xml)$/i.test(cur.name) && (looksLikeProvenance(s) || looksLikeBom(s));
         if (unpacked && special) return void needsCopy(cur.path);

@@ -1,0 +1,1 @@
+| ***Preview with…* on a Word `.dot` template offers LibreOffice's choices.** It said there was nothing to choose, as for a Graphviz graph; both apps now tell what a file is by the same rules, its first bytes too where its name is not enough. | [Diagrams](previews/diagrams.md#my-dot-file-is-a-word-template-not-a-graph) |
