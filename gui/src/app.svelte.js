@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { Paged, SPAN } from "./paged.svelte.js";
-import { invoke, size, basename, parent, applyTheme, isArchive, chessFormat, isDrawio, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, CONVERTER, previewKind, isKicad, isSums, isFirstPart, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, size, basename, parent, applyTheme, isArchive, chessFormat, isDrawio, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, setViewerRules, isGeo, isScad, CONVERTER, previewKind, isKicad, isSums, isFirstPart, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t, tn } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -1296,6 +1296,7 @@ export async function init() {
   setPictureEndings(ui.cfg.picture_endings);
   setMediaEndings(ui.cfg.media_endings);
   setGeoEndings(ui.cfg.geo_endings);
+  setViewerRules(ui.cfg.viewer_rules);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;

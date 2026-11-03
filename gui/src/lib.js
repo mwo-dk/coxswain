@@ -1,7 +1,6 @@
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 
 import { t, num, i18n } from "./i18n.svelte.js";
-import { isBomName, isProvenanceName } from "./sniff.js";
 
 export { invoke, convertFileSrc };
 
@@ -215,7 +214,6 @@ export const TAG_COLORS = {
   gray: "#9e9e9e",
 };
 
-const IMAGE = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "ico", "svg", "avif"];
 /** The old pictures the core reads and shows as a PNG it makes (`pictures::endings`): TIFF,
  *  TGA, Netpbm, DDS, HDR, OpenEXR, QOI, farbfeld, JPEG XL, IFF, PCX, XPM, XBM, Photoshop. Set
  *  once the config has come. */
@@ -255,51 +253,6 @@ export const isKicad = (name) => /\.kicad_(sch|pcb)$/i.test(name);
 /** The first part of a split file, as `split::joins_into` tells one: `name.001`. */
 export const isFirstPart = (name) => /.\.0*1$/.test(name) && /\.\d{3,}$/.test(name);
 export const isSums = (name) => /^(SHA256SUMS|SHA512SUMS|B3SUMS)|\.(sha256|sha512|b3)$/i.test(name);
-/** Tracker music: facts and sample names, no playback. */
-const TRACKER = ["mod", "xm", "s3m", "it"];
-const VIDEO = ["mp4", "webm", "mkv", "mov", "m4v", "ogv"];
-const AUDIO = ["mp3", "flac", "wav", "ogg", "m4a", "opus", "aac"];
-const FONT = ["ttf", "otf", "woff", "woff2"];
-
-/** Kinds drawn in the browser (graphviz, asciidoc, parquet) or by an external tool (the rest). */
-const CONVERTED = Object.fromEntries(
-  Object.entries({
-    graphviz: "dot gv",
-    asciidoc: "adoc asciidoc",
-    // OpenSCAD models, drawn from what OpenSCAD makes of them (convert.rs `openscad`).
-    scad: "scad",
-    // KiCad: a schematic's sheets or a board's layers, a page each (convert.rs `kicad`).
-    kicad: "kicad_sch kicad_pcb",
-    parquet: "parquet pq",
-    latex: "tex ltx",
-    typst: "typ",
-    postscript: "ps eps",
-    // What LibreOffice opens and the app cannot draw itself: Word and Works, Windows Write,
-    // WordPerfect, Lotus 1-2-3 and WordPro, StarOffice, AbiWord, ClarisWorks, Apple's iWork,
-    // flat OpenDocument, CorelDRAW, PageMaker, Publisher, Visio, and Windows clip art.
-    office: "doc docm dot dotx odt ott rtf wri ppt pptx pps ppsx pot potx odp otp odg vsd vsdx pub wpd wps wk1 wks 123 lwp sxw sxc sxi sxd abw cwk pages key numbers fodt fods fodp fodg cdr pmd wmf emf",
-    xps: "xps oxps",
-    plantuml: "puml plantuml pu iuml wsd",
-    // Drawn by the programs in Kroki's image (convert.rs `kroki`), or the four packaged on their own.
-    d2: "d2",
-    ditaa: "ditaa",
-    svgbob: "bob svgbob",
-    pikchr: "pikchr",
-    nomnoml: "nomnoml noml",
-    wavedrom: "wavedrom",
-    vega: "vg vega",
-    vegalite: "vl vegalite",
-    dbml: "dbml",
-    erd: "er erd",
-    bytefield: "bytefield",
-    rst: "rst rest",
-    drawio: "drawio dio",
-    duckdb: "duckdb ddb",
-    // E-books calibre reads (`ebook`); a .pdb is one only by its header, so it is not here.
-    ebook: "mobi azw azw3 fb2 lit",
-  }).flatMap(([kind, exts]) => exts.split(" ").map((e) => [e, kind])),
-);
-
 /** Which external tool renders a kind (see convert.rs), and whether it is quick enough to run by itself.
  *  `verb` is a catalogue key for the button text: callers show it with t(conv.verb). */
 export const CONVERTER = {
@@ -330,7 +283,6 @@ export const CONVERTER = {
   // calibre makes the book an EPUB in a second or two, once it has stayed selected a moment.
   ebook: { tool: "calibre", auto: true, wait: 400, verb: "convert.render" },
 };
-const SHEET = ["csv", "tsv", "xlsx", "xlsm", "xlsb", "xls", "ods"];
 
 /** Every archive ending, longest first, and those of archives that take a password: the
  *  core's (`archive::endings`), set once the config has come (`setArchiveEndings`). */
@@ -466,44 +418,24 @@ export function sameEntry(a, b) {
   return a === b || (!!a && !!b && JSON.stringify(a) === JSON.stringify(b));
 }
 
+/** The core's table of which viewer shows a file (`viewers::rules`), set once the config has
+ *  come (`setViewerRules`): the first rule that fits names the kind. */
+let viewerRules = [];
+export function setViewerRules(rules) {
+  viewerRules = rules.map((r) => ({ ...r, re: r.when.re ? new RegExp(r.when.re) : null, set: new Set(r.when.endings ?? []) }));
+}
+
+/** How the preview pane should show a file (`viewers::kind_of`, which a test holds this to). */
 export function previewKind(item) {
   if (!item) return "none";
-  if (isModel(item)) return "netron";
-  if (item.is_dir) return "folder";
-  if (isDrawio(item.name)) return "drawio";
-  if (chessFormat(item.name)) return chessFormat(item.name) === "sgf" ? "go" : "chess";
-  if (isProvenanceName(item.name)) return "provenance";
-  if (isBomName(item.name)) return "bom";
-  // A comic is a zip of pictures: shown page by page (Enter still opens it like a folder).
-  if (/\.cbz$/i.test(item.name)) return "comic";
-  if (isArchive(item.name)) return "archive";
-  // A .vhd or .img that turns out to be none is shown as text instead (Preview).
-  if (diskName(item.name)) return "disk_image";
-  // A local model: its facts (`local_models::facts`), not a hex dump. A pickle is named, never read.
-  if (/\.(gguf|safetensors|pt|pth|ckpt)$|^pytorch_model.*\.bin$/i.test(item.name)) return "model";
-  const ext = item.name.includes(".") ? item.name.split(".").pop().toLowerCase() : "";
-  if (ext === "pdf") return "pdf";
-  // Geodata: a map of its own shapes, a GPX file's drawn without GDAL.
-  if (GEO.has(ext)) return ext === "gpx" ? "gpx" : "geo";
-  if (FONT.includes(ext)) return "font";
-  if (SHEET.includes(ext)) return "sheet";
-  if (ext === "docx") return "docx";
-  if (ext === "ipynb") return "notebook";
-  if (ext === "mmd" || ext === "mermaid") return "mermaid";
-  if (ext === "html" || ext === "htm" || ext === "xhtml") return "html";
-  // A log by its name, rotated ones and /var/log's without an extension too (`logs::is_log_name`).
-  if (isLogName(item.name) && ext !== "jsonl" && ext !== "ndjson") return "log";
-  const special = { db: "sqlite", sqlite: "sqlite", sqlite3: "sqlite", db3: "sqlite", epub: "epub", pem: "cert", crt: "cert", cer: "cert", der: "cert", eml: "mail", msg: "mail", dbf: "sqlite", plist: "plist", ics: "calendar", vcf: "contacts", jsonl: "jsonl", ndjson: "jsonl", json: "data", geojson: "data", yaml: "data", yml: "data", toml: "data", log: "log" };
-  if (special[ext]) return special[ext];
-  if (CONVERTED[ext]) return CONVERTED[ext];
-  if (MEDIA.has(ext)) return MEDIA.get(ext);
-  if (IMAGE.includes(ext)) return "image";
-  // A .hdr or .mod that is none (another program's header, Modula-2) is shown as text (Preview).
-  if (OLD.has(ext)) return "picture";
-  if (TRACKER.includes(ext)) return "tracker";
-  if (VIDEO.includes(ext)) return "video";
-  if (AUDIO.includes(ext)) return "audio";
-  if (ext === "md" || ext === "markdown") return "markdown";
+  const lower = item.name.toLowerCase();
+  const ext = lower.includes(".") ? lower.split(".").pop() : "";
+  for (const r of viewerRules) {
+    const w = r.when;
+    const fits =
+      w.m === "dir" ? item.is_dir && (!r.re || r.re.test(lower)) : !item.is_dir && (w.m === "name" ? r.re.test(lower) : w.m === "ending" ? r.set.has(ext) : w.suffixes.some((x) => lower.endsWith(x)));
+    if (fits) return r.kind;
+  }
   return "text";
 }
 

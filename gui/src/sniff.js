@@ -1,19 +1,11 @@
-// What kind of file a name or its first bytes say, for the kinds the preview recognises by
-// content too: CycloneDX BOMs and in-toto attestations. No imports, so node --test can load it.
-
-/** Names that say CycloneDX BOM (as coxswain-core's bom::sniff_name). Other JSON and XML
- *  files are recognised by their first bytes (looksLikeBom). */
-const BOM_NAME = /(\.cdx\.(json|xml)|\.cbom\.json|^bom\.(json|xml))$/i;
+// What a file's first bytes say, for the kinds the preview recognises by content too:
+// CycloneDX BOMs and in-toto attestations (by name: the core's `viewers::rules`). No imports, so node --test can load it.
 
 /** Whether the start of a JSON or XML file is a CycloneDX BOM's (as coxswain-core's bom::sniff_head). */
 export function looksLikeBom(text) {
   const head = text.slice(0, 8192);
   return (head.includes('"bomFormat"') && head.includes('"CycloneDX"')) || head.includes("http://cyclonedx.org/schema/bom/");
 }
-
-/** Names that say in-toto attestation (as coxswain-core's provenance::sniff_name). Other JSON and
- *  JSON Lines files are recognised by their first bytes (looksLikeProvenance). */
-const PROVENANCE_NAME = /(\.intoto\.jsonl?|\.sigstore(\.json)?|\.dsse\.json|\.provenance\.json|\.build\.slsa|^provenance\.json)$/i;
 
 /** Whether the start of a JSON file is an in-toto envelope's, statement's or Sigstore bundle's
  *  (as coxswain-core's provenance::sniff_head). Asked before looksLikeBom: a statement may carry
@@ -26,9 +18,3 @@ export function looksLikeProvenance(text) {
     head.includes("application/vnd.dev.sigstore.bundle")
   );
 }
-
-/** Whether a name says CycloneDX BOM. */
-export const isBomName = (name) => BOM_NAME.test(name);
-
-/** Whether a name says in-toto attestation. */
-export const isProvenanceName = (name) => PROVENANCE_NAME.test(name);

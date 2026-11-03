@@ -236,6 +236,11 @@
           throw err;
         });
         if (e?.path !== cur.path) return;
+        // A `.dot` that is no text is a Word template (an OLE file), not a Graphviz graph.
+        if (bin && k === "graphviz") {
+          [truncated, binary] = [trunc, bin];
+          return void (sniffed = { path: cur.path, kind: "office" });
+        }
         // Provenance and BOMs are read by readers that need a file: from a copy.
         const special = !bin && /\.(json|jsonl|ndjson|xml)$/i.test(cur.name) && (looksLikeProvenance(s) || looksLikeBom(s));
         if (unpacked && special) return void needsCopy(cur.path);
