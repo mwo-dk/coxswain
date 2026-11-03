@@ -319,6 +319,7 @@
  "archive.zip_part_missing": "{name} puuttuu: osiin jaettu zip aukeaa vain, kun kaikki sen osat ovat mukana aukottomasti numeroituina",
  "archive.zip_parts_zip64": "Näin suurta osiin jaettua zipiä (zip64) ei lueta: yhdistä ensin sen osat (zip -s 0)",
  "archive.cab_too_much": "Tämä cabinet purkaisi yli 4 Gt päästäkseen näihin tiedostoihin: kopioi vähemmän kerralla",
+ "archive.cab_part_missing": "Tämä cabinet kuuluu sarjaan: {name} täytyy olla samassa kansiossa",
  "archive.nested_too_deep": "Arkistojen sisällä olevat arkistot avautuvat enintään {depth} tason syvyyteen: kopioi tämä ulos F5:llä avataksesi sen",
  "archive.overlapping": "Tämän zipin tiedostot jakavat pakatut tavunsa, joten se purkautuisi paljon suuremmaksi kuin mitä se sisältää: se voi olla tehty täyttämään levy. Yhden sen tiedoston voi silti kopioida ulos",
  "archive.pack_confirm": "Salasana uudelleen:",

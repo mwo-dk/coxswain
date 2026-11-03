@@ -324,6 +324,7 @@
  "archive.zip_part_missing": "{name} manque : un zip découpé en parties ne s’ouvre qu’avec toutes ses parties, numérotées sans trou",
  "archive.zip_parts_zip64": "Un zip découpé en parties aussi grand (zip64) n’est pas lu : réunissez d’abord ses parties (zip -s 0)",
  "archive.cab_too_much": "Ce cabinet décompresserait plus de 4 Go pour atteindre ces fichiers : copiez-en moins à la fois",
+ "archive.cab_part_missing": "Ce cabinet fait partie d'un jeu : {name} doit se trouver dans le même dossier",
  "archive.nested_too_deep": "Les archives dans des archives s’ouvrent jusqu’à {depth} niveaux : copiez celle-ci avec F5 pour l’ouvrir",
  "archive.overlapping": "Les fichiers de ce zip partagent leurs octets compressés : il se décompresserait en bien plus que ce qu’il contient et peut avoir été fait pour remplir le disque. Un seul de ses fichiers peut encore être copié",
  "archive.pack_confirm": "Le mot de passe à nouveau :",

@@ -65,8 +65,8 @@ lzma-rust2 = "0.25"
 ruzstd = "0.9.0"
 # A gzip unpacked from a block boundary in its middle (a compressed tar's restart points).
 miniz_oxide = { version = "0.9.1", features = ["block-boundary"] }
-# Windows cabinets (.cab), read only: pure Rust, MSZIP and LZX.
-cab = "0.6.0"
+# Windows cabinets (.cab), read only: our own reader (MSZIP, LZX from this crate, Quantum).
+lzxd = "0.2.7"
 sevenz-rust2 = { version = "0.24.1", features = ["aes256"] }
 # F3 on a Parquet file in the terminal app: its columns and first rows. Pure Rust codecs only
 # (snappy, gzip, lz4, brotli); a zstd file shows its columns and row count.
@@ -92,6 +92,10 @@ jxl-oxide = { version = "0.12.6", default-features = false, features = ["image",
 cfb = "0.15"
 
 # statfs(2) for the ZFS dataset a folder is on, and chflags(2) for file flags.
+[dev-dependencies]
+# Builds the cabinets the tests read (MSZIP).
+cab = "0.6.0"
+
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 

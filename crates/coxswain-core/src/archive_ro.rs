@@ -1,15 +1,18 @@
 //! Archives that are read, never written: cpio (its newc and odc headers), a Debian package
 //! (`.deb`, an ar of its control and data tars), an RPM package (its cpio, unpacked from gzip,
-//! bzip2, xz or zstd) and a Windows cabinet (`.cab`, by the `cab` crate). Each is read as it
+//! bzip2, xz, zstd or lzma) and a Windows cabinet or a set of them (`.cab`, `archive_cab`). Each is read as it
 //! streams by, an entry at a time. Sizes in a header are only read up to, never allocated; a
 //! name is `NAME_MAX` bytes at most. Names come out `/`-separated, without a `./` or `/` in
 //! front; `archive` leaves out those that could lead outside it.
 
 use std::io::{self, BufReader, Read, Seek};
+use std::path::Path;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub(crate) enum Format {
     Cpio,
+    /// A cpio packed in gzip, bzip2, xz, zstd or lzma (`.cpio.gz`): found by its first bytes.
+    CpioPacked,
     Deb,
     Rpm,
     Cab,
@@ -33,8 +36,9 @@ const NAME_MAX: u64 = 4096;
 /// Each entry of the archive `r`, in order, until `f` says enough. `f` gets a file's bytes when
 /// `wanted` picks it, else nothing to read: in a cabinet a file not wanted is never unpacked.
 /// Stop is looked at on every read.
-pub(crate) fn each<R: Read + Seek>(
+pub(crate) fn each<R: Read + Seek + 'static>(
     r: R,
+    at: &Path,
     format: Format,
     wanted: &dyn Fn(&Entry) -> bool,
     f: &mut dyn FnMut(&Entry, &mut dyn Read) -> io::Result<bool>,
@@ -42,16 +46,31 @@ pub(crate) fn each<R: Read + Seek>(
     let r = crate::stop::Reader(r);
     match format {
         Format::Cpio => cpio(&mut BufReader::new(r), seek_past, wanted, f),
+        Format::CpioPacked => unpacked(BufReader::new(r), wanted, f),
         Format::Deb => ar(&mut BufReader::new(r), wanted, f),
         Format::Rpm => rpm(BufReader::new(r), wanted, f),
         // A crafted cabinet must not take the app down with it.
-        Format::Cab => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| cab(r, wanted, f)))
+        Format::Cab => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            crate::archive_cab::each(Box::new(r), &|name| sibling(at, name), wanted, f)
+        }))
             .unwrap_or_else(|_| Err(bad("a broken cabinet"))),
     }
 }
 
-fn bad(what: &str) -> io::Error {
+pub(crate) fn bad(what: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, what.to_string())
+}
+
+/// The cabinet named `name` beside the one opened (`at`): by its own spelling, else however its
+/// letters are cased.
+fn sibling(at: &Path, name: &str) -> io::Result<Box<dyn crate::archive_cab::Src>> {
+    let dir = at.parent().unwrap_or(Path::new("."));
+    let mut path = dir.join(name);
+    if !path.is_file() {
+        let found = std::fs::read_dir(dir)?.flatten().find(|e| e.file_name().to_string_lossy().eq_ignore_ascii_case(name));
+        path = found.ok_or(io::ErrorKind::NotFound)?.path();
+    }
+    Ok(Box::new(crate::stop::Reader(std::fs::File::open(path)?)))
 }
 
 fn seek_past<R: Read + Seek>(r: &mut BufReader<R>, n: u64) -> io::Result<()> {
@@ -66,7 +85,7 @@ fn read_past<R: Read>(r: &mut R, n: u64) -> io::Result<()> {
 }
 
 /// `name` as a path inside: `\` as `/`, no `./` or `/` in front, none at the end.
-fn clean(name: &str) -> String {
+pub(crate) fn clean(name: &str) -> String {
     let mut n = name.trim_end_matches('/');
     loop {
         let next = n.trim_start_matches('/');
@@ -107,7 +126,6 @@ fn hand<R: Read>(
 
 /// A cpio's entries: "newc" (`070701`, `070702`, as RPM and Linux's initramfs write) or "odc"
 /// (`070707`, POSIX), up to `TRAILER!!!`.
-// shortcut: the old binary header (cpio without -c, before 1990) is not read; add it if asked.
 fn cpio<R: Read>(
     r: &mut R,
     skip: fn(&mut R, u64) -> io::Result<()>,
@@ -122,20 +140,30 @@ fn cpio<R: Read>(
             6 => {}
             _ => return Err(io::ErrorKind::UnexpectedEof.into()),
         }
-        // Each field as numbers, and how a name and the bytes after it are padded.
-        // `linked`: a newc hard link whose bytes come with another of its names (the last).
-        let (mode, mtime, size, name_len, align, linked) = match &magic {
+        // Each field as numbers, how a name and the bytes after it are padded, and how long the
+        // header is. `linked`: a newc hard link whose bytes come with another of its names.
+        let (mode, mtime, size, name_len, align, header, linked) = match &magic {
             b"070701" | b"070702" => {
                 let mut h = [0u8; 104];
                 r.read_exact(&mut h)?;
                 let x = |i: usize| number(&h[i * 8..i * 8 + 8], 16);
-                (x(1)?, x(5)?, x(6)?, x(11)?, 4, x(4)? > 1 && x(6)? == 0)
+                (x(1)?, x(5)?, x(6)?, x(11)?, 4, 110, x(4)? > 1 && x(6)? == 0)
             }
             b"070707" => {
                 let mut h = [0u8; 70];
                 r.read_exact(&mut h)?;
                 let o = |a: usize, b: usize| number(&h[a..b], 8);
-                (o(12, 18)?, o(42, 53)?, o(59, 70)?, o(53, 59)?, 1, false)
+                (o(12, 18)?, o(42, 53)?, o(59, 70)?, o(53, 59)?, 1, 76, false)
+            }
+            // The binary header (cpio without -c): 16-bit words in the byte order the magic
+            // 0o070707 shows, a time and a size as two words, the high one first.
+            [0xc7, 0x71, ..] | [0x71, 0xc7, ..] => {
+                let big = magic[0] == 0x71;
+                let mut h = [0u8; 26];
+                h[..6].copy_from_slice(&magic);
+                r.read_exact(&mut h[6..])?;
+                let w = |i: usize| u64::from(if big { u16::from_be_bytes([h[i], h[i + 1]]) } else { u16::from_le_bytes([h[i], h[i + 1]]) });
+                (w(6), w(16) << 16 | w(18), w(22) << 16 | w(24), w(20), 2, 26, false)
             }
             _ => return Err(bad("not a cpio header")),
         };
@@ -145,7 +173,6 @@ fn cpio<R: Read>(
         let mut name = vec![0u8; name_len as usize];
         r.read_exact(&mut name)?;
         let pad = |n: u64| (align - n % align) % align;
-        let header = 6 + if align == 4 { 104 } else { 70 };
         skip(r, pad(header + name_len))?;
         let name = String::from_utf8_lossy(name.strip_suffix(&[0]).unwrap_or(&name)).into_owned();
         if name == "TRAILER!!!" {
@@ -242,6 +269,15 @@ fn rpm<R: Read + Seek>(
         let len = n * 16 + data;
         seek_past(&mut r, len + if padded { (8 - len % 8) % 8 } else { 0 })?;
     }
+    unpacked(r, wanted, f)
+}
+
+/// The cpio in `r`, unpacked as it is read from gzip, bzip2, xz, zstd or lzma, or as it is.
+fn unpacked<R: Read>(
+    mut r: R,
+    wanted: &dyn Fn(&Entry) -> bool,
+    f: &mut dyn FnMut(&Entry, &mut dyn Read) -> io::Result<bool>,
+) -> io::Result<()> {
     let mut magic = [0u8; 6];
     r.read_exact(&mut magic)?;
     let r = io::Cursor::new(magic).chain(r);
@@ -250,72 +286,18 @@ fn rpm<R: Read + Seek>(
         [b'B', b'Z', b'h', ..] => Box::new(bzip2::read::MultiBzDecoder::new(r)),
         [0xfd, b'7', b'z', b'X', b'Z', 0] => Box::new(lzma_rust2::XzReader::new(r, true)),
         [0x28, 0xb5, 0x2f, 0xfd, ..] => Box::new(crate::tar_index::Zst::new(BufReader::new(r), None)),
+        // Plain lzma ("lzma alone", RPM before 2010): properties byte 0x5d, as `lzma` writes it
+        // by default. Its dictionary is capped, so a header cannot ask for gigabytes.
+        [0x5d, ..] => Box::new(lzma_rust2::LzmaReader::new_mem_limit(r, LZMA_MEMORY_KB, None)?),
         [b'0', b'7', b'0', b'7', ..] => Box::new(r),
-        // shortcut: an old payload in plain lzma (before 2010) is not read; add it if asked.
-        _ => return Err(bad("an RPM payload packed in a way Coxswain does not read")),
+        [0xc7, 0x71, ..] | [0x71, 0xc7, ..] => Box::new(r),
+        _ => return Err(bad("a payload packed in a way Coxswain does not read")),
     };
     cpio(&mut payload, read_past, wanted, f)
 }
 
-/// The most a cabinet is unpacked in all to reach the files wanted in it.
-const CAB_WORK: u64 = if cfg!(test) { 2 << 20 } else { 4 << 30 };
-
-/// A cabinet's files, folder by folder; of two by one name, the first.
-// shortcut: each file wanted is unpacked from the start of its folder (the crate's way: it
-// keeps its folder reader to itself), so many files out of one large folder repeat work, up to
-// `CAB_WORK`; read each folder once through if the crate lets us.
-fn cab<R: Read + Seek>(
-    r: R,
-    wanted: &dyn Fn(&Entry) -> bool,
-    f: &mut dyn FnMut(&Entry, &mut dyn Read) -> io::Result<bool>,
-) -> io::Result<()> {
-    let mut c = cab::Cabinet::new(r)?;
-    // Where each file starts in its folder: its files follow one another there.
-    let mut files: Vec<(String, Entry, u64)> = vec![];
-    for d in c.folder_entries() {
-        let mut at = 0u64;
-        for e in d.file_entries() {
-            let entry = Entry {
-                name: clean(&e.name().replace('\\', "/")),
-                size: u64::from(e.uncompressed_size()),
-                dir: false,
-                file: true,
-                mode: if e.is_exec() { 0o755 } else { 0o644 },
-                // The local time it was written in, without a zone: taken as a moment here.
-                modified: e.datetime().map_or(0, |t| {
-                    use chrono::TimeZone;
-                    chrono::NaiveDate::from_ymd_opt(t.year(), u32::from(u8::from(t.month())), u32::from(t.day()))
-                        .and_then(|d| d.and_hms_opt(u32::from(t.hour()), u32::from(t.minute()), u32::from(t.second())))
-                        .and_then(|l| chrono::Local.from_local_datetime(&l).earliest())
-                        .map_or(0, |d| d.timestamp().max(0) as u64)
-                }),
-            };
-            let size = entry.size;
-            files.push((e.name().to_string(), entry, at));
-            at += size;
-        }
-    }
-    let mut seen = std::collections::HashSet::new();
-    let mut work = 0u64;
-    for (raw, e, at) in &files {
-        if e.name.is_empty() || !seen.insert(raw.as_str()) {
-            continue;
-        }
-        let go = if wanted(e) {
-            work += at + e.size;
-            if work > CAB_WORK {
-                return Err(io::Error::other(crate::t!("archive.cab_too_much")));
-            }
-            f(e, &mut c.read_file(raw)?.take(e.size))?
-        } else {
-            f(e, &mut io::empty())?
-        };
-        if !go {
-            break;
-        }
-    }
-    Ok(())
-}
+/// The most memory (KiB) a plain lzma stream may ask for.
+const LZMA_MEMORY_KB: u32 = 256 << 10;
 
 #[cfg(test)]
 pub(crate) mod tests {
@@ -361,6 +343,28 @@ pub(crate) mod tests {
             out.extend_from_slice(name.as_bytes());
             out.push(0);
             out.extend_from_slice(data);
+        }
+        out
+    }
+
+    /// A cpio in the old binary header, in the byte order of a big or a little machine.
+    fn binary(files: &[(&str, &[u8])], big: bool) -> Vec<u8> {
+        let w = |v: u32, out: &mut Vec<u8>| out.extend_from_slice(&if big { (v as u16).to_be_bytes() } else { (v as u16).to_le_bytes() });
+        let mut out = vec![];
+        let all = files.iter().map(|(n, d)| (n.strip_suffix('/').unwrap_or(n), *d, if n.ends_with('/') { 0o040755 } else { 0o100644 })).chain([("TRAILER!!!", &b""[..], 0)]);
+        for (name, data, mode) in all {
+            for v in [0o070707, 0, 1, mode, 0, 0, 1, 0, 1_700_000_000 >> 16, 1_700_000_000 & 0xffff, name.len() as u32 + 1, data.len() as u32 >> 16, data.len() as u32 & 0xffff] {
+                w(v, &mut out);
+            }
+            out.extend_from_slice(name.as_bytes());
+            out.push(0);
+            if out.len() % 2 == 1 {
+                out.push(0);
+            }
+            out.extend_from_slice(data);
+            if out.len() % 2 == 1 {
+                out.push(0);
+            }
         }
         out
     }
@@ -422,7 +426,7 @@ pub(crate) mod tests {
 
     fn read_all(bytes: Vec<u8>, format: Format) -> io::Result<Vec<(String, bool, Vec<u8>)>> {
         let mut out = vec![];
-        each(Cursor::new(bytes), format, &|_| true, &mut |e, r| {
+        each(Cursor::new(bytes), Path::new("t"), format, &|_| true, &mut |e, r| {
             let mut data = vec![];
             r.read_to_end(&mut data)?;
             out.push((e.name.clone(), e.dir, data));
@@ -452,7 +456,7 @@ pub(crate) mod tests {
     fn a_file_not_wanted_or_half_read_is_passed_over() {
         let bytes = newc(&[("a", b"0123456789"), ("b", b"after")]);
         let mut seen = vec![];
-        each(Cursor::new(bytes), Format::Cpio, &|e| e.name == "b", &mut |e, r| {
+        each(Cursor::new(bytes), Path::new("t"), Format::Cpio, &|e| e.name == "b", &mut |e, r| {
             let mut one = [0u8; 2];
             let n = r.read(&mut one)?;
             seen.push((e.name.clone(), n));
@@ -492,6 +496,42 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_cpio_packed_or_in_the_old_binary_header_is_read() {
+        let files: &[(&str, &[u8])] = &[("./a/", b""), ("./a/odd.txt", b"seven!!"), ("even", b"four")];
+        let want = ["a", "a/odd.txt", "even"];
+        let check = |bytes: Vec<u8>, format| {
+            let got = read_all(bytes, format).unwrap();
+            assert_eq!(names(&got), want);
+            assert_eq!(got[1].2, b"seven!!");
+            assert_eq!(got[2].2, b"four");
+        };
+        check(gz(&newc(files)), Format::CpioPacked);
+        let mut xz = lzma_rust2::XzWriter::new(vec![], lzma_rust2::XzOptions::default()).unwrap();
+        xz.write_all(&newc(files)).unwrap();
+        check(xz.finish().unwrap(), Format::CpioPacked);
+        check(newc(files), Format::CpioPacked);
+        for big in [false, true] {
+            check(binary(files, big), Format::Cpio);
+            check(gz(&binary(files, big)), Format::CpioPacked);
+        }
+        assert!(read_all(b"nothing known".to_vec(), Format::CpioPacked).is_err());
+    }
+
+    #[test]
+    fn an_rpm_packed_in_plain_lzma_is_read() {
+        let cpio = newc(&[("./usr/bin/tool", b"#!/bin/sh\n")]);
+        let mut w = lzma_rust2::LzmaWriter::new(vec![], &lzma_rust2::LzmaOptions::default(), true, false, Some(cpio.len() as u64)).unwrap();
+        w.write_all(&cpio).unwrap();
+        let got = read_all(rpm_of(&w.finish().unwrap()), Format::Rpm).unwrap();
+        assert_eq!(names(&got), ["usr/bin/tool"]);
+        // A header asking for a dictionary of 4 GB is refused, not allocated.
+        let mut hostile = vec![0x5d];
+        hostile.extend_from_slice(&u32::MAX.to_le_bytes());
+        hostile.extend_from_slice(&[0xff; 20]);
+        assert!(read_all(rpm_of(&hostile), Format::Rpm).is_err());
+    }
+
+    #[test]
     fn an_rpm_shows_its_files() {
         let cpio = newc(&[("./usr/bin/", b""), ("./usr/bin/tool", b"#!/bin/sh\n")]);
         for payload in [gz(&cpio), cpio.clone()] {
@@ -510,7 +550,7 @@ pub(crate) mod tests {
         let mut bytes = newc(&[("first", b"")]);
         bytes[6 + 4 * 8..6 + 5 * 8].copy_from_slice(b"00000002");
         let mut files = vec![];
-        each(Cursor::new(bytes), Format::Cpio, &|_| true, &mut |e, _| {
+        each(Cursor::new(bytes), Path::new("t"), Format::Cpio, &|_| true, &mut |e, _| {
             files.push(e.file);
             Ok(true)
         })
@@ -519,19 +559,19 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn many_files_out_of_one_large_cab_folder_stop_at_cab_work() {
+    fn many_files_out_of_one_large_cab_folder_are_read_in_one_pass() {
         let big = vec![7u8; 400 << 10];
         let files: Vec<(String, Vec<u8>)> = (0..4).map(|i| (format!("f{i}"), big.clone())).collect();
         let refs: Vec<(&str, &[u8])> = files.iter().map(|(n, d)| (n.as_str(), d.as_slice())).collect();
-        let bytes = cab_of(&refs);
-        assert!(read_all(bytes.clone(), Format::Cab).is_err(), "each file unpacked from its folder's start");
-        let mut got = 0;
-        each(Cursor::new(bytes), Format::Cab, &|e| e.name == "f3", &mut |_, r| {
-            got += io::copy(r, &mut io::sink())?;
-            Ok(true)
-        })
-        .unwrap();
-        assert_eq!(got, 400 << 10, "one file, however far in, comes out");
+        let got = read_all(cab_of(&refs), Format::Cab).unwrap();
+        assert!(got.iter().all(|g| g.2 == big), "each file, once, from one pass");
+    }
+
+    #[test]
+    fn a_cab_asked_for_more_than_cab_work_stops() {
+        let big = vec![7u8; 1 << 20];
+        let bytes = cab_of(&[("a", &big), ("b", &big), ("c", &big)]);
+        assert!(read_all(bytes, Format::Cab).is_err());
     }
 
     #[test]

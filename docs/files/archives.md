@@ -73,10 +73,10 @@ program is needed.
 | Zip split into parts | `.zip.001`, with `.002`, `.003` … beside it (7-Zip's *Split to volumes*, or `split`) | yes: the parts read as one | no: read-only | as a zip |
 | Zip split into parts | `.zip`, with `.z01`, `.z02` … beside it (Info-ZIP's `zip -s`, WinZip) | yes: the parts read as one | no: read-only | as a zip |
 | RAR | `.rar` | no | no | ([why](#why-not-rar)) |
-| cpio | `.cpio` (newc and odc headers) | yes | no: read-only | none |
+| cpio | `.cpio` (newc, odc and the old binary header), `.cpio.gz`, `.cpgz`, `.cpio.bz2`, `.cpio.xz`, `.cpio.zst`, `.cpio.lzma` | yes | no: read-only | none |
 | Debian package | `.deb`, `.udeb`: its members, `control.tar.*` and `data.tar.*` | yes | no: read-only | none |
-| RPM package | `.rpm`: its files, unpacked from gzip, bzip2, xz or zstd | yes | no: read-only | none |
-| Windows cabinet | `.cab` (stored, MSZIP or LZX) | yes | no: read-only | none |
+| RPM package | `.rpm`: its files, unpacked from gzip, bzip2, xz, zstd or lzma | yes | no: read-only | none |
+| Windows cabinet | `.cab` (stored, MSZIP, LZX or Quantum), a set of them read as one | yes | no: read-only | none |
 | A lone `.gz`, `.bz2`, `.xz`, `.zst` | | no: it holds one file, not a folder | no | |
 | Comic | `.cbz` (a zip of pictures) | yes; the desktop app's preview shows it page by page | yes | as a zip |
 | Mailbox | `.mbox`: one `.eml` file a message | yes | no: read-only | none |
@@ -262,27 +262,33 @@ through an installed 7-Zip instead, read-only, like a disk image
   looks into them. Each is read from its start as it streams by, the format having no list of
   its contents (a cabinet has one). What each shows:
   - a **cpio** (`.cpio`): its files and folders, from the newc header (`070701`, what Linux's
-    initramfs and RPM write) or the odc one (`070707`, POSIX `cpio -H odc`). The old binary
-    header is not read, nor a `.cpio.gz`: unpack that with `gunzip` first.
+    initramfs and RPM write), the odc one (`070707`, POSIX `cpio -H odc`) or the old binary one
+    (`cpio -o` without `-c`, in either byte order). One packed with gzip, bzip2, xz, zstd or
+    lzma (`.cpio.gz`, `.cpgz` as macOS names it, `.cpio.bz2`, `.cpio.xz`, `.cpio.zst`,
+    `.cpio.lzma`) opens the same: the packing is found by the file's first bytes.
   - a **Debian package** (`.deb`, `.udeb`): its three members, `debian-binary`,
     `control.tar.xz` (or `.gz`, `.zst`) and `data.tar.xz`. **Enter** on `data.tar.xz` opens the
     files the package installs, as an archive inside an archive (above).
   - an **RPM package** (`.rpm`): the files it installs, `usr/bin/…`, read from its payload past
-    its lead and headers. The payload may be packed with gzip, bzip2, xz or zstd; one packed
-    with plain lzma (RPMs from before about 2010) is not read.
-  - a **Windows cabinet** (`.cab`): its files, stored, MSZIP or LZX. One of a set spread over
-    several cabinets (`disk1.cab`, `disk2.cab`) and one packed with Quantum are not read. Each
-    file is unpacked from the start of the block it is packed in, so taking many files at once
-    out of one large cabinet repeats work: past 4 GB unpacked in all it stops with *This
-    cabinet would unpack more than 4 GB to reach these files: copy out fewer at a time*. Of
-    two files by one name, the first is shown.
+    its lead and headers. The payload may be packed with gzip, bzip2, xz, zstd or plain lzma (RPMs
+    from before about 2010).
+  - a **Windows cabinet** (`.cab`): its files, stored or packed with MSZIP, LZX or Quantum
+    (what Windows setup disks of the 1990s used). A set spread over several cabinets
+    (`disk1.cab`, `disk2.cab` …) opens from any one of them as one list of all the files: the
+    others are found by the names the cabinets hold for each other, in the same folder (any
+    case), and a file that runs over from one into the next comes out whole. With a part
+    missing it says *This cabinet is part of a set: disk2.cab must be in the same folder*. A
+    cabinet is unpacked folder by folder, front to back: past 4 GB unpacked in all, it stops
+    with *This cabinet would unpack more than 4 GB to reach these files: copy out fewer at a
+    time*. Of two files by one name, the first is shown. A name in a cabinet that points
+    outside its folder (`..`, a path or a drive) is never followed.
 
   Symbolic links, devices and hard links in a cpio or RPM are listed but not made when copying
   out (a hard link's bytes come with the last of its names, which comes out as a file); a file
   keeps its date and, on the BSDs, illumos, Linux and macOS, its executable bit. Names that
   lead outside (`../…`) are not listed; a name over 4 KB, or a header that does not add up,
   stops the reading with an error, and a cpio cut short shows what comes before the cut. Search
-  looks into an RPM or a cabinet up to 256 MB, as into a compressed tar; a larger one it finds
+  looks into an RPM, a packed cpio or a cabinet up to 256 MB, as into a compressed tar; a larger one it finds
   by its own name only. Packages that were already in the search store when
   you installed this version are looked into the next time they change.
 - **A part's facts above its bytes:** in the desktop app's preview, a file shown as a hex dump
@@ -440,8 +446,9 @@ and build the package with its own tools (`dpkg-deb`, `rpmbuild`, `makecab`).
 
 #### Why does a .cab say it cannot be read?
 
-It is one of a set spread over several cabinets, packed with Quantum, or damaged. Coxswain reads
-a single cabinet that is stored, MSZIP or LZX, which is what Windows updates and installers use.
+It is one of a set and a part is missing (the message names it: put it in the same folder),
+packed in a way Coxswain does not read, or damaged. Coxswain reads cabinets that are stored or
+packed with MSZIP, LZX or Quantum, alone or in a set.
 
 #### Why does opening a .rar do something else?
 
