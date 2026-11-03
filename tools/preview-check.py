@@ -79,6 +79,8 @@ def files(d):
     wb.save(d / "g.xlsx")
     png(d / "h.png")
     (d / "i.mmd").write_text("flowchart LR\n  A[Fuel] --> B[Lift-off]\n")
+    # A Graphviz graph by the ending Word templates share: drawn as a graph (`viewers::detect`).
+    (d / "ia.dot").write_text("digraph { Fuel -> Ignition }\n")
     (d / "j.html").write_text('<!doctype html><title>Rocket</title><h1>Rocket page</h1><img src="h.png">')
     # Provenance whose first output is a file here ("foo" has the digest it names).
     (d / "dist").mkdir()
@@ -163,6 +165,7 @@ def files(d):
         "xlsx": ("g.xlsx", "table td", "Tern", 10),
         "png": ("h.png", "img", "", 10),
         "mmd": ("i.mmd", "svg", "Lift-off", 20),
+        "dot": ("ia.dot", ".diagram svg", "Ignition", 20),
         "html": ("j.html", "iframe.page", "", 10),
         "math": ("l.md", "article .katex-display", "", 10),
         # With maths, which draw.io's viewer cannot load here: the diagram must still show.

@@ -685,7 +685,9 @@ export async function setPreviewTool(r, choice) {
  *  each with what it would use, the line that installs its program, and Settings at Preview
  *  tools. */
 export async function previewWith(e = item(tab())) {
-  const spec = e && !e.is_dir ? CONVERTER[previewKind(e)] : null;
+  // By the file's bytes too (`viewers::detect`): a Word .dot is Office's, not Graphviz's.
+  const kind = e && !e.is_dir ? await invoke("viewer_detect", { path: e.path }).catch(() => previewKind(e)) : null;
+  const spec = kind ? CONVERTER[kind] : null;
   if (!spec) return void (ui.status = t("ptools.none_here"));
   let r;
   try {
