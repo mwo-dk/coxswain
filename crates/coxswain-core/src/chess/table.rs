@@ -98,7 +98,7 @@ pub(crate) struct Done {
     stamp: String,
     /// The limits it was read with.
     extra: String,
-    source: PathBuf,
+    pub source: PathBuf,
     pub games: u32,
     pub capped: bool,
 }
@@ -402,6 +402,26 @@ impl Table {
         }
         rank
     }
+}
+
+/// The whole tables kept, each with what its `done` says, of files that have not changed since
+/// and that `wanted` takes (by their path): what Find looks through (`games::find`).
+pub(crate) fn whole(wanted: &dyn Fn(&Path) -> bool) -> Vec<(Table, Done)> {
+    let mut out: Vec<(Table, Done)> = vec![];
+    for e in folder().and_then(|f| std::fs::read_dir(f).ok()).into_iter().flatten().flatten() {
+        let dir = e.path();
+        let Some(d) = read_done(&dir) else { continue };
+        // One a file, when two apps each made one (the same file: the same rows).
+        if !wanted(&d.source) || d.stamp != stamp(&d.source) || out.iter().any(|(_, o)| o.source == d.source) {
+            continue;
+        }
+        if let Ok(t) = Table::kept(&dir, &d.stamp, &d.extra, &d.source) {
+            // Looked through by Find: kept as one opened.
+            crate::spill::used(&dir);
+            out.push((t, d));
+        }
+    }
+    out
 }
 
 impl Drop for Table {

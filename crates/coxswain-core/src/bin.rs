@@ -151,6 +151,7 @@ pub fn find(query: &str, max: usize) -> crate::find::Group {
             snippet: Some(i.origin.display().to_string()).filter(|s| !s.is_empty()),
             path: i.path,
             similar: None,
+            game: None,
         })
         .collect();
     let total = hits.len();

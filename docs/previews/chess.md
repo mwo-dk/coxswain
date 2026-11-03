@@ -326,9 +326,26 @@ positions kept the same way; a store made before Coxswain read them reads every 
 again for them, and one made before it read SCID 5 every `.si5` file once (nothing else). Up to 100,000 games and 2,000,000
 positions of each file are kept, read game by game. A PGN file is read for Find whatever its size
 (*Largest file read (MB)*, `[search] text_max_size`, does not apply to it), but the store keeps
-4 MB of lines of it: about the first 40,000 games of a big file, read from its start and no
-further, and of a packed file no more than 1 GB unpacked. Find finds only those; the table
-always has them all.
+4 MB of lines of it: about the first 40,000 games of a big file, and of a packed file no more
+than 1 GB unpacked.
+
+**Every game of a large database.** A game file larger than those 4 MB (a PGN file, a SCID or
+ChessBase database) is read for Find through its games table ([Large
+databases](#large-databases)), which is kept, so the file is read once for both. Find then
+looks through every game of it, millions too: a game whose players, event, site or opening hold
+every word of the query, or whose year or ECO code is one of them (`Aronian 2014`, `Carlsen
+Wijk`, `B90`), is a hit of its own, the words found lit in its line: *Aronian, Levon – Carlsen,
+Magnus · Tata Steel · Wijk aan Zee · 2014.01.19 · B90 Sicilian Defense: Najdorf Variation · ½-½*.
+The hits of one file stand where the file's own hit would, its first games in the file's
+order, and the count above the group counts all of them. **Enter** (both apps) or a click
+(desktop) opens that game on the board: in the preview pane in the desktop app, in the game view
+in the terminal app. Year and ECO code count only as words of their own; a word is found inside
+a name (`aron` finds Aronian). A database in a folder Find does not read is not looked through,
+nor one changed since its table was made, until the search helper has read it again.
+
+A store made before this release reads each game file over 4 MB once more, in the
+background, a minute at a time, to make its table: only those files, and nothing the store
+keeps of them is read or made again (their text and their vectors stay).
 
 ## ChessBase databases
 
@@ -575,6 +592,13 @@ kept on the disk ([Large databases](#large-databases)).
 Yes, of any size, in the same memory: the table of games is kept on the disk, not in memory
 ([Large databases](#large-databases)). The first opening reads the file once while the table
 fills; the next one, of the same file unchanged, shows the table at once.
+
+#### Why does Find show many games of one file?
+
+A large game database is looked through game by game ([Finding games](#finding-games)): each
+game with every word of the query is a hit of its own, so `Aronian` lists his games, not the
+file once. The group shows the first few, in the file's order; the count above it, and *more*
+(**Tab** in *All*), have the rest.
 
 #### Why is my cache folder bigger after I opened a large database?
 

@@ -4436,9 +4436,14 @@ impl App {
                             if matches!(coxswain_core::chess::format(&hit.path), Some(coxswain_core::chess::Format::Pgn | coxswain_core::chess::Format::Sgf | coxswain_core::chess::Format::Pdn | coxswain_core::chess::Format::Kif | coxswain_core::chess::Format::Csa | coxswain_core::chess::Format::Pbn))
                                 && let Some(snippet) = hit.snippet.clone()
                             {
-                                let path = hit.path.clone();
+                                let (path, game) = (hit.path.clone(), hit.game);
                                 self.go_to_hit(&path);
-                                return self.chess(&path, Some(snippet));
+                                self.chess(&path, game.is_none().then_some(snippet));
+                                // A game of a database Find looked through game by game: by its number.
+                                if let (Some(n), Some(Dialog::Chess(v))) = (game, self.dialog.as_mut()) {
+                                    v.at_game(n);
+                                }
+                                return;
                             }
                             return self.go_to_hit(&hit.path.clone());
                         }
@@ -6368,7 +6373,7 @@ mod tests {
         let k = |c: KeyCode, ctrl: bool| Key::new(c, ctrl, false, false);
         // F3 on a hit: the built-in viewer, and Find again after it.
         let mut found = Found::default();
-        found.names.hits = vec![coxswain_core::index::Hit { path: d.join("a.txt"), is_dir: false, snippet: None, similar: None }];
+        found.names.hits = vec![coxswain_core::index::Hit { path: d.join("a.txt"), is_dir: false, snippet: None, similar: None, game: None }];
         found.names.total = 1;
         let cursor = app.find_rows("a", Kind::All, &found).iter().position(|r| matches!(r, Row::Hit { .. })).unwrap();
         app.dialog = Some(Dialog::Search { query: "a".into(), chip: Kind::All, here: false, found, cursor, offset: 0, show: Show::List });
@@ -7054,7 +7059,7 @@ mod panel_tests {
         let cfg = Config { check_updates: false, ..Config::default() };
         let index = crate::test_index(&cfg);
         let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
-        let hit = |n: &str| coxswain_core::index::Hit { path: d.join(n), is_dir: false, snippet: None, similar: None };
+        let hit = |n: &str| coxswain_core::index::Hit { path: d.join(n), is_dir: false, snippet: None, similar: None, game: None };
         let mut found = Found::default();
         found.names.hits = vec![hit("a.txt"), hit("b.txt")];
         found.names.total = 2;

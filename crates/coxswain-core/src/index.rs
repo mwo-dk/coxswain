@@ -87,6 +87,9 @@ pub struct Hit {
     /// start of the passage that was close.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub similar: Option<f32>,
+    /// A game in a game database (`chess::games::find`): its index there, from 0.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub game: Option<u32>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -699,6 +702,7 @@ impl Index {
                     is_dir: self.nodes[id as usize].flags & DIR != 0,
                     snippet: None,
                     similar: None,
+                    game: None,
                 })
             })
             .collect();

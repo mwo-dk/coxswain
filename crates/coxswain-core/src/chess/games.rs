@@ -932,6 +932,23 @@ impl Library {
         ids
     }
 
+    /// Waits until the table is whole, or its reading failed or stopped, or this thread's
+    /// Stop (`stop::asked`: the search helper's scan stopping): false then.
+    pub fn wait(&self) -> bool {
+        while !self.progress().done {
+            if crate::stop::asked() {
+                return false;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        true
+    }
+
+    /// Game `i` in one line, as the search store keeps it (`Head::line`), from the table.
+    pub fn line(&self, i: u32) -> Option<String> {
+        Some(line_of(&self.table, &self.rec(i)?))
+    }
+
     fn rec(&self, i: u32) -> Option<Rec> {
         self.table.get(i, self.count().0)
     }
@@ -1078,8 +1095,136 @@ fn index(feed: impl FnOnce(&mut dyn FnMut(&Head) -> bool) -> io::Result<()>, sha
     }
 }
 
+/// A game in one line from its row: players, event, site, date, opening and result, as
+/// `Head::line` makes it from the tags.
+fn line_of(table: &Table, r: &Rec) -> String {
+    let name = |id: u32| table.name(id);
+    let opening = format!("{} {}", eco_text(r.eco), name(r.opening));
+    let parts = [
+        format!("{} – {}", name(r.white), name(r.black)),
+        name(r.event),
+        name(r.site),
+        date_text(r.date),
+        opening.trim().to_string(),
+        if r.result_name == u32::MAX { result_text(r.result).to_string() } else { name(r.result_name) },
+    ];
+    let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).filter(|s| !s.is_empty() && *s != "?" && *s != "*").collect();
+    parts.join(" · ")
+}
+
+/// The words of `line` that hold one of `words` (lower case), between `store::MARK`s.
+fn marked(line: &str, words: &[String]) -> String {
+    let (open, close) = crate::store::MARK;
+    let mut out = String::with_capacity(line.len() + 8);
+    let mut word = String::new();
+    let end = |word: &mut String, out: &mut String| {
+        let lower = word.to_lowercase();
+        if !word.is_empty() && words.iter().any(|w| lower.contains(w.as_str())) {
+            out.push(open);
+            out.push_str(word);
+            out.push(close);
+        } else {
+            out.push_str(word);
+        }
+        word.clear();
+    };
+    for c in line.chars() {
+        if c.is_alphanumeric() {
+            word.push(c);
+        } else {
+            end(&mut word, &mut out);
+            out.push(c);
+        }
+    }
+    end(&mut word, &mut out);
+    out
+}
+
+/// The games of the game files Find reads (`within`, by their path) that have every word of
+/// `query` in a player's name, the event, the site or the opening, or as their ECO code (or
+/// its start) or year: through each file's kept games table (`table::whole`), so a database of
+/// millions of games is looked through whole. For each file with any: its first `max` games
+/// as hits (each with its game), and how many it has in all.
+pub fn find(query: &str, within: &dyn Fn(&Path) -> bool, max: usize) -> Vec<(PathBuf, Vec<crate::index::Hit>, usize)> {
+    let words: Vec<String> = query.split_whitespace().map(|w| w.replace('"', "").to_lowercase()).filter(|w| !w.is_empty()).collect();
+    if words.is_empty() {
+        return vec![];
+    }
+    let mut out = vec![];
+    for (table, done) in super::table::whole(within) {
+        let names: Vec<Vec<bool>> = words.iter().map(|w| table.matching(w)).collect();
+        let has = |ids: &Vec<bool>, id: u32| ids.get(id as usize).copied().unwrap_or(false);
+        // A year as a number; an ECO code or its start (`b9`, `b90`) as the range of codes it
+        // names, as `Rec::eco` keeps them.
+        let year = |w: &str| (w.len() == 4).then(|| w.parse::<u32>().ok()).flatten();
+        let eco = |w: &str| -> Option<(u16, u16)> {
+            let b = w.as_bytes();
+            if !(2..=3).contains(&b.len()) || !(b'a'..=b'e').contains(&b[0]) || !b[1..].iter().all(u8::is_ascii_digit) {
+                return None;
+            }
+            let base = (b[0] - b'a' + 1) as u16 * 100;
+            let tens = (b[1] - b'0') as u16 * 10;
+            Some(if b.len() == 3 { (base + tens + (b[2] - b'0') as u16, base + tens + (b[2] - b'0') as u16) } else { (base + tens, base + tens + 9) })
+        };
+        type Wanted = (Option<u32>, Option<(u16, u16)>);
+        let wanted: Vec<Wanted> = words.iter().map(|w| (year(w), eco(w))).collect();
+        // A word no name has, and that is no year nor ECO code: no game here has it.
+        if names.iter().zip(&wanted).any(|(ids, (y, e))| !ids.contains(&true) && y.is_none() && e.is_none()) {
+            continue;
+        }
+        let (mut hits, mut n) = (vec![], 0usize);
+        let _ = table.each(done.games, |i, r| {
+            let every = names.iter().zip(&wanted).all(|(ids, (y, e))| {
+                [r.white, r.black, r.event, r.site, r.opening].iter().any(|&id| has(ids, id))
+                    || y.is_some_and(|y| r.date / 10000 == y)
+                    || e.is_some_and(|(lo, hi)| (lo..=hi).contains(&r.eco))
+            });
+            if every {
+                n += 1;
+                if hits.len() < max {
+                    hits.push(i);
+                }
+            }
+        });
+        if n == 0 {
+            continue;
+        }
+        let hits = hits
+            .into_iter()
+            .filter_map(|i| {
+                let line = line_of(&table, &table.get(i, done.games)?);
+                Some(crate::index::Hit { path: done.source.clone(), is_dir: false, snippet: Some(marked(&line, &words)), similar: None, game: Some(i) })
+            })
+            .collect();
+        out.push((done.source.clone(), hits, n));
+    }
+    out
+}
+
 /// The search store's text of a PGN file: a line per game (`Head::line`), up to `max` bytes.
+/// A file larger than that is read through its games table, which is kept (`table`), so the
+/// file is read once for both, and Find looks through every game in it (`find`).
 pub fn search_text(path: &Path, max: usize) -> Option<String> {
+    if std::fs::metadata(path).is_ok_and(|m| m.len() > max as u64)
+        && let Ok(lib) = Library::open(path)
+    {
+        // Stopped meanwhile: no text; the caller sees its stop and keeps the file unread.
+        if !lib.wait() {
+            return None;
+        }
+        if lib.progress().error.is_none() {
+            let mut out = String::new();
+            for i in 0..lib.progress().games as u32 {
+                let Some(line) = lib.line(i) else { break };
+                if out.len() + line.len() + 1 > max {
+                    break;
+                }
+                out.push_str(&line);
+                out.push('\n');
+            }
+            return (!out.is_empty()).then_some(out);
+        }
+    }
     let mut out = String::new();
     scan_file(path, |h| {
         let line = h.line();
@@ -1407,6 +1552,52 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
         assert_eq!((changed.progress().kept, changed.progress().games), (false, 1));
+    }
+
+    /// A game file larger than the search store keeps is read through its games table, kept;
+    /// Find then looks through every game of it, each a hit with its game's number, its words
+    /// marked; a file Find does not read, or one changed since, is not looked through.
+    #[test]
+    fn every_game_of_a_big_file_found() {
+        let d = tempdir::Dir::new();
+        let p = d.0.join("big.pgn");
+        let mut text = String::new();
+        for i in 0..300 {
+            text.push_str(&format!("[White \"Player {i}\"]\n[Black \"Aronian, Levon\"]\n[Site \"Wijk{i}\"]\n[Date \"20{:02}.01.01\"]\n[Result \"0-1\"]\n\n1.d4 Nf6 0-1\n\n", i % 30));
+        }
+        std::fs::write(&p, &text).unwrap();
+        // Only the first games' lines fit; the table has them all.
+        let kept = search_text(&p, 200).unwrap();
+        assert!(kept.lines().count() < 5 && kept.starts_with("Player 0 – Aronian, Levon · Wijk0 · 2000.01.01"), "{kept}");
+        // Only this test's file: other tests' tables share the cache.
+        let me = std::path::absolute(&p).unwrap();
+        let all = |q: &Path| q == me;
+        let found = find("aronian wijk299", &all, 10);
+        assert_eq!(found.len(), 1);
+        let (path, hits, n) = &found[0];
+        assert_eq!((path, n, hits.len(), hits[0].game), (&std::path::absolute(&p).unwrap(), &1, 1, Some(299)));
+        let (o, c) = crate::store::MARK;
+        assert!(hits[0].snippet.as_deref().unwrap().contains(&format!("{o}Aronian{c}, Levon")), "{hits:?}");
+        // Many: the first few as hits, all counted; by year and ECO-less words too.
+        let found = find("Aronian 2005", &all, 3);
+        assert_eq!((found[0].1.len(), found[0].2, found[0].1[0].game), (3, 10, Some(5)));
+        assert!(find("aronian", &|_: &Path| false, 3).is_empty());
+        std::fs::write(&p, format!("{text}\n")).unwrap();
+        assert!(find("aronian", &all, 3).is_empty(), "changed since: not looked through");
+    }
+
+    /// The search helper stopping: a big file's text read through its table gives up at
+    /// once, with no text (its file stays unread), counted by the games read, not a clock.
+    #[test]
+    fn a_stop_ends_the_read_of_a_big_file() {
+        let d = tempdir::Dir::new();
+        let p = d.0.join("stopped.pgn");
+        let game = "[White \"A\"]\n[Black \"B\"]\n\n1.e4 e5 *\n\n";
+        std::fs::write(&p, game.repeat(200_000)).unwrap();
+        let stop = std::sync::Arc::new(AtomicBool::new(true));
+        assert_eq!(crate::stop::during(&stop, || search_text(&p, 100)), None);
+        // Not stopped: the same file gives its text.
+        assert!(search_text(&p, 100).is_some());
     }
 
     #[test]
