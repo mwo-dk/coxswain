@@ -165,7 +165,7 @@
  "feature.chess.q1": "Puis-je continuer à jouer depuis une position, ou interroger un moteur?",
  "feature.chess.q2": "Lit-il les fichiers ChessBase?",
  "feature.chess.q3": "Comment voir les coups avec les lettres de ma langue?",
- "feature.chess.what": "Les fichiers PGN en tableau de parties filtrable et triable, chaque partie sur un échiquier avec ses coups, variantes et commentaires; positions EPD et FEN; les coups d’un livre Polyglot pour chaque position. {chess} les ouvre. Chercher cette position liste les parties de vos fichiers qui atteignent l’échiquier affiché. Les bases SCID (.si4, .si5) sont lues aussi.",
+ "feature.chess.what": "Les fichiers PGN en tableau de parties filtrable et triable, chaque partie sur un échiquier avec ses coups, variantes et commentaires; positions EPD et FEN; les coups d’un livre Polyglot pour chaque position. {chess} les ouvre. Chercher cette position liste les parties de vos fichiers qui atteignent l’échiquier affiché. Les bases SCID (.si4, .si5) sont lues aussi. Une base de millions de parties s’ouvre dans la même mémoire : sa table est gardée sur le disque.",
  "feature.chess_play.a2": "Coxswain utilise un moteur installé ici et n’en télécharge jamais. Réglages → Jeux → Moteurs d’échecs liste Stockfish et d’autres moteurs UCI, trouvés ou avec la ligne qui les installe; Tester le moteur montre ensuite ses propres options.",
  "feature.chess_play.q1": "Jouer un coup modifie-t-il mon fichier PGN?",
  "feature.chess_play.q2": "Pourquoi Moteur dit-il qu’aucun moteur d’échecs n’a été trouvé?",

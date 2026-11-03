@@ -27,6 +27,12 @@ fn write(p: &Path, games: usize, game: impl Fn(usize) -> String) {
 fn a_million_games_in_bounded_memory() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("million-games-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
+    // A home of its own: the games table is kept in the cache.
+    // SAFETY: the only test of this binary, before it starts a thread.
+    unsafe {
+        std::env::set_var("HOME", &dir);
+        std::env::set_var("XDG_CACHE_HOME", dir.join(".cache"));
+    }
     let pgn = dir.join("million.pgn");
     write(&pgn, GAMES, |i| {
         format!(
@@ -58,12 +64,21 @@ fn a_million_games_in_bounded_memory() {
         size >> 20,
         t.elapsed()
     );
-    // The table keeps 48 bytes a game: 48 MB, at most twice that while it grows, plus the
-    // names; never the file's size.
-    if let Some(peak) = peak {
-        assert!(peak < 120, "peak memory {peak} MB for a {} MB file", size >> 20);
+    // The table is on the disk: what stays in memory is the order shown (4 bytes a game, 8
+    // while sorted) and the names met; never a row a game, never the file's size.
+    let sorted = lib.query(&coxswain_core::chess::Query { sort: coxswain_core::chess::Sort::White, ..Default::default() });
+    assert_eq!(sorted.len(), GAMES);
+    let peak = peak_mb();
+    if let (Some(before), Some(peak)) = (before, peak) {
+        assert!(peak < before + 60, "peak memory {peak} MB ({before} MB before) for a {} MB file", size >> 20);
     }
     drop(lib);
+    // Opened again: the table kept is taken as it is, the file not read again.
+    let again = coxswain_core::chess::Library::open(&pgn).unwrap();
+    let p = again.progress();
+    assert!(p.kept && p.done, "{p:?}");
+    assert_eq!((p.games, again.row(GAMES as u32 - 1).unwrap().white), (GAMES, format!("Player {}", (GAMES - 1) % 997)));
+    drop(again);
     std::fs::remove_file(&pgn).unwrap();
 
     // SGF, a collection past the most listed: read game by game, stopped there.
