@@ -258,10 +258,15 @@ pub fn folder() -> Option<PathBuf> {
 
 /// Whether a helper runs now: it holds `index.lock` for as long as it does.
 pub fn runs() -> bool {
-    let Some(lock) = folder().and_then(|d| std::fs::File::open(d.join("index.lock")).ok()) else {
+    folder().is_some_and(|d| runs_in(&d))
+}
+
+fn runs_in(dir: &Path) -> bool {
+    let Ok(lock) = std::fs::File::open(dir.join("index.lock")) else {
         return false;
     };
-    matches!(lock.try_lock(), Err(std::fs::TryLockError::WouldBlock))
+    // Got: let go at once, by `Held`, so no program started meanwhile keeps it (#802).
+    matches!(crate::fs::Held::try_lock(lock), Err(std::fs::TryLockError::WouldBlock))
 }
 
 /// Where a helper's errors go: `helper.log` beside its address.
@@ -1497,6 +1502,17 @@ fn detached(exe: &Path) -> std::process::Command {
 
 #[cfg(test)]
 mod tests {
+    /// No helper runs: `runs` says so every time, also while other threads start programs,
+    /// which before `Held` kept the probe's lock for a moment (#802). A count, not a time.
+    #[cfg(unix)]
+    #[test]
+    fn no_helper_is_seen_while_programs_start() {
+        let d = crate::fs::Scratch::named("helper-runs-held");
+        std::fs::write(d.join("index.lock"), "").unwrap();
+        let seen = crate::fs::while_programs_start(|| (0..2000).filter(|_| super::runs_in(&d)).count());
+        assert_eq!(seen, 0);
+    }
+
     use super::*;
 
     /// A log past its most is emptied before the next line, not only at the helper's start.

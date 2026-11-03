@@ -14,7 +14,18 @@ use crate::config::Glyphs;
 /// (a switch of branches would run its post-checkout). No locks taken. Config from the system
 /// and the user (git-lfs, say) still holds.
 pub fn command(dir: &Path) -> Command {
-    command_with(dir, &repo_filters(dir))
+    let keys = repo_filters(dir);
+    let mut c = command_with(dir, keys.as_deref().unwrap_or_default());
+    if keys.is_none() {
+        no_repository(&mut c);
+    }
+    c
+}
+
+/// `c` given no repository at all, so it fails at once: for a repository git cannot be run in
+/// safely (`readable`), or whose own filters could not be found out (`repo_filters`).
+pub(crate) fn no_repository(c: &mut Command) {
+    c.env("GIT_DIR", if cfg!(windows) { "NUL" } else { "/dev/null" });
 }
 
 /// The longest a git Coxswain starts on its own (the status, the filter check, the config view,
@@ -46,8 +57,8 @@ pub(crate) fn output_within(c: Command, limit: std::time::Duration) -> std::io::
 pub(crate) fn command_with(dir: &Path, keys: &[(String, &str)]) -> Command {
     let mut c = crate::tools::command("git");
     if !readable(dir) {
-        // No repository at all, so git fails at once instead of waiting on what it would open.
-        c.env("GIT_DIR", if cfg!(windows) { "NUL" } else { "/dev/null" });
+        // git fails at once instead of waiting on what it would open.
+        no_repository(&mut c);
     }
     let no_hooks = if cfg!(windows) {
         "core.hooksPath=NUL"
@@ -81,11 +92,12 @@ pub(crate) fn command_with(dir: &Path, keys: &[(String, &str)]) -> Command {
     c
 }
 
-/// Settings that turn off every filter driver the repository at `dir` defines itself.
-pub(crate) fn repo_filters(dir: &Path) -> Vec<(String, &'static str)> {
+/// Settings that turn off every filter driver the repository at `dir` defines itself; `None`
+/// when they cannot be found out (git ended past its limit, or the repository is not
+/// `readable`), and then no git may run there, since one could run the repository's filters.
+pub(crate) fn repo_filters(dir: &Path) -> Option<Vec<(String, &'static str)>> {
     if !readable(dir) {
-        // Every git after this fails at once (`command_with`).
-        return vec![];
+        return None;
     }
     let mut c = crate::tools::command("git");
     c.arg("-C")
@@ -98,7 +110,7 @@ pub(crate) fn repo_filters(dir: &Path) -> Vec<(String, &'static str)> {
             r"^filter\.",
         ])
         .env("GIT_CONFIG_COUNT", "0");
-    let Some(out) = output(c) else { return vec![] };
+    let out = output(c)?;
     let mut drivers: Vec<String> = String::from_utf8_lossy(&out.stdout)
         .lines()
         .filter_map(|l| {
@@ -109,18 +121,20 @@ pub(crate) fn repo_filters(dir: &Path) -> Vec<(String, &'static str)> {
         .collect();
     drivers.sort();
     drivers.dedup();
-    drivers
-        .iter()
-        .flat_map(|d| {
-            [
-                ("clean", ""),
-                ("smudge", ""),
-                ("process", ""),
-                ("required", "false"),
-            ]
-            .map(|(k, v)| (format!("filter.{d}.{k}"), v))
-        })
-        .collect()
+    Some(
+        drivers
+            .iter()
+            .flat_map(|d| {
+                [
+                    ("clean", ""),
+                    ("smudge", ""),
+                    ("process", ""),
+                    ("required", "false"),
+                ]
+                .map(|(k, v)| (format!("filter.{d}.{k}"), v))
+            })
+            .collect(),
+    )
 }
 
 /// Whether git can work in the repository `dir` is in without waiting forever. git opens what
@@ -837,7 +851,7 @@ mod tests {
         fifo(&d.join(".git/pipe"));
         std::fs::write(d.join("inc"), "[INCLUDE]\n\tpath = \".git/pipe\"\n").unwrap();
         assert!(!readable(&d.join("sub")) && !status(&d), "an included include of a FIFO");
-        assert!(repo_filters(&d).is_empty());
+        assert!(repo_filters(&d).is_none());
         assert!(crate::git_config::read(&d).is_err());
         // A bad line after the include: git has read the include before it gets there.
         std::fs::write(d.join("inc"), "[include]\n\tpath = .git/pipe\n[bad").unwrap();

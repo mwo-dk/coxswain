@@ -110,8 +110,9 @@ time of last access to the same; Windows keeps its own.
 **Ctrl+Z** gives every file of the batch its old permissions (on Windows its attributes) and
 dates back, in one step ([Undo](undo.md)): only what the change changed, so undoing a date does
 not touch permissions. It goes back only in the same folder and only to the very entry the
-change left: one changed in any way since (its permissions, its content, its place) is left as
-it is, with a line saying why; the others go back.
+change left: one changed since (its permissions, its content, its place) is left as it is, with
+a line saying why; the others go back. When its entry last changed (its ctime) does not count
+here either, so an undo soon after the change on FreeBSD's UFS undoes every file.
 
 ## In the terminal app
 

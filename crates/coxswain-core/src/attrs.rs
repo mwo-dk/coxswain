@@ -289,7 +289,7 @@ fn refusal(node: &Node) -> Option<String> {
 /// Give the entry at `place` the bits and times of `w` (it had `old`), through one handle opened
 /// in its held folder and checked to be `want` exactly: the one way apply and undo both change
 /// an entry. What it is afterwards, for undo.
-fn set_at(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<Id> {
+fn set_at(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<pinned::Stat> {
     let (f, now) = match place.open_to_change(want) {
         Ok(x) => x,
         // One the owner may not even read (`chmod 000`): on Linux through a path handle instead.
@@ -317,7 +317,7 @@ fn set_at(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<Id> {
         }
         // Settled before it is read for undo: some file systems set the ctime lazily (UFS).
         let _ = f.sync_all();
-        Ok(pinned::stat_of(&f)?.id)
+        pinned::stat_of(&f)
     }
     #[cfg(windows)]
     {
@@ -357,7 +357,7 @@ fn set_at(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<Id> {
             f.set_times(t)?;
         }
         // What it is now, from the very handle it was changed through.
-        Ok(pinned::stat_of(&f)?.id)
+        pinned::stat_of(&f)
     }
 }
 
@@ -365,7 +365,7 @@ fn set_at(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<Id> {
 /// held folder without following a link, checked to be `want` exactly, and changed through
 /// `/proc/self/fd`, which leads to that very inode.
 #[cfg(any(target_os = "linux", target_os = "android"))]
-fn set_through_path(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<Id> {
+fn set_through_path(place: &Place, want: Id, old: Was, w: Was) -> std::io::Result<pinned::Stat> {
     use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
     let last = std::io::Error::last_os_error;
     let (dir, name) = place.at();
@@ -401,23 +401,33 @@ fn set_through_path(place: &Place, want: Id, old: Was, w: Was) -> std::io::Resul
     if (w.modified != old.modified || w.accessed != old.accessed) && unsafe { libc::utimensat(libc::AT_FDCWD, proc.as_ptr(), times.as_ptr(), 0) } != 0 {
         return Err(last());
     }
-    Ok(pinned::stat_of(&f)?.id)
+    pinned::stat_of(&f)
 }
 
 /// Undo: give the entry at `path`, in the folder and as the very file `pin` names (unchanged
 /// since), back what the change changed: of `before` → `after`, only the fields that differ.
+/// Unchanged since: the same file, a file or folder still, with the bits and time of last write
+/// the change left. Not the same ctime, which FreeBSD's UFS moves by itself up to seconds after
+/// a write (#816); when it moves between the look and the open, once more as it is then.
 pub(crate) fn undo(path: &Path, pin: Pin, before: Was, after: Was) -> std::io::Result<()> {
     let place = Place::reopen(path, pin.dir)?;
-    let now = place.stat()?;
-    if now.id != pin.file {
-        return Err(pinned::changed());
-    }
-    let now = Was::of(&now);
     fn pick<T: PartialEq>(b: T, a: T, n: T) -> T {
         if b != a { b } else { n }
     }
-    let back = Was { mode: pick(before.mode, after.mode, now.mode), modified: pick(before.modified, after.modified, now.modified), accessed: pick(before.accessed, after.accessed, now.accessed) };
-    set_at(&place, pin.file, now, back).map(drop)
+    for again in [false, true] {
+        let stat = place.stat()?;
+        if !stat.id.same_file(&pin.file) || !matches!(stat.kind, Entry::File | Entry::Dir) || (stat.mode, stat.modified) != (after.mode, after.modified) {
+            return Err(pinned::changed());
+        }
+        let now = Was::of(&stat);
+        let back = Was { mode: pick(before.mode, after.mode, now.mode), modified: pick(before.modified, after.modified, now.modified), accessed: pick(before.accessed, after.accessed, now.accessed) };
+        match set_at(&place, stat.id, now, back) {
+            Ok(_) => return Ok(()),
+            Err(e) if !again && e.to_string() == t!("pinned.changed") => {}
+            Err(e) => return Err(e),
+        }
+    }
+    Err(pinned::changed())
 }
 
 /// What a run did, and the record that undoes it.
@@ -481,7 +491,9 @@ fn change(plan: &Plan, node: &Node) -> Result<Option<(Was, Was, Id)>, String> {
             return Ok(None);
         }
         match set_at(&node.place, stat.id, before, a) {
-            Ok(id) => return Ok(Some((before, a, id))),
+            // What the disk kept, for undo to compare with: a coarse clock (FAT's 2 s) rounds the
+            // time, and a setgid bit the system will not set is dropped.
+            Ok(got) => return Ok(Some((before, Was { mode: got.mode, modified: got.modified, ..a }, got.id))),
             // Its ctime moved by itself between the walk and the open: once more, as it is now.
             Err(e) if !again && e.to_string() == t!("pinned.changed") => {
                 let now = node.place.stat().map_err(|e| e.to_string())?;
@@ -778,6 +790,48 @@ mod tests {
         assert_eq!(done.failed, [t!("pinned.missed", "n" => 2)]);
         assert_eq!(done.record.undo(|_| {}).done, 1);
         assert_eq!(mode(&a), 0o600);
+    }
+
+    /// Undo soon after a run on FreeBSD's UFS, which moves the ctime of a file it changed by
+    /// itself: still undone. One chmodded since is still left (#816).
+    #[cfg(unix)]
+    #[test]
+    fn undo_meets_a_file_whose_ctime_moved_by_itself_but_not_one_chmodded() {
+        use crate::replace::tests::ctime_moves;
+        let d = crate::fs::Scratch::named("attrs-undo-ctime");
+        let (a, b) = (d.join("a"), d.join("b"));
+        for f in [&a, &b] {
+            std::fs::write(f, "x").unwrap();
+            chmod(f, 0o600);
+        }
+        let done = apply_all(&plan_of(&[a.clone(), b.clone()], &Spec { mode: "g+r".into(), ..Default::default() }, &d));
+        assert_eq!(done.changed, 2);
+        ctime_moves(&a);
+        chmod(&b, 0o644);
+        let undone = done.record.undo(|_| {});
+        assert_eq!((undone.done, undone.refused.len()), (1, 1), "{:?}", undone.refused);
+        assert_eq!((mode(&a), mode(&b)), (0o600, 0o644));
+    }
+
+    /// The run's retry (#801): the ctime moves between the walk's look and the open; the entry
+    /// is changed all the same, as it is then.
+    #[cfg(unix)]
+    #[test]
+    fn the_run_changes_an_entry_whose_ctime_moved_between_its_look_and_its_open() {
+        use crate::replace::tests::ctime_moves;
+        let d = crate::fs::Scratch::named("attrs-retry");
+        let a = d.join("a");
+        std::fs::write(&a, "x").unwrap();
+        chmod(&a, 0o600);
+        let plan = plan_of(&[a.clone()], &Spec { mode: "g+r".into(), ..Default::default() }, &d);
+        let mut got = vec![];
+        pinned::walk(&plan.roots, &walk_spec(&plan.spec, Some(&plan.set)), &AtomicBool::new(false), &mut Said::default(), |node| {
+            ctime_moves(&node.path);
+            got.push(change(&plan, node).map(|c| c.map(|(b, a, _)| (b.mode & 0o777, a.mode & 0o777))));
+            true
+        });
+        assert_eq!(got, [Ok(Some((0o600, 0o640)))]);
+        assert_eq!(mode(&a), 0o640);
     }
 
     #[test]

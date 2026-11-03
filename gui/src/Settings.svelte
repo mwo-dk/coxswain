@@ -404,7 +404,12 @@
    *  engine's name and options, "testing" while it runs, or why it could not. */
   let engines = $state([]);
   let engine = $state(null);
-  const loadEngines = () => invoke("chess_engines").then((v) => (engines = v), () => (engines = []));
+  // Where the analysed positions are kept, and how many at most.
+  let memory = $state(null);
+  const loadEngines = () => {
+    invoke("chess_memory").then((m) => (memory = m), () => {});
+    return invoke("chess_engines").then((v) => (engines = v), () => (engines = []));
+  };
   async function chooseEngine(program) {
     engine = null;
     await set("chess_engine", program === "stockfish" ? "" : program);
@@ -1025,8 +1030,10 @@
                       {#if im.image && !tools.no_runtime}
                         <button disabled={tools.pulling[im.image] != null} onclick={() => imageAction("pull_image", im.image)}>{t(tools.failed?.[im.image] ? "settings.step.retry_now" : "settings.pull")}</button>
                         <button disabled={tools.pulling[im.image] != null || im.pulled == null} onclick={() => imageAction("remove_image", im.image)}>{t("common.remove")}</button>
+                        {#if tools.failed_details?.[im.image]}<button onclick={() => (details[im.image] = !details[im.image])}>{t("settings.step.details")}</button>{/if}
                       {/if}
                     </div>
+                    {#if details[im.image] && tools.failed_details?.[im.image]}<small class="hint err"><code class="details">{tools.failed_details[im.image]}</code></small>{/if}
                   {/each}
                   <div class="ptool-use">
                     <small class:err={r.missing}>{t("ptools.uses", { engine: r.uses })}</small>
@@ -1119,6 +1126,7 @@
           {@render num("chess_review_time", 100, 10000, 100)}
           {@render num("chess_review_depth", 1, 99)}
           {@render num("chess_review_nodes", 1000, 10000000000, 1000)}
+          {#if memory}<p class="hint" id="opt-chess_memory">{t("chess.memory")}: <code>{memory[0]}</code> · {t("chess.memory_hint", { most: memory[1] })}</p>{/if}
         </details>
         <details class="group" id="opt-book" open>
           <summary>{t("settings.group.book")}</summary>

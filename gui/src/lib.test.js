@@ -176,3 +176,11 @@ test("isLogName: logs by their name, as logs::is_log_name has them", async () =>
   const rust = /Regex::new\(r"\(\?i\)(.*?)"\)\.unwrap\(\)/.exec(core.slice(core.indexOf("pub fn is_log_name")))[1];
   assert.equal(isLogName.toString().match(/return \/(.*)\/i\.test/)[1], rust);
 });
+
+test("fkeyAction: pick mode greys out the F-keys of refused actions", async () => {
+  const { fkeyAction } = await pick("fkeyAction");
+  assert.equal(fkeyAction("copy", { filter: [] }, ["copy", "move"]), undefined);
+  assert.equal(fkeyAction("copy", null, ["copy"]), "copy");
+  assert.equal(fkeyAction("help", { filter: [] }, ["copy"]), "help");
+  assert.equal(fkeyAction(undefined, null, []), undefined);
+});

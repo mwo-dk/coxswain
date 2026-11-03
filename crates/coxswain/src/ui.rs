@@ -430,6 +430,10 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         } else {
             base
         };
+        // Pick mode: a file the filter does not take is dimmed.
+        if app.pick.as_ref().is_some_and(|r| !e.is_parent() && r.dims(&e.name, e.is_dir)) {
+            s = s.add_modifier(Modifier::DIM);
+        }
         s = s.bg(base.bg.unwrap_or(Color::Reset));
         if at {
             s = if marked { sty(&t.marked_cursor) } else { sty(&t.cursor) };
@@ -587,7 +591,9 @@ fn status_text(app: &App) -> Option<String> {
     if let Some(q) = &app.quick {
         return Some(t!("quick_search", "query" => q));
     }
-    app.status.as_ref().filter(|s| !s.is_empty() && app.cmdline.is_empty()).map(|s| s.replace('\n', " "))
+    let status = app.status.as_ref().filter(|s| !s.is_empty() && app.cmdline.is_empty()).map(|s| s.replace('\n', " "));
+    // Pick mode says what is asked for until something else is said.
+    status.or_else(|| app.pick.as_ref().filter(|_| app.cmdline.is_empty() && !app.cmd_open).map(|r| r.ask()))
 }
 
 fn cmdline(f: &mut Frame, app: &App, area: Rect) {
@@ -634,6 +640,15 @@ fn cmdline(f: &mut Frame, app: &App, area: Rect) {
 
 fn keybar(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
+    // Pick mode has its own few keys.
+    if let Some(req) = &app.pick {
+        let key = |a| app.cfg.tty_key(a).unwrap_or("").to_string();
+        let mut line = if req.save.is_some() { t!("pick.keys_save", "parent" => key(Action::Parent)) } else { t!("pick.keys", "mark" => key(Action::Mark), "parent" => key(Action::Parent)) };
+        if !req.filter.is_empty() {
+            line = format!("{line} · {}", t!(if req.show_all { "pick.key_filter" } else { "pick.key_show_all" }, "key" => coxswain_core::pick::SHOW_ALL_KEY));
+        }
+        return f.render_widget(Paragraph::new(fit(&line, area.width as usize)).style(sty(&t.keybar_num)), area);
+    }
     // F1 to F10 as in NC, then F11 and F12 when they run something (F12: Settings).
     let fkey = |n| app.keymap.get(&Key::new(KeyCode::F(n), false, false, false));
     let keys: Vec<u8> = (1..=12u8).filter(|&n| n <= 10 || fkey(n).is_some()).collect();
@@ -748,8 +763,9 @@ fn dialog(f: &mut Frame, app: &mut App) {
             input_line(f, app, b, &shown);
             f.render_widget(Paragraph::new(keys(&prompt.verb())).centered(), c);
         }
-        Dialog::Confirm { title, text, .. } | Dialog::Switch { title, text, .. } | Dialog::Server { title, text, .. } | Dialog::Bin { title, text, .. } => {
+        Dialog::Confirm { title, text, .. } | Dialog::Overwrite { title, text, .. } | Dialog::Switch { title, text, .. } | Dialog::Server { title, text, .. } | Dialog::Bin { title, text, .. } => {
             let verb = match app.dialog.as_ref() {
+                Some(Dialog::Overwrite { .. }) => t!("pick.overwrite_yes"),
                 Some(Dialog::Bin { free_name: true, .. }) => t!("bin.free_name"),
                 Some(Dialog::Bin { op, .. }) => Action::from_bin(*op).label(),
                 Some(Dialog::Confirm { forever: false, .. }) => t!("app.move_to_trash"),

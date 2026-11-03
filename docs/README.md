@@ -235,6 +235,7 @@ mindmap
 | [Reference](reference/README.md) | The area index, its pages and the keys that reach them |
 | [The terminal app](reference/terminal-app.md) | What it has, what only the desktop app has and why, differences, archives and search by meaning in the terminal, the terminal it needs |
 | [Command-line flags](reference/command-line-flags.md) | Every flag of coxswain and coxswain-gui: folders, --paths, --dump-config, --config-path, --meaning, --index-service, --settings, --duplicates, --index-helper, exit status |
+| [Pick mode](reference/pick-mode.md) | `coxswain --pick` and `coxswain-gui --pick`: another program chooses files or folders, or a name to save under (`--save`), with Coxswain; the paths to a file or standard output, one per line, exit status 0 or 1; dimmed files and *Show all*; archives |
 | [Configuration: every key](reference/configuration.md) | Config.toml: every key with type, default and reader; which Settings item writes it; what has no key |
 | [Privacy: what stays, what can leave](reference/privacy.md) | What stays on your machine, every case where something can leave it, and how to stop it |
 | [Update checks](reference/updates.md) | The update check: what it sends, what each app shows, the upgrade command, turning it off |

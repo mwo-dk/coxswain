@@ -413,13 +413,21 @@
     const s = ++engineSeq;
     if (!analysis || !f || other) return void (engine = null);
     engine = { fen: f, thinking: true };
-    invoke("chess_analyse", { fen: f }).then(
-      (a) => {
-        // Options set for the engine that it did not take: said once a session.
-        if (a.note) said = a.note;
-        if (s === engineSeq) engine = { fen: f, a };
+    // Seen before: shown at once; the game review's while the engine looks deeper.
+    invoke("chess_remembered", { fen: f }).catch(() => null).then(
+      (known) => {
+        if (s !== engineSeq) return;
+        if (known) engine = { fen: f, a: known };
+        if (known && !known.review) return;
+        invoke("chess_analyse", { fen: f }).then(
+          (a) => {
+            // Options set for the engine that it did not take: said once a session.
+            if (a.note) said = a.note;
+            if (s === engineSeq) engine = { fen: f, a };
+          },
+          (e) => s === engineSeq && (engine = { fen: f, error: String(e) }),
+        );
       },
-      (e) => s === engineSeq && (engine = { fen: f, error: String(e) }),
     );
   });
 
@@ -1001,7 +1009,7 @@
           <p class="meta book-line">{#if book.moves.length}{t("chess.book", { name: book.name, moves: "" })}{#each book.moves.slice(0, 8) as m, k (m.uci)}{k ? " · " : ""}{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each} {m.share.toFixed(0)} %{/each}{:else}{t("chess.book_out", { name: book.name })}{/if}</p>
         {/if}
         {#if engine}
-          <p class="meta engine">{#if engine.thinking}{t("chess.engine_thinking")}{:else if engine.error}{engine.error}{:else}{t("chess.engine", { name: engine.a.engine, depth: engine.a.depth })}{#if engine.a.lines.length === 1} · {t("chess.engine_line_key")}{:else if engine.a.lines.length} · {t("chess.engine_lines_keys", { n: engine.a.lines.length })}{/if}{/if}</p>
+          <p class="meta engine">{#if engine.thinking}{t("chess.engine_thinking")}{:else if engine.error}{engine.error}{:else}{t("chess.engine", { name: engine.a.engine, depth: engine.a.depth })}{#if engine.a.review} · {t("chess.engine_from_review")}{/if}{#if engine.a.lines.length === 1} · {t("chess.engine_line_key")}{:else if engine.a.lines.length} · {t("chess.engine_lines_keys", { n: engine.a.lines.length })}{/if}{/if}</p>
           {#each engine.a?.lines ?? [] as l, k (k)}
             {@const on = browse?.k === k ? browse.at : 0}
             <p class="engine-line"><button class="mv line-no" class:here={on > 0} title={t("chess.engine_line_tip", { n: k + 1 })} onclick={() => browseLine(k)}>{k + 1}</button> <b class="eval">{l.eval}</b> {#each l.steps ?? [] as m, i (i)}<button class="mv" class:later={on ? i >= on : i > 0} class:here={on === i + 1} title={t("chess.engine_line_tip", { n: k + 1 })} onclick={() => browseLine(k, i + 1)}>{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button>{" "}{/each}</p>

@@ -476,7 +476,7 @@ impl Viewer {
             }
             return;
         };
-        if self.thinking.as_ref().is_some_and(|t| t.fen == fen) || self.analysed.as_ref().is_some_and(|a| a.0 == fen) {
+        if self.thinking.as_ref().is_some_and(|t| t.fen == fen) || self.analysed.as_ref().is_some_and(|a| a.0 == fen && !matches!(&a.1, Ok(x) if x.review)) {
             return;
         }
         if let Some(t) = self.thinking.take() {
@@ -489,6 +489,15 @@ impl Viewer {
                 return;
             }
         };
+        // Seen before: shown at once; the game review's while the engine looks deeper.
+        match play::remembered(&program, &self.chess, &fen) {
+            Some(a) if !a.review => {
+                self.analysed = Some((fen, Ok(a)));
+                return;
+            }
+            Some(a) => self.analysed = Some((fen.clone(), Ok(a))),
+            None => {}
+        }
         let (tx, rx) = std::sync::mpsc::channel();
         let stop = Arc::new(AtomicBool::new(false));
         let (f, s, chess) = (fen.clone(), stop.clone(), self.chess.clone());
@@ -2045,6 +2054,9 @@ impl Viewer {
             Some((f, Ok(a))) if Some(f) == fen.as_ref() => {
                 let browse = self.browsing();
                 let mut head = t!("chess.engine", "name" => a.engine, "depth" => a.depth);
+                if a.review {
+                    head = format!("{head} · {}", t!("chess.engine_from_review"));
+                }
                 match a.lines.len() {
                     0 => {}
                     1 => head = format!("{head} · {}", t!("chess.engine_line_key")),

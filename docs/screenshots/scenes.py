@@ -258,6 +258,9 @@ scene("tui-virus-scan.png", args=["/home/demo/Downloads", "/home/demo/Documents"
 scene("tui-copy-stop.png", args=["/home/demo/Big", "/home/demo/Backups"], setup=mk_big(),
       keys=START + ["Down", "IC", "IC", "F5", "Enter", "wait:2"])
 
+# ---- pick mode (coxswain --pick): the key line shows the picker's keys, other files are dimmed
+scene("pick-tui.png", args=["--pick", "--multiple", "--filter", "rs,toml", "--start", "/home/demo/projects/rocket"], guide=False, keys=["Down*6", "IC"])
+
 # ---- GIFs: the first frame is saved beside as <name>.png
 scene("copy.gif", args=["/home/demo/Documents", "/home/demo/Backups"], record=5.5, setup=keep("Backups"),
       pre=["Down*12"], keys=["wait:0.5", "IC", "IC", "IC", "wait:0.5", "F5", "wait:1", "Enter", "wait:1.5"], size=(100, 22))

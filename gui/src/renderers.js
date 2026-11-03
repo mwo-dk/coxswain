@@ -193,11 +193,11 @@ export async function renderNotebook(path) {
 // ------------------------------------------------------------ fonts
 
 let fontSeq = 0;
-/** Load a font file under a fresh family name: that name, and the face, which the preview
+/** Load a font file (`inside`: one inside an archive, from memory) under a fresh family name: that name, and the face, which the preview
  *  that loaded it removes from `document.fonts` when it shows something else. */
-export async function loadFont(path) {
+export async function loadFont(path, inside = false) {
   const family = `coxswain-preview-${++fontSeq}`;
-  const face = new FontFace(family, `url("${convertFileSrc(path)}")`);
+  const face = new FontFace(family, `url("${convertFileSrc(path)}${inside ? "?inside" : ""}")`);
   document.fonts.add(await face.load());
   return { family, face };
 }

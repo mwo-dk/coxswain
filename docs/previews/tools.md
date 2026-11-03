@@ -110,6 +110,16 @@ the runtime's own timeouts, unless the registry answers again (the network is ba
 failed (terminal app: **P**; the key line says *P: Retry now*). A full disk or an image the
 registry does not have is not waited for: the next job simply tries again. The runtime's own
 error is in `helper.log` in the cache folder, and shows in the status line after **Retry now**.
+**Details** shows it at once: the **Details** button next to *Retry now* in the desktop app opens
+the runtime's own words under the image's line; in the terminal app **Delete** on that row shows
+them in the status line (the key line says *Delete: Details*; nothing is removed, as the image is
+not there).
+
+![Settings, Previews, Preview tools, desktop app: the LaTeX row with its image, Download failed: no network, the next job tries again after 19:15, the buttons Retry now, Remove and Details, and under them the runtime's own error](../screenshots/previews-pull-failed-gui.png)
+
+![The terminal app's Settings, Previews: the LaTeX row under the cursor reads Download failed: no network, and the key line ends Delete: Details](../screenshots/previews-pull-failed-tui.png)
+
+![The terminal app after Delete on that row: the runtime's own error on the bottom line](../screenshots/previews-pull-details-tui.png)
 Whisper's image for [transcripts](../search/transcripts.md) is pulled by the search helper and
 is handled like Tika's (a *Speech* line with *Retry now* and *Details*). The chess engine's image
 is pulled only here, with **Pull**.

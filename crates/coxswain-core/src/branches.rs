@@ -202,11 +202,11 @@ fn said(c: std::process::Command) -> io::Result<String> {
 /// own config: a repository from elsewhere could have it run a program or send the user's login
 /// through a proxy while it writes the files of `target` (`lfs_risk`), so that is refused too.
 fn writes_files_safely(dir: &Path, target: &str) -> io::Result<()> {
-    if !crate::git::readable(dir) {
-        return Err(io::Error::other(crate::t!("gitconfig.failed")));
-    }
-    if !crate::git::repo_filters(dir).is_empty() {
-        return Err(io::Error::other(crate::t!("branches.has_filters")));
+    // Also a repository that is not `git::readable`.
+    match crate::git::repo_filters(dir) {
+        None => return Err(io::Error::other(crate::t!("gitconfig.failed"))),
+        Some(k) if !k.is_empty() => return Err(io::Error::other(crate::t!("branches.has_filters"))),
+        Some(_) => {}
     }
     match lfs_risk(dir, target)? {
         Some(key) => Err(io::Error::other(crate::t!("branches.lfs_risk", "key" => key))),

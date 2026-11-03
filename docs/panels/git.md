@@ -354,8 +354,10 @@ device there (`CON`, `NUL`, `COM1`, `LPT1`, also with an ending such as `con.txt
 one too. A FIFO elsewhere in the repository (a ref, a pack) is not looked for: the git status,
 the filter check, the config view, the preview's diff, a commit and its diff in the history (**Ctrl+G**), a file read
 from a commit and the checks before a switch are ended after two minutes instead, a blame after
-one minute, and a branch switch itself after thirty minutes, since one ended halfway leaves a
-half-changed work tree.
+one minute, a copy out of the history (**F5** in a commit) when git has given nothing for two
+minutes, and a branch switch itself after thirty minutes, since one ended halfway leaves a
+half-changed work tree. When git cannot say within its two minutes which filters the
+repository sets, no git runs there: as with a FIFO, there is no git line and no switch.
 
 #### Why are the counts different from `git status`?
 

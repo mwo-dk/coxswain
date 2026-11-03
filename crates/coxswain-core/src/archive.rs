@@ -2846,8 +2846,8 @@ pub fn head(path: &Path, max: u64) -> io::Result<(Vec<u8>, bool)> {
     if kind(&archive) == Some(Kind::Disk) && it.size > max {
         return Err(too_large(&inner));
     }
-    // shortcut: a wrong ZipCrypto password that passes its check byte (1 in 256) shows as bytes
-    // when only a head is read, since the CRC at the entry's end is never reached.
+    // A locked zip entry is read to its end all the same, up to `PEEK_MAX`: ZipCrypto's check
+    // byte lets one wrong password in 256 through, and only the checksum at the end tells.
     let got = std::cell::RefCell::new((Vec::new(), false));
     // Nothing lands anywhere: `head` keeps the bytes, so the path is never made.
     let nowhere = Path::new("");
@@ -3273,12 +3273,22 @@ fn copy_entries(
             };
             // A wrong ZipCrypto password is only seen in what comes out: the check fails.
             let size = e.size();
+            if encrypted && how.head.is_some() && size > PEEK_MAX {
+                return Err(too_large(&name));
+            }
             let mut from = Noting {
                 from: &mut e,
                 left: size,
                 failed: false,
             };
             if let Err(err) = write(&path, &mut from, secs) {
+                return Err(copy_error(err, &from, encrypted));
+            }
+            // Only a head kept: the rest read too, so the checksum at the end is checked.
+            if encrypted
+                && how.head.is_some()
+                && let Err(err) = io::copy(&mut crate::stop::Reader(&mut from), &mut io::sink())
+            {
                 return Err(copy_error(err, &from, encrypted));
             }
             // A script stays one; nothing but the permission bits is taken.
@@ -3344,11 +3354,19 @@ fn copy_entries(
                 left: e.size,
                 failed: false,
             };
+            // Locked, only a head asked for: read to its end too, as a zip's, since AES has no
+            // check of the password but the checksum at the end.
+            let check = locked && how.head.is_some() && !e.is_directory;
+            if check && e.size > PEEK_MAX {
+                failed = Some(too_large(&name));
+                return Ok(false);
+            }
             let done = if e.is_directory {
                 std::fs::create_dir_all(&path)
             } else {
                 write(&path, &mut from, seven_secs(e))
-            };
+            }
+            .and_then(|()| if check { io::copy(&mut crate::stop::Reader(&mut from), &mut io::sink()).map(drop) } else { Ok(()) });
             if let Err(err) = done {
                 failed = Some(copy_error(err, &from, locked));
                 return Ok(false);
@@ -5765,6 +5783,22 @@ mod tests {
             "a copy out notices by the checksum"
         );
         assert!(!d.join("out/a.txt").exists());
+        // A 7z locked with AES (no check of the password at all) neither, its names open.
+        let text = "secret two ".repeat(200);
+        std::fs::write(d.join("c.txt"), &text).unwrap();
+        let sz = d.join("locked.7z");
+        create_locked(&sz, &[d.join("c.txt")], Some("hunter2"), false).unwrap();
+        remember(&sz, "wrong");
+        assert_eq!(head(&sz.join("c.txt"), 4).unwrap_err().to_string(), LOCKED);
+        remember(&sz, "hunter2");
+        assert_eq!(head(&sz.join("c.txt"), 6).unwrap(), (b"secret".to_vec(), true));
+        forget(&sz);
+        // Nor does a look at its head (`head`, the preview without a copy) show what comes out.
+        remember(&zp, &wrong);
+        assert_eq!(head(&zp.join("a.txt"), 4).unwrap_err().to_string(), LOCKED, "the head's look notices too");
+        remember(&zp, "hunter2");
+        assert_eq!(head(&zp.join("a.txt"), 4).unwrap(), (b"secr".to_vec(), true));
+        forget(&zp);
         assert_eq!(
             add(&zp, &[("b.txt".into(), d.join("b.txt"))], Some(&wrong))
                 .unwrap_err()

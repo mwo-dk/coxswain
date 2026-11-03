@@ -311,6 +311,7 @@ pub const FEATURES: &[Feature] = &[
         &[Menu, Help, View, Edit, Refresh, Quit],
     ),
     f("command_line_flags", "reference/command-line-flags.md", &[]),
+    f("pick", "reference/pick-mode.md", &[Mark]),
     f("configuration", "reference/configuration.md", &[Settings]),
     f("privacy", "reference/privacy.md", &[Settings]),
     f("updates", "reference/updates.md", &[Settings]),

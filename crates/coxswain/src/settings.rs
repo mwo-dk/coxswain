@@ -361,8 +361,18 @@ impl Settings {
 
 /// What a job could not pull for this kind of file: why, and when the next job tries again.
 fn failed_pull(r: &coxswain_core::preview_tools::Row) -> Option<String> {
-    let failed = coxswain_core::images::pulls::failures();
-    r.images.iter().filter(|i| i.pulled.is_none()).find_map(|i| failed.get(&i.image)).and_then(|s| s.job_line())
+    failed_state(r)?.job_line()
+}
+
+/// Whether Delete on this row shows the runtime's error: a pull failed, and no image is there to remove.
+fn details_on_delete(r: &coxswain_core::preview_tools::Row) -> bool {
+    r.images.iter().all(|i| i.pulled.is_none()) && failed_state(r).is_some_and(|f| f.details().is_some())
+}
+
+/// The failed pull itself, for its words and the runtime's own error (*Details*).
+fn failed_state(r: &coxswain_core::preview_tools::Row) -> Option<coxswain_core::images::pulls::State> {
+    let mut failed = coxswain_core::images::pulls::failures();
+    r.images.iter().filter(|i| i.pulled.is_none()).find_map(|i| failed.remove(&i.image))
 }
 
 /// The versions not read yet, else this one.
@@ -547,6 +557,11 @@ fn groups(v: &mut Vec<Row>, s: &Settings, area: Area, poor: &[coxswain_core::set
             if *n == "language" {
                 v.push(Row::Translate);
             }
+        }
+        // Where the analysed positions are kept, and how many.
+        if g.id == "review" {
+            let dir = coxswain_core::chess::memory::dir().map(|d| d.display().to_string()).unwrap_or_default();
+            v.push(Row::Info(t!("chess.memory"), dir, t!("chess.memory_hint", "most" => coxswain_core::chess::memory::KEPT)));
         }
         if matches!(g.id, "ask" | "meaning") {
             v.extend(poor.iter().filter(|p| p.ask == (g.id == "ask")).cloned().map(Row::Poor));
@@ -825,6 +840,8 @@ impl App {
                 }
                 (_, Some('/')) => s.mode = Mode::Find { query: String::new(), at: 0 },
                 (KeyCode::Delete, _) => match rows.get(s.cursor) {
+                    // A failed pull has nothing to remove: Delete shows the runtime's error.
+                    Some(Row::PreviewTool(r)) if details_on_delete(r) => s.said = failed_state(r).and_then(|f| f.details().map(|d| (d.split_whitespace().collect::<Vec<_>>().join(" "), true))),
                     Some(Row::PreviewTool(r)) => self.tool_remove(&mut s, r),
                     Some(Row::EngineOpt(o)) => return self.engine_option(s, &o.option.name.clone(), None),
                     Some(Row::Model(e)) => return self.model_delete(s, &e.id.clone()),
@@ -1986,7 +2003,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(_))) => (t!("disk.keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Server(_))) => (t!("settings.history_server_keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if !r.container) => (t!("ptools.keys_tui_no_image"), dim),
-        (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if failed_pull(r).is_some()) => (t!("ptools.keys_tui_retry"), dim),
+        (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if details_on_delete(r)) => (t!("ptools.keys_tui_retry"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => (t!("ptools.keys_tui"), dim),
         (None, _) => (t!("tui.settings.keys"), dim),
     };

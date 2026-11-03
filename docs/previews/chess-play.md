@@ -24,6 +24,7 @@ PGN file when you ask. Both apps have it.
 - [The engine's own options](#the-engines-own-options)
 - [Stepping through an engine line](#stepping-through-an-engine-line)
 - [Analysing a whole game](#analysing-a-whole-game)
+- [Positions remembered](#positions-remembered)
 - [Settings and config.toml](#settings-and-configtoml)
 - [Questions](#questions)
 
@@ -356,6 +357,32 @@ show the evaluations and marks from it.
 
 ![The same in the terminal app, its pieces in block characters: +8.89 and the bar under the board, the row of bars for the game below it with this move highlighted, the marks after the moves, Stockfish 17.1: the game analysed, 9 moves marked above them](../screenshots/tui-chess-review.png)
 
+## Positions remembered
+
+Each position the engine analyses, on the board (**a** or *Engine*) or as part of a whole game
+(**g** or *Analyse game*), is kept in Coxswain's cache folder, in `chess/positions/` under it,
+with the engine and its settings. Both apps share it.
+
+- **Stepping back** to a position the engine has seen shows its lines at once, with the same
+  engine name and depth as before; the engine is not asked again.
+- **A reviewed game:** each position the game review analysed shows its evaluation and best line
+  in the engine pane at once, marked *from the game review, looking deeper…* after the engine's
+  name and depth. Meanwhile the engine looks at the position with your live settings, and its
+  answer replaces the review's when it comes. The next visit shows that answer at once.
+- **Another game through the same positions** (the same opening) is not analysed again for them,
+  live or in a game review.
+
+A position is the same when its pieces, side to move, castling rights and en passant square are
+the same; the move counters do not count, so a position reached at another move number is the
+same position. (So near the fifty-move rule, a position kept from earlier in the game shows the
+evaluation it had then.) Another engine, another limit (*Engine stops after*, its time, depth or positions),
+another number of *Engine lines* or another engine option is another analysis, made afresh.
+
+At most 3000 positions are kept (2 to 11 KB each, so under 40 MB); past that the oldest go. *Settings
+→ Games → Game review* says where they are, under *Positions remembered*, in both apps; *Settings
+→ Disk use* clears them with the rest of `chess/` ([Disk use](../reference/disk-use.md)). Nothing
+is sent anywhere.
+
 ## Settings and config.toml
 
 *Settings → Games*, in both apps (*Chess engines* and *Game review*):
@@ -489,6 +516,25 @@ Your line holds the game, and *Save as new PGN* keeps it.
 By how much a move lowers the engine's evaluation for the side that played it: half a pawn is `?!`,
 a pawn `?`, three pawns `??` (see [How a move is marked](#analysing-a-whole-game)). `!?` marks the
 only move that holds: the engine's best, with its second choice three pawns worse.
+
+#### Why does the engine answer at once on a position I saw before?
+
+Each position it analysed, live or in a game review, is kept in Coxswain's cache (`chess/positions/`)
+with the engine and its settings, so it shows at once with the depth it had then
+([Positions remembered](#positions-remembered)). To have it think again, change a setting (a longer
+*Engine time*, say: that is another analysis), or clear `chess/` in *Settings → Disk use*.
+
+#### Why does the engine pane say *from the game review, looking deeper…*?
+
+The game was analysed as a whole (**g**), so the review's evaluation and best line for this
+position show at once. The review thinks for *Analysis time a move* (half a second unless set) and
+asks for two lines; the live analysis meanwhile thinks with your *Engine* settings, and its lines
+replace the review's when they come.
+
+#### How much disk do the remembered positions take?
+
+At most 3000 positions, under 40 MB, in `chess/positions/` in Coxswain's cache folder; the oldest
+go first. *Settings → Games → Game review* shows the folder; *Settings → Disk use* clears it.
 
 #### Why does analysing a game take so long?
 
