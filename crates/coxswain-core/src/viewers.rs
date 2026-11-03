@@ -12,7 +12,9 @@ use serde::Serialize;
 use std::sync::OnceLock;
 
 /// What a rule tests. A `dir` rule is asked of folders only, every other kind of rule of files
-/// only. Names are compared in lower case.
+/// only. Names are compared in lower case (`to_lowercase`, JavaScript's `toLowerCase`), against
+/// patterns written in lower case: no case-blind matching, whose Unicode folding differs between
+/// Rust and JavaScript.
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "m", rename_all = "snake_case")]
 pub enum Match {
@@ -178,7 +180,7 @@ fn build() -> Vec<Rule> {
 pub fn kind_of(name: &str, is_dir: bool) -> &'static str {
     static COMPILED: OnceLock<Vec<Option<regex::Regex>>> = OnceLock::new();
     let compiled = COMPILED.get_or_init(|| {
-        let re = |s: &str| Some(regex::Regex::new(&format!("(?i){s}")).expect("a viewer rule's pattern"));
+        let re = |s: &str| Some(regex::Regex::new(s).expect("a viewer rule's pattern"));
         rules()
             .iter()
             .map(|r| match &r.when {
@@ -193,9 +195,9 @@ pub fn kind_of(name: &str, is_dir: bool) -> &'static str {
         let fits = match &r.when {
             Match::Dir { .. } if !is_dir => false,
             Match::Dir { re: None } => true,
-            Match::Dir { .. } => re.as_ref().is_some_and(|re| re.is_match(name)),
+            Match::Dir { .. } => re.as_ref().is_some_and(|re| re.is_match(&lower)),
             _ if is_dir => false,
-            Match::Name { .. } => re.as_ref().is_some_and(|re| re.is_match(name)),
+            Match::Name { .. } => re.as_ref().is_some_and(|re| re.is_match(&lower)),
             Match::Ending { endings } => endings.contains(&ext),
             Match::Suffix { suffixes } => suffixes.iter().any(|s| lower.ends_with(s)),
         };
@@ -327,6 +329,10 @@ const CASES: &[(&str, bool)] = &[
     ("b.build.slsa", false),
     ("intoto.txt", false),
     ("provenance.json.bak", false),
+    // Case folds only as lower case does, alike in both apps.
+    ("GAME.SGF", false),
+    ("x.\u{17f}gf", false),
+    ("Model.MLPackage", true),
 ];
 
 #[cfg(test)]
@@ -352,6 +358,7 @@ mod tests {
         for r in rules() {
             if let Match::Dir { re: Some(s) } | Match::Name { re: s } = &r.when {
                 assert!(regex::Regex::new(s).is_ok(), "{s}");
+                assert_eq!(*s, s.to_lowercase(), "patterns are matched against the lower-case name");
             }
             assert!(!r.kind.is_empty());
         }

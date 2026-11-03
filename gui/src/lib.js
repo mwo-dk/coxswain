@@ -422,7 +422,7 @@ export function sameEntry(a, b) {
  *  come (`setViewerRules`): the first rule that fits names the kind. */
 let viewerRules = [];
 export function setViewerRules(rules) {
-  viewerRules = rules.map((r) => ({ ...r, re: r.when.re ? new RegExp(r.when.re, "i") : null, set: new Set(r.when.endings ?? []) }));
+  viewerRules = rules.map((r) => ({ ...r, re: r.when.re ? new RegExp(r.when.re) : null, set: new Set(r.when.endings ?? []) }));
 }
 
 /** How the preview pane should show a file (`viewers::kind_of`, which a test holds this to). */
@@ -433,7 +433,7 @@ export function previewKind(item) {
   for (const r of viewerRules) {
     const w = r.when;
     const fits =
-      w.m === "dir" ? item.is_dir && (!r.re || r.re.test(item.name)) : !item.is_dir && (w.m === "name" ? r.re.test(item.name) : w.m === "ending" ? r.set.has(ext) : w.suffixes.some((x) => lower.endsWith(x)));
+      w.m === "dir" ? item.is_dir && (!r.re || r.re.test(lower)) : !item.is_dir && (w.m === "name" ? r.re.test(lower) : w.m === "ending" ? r.set.has(ext) : w.suffixes.some((x) => lower.endsWith(x)));
     if (fits) return r.kind;
   }
   return "text";

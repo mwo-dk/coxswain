@@ -584,6 +584,21 @@
       "is_dir": false,
       "kind": "text",
       "name": "provenance.json.bak"
+    },
+    {
+      "is_dir": false,
+      "kind": "go",
+      "name": "GAME.SGF"
+    },
+    {
+      "is_dir": false,
+      "kind": "text",
+      "name": "x.ſgf"
+    },
+    {
+      "is_dir": true,
+      "kind": "netron",
+      "name": "Model.MLPackage"
     }
   ],
   "rules": [
