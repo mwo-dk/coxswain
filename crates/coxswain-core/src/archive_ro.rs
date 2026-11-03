@@ -64,13 +64,18 @@ pub(crate) fn bad(what: &str) -> io::Error {
 /// The cabinet named `name` beside the one opened (`at`): by its own spelling, else however its
 /// letters are cased.
 fn sibling(at: &Path, name: &str) -> io::Result<Box<dyn crate::archive_cab::Src>> {
+    Ok(Box::new(crate::stop::Reader(std::fs::File::open(sibling_path(at, name)?)?)))
+}
+
+/// Where `sibling` finds `name`.
+pub(crate) fn sibling_path(at: &Path, name: &str) -> io::Result<std::path::PathBuf> {
     let dir = at.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
     let mut path = dir.join(name);
     if !path.is_file() {
         let found = std::fs::read_dir(dir)?.flatten().find(|e| e.file_name().to_string_lossy().eq_ignore_ascii_case(name));
         path = found.ok_or(io::ErrorKind::NotFound)?.path();
     }
-    Ok(Box::new(crate::stop::Reader(std::fs::File::open(path)?)))
+    Ok(path)
 }
 
 fn seek_past<R: Read + Seek>(r: &mut BufReader<R>, n: u64) -> io::Result<()> {
