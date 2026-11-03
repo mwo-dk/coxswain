@@ -1421,7 +1421,7 @@
  "feature.chess.q2": "Legge i file ChessBase?",
  "feature.chess.q3": "Come vedo le mosse con le lettere della mia lingua?",
  "feature.chess.title": "Partite a scacchi",
- "feature.chess.what": "File PGN come tabella di partite da filtrare e ordinare, ognuna su una scacchiera con mosse, varianti e commenti; posizioni EPD e FEN; le mosse di un libro Polyglot per ogni posizione. {chess} le apre. Cerca questa posizione elenca le partite dei tuoi file che arrivano alla scacchiera mostrata. Si leggono anche i database SCID (.si4, .si5). Un database di milioni di partite si apre con la stessa memoria: la sua tabella è tenuta sul disco.",
+ "feature.chess.what": "File PGN come tabella di partite da filtrare e ordinare, ognuna su una scacchiera con mosse, varianti e commenti; posizioni EPD e FEN; le mosse di un libro Polyglot per ogni posizione. {chess} le apre. Cerca questa posizione elenca le partite dei tuoi file che arrivano alla scacchiera mostrata. Si leggono anche i database SCID (.si4, .si5). Un database di milioni di partite si apre con la stessa memoria: la sua tabella è tenuta sul disco. Uno troppo grande per aprirlo nel suo archivio viene decompresso accanto, dopo averlo chiesto.",
  "feature.chess_play.a1": "No. La tua linea resta solo nella vista. Salva come nuovo PGN (s) scrive la partita fin lì con la tua linea in un nuovo file accanto. Per una partita dentro un archivio chiede dove.",
  "feature.chess_play.a2": "Coxswain usa un motore installato qui e non ne scarica mai uno. Impostazioni → Giochi → Motori scacchistici elenca Stockfish e altri motori UCI, trovati o con la riga che li installa; Prova il motore mostra poi le opzioni proprie del motore.",
  "feature.chess_play.a3": "Premi da 1 a 5 per quella linea, o fai clic su una delle sue mosse: la scacchiera la mostra mentre la partita resta dov’è. → ← la scorrono, Enter la gioca fino alla mossa mostrata, Esc torna alla partita.",
@@ -4829,5 +4829,9 @@
  "pick.choose": "Scegli",
  "chess.engine_from_review": "dall’analisi della partita, cerca più a fondo…",
  "chess.memory": "Posizioni ricordate",
- "chess.memory_hint": "Ogni posizione analizzata dal motore, dal vivo o in un’analisi della partita, è tenuta qui con il motore e le sue impostazioni, così non viene analizzata di nuovo. Al massimo {most} posizioni (meno di 40 MB); le più vecchie se ne vanno per prime. Spazio su disco le cancella."
+ "chess.memory_hint": "Ogni posizione analizzata dal motore, dal vivo o in un’analisi della partita, è tenuta qui con il motore e le sue impostazioni, così non viene analizzata di nuovo. Al massimo {most} posizioni (meno di 40 MB); le più vecchie se ne vanno per prime. Spazio su disco le cancella.",
+ "chess.beside_title": "Decomprimi accanto all’archivio",
+ "chess.beside_ask": "{name} occupa {size}: troppo grande per aprirlo dentro l’archivio. Decomprimerlo accanto all’archivio, in {folder}, e aprirlo lì? La copia è tua: resta lì finché non la elimini.",
+ "chess.beside_go": "Decomprimi e apri",
+ "chess.beside_failed": "Impossibile decomprimere {name}"
 }

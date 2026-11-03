@@ -4141,9 +4141,209 @@ pub fn create_locked(
     )
 }
 
+// ---------------------------------------------------------------- a game database unpacked beside its archive
+
+/// A game file in an archive too large to look at there (past `PEEK_MAX`, with the files of
+/// its database beside it): Lumbra's Gigabase, 4.9 GB of SCID 5 in a 7z of 1.4 GB. Instead of
+/// only refusing, the apps offer to unpack it into a folder beside the archive and open it
+/// there (`unpack_beside`): a copy of the user's own, not one in the cache.
+#[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
+pub struct Beside {
+    /// The archive, on the disk.
+    pub archive: PathBuf,
+    /// What comes out, by their names in it: the file, then its database's others.
+    pub files: Vec<String>,
+    /// Where they go: a folder beside the archive, named after it.
+    pub folder: PathBuf,
+    /// The file to open once they are out.
+    pub open: PathBuf,
+    /// Their size in all.
+    pub bytes: u64,
+    /// Each one's size, as `files`.
+    pub sizes: Vec<u64>,
+}
+
+impl Beside {
+    /// The paths through the archive of the files not in the folder whole yet: what a copy
+    /// into the folder brings out.
+    pub fn missing(&self) -> Vec<PathBuf> {
+        self.files
+            .iter()
+            .zip(&self.sizes)
+            .filter(|(f, size)| !self.whole(f, **size))
+            .map(|(f, _)| f.split('/').fold(self.archive.clone(), |p, s| p.join(s)))
+            .collect()
+    }
+
+    /// The file `f` of the archive is in the folder, a file (not a link) of its size (any size
+    /// when the archive does not say it).
+    fn whole(&self, f: &str, size: u64) -> bool {
+        let name = f.rsplit('/').next().unwrap_or(f);
+        one_name(name) && std::fs::symlink_metadata(self.folder.join(name)).is_ok_and(|m| m.is_file() && (m.len() == size || size == 0))
+    }
+
+    /// Every file is in the folder already, whole: unpacked before, opened as it is.
+    pub fn unpacked(&self) -> bool {
+        !self.files.is_empty() && self.files.iter().zip(&self.sizes).all(|(f, size)| self.whole(f, *size))
+    }
+}
+
+/// The archive's name without its ending: `Lumbras_si5.7z` → `Lumbras_si5`, `games.tar.gz`
+/// → `games`.
+fn bare_name(archive: &Path) -> String {
+    let name = archive.file_name().unwrap_or_default().to_string_lossy().into_owned();
+    let lower = name.to_ascii_lowercase();
+    let cut = ENDINGS.iter().map(|(e, _)| *e).chain([".7z", ".zip", ".rar", ".tar"]).filter(|e| lower.ends_with(e) && lower.len() > e.len()).map(str::len).max();
+    let bare = match cut {
+        Some(n) => name[..name.len() - n].to_string(),
+        None => name.rsplit_once('.').map_or(name.clone(), |(s, _)| s.to_string()),
+    };
+    // An archive named by its ending alone (`.7z`): a folder of its whole name.
+    if bare.is_empty() { name } else { bare }
+}
+
+/// The offer for the game file `path` (through an archive on the disk), when it is one and too
+/// large to look at in place; `None` otherwise (`peek` takes it, or it is no game file).
+pub fn beside(path: &Path) -> Option<Beside> {
+    beside_past(path, PEEK_MAX)
+}
+
+fn beside_past(path: &Path, most: u64) -> Option<Beside> {
+    let (archive, inner) = split(path).filter(|(a, i)| !i.is_empty() && a.is_file())?;
+    if !matches!(crate::chess::format(Path::new(&inner)), Some(crate::chess::Format::Pgn | crate::chess::Format::Pdn | crate::chess::Format::Kif | crate::chess::Format::Csa | crate::chess::Format::Pbn)) {
+        return None;
+    }
+    let all = items(&archive).ok()?;
+    let it = all.iter().find(|i| i.name == inner && !i.dir)?;
+    let (within, name) = match inner.rsplit_once('/') {
+        Some((f, n)) => (format!("{f}/"), n.to_string()),
+        None => (String::new(), inner.clone()),
+    };
+    if !one_name(&name) {
+        return None;
+    }
+    let mut files = vec![(inner.clone(), it.size)];
+    // A SCID or ChessBase database: the files beside it under its name come too.
+    let open_as = Path::new(&name);
+    if (crate::chess::cbh::is_cbh(open_as) && !crate::chess::cbv::is_cbv(open_as)) || crate::chess::scid::is_scid(open_as) {
+        let stem = name.rsplit_once('.').map_or(name.as_str(), |(s, _)| s);
+        for i in all.iter() {
+            let rest = i.name.strip_prefix(&within).filter(|n| one_name(n));
+            if !i.dir && i.name != inner && rest.is_some_and(|n| n.rsplit_once('.').is_some_and(|(s, _)| s.eq_ignore_ascii_case(stem))) {
+                files.push((i.name.to_string(), i.size));
+            }
+        }
+    }
+    let bytes: u64 = files.iter().map(|f| f.1).sum();
+    if bytes <= most {
+        return None;
+    }
+    // The first folder of the archive's name whose files are not there, or are there whole
+    // (unpacked before: opened as they are).
+    let parent = archive.parent()?.to_path_buf();
+    let bare = bare_name(&archive);
+    let folder = (1..100).map(|n| parent.join(if n == 1 { bare.clone() } else { format!("{bare} ({n})") })).find(|f| {
+        std::fs::symlink_metadata(f).is_ok_and(|m| m.is_dir())
+            && files.iter().all(|(n, size)| std::fs::symlink_metadata(f.join(&n[within.len()..])).map_or(true, |m| m.is_file() && (m.len() == *size || *size == 0)))
+            || std::fs::symlink_metadata(f).is_err()
+    })?;
+    let open = folder.join(&name);
+    let (files, sizes) = files.into_iter().unzip();
+    Some(Beside { archive, files, folder, open, bytes, sizes })
+}
+
+/// Unpacks what `b` names into its folder, each file under a passing name until it is whole
+/// (never one cut short under its own name, never over a file), and returns the file to open.
+/// A file already there whole (unpacked before) is left as it is. Stopped by the app's Stop
+/// (`stop::during`), the files whole so far stay.
+pub fn unpack_beside(b: &Beside) -> io::Result<PathBuf> {
+    std::fs::create_dir_all(&b.folder)?;
+    let password = password_for(&b.archive, None);
+    let within = b.files[0].rsplit_once('/').map_or(0, |(f, _)| f.len() + 1);
+    let all = items(&b.archive)?;
+    let size = |n: &str| all.iter().find(|i| i.name == n).map_or(0, |i| i.size);
+    crate::stop::expect(b.files.iter().map(|f| size(f)).sum());
+    for f in &b.files {
+        let to = b.folder.join(&f[within..]);
+        if to.parent() != Some(b.folder.as_path()) {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, f.clone()));
+        }
+        if std::fs::metadata(&to).is_ok_and(|m| m.is_file() && m.len() == size(f)) {
+            continue;
+        }
+        if std::fs::symlink_metadata(&to).is_ok() {
+            return Err(crate::fs::exists(&to));
+        }
+        let part = crate::fs::beside(&to);
+        let done = copy_out_with(&b.archive, f, &part, password.as_deref(), Copy::default());
+        if let Err(e) = done {
+            let _ = std::fs::remove_file(&part);
+            return Err(e);
+        }
+        // Never over a file that came meanwhile.
+        if let Err(e) = crate::fs::put(&part, &to) {
+            let _ = std::fs::remove_file(&part);
+            return Err(e);
+        }
+    }
+    Ok(b.open.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A SCID database in a zip, too large to look at there: offered to be unpacked beside the
+    /// zip, in a folder of its name, all three files; unpacked whole and opened from there;
+    /// offered again, the same folder, nothing unpacked twice; never over another file.
+    #[test]
+    fn a_game_database_unpacked_beside_its_archive() {
+        let d = std::env::temp_dir().join(format!("coxswain-beside-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("src/db")).unwrap();
+        let test = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/chess/scid-test");
+        for e in ["si5", "sg5", "sn5"] {
+            std::fs::copy(test.join(format!("test.{e}")), d.join(format!("src/db/club.{e}"))).unwrap();
+        }
+        std::fs::write(d.join("src/db/other.pgn"), "1.e4 *\n").unwrap();
+        let zip = d.join("Big base.zip");
+        create(&zip, &[d.join("src/db")]).unwrap();
+        let path = zip.join("db/club.si5");
+        for (n, bare) in [("Lumbras_si5.7z", "Lumbras_si5"), ("games.tar.gz", "games"), ("a.b.zip", "a.b"), ("noend", "noend"), (".7z", ".7z")] {
+            assert_eq!(bare_name(Path::new(n)), bare);
+        }
+        assert_eq!(beside(&path), None, "small: looked at in place");
+        assert_eq!(beside_past(&zip.join("db/notes.txt"), 0), None, "no game file");
+        let b = beside_past(&path, 0).unwrap();
+        assert!(!b.unpacked());
+        assert_eq!(b.missing().len(), 3);
+        assert_eq!(split(&b.missing()[0]), Some((zip.clone(), "db/club.si5".to_string())));
+        assert_eq!((b.folder.clone(), b.files.len(), b.open.clone()), (d.join("Big base"), 3, d.join("Big base/club.si5")));
+        assert!(!b.files.iter().any(|f| f.ends_with("other.pgn")));
+        let open = unpack_beside(&b).unwrap();
+        let games = |p: &Path| {
+            let l = crate::chess::Library::open(p).unwrap();
+            while !l.progress().done {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            l.progress().games
+        };
+        assert!(games(&open) > 0);
+        assert_eq!(games(&open), games(&d.join("src/db/club.si5")));
+        // No passing name left beside them.
+        assert_eq!(std::fs::read_dir(&b.folder).unwrap().count(), 3);
+        // Again: the same folder, its files whole, nothing copied over them.
+        assert_eq!(beside_past(&path, 0).unwrap().folder, b.folder);
+        assert!(b.unpacked());
+        unpack_beside(&b).unwrap();
+        // A file of the same name and another size there: the next folder.
+        std::fs::write(b.folder.join("club.sg5"), "mine").unwrap();
+        let c = beside_past(&path, 0).unwrap();
+        assert_eq!(c.folder, d.join("Big base (2)"));
+        assert!(unpack_beside(&b).is_err(), "never over the file that came");
+        assert_eq!(std::fs::read(b.folder.join("club.sg5")).unwrap(), b"mine");
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     /// Held by every test that makes copies of archives inside archives: they share `NESTED`
     /// and its folder, which `clean_up` empties, so they run one at a time.

@@ -1371,7 +1371,7 @@
  "feature.chess.q2": "Kas see loeb ChessBase'i faile?",
  "feature.chess.q3": "Kuidas näha käike oma keele tähtedega?",
  "feature.chess.title": "Male partiid",
- "feature.chess.what": "PGN-failid filtreeritava ja sorditava partiide tabelina, iga partii laual oma käikude, variantide ja kommentaaridega; EPD- ja FEN-positsioonid; Polyglot raamatu käigud iga positsiooni jaoks. {chess} avab need. Leia see seis loetleb sinu failide partiid, mis jõuavad näidatud seisu. Loetakse ka SCID-andmebaase (.si4, .si5). Miljonite partiidega andmebaas avaneb sama mäluga: selle tabel hoitakse kettal.",
+ "feature.chess.what": "PGN-failid filtreeritava ja sorditava partiide tabelina, iga partii laual oma käikude, variantide ja kommentaaridega; EPD- ja FEN-positsioonid; Polyglot raamatu käigud iga positsiooni jaoks. {chess} avab need. Leia see seis loetleb sinu failide partiid, mis jõuavad näidatud seisu. Loetakse ka SCID-andmebaase (.si4, .si5). Miljonite partiidega andmebaas avaneb sama mäluga: selle tabel hoitakse kettal. Liiga suur, et arhiivis avada, pakitakse pärast küsimist arhiivi kõrvale lahti.",
  "feature.chess_play.a1": "Ei. Sinu variant jääb ainult vaatesse. Salvesta uue PGN-ina (s) kirjutab partii siiani koos sinu variandiga uude faili kõrvale. Arhiivis oleva partii puhul küsib see, kuhu.",
  "feature.chess_play.a2": "Coxswain kasutab siia paigaldatud mootorit ega laadi kunagi ühtegi alla. Sätted → Mängud → Malemootorid loetleb Stockfishi ja teised UCI-mootorid, leitud või neid paigaldava reaga; Proovi mootorit näitab siis mootori enda sätteid.",
  "feature.chess_play.a3": "Vajuta selle variandi jaoks 1 kuni 5 või klõpsa selle käigul: laud näitab seda, partii jääb paigale. → ← liiguvad selles, Enter mängib selle kuni näidatud käiguni, Esc viib tagasi partiisse.",
@@ -4731,5 +4731,9 @@
  "pick.choose": "Vali",
  "chess.engine_from_review": "partii analüüsist, vaatab sügavamale…",
  "chess.memory": "Meelde jäetud seisud",
- "chess.memory_hint": "Iga seis, mida mootor on analüüsinud, otse või partii analüüsis, hoitakse siin koos mootori ja seadetega, nii et seda ei analüüsita uuesti. Kõige rohkem {most} seisu (alla 40 MB); vanimad lähevad esimesena. Kettakasutus kustutab need."
+ "chess.memory_hint": "Iga seis, mida mootor on analüüsinud, otse või partii analüüsis, hoitakse siin koos mootori ja seadetega, nii et seda ei analüüsita uuesti. Kõige rohkem {most} seisu (alla 40 MB); vanimad lähevad esimesena. Kettakasutus kustutab need.",
+ "chess.beside_title": "Paki lahti arhiivi kõrvale",
+ "chess.beside_ask": "{name} on {size}: liiga suur, et arhiivi sees avada. Kas pakkida see arhiivi kõrvale kausta {folder} ja avada seal? Koopia on teie oma: see jääb sinna, kuni selle kustutate.",
+ "chess.beside_go": "Paki lahti ja ava",
+ "chess.beside_failed": "{name} lahtipakkimine ebaõnnestus"
 }

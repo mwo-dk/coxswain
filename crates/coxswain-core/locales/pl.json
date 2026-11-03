@@ -1471,7 +1471,7 @@
  "feature.chess.q2": "Czy czyta pliki ChessBase?",
  "feature.chess.q3": "Jak zobaczyć ruchy literami mojego języka?",
  "feature.chess.title": "Partie szachowe",
- "feature.chess.what": "Pliki PGN jako tabela partii, którą można filtrować i sortować, każda partia na szachownicy z ruchami, wariantami i komentarzami; pozycje EPD i FEN; ruchy książki Polyglot dla każdej pozycji. Otwiera je {chess}. Znajdź tę pozycję wylicza partie w twoich plikach, które dochodzą do pokazanej szachownicy. Odczytywane są też bazy SCID (.si4, .si5). Baza milionów partii otwiera się w tej samej pamięci: jej tabela jest trzymana na dysku.",
+ "feature.chess.what": "Pliki PGN jako tabela partii, którą można filtrować i sortować, każda partia na szachownicy z ruchami, wariantami i komentarzami; pozycje EPD i FEN; ruchy książki Polyglot dla każdej pozycji. Otwiera je {chess}. Znajdź tę pozycję wylicza partie w twoich plikach, które dochodzą do pokazanej szachownicy. Odczytywane są też bazy SCID (.si4, .si5). Baza milionów partii otwiera się w tej samej pamięci: jej tabela jest trzymana na dysku. Zbyt duża, by otworzyć ją w archiwum, jest po pytaniu rozpakowywana obok niego.",
  "feature.chess_play.a1": "Nie. Twój wariant jest tylko w widoku. Zapisz jako nowy PGN (s) zapisuje partię do tego miejsca z twoim wariantem w nowym pliku obok. Przy partii z archiwum pyta, gdzie.",
  "feature.chess_play.a2": "Coxswain używa silnika zainstalowanego tutaj i nigdy go nie pobiera. Ustawienia → Gry → Silniki szachowe pokazują Stockfisha i inne silniki UCI, znalezione albo z wierszem, który je instaluje; Testuj silnik pokazuje potem własne opcje silnika.",
  "feature.chess_play.a3": "Naciśnij 1–5 dla tej linii albo kliknij jeden z jej ruchów: szachownica ją pokazuje, a partia zostaje tam, gdzie jest. → ← przechodzą przez nią, Enter rozgrywa ją do pokazanego ruchu, Esc wraca do partii.",
@@ -4927,5 +4927,9 @@
  "pick.choose": "Wybierz",
  "chess.engine_from_review": "z analizy partii, szuka głębiej…",
  "chess.memory": "Zapamiętane pozycje",
- "chess.memory_hint": "Każda pozycja przeanalizowana przez silnik, na żywo lub w analizie partii, jest trzymana tutaj z silnikiem i jego ustawieniami, więc nie jest analizowana ponownie. Najwyżej {most} pozycji (poniżej 40 MB); najstarsze odchodzą pierwsze. Użycie dysku je czyści."
+ "chess.memory_hint": "Każda pozycja przeanalizowana przez silnik, na żywo lub w analizie partii, jest trzymana tutaj z silnikiem i jego ustawieniami, więc nie jest analizowana ponownie. Najwyżej {most} pozycji (poniżej 40 MB); najstarsze odchodzą pierwsze. Użycie dysku je czyści.",
+ "chess.beside_title": "Rozpakuj obok archiwum",
+ "chess.beside_ask": "{name} ma {size}: za dużo, by otworzyć w archiwum. Rozpakować obok archiwum, do {folder}, i otworzyć tam? Kopia jest Twoja: zostaje tam, dopóki jej nie usuniesz.",
+ "chess.beside_go": "Rozpakuj i otwórz",
+ "chess.beside_failed": "Nie udało się rozpakować {name}"
 }

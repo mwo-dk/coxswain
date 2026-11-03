@@ -1371,7 +1371,7 @@
  "feature.chess.q2": "Læser det ChessBase-filer?",
  "feature.chess.q3": "Hvordan ser jeg træk med bogstaverne fra mit eget sprog?",
  "feature.chess.title": "Skakpartier",
- "feature.chess.what": "PGN-filer som en tabel over partier, du kan filtrere og sortere, hvert parti på et bræt med træk, varianter og kommentarer; EPD- og FEN-stillinger; en Polyglot-bogs træk for hver stilling. {chess} åbner dem. Find denne stilling viser partierne i dine filer, der når den viste stilling. SCID-databaser (.si4, .si5) læses også. En database med millioner af partier åbnes i den samme hukommelse: dens tabel gemmes på disken.",
+ "feature.chess.what": "PGN-filer som en tabel over partier, du kan filtrere og sortere, hvert parti på et bræt med træk, varianter og kommentarer; EPD- og FEN-stillinger; en Polyglot-bogs træk for hver stilling. {chess} åbner dem. Find denne stilling viser partierne i dine filer, der når den viste stilling. SCID-databaser (.si4, .si5) læses også. En database med millioner af partier åbnes i den samme hukommelse: dens tabel gemmes på disken. En, der er for stor til at åbne i sit arkiv, pakkes ud ved siden af det efter at have spurgt.",
  "feature.chess_play.a1": "Nej. Din linje gemmes kun i visningen. Gem som ny PGN (s) skriver partiet indtil dér med din linje i en ny fil ved siden af. For et parti inde i et arkiv spørger den hvor.",
  "feature.chess_play.a2": "Coxswain bruger en motor installeret her og henter aldrig en. Indstillinger → Spil → Skakmotorer viser Stockfish og andre UCI-motorer, fundet eller med linjen, der installerer dem; Test motor viser så motorens egne indstillinger.",
  "feature.chess_play.a3": "Tryk 1 til 5 for varianten, eller klik på et af dens træk: brættet viser den, mens partiet bliver, hvor det er. → ← går gennem den, Enter spiller den til og med det viste træk, Esc går tilbage til partiet.",
@@ -4731,5 +4731,9 @@
  "pick.choose": "Vælg",
  "chess.engine_from_review": "fra partianalysen, ser dybere …",
  "chess.memory": "Huskede stillinger",
- "chess.memory_hint": "Hver stilling, motoren har analyseret, live eller i en partianalyse, gemmes her med motor og indstillinger, så den ikke analyseres igen. Højst {most} stillinger (under 40 MB); de ældste går først. Diskforbrug rydder dem."
+ "chess.memory_hint": "Hver stilling, motoren har analyseret, live eller i en partianalyse, gemmes her med motor og indstillinger, så den ikke analyseres igen. Højst {most} stillinger (under 40 MB); de ældste går først. Diskforbrug rydder dem.",
+ "chess.beside_title": "Pak ud ved siden af arkivet",
+ "chess.beside_ask": "{name} fylder {size}: for stort til at åbne inde i arkivet. Pak det ud ved siden af arkivet, i {folder}, og åbn det der? Kopien er din: den bliver der, til du sletter den.",
+ "chess.beside_go": "Pak ud og åbn",
+ "chess.beside_failed": "Kunne ikke pakke {name} ud"
 }

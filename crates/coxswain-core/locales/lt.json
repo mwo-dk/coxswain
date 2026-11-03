@@ -1421,7 +1421,7 @@
  "feature.chess.q2": "Ar skaito ChessBase failus?",
  "feature.chess.q3": "Kaip matyti ėjimus savo kalbos raidėmis?",
  "feature.chess.title": "Šachmatų partijos",
- "feature.chess.what": "PGN failai kaip partijų lentelė, kurią galima filtruoti ir rūšiuoti; kiekviena partija lentoje su savo ėjimais, variantais ir komentarais; EPD ir FEN pozicijos; Polyglot knygos ėjimai kiekvienai pozicijai. Atidaro {chess}. Rasti šią poziciją išvardija jūsų failų partijas, pasiekiančias rodomą lentą. Skaitomos ir SCID duomenų bazės (.si4, .si5). Milijonų partijų duomenų bazė atveriama ta pačia atmintimi: jos lentelė laikoma diske.",
+ "feature.chess.what": "PGN failai kaip partijų lentelė, kurią galima filtruoti ir rūšiuoti; kiekviena partija lentoje su savo ėjimais, variantais ir komentarais; EPD ir FEN pozicijos; Polyglot knygos ėjimai kiekvienai pozicijai. Atidaro {chess}. Rasti šią poziciją išvardija jūsų failų partijas, pasiekiančias rodomą lentą. Skaitomos ir SCID duomenų bazės (.si4, .si5). Milijonų partijų duomenų bazė atveriama ta pačia atmintimi: jos lentelė laikoma diske. Per didelė atverti archyve bazė, paklausus, išpakuojama šalia jo.",
  "feature.chess_play.a1": "Ne. Jūsų variantas yra tik rodinyje. Įrašyti kaip naują PGN (s) įrašo partiją iki čia su jūsų variantu į naują failą šalia. Partijai archyve jis paklausia, kur.",
  "feature.chess_play.a2": "Coxswain naudoja čia įdiegtą variklį ir niekada jo neatsisiunčia. Parametrai → Žaidimai → Šachmatų varikliai rodo Stockfish ir kitus UCI variklius, rastus arba su juos įdiegiančia eilute; Išbandyti variklį tada parodo paties variklio parinktis.",
  "feature.chess_play.a3": "Paspauskite 1–5 tam variantui arba spustelėkite vieną jo ėjimą: lenta jį rodo, o partija lieka, kur buvo. → ← juo eina, Enter sužaidžia jį iki rodomo ėjimo, Esc grįžta į partiją.",
@@ -4829,5 +4829,9 @@
  "pick.choose": "Pasirinkti",
  "chess.engine_from_review": "iš partijos analizės, žiūri giliau…",
  "chess.memory": "Įsimintos pozicijos",
- "chess.memory_hint": "Kiekviena variklio išanalizuota pozicija, tiesiogiai ar partijos analizėje, laikoma čia su varikliu ir jo nustatymais, kad nebūtų analizuojama iš naujo. Daugiausia {most} pozicijų (mažiau nei 40 MB); seniausios išeina pirmos. Disko naudojimas jas išvalo."
+ "chess.memory_hint": "Kiekviena variklio išanalizuota pozicija, tiesiogiai ar partijos analizėje, laikoma čia su varikliu ir jo nustatymais, kad nebūtų analizuojama iš naujo. Daugiausia {most} pozicijų (mažiau nei 40 MB); seniausios išeina pirmos. Disko naudojimas jas išvalo.",
+ "chess.beside_title": "Išpakuoti šalia archyvo",
+ "chess.beside_ask": "{name} užima {size}: per didelis, kad būtų atvertas archyve. Išpakuoti jį šalia archyvo, į {folder}, ir atverti ten? Kopija jūsų: ji lieka ten, kol ją ištrinsite.",
+ "chess.beside_go": "Išpakuoti ir atverti",
+ "chess.beside_failed": "Nepavyko išpakuoti {name}"
 }
