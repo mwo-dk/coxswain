@@ -313,8 +313,9 @@ leave them out.
 
 #### How do I open a file inside a zip in the terminal app?
 
-To look at it: **Enter** on the zip to go inside, the cursor on the file, **F3**. A copy goes to
-your viewer (a games file opens in the games view); a locked file asks for its password first. To edit it or open it in another
+To look at it: **Enter** on the zip to go inside, the cursor on the file, **F3**. A text, a log or a
+long file is shown in the built-in viewer straight out of the archive, a copy goes to a `viewer` of your own (a games
+file opens in the games view); a locked file asks for its password first. To edit it or open it in another
 program, copy it out with **F5** first: **Enter** and **F4** on a file inside only say
 *tools.zip is an archive: F5 copies this file out of it*.
 

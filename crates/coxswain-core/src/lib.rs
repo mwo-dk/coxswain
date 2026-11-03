@@ -31,6 +31,7 @@ pub mod drag;
 pub mod dupes;
 pub mod edit;
 pub mod enter;
+pub mod entry_file;
 pub mod ebook;
 pub mod export;
 pub mod extract;

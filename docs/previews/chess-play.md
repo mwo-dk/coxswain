@@ -83,8 +83,9 @@ says *Could not save the line:* and why.
 
 ### A game from inside an archive
 
-A game opened from inside an archive is read from a copy in the cache, so saving next to the
-copy would leave the new file where it can be swept. *Save as new PGN* (**s**) and *Save as
+A game opened from inside an archive is read from the archive (a PGN family file as it is
+unpacked, the others from a copy in the cache), so saving next to the file would leave the new
+one where it can be swept or cannot be written. *Save as new PGN* (**s**) and *Save as
 annotated PGN* (**w**) ask where the file goes instead:
 
 | Choice | Terminal app | Desktop app | Result |

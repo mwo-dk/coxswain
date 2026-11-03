@@ -376,7 +376,32 @@ pub(crate) fn is_dhtml(path: &Path) -> bool {
         return false;
     }
     let mut head = [0u8; 64];
+    if in_archive(path) {
+        return crate::archive::head(path, 64).is_ok_and(|(b, _)| crate::xiangqi::is_dhtml(&b));
+    }
     crate::fs::open_regular(path).and_then(|mut f| read_full(&mut f, &mut head)).is_ok_and(|n| crate::xiangqi::is_dhtml(&head[..n]))
+}
+
+/// Whether `path` is a file inside an archive (not on the disk): its games are read as it is
+/// unpacked (`entry_file`), nothing copied. ChessBase and SCID databases, which are read in
+/// pieces from several files, and opening books are not: those are read from a copy.
+pub fn in_archive(path: &Path) -> bool {
+    !path.exists() && crate::archive::split(path).is_some()
+}
+
+/// Whether the games of `path` can be read from inside its archive without a copy: a PGN family
+/// file by its name (also packed), and a DhtmlXQ game by its first bytes.
+pub fn streams(path: &Path) -> bool {
+    if !in_archive(path) || super::scid::is_scid(path) || super::cbh::is_cbh(path) || !crate::archive::streamable(path) {
+        return false;
+    }
+    matches!(super::format(path), Some(super::Format::Pgn | super::Format::Pdn | super::Format::Pbn | super::Format::Kif | super::Format::Csa)) || is_dhtml(path)
+}
+
+/// The file at `path` to read from its start: on the disk, or inside an archive as it is
+/// unpacked.
+fn open_any(path: &Path) -> io::Result<Box<dyn Read + Send>> {
+    if in_archive(path) { Ok(Box::new(crate::entry_file::EntryReader::open(path)?)) } else { Ok(Box::new(File::open(path)?)) }
 }
 
 /// What one file may cost: a file of endless tiny games, or a small packed file that unpacks
@@ -401,7 +426,7 @@ impl Default for Limits {
 /// The file's text, unpacked as it is read (up to `unpacked` bytes); `read` counts the file's
 /// own bytes.
 pub(crate) fn reader(path: &Path, read: Arc<AtomicU64>, unpacked: u64) -> io::Result<Box<dyn Read + Send>> {
-    let f = BufReader::new(Counted { inner: File::open(path)?, read });
+    let f = BufReader::new(Counted { inner: open_any(path)?, read });
     Ok(match pack(path) {
         Pack::None => Box::new(f),
         Pack::Gz => Box::new(flate2::read::MultiGzDecoder::new(f).take(unpacked)),
@@ -595,12 +620,21 @@ struct Source {
     open: Option<(Box<dyn Read + Send>, u64)>,
     /// A packed file's restart points (`tar_index`), once read.
     points: Option<Vec<crate::tar_index::Point>>,
+    /// A file inside an archive: read at a place as it is unpacked.
+    entry: Option<crate::entry_file::EntryFile>,
+    /// How the file is packed, told once (a DhtmlXQ game is told by reading its start).
+    pack: Pack,
 }
 
 impl Source {
     fn read(&mut self, offset: u64, len: u32) -> io::Result<Vec<u8>> {
         let mut buf = vec![0; len.min(MAX_GAME) as usize];
-        if pack(&self.path) == Pack::None {
+        if self.pack == Pack::None {
+            if let Some(e) = &self.entry {
+                let n = e.read_at(&mut buf, offset)?;
+                buf.truncate(n);
+                return Ok(buf);
+            }
             let mut f = File::open(&self.path)?;
             f.seek(SeekFrom::Start(offset))?;
             let n = read_full(&mut f, &mut buf)?;
@@ -766,11 +800,19 @@ impl Library {
 
     /// `open`, with limits of its own.
     pub fn open_with(path: &Path, limits: Limits) -> io::Result<Library> {
-        let size = std::fs::metadata(path)?.len();
+        let inside = in_archive(path);
+        let size = if inside { crate::archive::entry_size(path)? } else { std::fs::metadata(path)?.len() };
+        if inside && !streams(path) {
+            return Err(io::Error::new(io::ErrorKind::Unsupported, path.display().to_string()));
+        }
         let read = Arc::new(AtomicU64::new(0));
         let shared = Arc::new(Mutex::new(Shared::default()));
         let stop = Arc::new(AtomicBool::new(false));
-        let source = Mutex::new(Source { path: path.to_path_buf(), open: None, points: None });
+        // A plain file inside an archive is read at a place by `entry`; a packed one, or a DhtmlXQ
+        // game (read as the PGN it is turned into), from an unpacker (`Source::read`).
+        let packing = pack(path);
+        let entry = if inside && packing == Pack::None { Some(crate::entry_file::EntryFile::open(path)?) } else { None };
+        let source = Mutex::new(Source { path: path.to_path_buf(), open: None, points: None, entry, pack: packing });
         let scid = if super::scid::is_scid(path) { Some(Arc::new(super::scid::Base::open(path)?)) } else { None };
         let cbh = super::cbh::is_cbh(path);
         let format = if scid.is_some() || cbh { super::Format::Pgn } else { kind(path) };
@@ -800,8 +842,7 @@ impl Library {
             thread.spawn(move || index(|each| scan_cbh(&p, &st, &rd, size, true, each), &sh, &t, &st, super::Format::Pgn, limits, || false))?;
             return Ok(lib(shared, size));
         }
-        let packing = pack(path);
-        let r = if matches!(packing, Pack::Gz | Pack::Zst) { None } else { Some(reader(path, read.clone(), limits.unpacked)?) };
+        let r = if matches!(packing, Pack::Gz | Pack::Zst) && !inside { None } else { Some(reader(path, read.clone(), limits.unpacked)?) };
         if r.is_none() {
             File::open(path)?;
         }
@@ -982,7 +1023,7 @@ impl Library {
             return base.pgn(offset as u32);
         }
         if let Some(pgn) = archived_pgn(&self.path) {
-            return Ok(text(&Source { path: pgn, open: None, points: None }.read(offset, len)?).into_owned());
+            return Ok(text(&Source { pack: pack(&pgn), path: pgn, open: None, points: None, entry: None }.read(offset, len)?).into_owned());
         }
         if super::cbh::is_cbh(&self.path) {
             return super::cbh::pgn(&self.path, offset);
@@ -1621,6 +1662,49 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
         (l, d)
+    }
+
+    /// The games of a PGN file and of a DhtmlXQ game inside a zip are read as they are unpacked:
+    /// the table, a game at a place before the last one read, no copy on the disk.
+    #[test]
+    fn games_inside_an_archive_are_read_without_a_copy() {
+        let d = tempdir::Dir::new();
+        let src = d.0.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        // More than a block of the entry's stream: the games are read across blocks.
+        let n = 4000;
+        std::fs::write(src.join("many.pgn"), TWO.repeat(n)).unwrap();
+        let dhtml = "[DhtmlXQ]\n[DhtmlXQ_ver]www_vietcotuong_com[/DhtmlXQ_ver]\n[DhtmlXQ_red]Red[/DhtmlXQ_red]\n[DhtmlXQ_black]Black[/DhtmlXQ_black]\n[DhtmlXQ_binit]0919293949596979891777062646668600102030405060708012720323436383[/DhtmlXQ_binit]\n[DhtmlXQ_movelist]262563641927[/DhtmlXQ_movelist]\n";
+        std::fs::write(src.join("game.che"), dhtml).unwrap();
+        std::fs::write(src.join("notes.txt"), "just words\n").unwrap();
+        let zip = d.0.join("games.zip");
+        crate::archive::create(&zip, &[src.join("many.pgn"), src.join("game.che"), src.join("notes.txt")]).unwrap();
+        let copies = || crate::archive::peek_folder().ok().and_then(|f| std::fs::read_dir(f).ok()).map_or(0, |r| r.count());
+        let before = copies();
+        let (pgn, che) = (zip.join("many.pgn"), zip.join("game.che"));
+        assert!(streams(&pgn) && streams(&che) && !streams(&zip.join("notes.txt")));
+        let wait = |l: &Library| {
+            let limit = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(60));
+            while !l.progress().done {
+                assert!(std::time::Instant::now() < limit, "games never read");
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        let l = Library::open(&pgn).unwrap();
+        wait(&l);
+        let progress = l.progress();
+        assert_eq!((progress.games, progress.error), (2 * n, None));
+        // The last game first, then the first (a place before the last one read).
+        for i in [2 * n as u32 - 1, 0] {
+            assert_eq!(l.game(i).unwrap().tags.iter().find(|(k, _)| k == "Event").map(|(_, v)| v.as_str()), Some(if i % 2 == 0 { "Paris" } else { "London" }));
+        }
+        let x = Library::open(&che).unwrap();
+        wait(&x);
+        assert_eq!((x.format, x.progress().games), (crate::chess::Format::Xiangqi, 1));
+        assert!(x.game(0).unwrap().tags.iter().any(|(_, v)| v == "Red"));
+        // A file that is no game, and one in a disk image or locked, is not read so.
+        assert!(Library::open(&zip.join("notes.txt")).is_err());
+        assert_eq!(copies(), before, "no copy was made on the disk");
     }
 
     mod tempdir {

@@ -363,6 +363,25 @@ impl Viewer {
         v
     }
 
+    /// The file `path` inside an archive as a log or a long text, read as it is unpacked a block
+    /// at a time (`logs::View::open_in_archive`), no copy made. `None` for a file that is no text
+    /// read by lines (binary, UTF-16); an error for one that cannot be read so (locked).
+    pub fn in_archive(path: &Path, labels: [&str; 2]) -> std::io::Result<Option<Viewer>> {
+        let Some(view) = logs::View::open_in_archive(path)? else { return Ok(None) };
+        let [edit, view_key] = labels;
+        let (log, utf8) = (view.log, view.reader().utf8);
+        let mut v = Viewer::text(path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned()), "");
+        v.path = path.to_path_buf();
+        v.body = Body::File(view);
+        v.encoding = if utf8 { Encoding::Utf8 } else { Encoding::Latin1 };
+        v.points = vec![];
+        v.syntax = None;
+        v.numbers = true;
+        let keys = if log { t!("viewer.keys_log") } else { t!("viewer.keys_follow") };
+        v.key_line = format!("{keys} · {}", t!("viewer.keys", "edit" => edit, "view" => view_key));
+        Ok(Some(v))
+    }
+
     /// Long lines wrapped from the start, as **w** does: a text of paragraphs, not of lines.
     pub fn wrapped(mut self) -> Viewer {
         self.wrap = true;
@@ -1179,6 +1198,30 @@ mod tests {
         while v.busy() {
             v.poll();
         }
+    }
+
+    /// A long text inside a zip is paged through as it is unpacked: all its lines, and a search
+    /// finds one far down, with no copy of the file made.
+    #[test]
+    fn a_text_inside_an_archive_is_paged_without_a_copy() {
+        let d = std::env::temp_dir().join(format!("coxswain-viewer-archive-{}", std::process::id()));
+        std::fs::create_dir_all(d.join("src")).unwrap();
+        let text: String = (0..200_000).map(|i| format!("row {i} of a long text\n")).collect();
+        std::fs::write(d.join("src/long.txt"), &text).unwrap();
+        let zip = d.join("long.zip");
+        coxswain_core::archive::create(&zip, &[d.join("src/long.txt")]).unwrap();
+        let mut v = Viewer::in_archive(&zip.join("long.txt"), ["F4", "F3"]).unwrap().unwrap();
+        wait(&v);
+        assert_eq!(v.count().0, 200_000);
+        v.key(key(KeyCode::Char('/')), None);
+        for c in "row 199999 ".chars() {
+            v.key(key(KeyCode::Char(c)), None);
+        }
+        v.key(key(KeyCode::Enter), None);
+        finish(&mut v);
+        assert_eq!(v.found, Some(199_999));
+        assert!(Viewer::in_archive(&zip.join("none.txt"), ["F4", "F3"]).is_err());
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     /// Terminals report Shift+A as `a` with Shift: every text field types the capital.

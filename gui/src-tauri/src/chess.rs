@@ -162,6 +162,12 @@ pub async fn chess_book(path: PathBuf, fen: String, ctx: tauri::State<'_, crate:
     .map_err(|e| e.to_string())?
 }
 
+/// Whether the games of the file inside an archive are read as it is unpacked, with no copy.
+#[tauri::command]
+pub async fn chess_streams(path: PathBuf) -> bool {
+    tauri::async_runtime::spawn_blocking(move || chess::games::streams(&path)).await.unwrap_or(false)
+}
+
 /// Whether the file is a Polyglot opening book (`chess::sniff`), for the preview.
 #[tauri::command]
 pub async fn chess_is_book(path: PathBuf) -> bool {

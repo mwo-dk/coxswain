@@ -32,12 +32,17 @@
   const inside = $derived((!!pane?.archive || !!pane?.history) && !!raw && !raw.is_dir && raw.name !== "..");
   const inHistory = $derived(!!pane?.history && inside);
   /** Text and pictures inside an archive are read as they are unpacked, no copy made
-   *  (`archive::head`, through `read_text` and `asset:`); a file that cannot be read so (locked,
+   *  (`archive::head`, through `read_text` and `asset:`); logs, JSON Lines and a text over what
+   *  `read_text` reads go to the log view, which pages through the entry as it is unpacked
+   *  (`archive::stream`); a file that cannot be read so (locked,
    *  too large a picture, a game to put on its board) is listed here and gets its copy. PDFs,
    *  songs, videos and fonts, which the web view draws itself, come the same way up to 64 MB
    *  (`asset.rs`, `MAX_INSIDE`), a player's ranges from one unpacking. */
   let copied = $state([]);
-  const DIRECT = ["text", "markdown", "data", "image"];
+  /** A PGN family file inside an archive: its games are read as it is unpacked
+   *  (`chess::games::streams`, no copy); ChessBase, SCID, positions, books and Go come from a copy. */
+  const chessInside = $derived(inside && !inHistory && /\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa)$/i.test(raw.name) && !copied.includes(raw.path));
+  const DIRECT = ["text", "markdown", "data", "image", "log", "jsonl"];
   const DRAWN = ["pdf", "audio", "video", "font"];
   const direct = $derived(inside && !inHistory && (DIRECT.includes(previewKind(raw)) || (DRAWN.includes(previewKind(raw)) && raw.size <= 64 * 1024 * 1024)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
   /** `path` as the web view asks for it: from memory when it is read so. */
@@ -61,7 +66,7 @@
   let peeked = $state({ from: "", to: "", error: "" });
   $effect(() => {
     const cur = raw;
-    if (!inside || direct || untrack(() => peeked.from === cur.path && !peeked.error)) return;
+    if (!inside || direct || chessInside || untrack(() => peeked.from === cur.path && !peeked.error)) return;
     peeked = { from: cur.path, to: "", error: "" };
     const timer = setTimeout(() => peek(cur.path), 150);
     return () => clearTimeout(timer);
@@ -102,7 +107,7 @@
     invoke("is_model", { path: cur.path }).then((yes) => yes && e?.path === cur.path && (sniffed = { path: cur.path, kind: "netron" }), () => {});
   });
   const kind = $derived(
-    output ? "output" : online ? "online" : inside && e === raw && !direct ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
+    output ? "output" : online ? "online" : inside && e === raw && !direct && !chessInside ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
   );
   /** A blob of a model store that holds weights (Ollama's, a Hugging Face one's): by the name the
    *  store gives it (`local_models::names`), as its own name says nothing. */
@@ -231,8 +236,8 @@
           throw err;
         });
         if (e?.path !== cur.path) return;
-        // Games, provenance and BOMs are read by readers that need a file: from a copy.
-        const special = !bin && ((k === "text" && looksLikeDhtml(cur.name, s)) || (/\.(json|jsonl|ndjson|xml)$/i.test(cur.name) && (looksLikeProvenance(s) || looksLikeBom(s))));
+        // Provenance and BOMs are read by readers that need a file: from a copy.
+        const special = !bin && /\.(json|jsonl|ndjson|xml)$/i.test(cur.name) && (looksLikeProvenance(s) || looksLikeBom(s));
         if (unpacked && special) return void needsCopy(cur.path);
         // A DhtmlXQ xiangqi game (`chess::sniff`): on its board, unless the source is asked for.
         if (!bin && k === "text" && !src && looksLikeDhtml(cur.name, s)) {
@@ -262,9 +267,9 @@
             // Not parseable (or cut off at the size limit): show the source instead.
           }
         }
-        // JSON Lines, and a text larger than what is read here: in the log view, every line.
-        // Inside an archive the first part is shown, said so below (`truncated`).
-        if (!bin && !unpacked && (k === "jsonl" || (k === "text" && trunc))) return void (logPath = cur.path);
+        // JSON Lines, and a text larger than what is read here: in the log view, every line
+        // (inside an archive as it is unpacked).
+        if (!bin && (k === "jsonl" || (k === "text" && trunc))) return void (logPath = cur.path);
         if (!bin && k === "calendar" && !src) return void (cards = { events: calendar(s) });
         if (!bin && k === "contacts" && !src) return void (cards = { people: contacts(s) });
         if (!bin && k === "html" && !src) return void (page = pageUrl(convertFileSrc(cur.path), cur.path));
@@ -860,7 +865,7 @@
       {:else if kind === "bom" && !source}
         <BomView path={e.path} />
       {:else if kind === "chess"}
-        <ChessView path={e.path} />
+        <ChessView path={e.path} onfail={() => inside && needsCopy(raw.path)} />
       {:else if kind === "netron"}
         <!-- The model's facts first, then its graph. -->
         {#if facts.length}<dl class="facts">{#each facts as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}</dl>{/if}
@@ -877,7 +882,7 @@
       {:else if tree !== undefined}
         <div class="tree">{@render node(null, tree, 0)}</div>
       {:else if logPath && logPath === e.path && !diffing}
-        <LogView path={logPath} />
+        <LogView path={logPath} onfail={() => inside && needsCopy(logPath)} />
       {:else if cards?.events}
         <ul class="cards">
           {#each cards.events as ev, i (i)}

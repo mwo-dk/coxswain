@@ -33,7 +33,7 @@ entry, the command line says what **Enter** does there: *Enter: Open games*.
 | A folder, or `..` | Goes into it | Goes into it |
 | An archive (`.zip`, `.tar.gz`, `.7z` and the others), a disk or container image, a mailbox | Opens it as a folder ([What Enter and F3 do](#what-enter-and-f3-do)) | Same |
 | Games, positions, an opening book | Opens them in the games window, a file of one game on its board | Opens them full screen, the same way |
-| A file inside an archive | Games and archives as above, from a copy; any other file: status line *photos.zip is an archive: F5 copies this file out of it* | Same |
+| A file inside an archive | Games (a PGN family file as it is unpacked, the others from a copy) and archives as above; any other file: status line *photos.zip is an archive: F5 copies this file out of it* | Same |
 | A program (a file with the executable bit on the BSDs, illumos, Linux and macOS; `.exe`, `.bat`, `.cmd`, `.ps1`, `.com` on Windows) | Opened like any other file, in its default application | Run in the terminal as `./name`, in the panel's folder, then `-- press Enter --` |
 | A list of checksums (`SHA256SUMS`, `SHA512SUMS`, `B3SUMS`, a `.sha256`, `.sha512` or `.b3` file) | Checks every file it names: OK, changed or missing ([Checksums](../files/checksums.md#checking-a-list)); **F3** shows its text | Same |
 | The first part of a split file (`name.001`) | Offers *Join parts* into `name`, checked against `name.sha256` ([Split and join](../files/split-and-join.md#joining-the-parts)) | Same |
@@ -46,8 +46,9 @@ The default application is the one your desktop picks: `xdg-open` on Linux, `ope
 ## What Enter and F3 do
 
 The same in both apps, on the disk, inside an archive and inside an archive inside another
-(eight deep). Inside an archive a file is opened from a copy Coxswain takes out of it into its
-cache folder; the archive is never changed.
+(eight deep). Inside an archive a text, a log, a picture and a PGN family file are read as the
+archive unpacks them; any other file is opened from a copy Coxswain takes out of it into its
+cache folder. The archive is never changed.
 
 | What | Enter (both apps) | F3 (terminal app) | Preview pane (desktop app, **Space** or **F3**) | The command line says |
 |---|---|---|---|---|
@@ -136,8 +137,8 @@ open one in another program, use a user-menu entry, or `xdg-open photos.zip` on 
 
 A file inside an archive is not on disk, so no application can open it. Copy it out with **F5**
 ([Copy](../files/copy.md)), or look at it in the desktop app's preview pane (**F3**). Games, an
-archive inside the archive, a disk or container image there open with **Enter** all the same,
-from a copy ([What Enter and F3 do](#what-enter-and-f3-do)).
+archive inside the archive, a disk or container image there open with **Enter** all the same
+([What Enter and F3 do](#what-enter-and-f3-do)).
 
 #### Why does Enter on a .pgn open the games and not my chess program?
 
