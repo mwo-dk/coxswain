@@ -2206,12 +2206,15 @@ impl App {
         if (enter::view(&path, enter::Place::Archive) == enter::View::Games || enter::may_be_games(&path)) && coxswain_core::chess::games::streams(&path) {
             return self.chess(&path, None);
         }
-        if self.cfg.viewer.is_none() && enter::view(&path, enter::Place::Archive) == enter::View::Itself && !enter::may_be_games(&path)
-            && let Ok((bytes, more)) = coxswain_core::archive::head(&path, viewer::PLAIN_OVER)
-        {
+        if self.cfg.viewer.is_none() && enter::view(&path, enter::Place::Archive) == enter::View::Itself && !enter::may_be_games(&path) {
             let labels = [self.key_label(Action::Edit), self.key_label(Action::View)];
             let log = coxswain_core::logs::is_log_name(&path.file_name().unwrap_or_default().to_string_lossy());
-            if (log || more) && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
+            // A log is paged at once; the rest reads its head first to see whether it is long.
+            if log && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
+                return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
+            }
+            if let Ok((bytes, more)) = coxswain_core::archive::head(&path, viewer::PLAIN_OVER) {
+            if more && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
                 return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
             }
             // A log that cannot be paged (locked, or no text) is read from a copy, as it was.
@@ -2219,6 +2222,7 @@ impl App {
                 let v = viewer::Viewer::bytes(&path, &bytes, more, labels);
                 return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
             }
+        }
         }
         match coxswain_core::archive::peek(&path) {
             // Games (a PGN file, a ChessBase or SCID database with the files beside it, a DhtmlXQ

@@ -143,15 +143,22 @@ impl EntryFile {
             c.reader = Some((EntryReader::open(&self.path)?, 0));
             self.opened.fetch_add(1, Ordering::Relaxed);
         }
-        let (r, at) = c.reader.as_mut().expect("opened above");
-        io::copy(&mut r.take(want - *at), &mut io::sink())?;
-        let mut data = Vec::with_capacity(BLOCK as usize);
-        let got = r.take(BLOCK).read_to_end(&mut data)?;
-        *at = want + got as u64;
-        if c.blocks.len() >= BLOCKS {
-            c.blocks.remove(0);
+        // The blocks just before `n` are kept on the way, so paging back one block at a time
+        // unpacks once per few blocks, not once per block.
+        let first = n.saturating_sub(BLOCKS as u64 - 1).max(c.reader.as_ref().map_or(0, |(_, at)| at.div_ceil(BLOCK)));
+        let first = first.min(n);
+        for k in first..=n {
+            let (r, at) = c.reader.as_mut().expect("opened above");
+            io::copy(&mut r.take(k * BLOCK - (*at).min(k * BLOCK)), &mut io::sink())?;
+            let mut data = Vec::with_capacity(BLOCK as usize);
+            let got = r.take(BLOCK).read_to_end(&mut data)?;
+            *at = k * BLOCK + got as u64;
+            c.blocks.retain(|(j, _)| *j != k);
+            if c.blocks.len() >= BLOCKS {
+                c.blocks.remove(0);
+            }
+            c.blocks.push((k, data));
         }
-        c.blocks.push((n, data));
         Ok(c.blocks.len() - 1)
     }
 
