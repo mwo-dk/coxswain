@@ -9,6 +9,7 @@
 //! chose.
 
 use serde::Serialize;
+use std::path::Path;
 use std::sync::OnceLock;
 
 /// What a rule tests. A `dir` rule is asked of folders only, every other kind of rule of files
@@ -208,6 +209,42 @@ pub fn kind_of(name: &str, is_dir: bool) -> &'static str {
     "text"
 }
 
+/// The kind the file at `path` on the disk is shown as: `kind_of` its name, then, where a name
+/// is not enough, its first bytes. A `.dot` that is no text is a Word template; a `.json` or
+/// `.xml` may be an attestation or a BOM (provenance first: a statement may carry a CycloneDX
+/// predicate); a `.bin` may be an opening book, a name with no file type's ending a DhtmlXQ game;
+/// a `.h5` a Keras model; a `.pdb` a Palm e-book; a `.vhd` or `.img` that is no disk image, an
+/// old picture or tracker module that is none, is text. For the one file the user is on, not a
+/// listing; a file only in the cloud is told by its name, since reading it would download it.
+pub fn detect(path: &Path) -> &'static str {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let kind = kind_of(&name, false);
+    if crate::cloud::unasked(path) {
+        return kind;
+    }
+    let lower = name.to_lowercase();
+    let ends = |e: &[&str]| e.iter().any(|x| lower.ends_with(x));
+    match kind {
+        "graphviz" if lower.ends_with(".dot") && binary(path) => "office",
+        "data" | "jsonl" | "text" if ends(&[".json", ".jsonl", ".ndjson"]) && crate::provenance::sniff(path) => "provenance",
+        "data" | "text" if ends(&[".json", ".xml"]) && crate::bom::sniff(path) => "bom",
+        "text" if crate::chess::sniff(path).is_some() => "chess",
+        "text" if lower.ends_with(".h5") && crate::neural::read(path).is_some() => "netron",
+        "text" if crate::ebook::ending(path) == Some("pdb") => "ebook",
+        "disk_image" if !crate::disk_image::sure(path) && crate::disk_image::facts(path).is_none() => "text",
+        "picture" if !crate::pictures::readable(path) => "text",
+        "tracker" if crate::music::read(path).is_none() => "text",
+        k => k,
+    }
+}
+
+/// Whether a file's first 8 KB hold a zero byte: no text (`view::decode`'s test).
+fn binary(path: &Path) -> bool {
+    use std::io::Read;
+    let mut head = Vec::with_capacity(8192);
+    std::fs::File::open(path).and_then(|f| f.take(8192).read_to_end(&mut head)).is_ok() && head.contains(&0)
+}
+
 /// Names the desktop app's evaluation of the table is checked against, each with its kind.
 #[cfg(test)]
 const CASES: &[(&str, bool)] = &[
@@ -365,4 +402,35 @@ mod tests {
         assert_eq!(kind_of("Makefile", false), "text");
         assert_eq!(kind_of("x.onnx", true), "folder", "a folder named like a model is a folder");
     }
+
+    /// What the bytes add to the name, a real file each.
+    #[test]
+    fn detect_reads_the_bytes_where_a_name_is_not_enough() {
+        let d = crate::fs::Scratch::named("viewers-detect");
+        let file = |name: &str, bytes: &[u8]| {
+            let p = d.join(name);
+            std::fs::write(&p, bytes).unwrap();
+            p
+        };
+        let cases: &[(&str, &[u8], &str)] = &[
+            ("graph.dot", b"digraph { a -> b }", "graphviz"),
+            ("letter.dot", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1\0\0\0\0", "office"),
+            ("plain.json", b"{\"a\": 1}", "data"),
+            ("app.json", b"{\"bomFormat\": \"CycloneDX\", \"specVersion\": \"1.6\"}", "bom"),
+            ("stmt.json", b"{\"_type\": \"https://in-toto.io/Statement/v1\", \"subject\": []}", "provenance"),
+            // A statement carrying a CycloneDX predicate is provenance first.
+            ("both.json", b"{\"_type\": \"https://in-toto.io/Statement/v1\", \"predicate\": {\"bomFormat\": \"CycloneDX\"}}", "provenance"),
+            ("openings.bin", &[0x46, 0x3b, 0x96, 0x18, 0x16, 0x91, 0xfc, 0x9c, 0x01, 0x95, 0x00, 0x0c, 0, 0, 0, 0], "chess"),
+            ("noise.bin", b"not a book", "text"),
+            ("debug.pdb", b"Microsoft C/C++ MSF 7.00", "text"),
+            ("cpu.vhd", b"library ieee;\nentity cpu is end;", "text"),
+            ("old.tga", b"no picture at all", "text"),
+            ("song.mod", b"MODULE Hello; END Hello.", "text"),
+            ("notes.txt", b"hello", "text"),
+        ];
+        for (name, bytes, want) in cases {
+            assert_eq!(detect(&file(name, bytes)), *want, "{name}");
+        }
+    }
+
 }

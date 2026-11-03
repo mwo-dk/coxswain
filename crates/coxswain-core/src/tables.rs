@@ -183,16 +183,7 @@ pub fn of(path: &Path, rows: usize) -> Result<Vec<Table>, String> {
     }
 }
 
-/// Whether F3 shows this file as tables.
-pub fn is_tables(path: &Path) -> bool {
-    let ext = path
-        .extension()
-        .map(|e| e.to_string_lossy().to_lowercase())
-        .unwrap_or_default();
-    ["db", "sqlite", "sqlite3", "db3", "parquet", "pq", "dbf"].contains(&ext.as_str())
-}
-
-/// The format of a file `is_tables` names, for the viewer's title.
+/// The format of a file shown as tables (`viewers` kinds `sqlite` and `parquet`), for the viewer's title.
 pub fn format(path: &Path) -> &'static str {
     let ext = path
         .extension()
@@ -327,7 +318,8 @@ mod tests {
             text.contains("id │ name │ pic") && text.contains("Ada"),
             "{text}"
         );
-        assert!(is_tables(&p) && !is_tables(Path::new("a.txt")));
+        assert_eq!(crate::viewers::detect(&p), "sqlite");
+        assert_eq!(crate::viewers::kind_of("a.txt", false), "text");
         std::fs::remove_file(p).unwrap();
     }
 

@@ -1966,15 +1966,19 @@ impl App {
                             Err(err) => self.status = Some(err),
                         }
                     }
+                    // Which viewer: the core's table and, where a name is not enough, the bytes
+                    // (`viewers::detect`), as the desktop app's preview has it.
+                    let kind = if a == Action::View { coxswain_core::viewers::detect(&e) } else { "" };
                     // An e-book calibre reads, when e-books are on: its title, authors and text.
-                    if a == Action::View && coxswain_core::ebook::is_ebook(&e) {
+                    if kind == "ebook" {
                         if self.cfg.preview.ebooks {
                             return self.ebook_view(e);
                         }
                         // Off: shown as it is, and where to turn its text on.
                         self.status = Some(format!("{} ({})", t!("ebook.off"), t!("searchable.settings_key", "key" => self.key_label(Action::Settings))));
                     }
-                    // An old picture, a tracker module, an Outlook message: what it holds, as text.
+                    // An old picture, a tracker module, a model, a workbook, an Outlook message: what
+                    // it holds, as text. Also a local model known only by its bytes (a store's blob).
                     if a == Action::View
                         && let Some(r) = coxswain_core::facts::text_copy(&e)
                     {
@@ -1984,15 +1988,14 @@ impl App {
                         }
                     }
                     // A database, a dBase table or a Parquet file: its tables and first rows, as text.
-                    if a == Action::View && coxswain_core::tables::is_tables(&e) {
+                    if matches!(kind, "sqlite" | "parquet") {
                         match coxswain_core::tables::text_copy(&e) {
                             Ok(text) => return self.view_copy(&text, &e, coxswain_core::tables::format(&e).into()),
                             // Not a database after all: the pager shows it as it is.
                             Err(err) => self.status = Some(err),
                         }
                     }
-                    // Asked before the BOM: a statement may carry a CycloneDX predicate.
-                    if a == Action::View && self.cfg.provenance_viewer && coxswain_core::provenance::sniff(&e) {
+                    if kind == "provenance" && self.cfg.provenance_viewer {
                         let other = Some(self.panels[self.active ^ 1].dir.clone());
                         match provenance::Viewer::open(&e, other) {
                             Ok(v) => return self.dialog = Some(Dialog::Provenance(Box::new(v))),
@@ -2010,10 +2013,12 @@ impl App {
                             Err(err) => self.status = Some(err),
                         }
                     }
-                    if a == Action::View && coxswain_core::chess::sniff(&e).is_some() {
+                    if matches!(kind, "chess" | "go") {
                         return self.chess(&e, None);
                     }
-                    if a == Action::View && self.cfg.bom_viewer && coxswain_core::bom::sniff(&e) {
+                    // With provenance off, a statement that carries a CycloneDX predicate is a BOM.
+                    let bom = kind == "bom" || kind == "provenance" && !self.cfg.provenance_viewer && coxswain_core::bom::sniff(&e);
+                    if bom && self.cfg.bom_viewer {
                         match bom::Viewer::open(&e) {
                             Ok(v) => return self.dialog = Some(Dialog::Bom(Box::new(v))),
                             // Not readable as a BOM after all: the pager shows it as it is.
