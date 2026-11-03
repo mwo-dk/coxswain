@@ -1995,12 +1995,17 @@ impl App {
                             Err(err) => self.status = Some(err),
                         }
                     }
+                    // A statement whose provenance does not open may still carry a CycloneDX BOM.
+                    let mut bom = kind == "bom";
                     if kind == "provenance" && self.cfg.provenance_viewer {
                         let other = Some(self.panels[self.active ^ 1].dir.clone());
                         match provenance::Viewer::open(&e, other) {
                             Ok(v) => return self.dialog = Some(Dialog::Provenance(Box::new(v))),
-                            // Not readable as provenance after all: the pager shows it as it is.
-                            Err(err) => self.status = Some(err.to_string()),
+                            // Not readable as provenance after all: a BOM, or the pager shows it as it is.
+                            Err(err) => {
+                                self.status = Some(err.to_string());
+                                bom = coxswain_core::bom::sniff(&e);
+                            }
                         }
                     }
                     // A recording with its transcript: the transcript, as text.
@@ -2017,7 +2022,7 @@ impl App {
                         return self.chess(&e, None);
                     }
                     // With provenance off, a statement that carries a CycloneDX predicate is a BOM.
-                    let bom = kind == "bom" || kind == "provenance" && !self.cfg.provenance_viewer && coxswain_core::bom::sniff(&e);
+                    bom |= kind == "provenance" && !self.cfg.provenance_viewer && coxswain_core::bom::sniff(&e);
                     if bom && self.cfg.bom_viewer {
                         match bom::Viewer::open(&e) {
                             Ok(v) => return self.dialog = Some(Dialog::Bom(Box::new(v))),

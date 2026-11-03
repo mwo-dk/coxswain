@@ -238,11 +238,12 @@ pub fn detect(path: &Path) -> &'static str {
     }
 }
 
-/// Whether a file's first 8 KB hold a zero byte: no text (`view::decode`'s test).
+/// Whether a file's first 8 KB are no text, as `view::decode` tells it: a zero byte, outside
+/// UTF-16 with its byte order mark (a graph PowerShell wrote is text).
 fn binary(path: &Path) -> bool {
     use std::io::Read;
     let mut head = Vec::with_capacity(8192);
-    std::fs::File::open(path).and_then(|f| f.take(8192).read_to_end(&mut head)).is_ok() && head.contains(&0)
+    std::fs::File::open(path).and_then(|f| f.take(8192).read_to_end(&mut head)).is_ok() && crate::view::decode(&head).is_none()
 }
 
 /// Names the desktop app's evaluation of the table is checked against, each with its kind.
@@ -414,6 +415,7 @@ mod tests {
         };
         let cases: &[(&str, &[u8], &str)] = &[
             ("graph.dot", b"digraph { a -> b }", "graphviz"),
+            ("utf16.dot", b"\xff\xfed\0i\0g\0r\0a\0p\0h\0 \0{\0}\0", "graphviz"),
             ("letter.dot", b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1\0\0\0\0", "office"),
             ("plain.json", b"{\"a\": 1}", "data"),
             ("app.json", b"{\"bomFormat\": \"CycloneDX\", \"specVersion\": \"1.6\"}", "bom"),

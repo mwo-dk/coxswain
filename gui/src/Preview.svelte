@@ -238,8 +238,12 @@
           throw err;
         });
         if (e?.path !== cur.path) return;
-        // A `.dot` that is no text is a Word template: `viewer_detect` (above) sends it to Office.
-        if (bin && k === "graphviz") return;
+        // A `.dot` that is no text is a Word template (`viewers::detect`): to Office, also when
+        // `viewer_detect` above did not say so (a cloud file downloaded only now).
+        if (bin && k === "graphviz") {
+          [truncated, binary] = [trunc, bin];
+          return void (sniffed = { path: cur.path, kind: "office" });
+        }
         // Provenance and BOMs are read by readers that need a file: from a copy.
         const special = !bin && /\.(json|jsonl|ndjson|xml)$/i.test(cur.name) && (looksLikeProvenance(s) || looksLikeBom(s));
         if (unpacked && special) return void needsCopy(cur.path);
