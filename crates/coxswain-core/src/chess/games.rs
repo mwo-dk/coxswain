@@ -1201,6 +1201,161 @@ pub fn find(query: &str, within: &dyn Fn(&Path) -> bool, max: usize) -> Vec<(Pat
     out
 }
 
+/// What Ask is told about the players a question names, from the games tables of the game
+/// files `within` takes (`table::whole`): for each file, the player whose name holds most of
+/// the question's words (at least one, of three letters or more), with the games' count, their
+/// years, the results as White and as Black, the openings and opponents met most, the wins
+/// over the highest rated, and some games with their numbers. Each file's text up to `bytes`.
+pub fn ask_about(question: &str, within: &dyn Fn(&Path) -> bool, bytes: usize) -> Vec<(PathBuf, String)> {
+    use std::collections::HashMap;
+    let mut words: Vec<String> = question
+        .split(|c: char| !c.is_alphanumeric())
+        .map(str::to_lowercase)
+        .filter(|w| w.chars().count() >= 3 && !w.chars().all(|c| c.is_ascii_digit()))
+        .collect();
+    words.sort();
+    words.dedup();
+    if words.is_empty() || bytes == 0 {
+        return vec![];
+    }
+    // A word of a name as a whole word of it: "levon" in "Aronian, Levon", not "the" in
+    // "Matthews".
+    let whole_word = |name: &str, w: &str| name.to_lowercase().split(|c: char| !c.is_alphanumeric()).any(|p| p == w);
+    let (mut out, mut left) = (vec![], bytes);
+    for (table, done) in super::table::whole(within) {
+        // How many of the words each name holds as a whole word. A word inside very many names
+        // ("the", "who") names no one: left out, and the table is passed over at once when no
+        // word is left.
+        let mut hold: HashMap<u32, usize> = HashMap::new();
+        for w in &words {
+            let ids: Vec<u32> = table.matching(w).iter().enumerate().filter(|(_, m)| **m).map(|(id, _)| id as u32).collect();
+            if ids.len() > 500 {
+                continue;
+            }
+            for id in ids {
+                if whole_word(&table.name(id), w) {
+                    *hold.entry(id).or_default() += 1;
+                }
+            }
+        }
+        if hold.is_empty() {
+            continue;
+        }
+        // Players only: the names that stand as White or Black, with their games.
+        let mut games: HashMap<u32, u32> = HashMap::new();
+        let _ = table.each(done.games, |_, r| {
+            for id in [r.white, r.black] {
+                if hold.contains_key(&id) {
+                    *games.entry(id).or_default() += 1;
+                }
+            }
+        });
+        // The most words, then the most games.
+        let Some((&player, _)) = games.iter().max_by_key(|(id, n)| (hold.get(*id).copied().unwrap_or(0), **n, std::cmp::Reverse(**id))) else { continue };
+        let name = table.name(player);
+        #[derive(Default)]
+        struct Tally {
+            n: u32,
+            white: [u32; 3],
+            black: [u32; 3],
+            years: (u32, u32),
+            openings: HashMap<(u16, u32), u32>,
+            opponents: HashMap<u32, [u32; 3]>,
+            best: Vec<(u16, u32)>,
+            some: Vec<u32>,
+        }
+        let mut t = Tally { years: (u32::MAX, 0), ..Tally::default() };
+        let _ = table.each(done.games, |i, r| {
+            let white = r.white == player;
+            if !white && r.black != player {
+                return;
+            }
+            t.n += 1;
+            let y = r.date / 10000;
+            if y > 0 {
+                t.years = (t.years.0.min(y), t.years.1.max(y));
+            }
+            // 0 won, 1 drawn, 2 lost, from the player's side.
+            let res = match (r.result, white) {
+                (1, true) | (2, false) => Some(0),
+                (3, _) => Some(1),
+                (1, false) | (2, true) => Some(2),
+                _ => None,
+            };
+            let (opp, opp_elo) = if white { (r.black, r.black_elo) } else { (r.white, r.white_elo) };
+            if opp == player {
+                return;
+            }
+            if let Some(k) = res {
+                if white { t.white[k] += 1 } else { t.black[k] += 1 }
+                t.opponents.entry(opp).or_default()[k] += 1;
+                if k == 0 && opp_elo > 0 {
+                    t.best.push((opp_elo, i));
+                    if t.best.len() > 64 {
+                        t.best.sort_unstable_by(|a, b| b.cmp(a));
+                        t.best.truncate(8);
+                    }
+                }
+            } else {
+                t.opponents.entry(opp).or_default();
+            }
+            if r.eco > 0 || r.opening != u32::MAX {
+                *t.openings.entry((r.eco, r.opening)).or_default() += 1;
+            }
+            if t.some.len() < 5 {
+                t.some.push(i);
+            }
+        });
+        let line = |i: u32| table.get(i, done.games).map(|r| format!("game {}: {}", i + 1, line_of(&table, &r))).unwrap_or_default();
+        let score = |r: &[u32; 3]| format!("{} won, {} drawn, {} lost", r[0], r[1], r[2]);
+        let mut text = format!("Games of {name} in this database: {} (of {}).\n", t.n, done.games);
+        if t.years.1 > 0 {
+            text.push_str(&format!("Years: {} to {}.\n", t.years.0, t.years.1));
+        }
+        text.push_str(&format!("As White: {}. As Black: {}.\n", score(&t.white), score(&t.black)));
+        let mut openings: Vec<_> = t.openings.into_iter().collect();
+        openings.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        let openings: Vec<String> = openings.iter().take(6).map(|((eco, o), n)| format!("{} {} ({n})", eco_text(*eco), table.name(*o)).trim().to_string()).collect();
+        if !openings.is_empty() {
+            text.push_str(&format!("Openings played most: {}.\n", openings.join("; ")));
+        }
+        let mut opponents: Vec<_> = t.opponents.into_iter().filter(|(id, _)| *id != u32::MAX).collect();
+        opponents.sort_by(|a, b| (b.1.iter().sum::<u32>()).cmp(&a.1.iter().sum::<u32>()).then(a.0.cmp(&b.0)));
+        let opponents: Vec<String> = opponents.iter().take(6).map(|(id, r)| format!("{} ({})", table.name(*id), score(r))).collect();
+        if !opponents.is_empty() {
+            text.push_str(&format!("Opponents met most: {}.\n", opponents.join("; ")));
+        }
+        t.best.sort_unstable_by(|a, b| b.cmp(a));
+        if !t.best.is_empty() {
+            text.push_str("Wins over the highest rated:\n");
+            for (_, i) in t.best.iter().take(5) {
+                text.push_str(&format!("- {}\n", line(*i)));
+            }
+        }
+        text.push_str("Some games:\n");
+        for i in &t.some {
+            text.push_str(&format!("- {}\n", line(*i)));
+        }
+        // Whole lines, all files' together within `bytes`.
+        if text.len() > left {
+            let mut end = left;
+            while !text.is_char_boundary(end) {
+                end -= 1;
+            }
+            end = text[..end].rfind('\n').map_or(end, |n| n + 1);
+            text.truncate(end);
+        }
+        left -= text.len();
+        if !text.is_empty() {
+            out.push((done.source.clone(), text));
+        }
+        if left == 0 {
+            break;
+        }
+    }
+    out
+}
+
 /// The search store's text of a PGN file: a line per game (`Head::line`), up to `max` bytes.
 /// A file larger than that is read through its games table, which is kept (`table`), so the
 /// file is read once for both, and Find looks through every game in it (`find`).
@@ -1600,6 +1755,34 @@ mod tests {
         assert!(search_text(&p, 100).is_some());
     }
 
+    /// Ask is told about the player the question names, from the games table: games, years,
+    /// results by colour, openings, opponents, best wins, some games by number.
+    #[test]
+    fn ask_about_a_player() {
+        let d = tempdir::Dir::new();
+        let p = d.0.join("ask.pgn");
+        let mut text = String::new();
+        for i in 0..40 {
+            let (w, b, res) = if i % 2 == 0 { ("Aronian, Levon", format!("Rival {}", i % 3), "1-0") } else { ("Other, One", "Aronian, Levon".to_string(), "1/2-1/2") };
+            text.push_str(&format!("[White \"{w}\"]\n[Black \"{b}\"]\n[WhiteElo \"2700\"]\n[BlackElo \"{}\"]\n[Date \"{}.01.01\"]\n[Result \"{res}\"]\n\n1.e4 e5 2.Nf3 Nc6 3.Bb5 {res}\n\n", 2600 + i, 2000 + i % 10));
+        }
+        std::fs::write(&p, &text).unwrap();
+        let _ = search_text(&p, 100);
+        let me = std::path::absolute(&p).unwrap();
+        let only = |q: &Path| q == me;
+        let said = ask_about("who is Levon Aronian and what do we have about him?", &only, 4000);
+        assert_eq!(said.len(), 1);
+        let s = &said[0].1;
+        assert!(s.starts_with("Games of Aronian, Levon in this database: 40 (of 40)."), "{s}");
+        assert!(s.contains("Years: 2000 to 2009.") && s.contains("As White: 20 won, 0 drawn, 0 lost. As Black: 0 won, 20 drawn, 0 lost."), "{s}");
+        assert!(s.contains("C60 Ruy Lopez") && s.contains("Other, One (0 won, 20 drawn, 0 lost)"), "{s}");
+        assert!(s.contains("Wins over the highest rated:\n- game 39:"), "{s}");
+        assert!(ask_about("what about Kasparov?", &only, 4000).is_empty());
+        // No player named: no one is picked for a word inside a name ("the" in "Other").
+        assert!(ask_about("what are the most played openings?", &only, 4000).is_empty());
+        assert!(ask_about("Aronian", &only, 30)[0].1.len() <= 30);
+    }
+
     #[test]
     fn packed_files_and_hits() {
         let mut gz = flate2::write::GzEncoder::new(vec![], flate2::Compression::fast());
@@ -1719,6 +1902,23 @@ mod tests {
         // Latin-1 names come out as text.
         let (l, _d) = lib(b"[White \"Bj\xf6rn\"]\n\n1.e4 *\n", "latin.pgn");
         assert_eq!(l.row(0).unwrap().white, "Björn");
+    }
+
+    /// What Ask is told of a player in a big file, and how long it takes:
+    /// `COXSWAIN_CHESS_BIG=/path/to/big.pgn cargo test --release -p coxswain-core ask_big --
+    /// --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn ask_big() {
+        let Ok(p) = std::env::var("COXSWAIN_CHESS_BIG") else { return };
+        let l = Library::open(Path::new(&p)).unwrap();
+        l.wait();
+        let t = std::time::Instant::now();
+        let said = ask_about("who is Levon Aronian and what info do we have about him", &|_: &Path| true, 6000);
+        println!("{:?}\n{}", t.elapsed(), said.first().map_or("", |s| s.1.as_str()));
+        let t = std::time::Instant::now();
+        let found = find("Aronian Carlsen 2014", &|_: &Path| true, 5);
+        println!("find {:?}: {:?}", t.elapsed(), found.iter().map(|f| f.2).collect::<Vec<_>>());
     }
 
     /// A big file, timed: `COXSWAIN_CHESS_BIG=/path/to/million.pgn cargo test --release -p

@@ -1408,7 +1408,7 @@
  "feature.ask.q2": "Dlaczego pisze, że źródła nie zawierają odpowiedzi?",
  "feature.ask.q3": "Pierwsza odpowiedź trwa długo. Dlaczego?",
  "feature.ask.title": "Zapytaj",
- "feature.ask.what": "Odpowiada na pytanie na podstawie najbliższych mu fragmentów twoich plików, cytując je jako [1], [2] i wymieniając źródła.",
+ "feature.ask.what": "Odpowiada na pytanie na podstawie najbliższych mu fragmentów twoich plików, cytując je jako [1], [2] i wymieniając źródła. Na pytanie o szachistę odpowiedź pochodzi ze wszystkich jego partii w Twoich bazach partii.",
  "feature.ask_code.a1": "Czyta go jak kod: całe funkcje i klasy z wierszami i wcięciami, każda nazwana od swojego elementu, w każdym języku. Odpowiedź nadal należy do modelu czatu: większy model z większym miejscem widzi więcej.",
  "feature.ask_code.a2": "Słowa takie jak architektura, framework, biblioteka czy zależności czynią je pytaniem o cały projekt: Zapytaj czyta najpierw jego przegląd, z mapą każdego pliku, jego publicznych elementów i tego, czego według plików projektu używa.",
  "feature.ask_code.a3": "Tam, gdzie Ustawienia → Zapytaj → Model do pytań o kod oznacza go jako polecany: karta graficzna go mieści. Na karcie 8 GB qwen3-coder:30b się nie mieści, jest oznaczony jako wolny tutaj i zostaje Jak Zapytaj.",

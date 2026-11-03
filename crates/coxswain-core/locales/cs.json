@@ -1358,7 +1358,7 @@
  "feature.ask.q2": "Proč to říká, že zdroje odpověď neobsahují?",
  "feature.ask.q3": "První odpověď trvá dlouho. Proč?",
  "feature.ask.title": "Dotaz",
- "feature.ask.what": "Odpoví na otázku z úryvků vašich souborů, které jsou jí nejblíž, cituje je jako [1], [2] a uvádí zdroje.",
+ "feature.ask.what": "Odpoví na otázku z úryvků vašich souborů, které jsou jí nejblíž, cituje je jako [1], [2] a uvádí zdroje. Otázka na šachistu se zodpoví ze všech jeho partií ve vašich databázích partií.",
  "feature.ask_code.a1": "Čte ho jako kód: celé funkce a třídy s řádky a odsazením, každou pojmenovanou podle jejího prvku, v každém jazyce. Odpověď je stále na modelu chatu: větší model s větším prostorem vidí víc.",
  "feature.ask_code.a2": "Slova jako architektura, framework, knihovna nebo závislosti z ní dělají otázku na celý projekt: Dotaz nejdřív čte jeho přehled s mapou každého souboru, jeho veřejných prvků a toho, co podle projektových souborů používá.",
  "feature.ask_code.a3": "Tam, kde ho Nastavení → Dotaz → Model pro otázky na kód označí jako doporučený: grafická karta ho pojme. Na kartu s 8 GB se qwen3-coder:30b nevejde, je označen jako pomalý zde a zůstává Stejně jako Dotaz.",

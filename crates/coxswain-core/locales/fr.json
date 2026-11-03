@@ -1358,7 +1358,7 @@
  "feature.ask.q2": "Pourquoi dit-il que les sources ne contiennent pas la réponse ?",
  "feature.ask.q3": "La première réponse est longue à venir. Pourquoi ?",
  "feature.ask.title": "Demander",
- "feature.ask.what": "Répond à une question à partir des passages de vos fichiers les plus proches, en les citant [1], [2] avec la liste des sources.",
+ "feature.ask.what": "Répond à une question à partir des passages de vos fichiers les plus proches, en les citant [1], [2] avec la liste des sources. Une question sur un joueur d’échecs reçoit une réponse tirée de toutes ses parties dans vos bases.",
  "feature.ask_code.a1": "Il le lit comme du code : des fonctions et classes entières avec leurs lignes et leur indentation, chacune nommée d’après son élément, dans tout langage. La réponse reste celle du modèle de chat : un modèle plus grand, avec plus de place, en voit davantage.",
  "feature.ask_code.a2": "Des mots comme architecture, framework, bibliothèque ou dépendances en font une question sur tout le projet : Demander lit d’abord son aperçu, avec une carte de chaque fichier, de ses éléments publics et de ce que les fichiers de projet disent qu’il utilise.",
  "feature.ask_code.a3": "Là où Réglages → Demander → Modèle pour les questions sur le code le marque recommandé : la carte graphique le contient. Sur une carte de 8 Go, qwen3-coder:30b ne tient pas, il est marqué lent ici, et Comme Demander reste.",

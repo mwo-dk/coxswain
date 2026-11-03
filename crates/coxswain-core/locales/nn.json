@@ -1308,7 +1308,7 @@
  "feature.ask.q2": "Kvifor står det at kjeldene ikkje inneheld svaret?",
  "feature.ask.q3": "Det første svaret tek lang tid. Kvifor?",
  "feature.ask.title": "Spør",
- "feature.ask.what": "Svarar på eit spørsmål ut frå dei avsnitta i filene dine som ligg nærast det, og viser til dei som [1], [2] med kjeldene lista opp.",
+ "feature.ask.what": "Svarar på eit spørsmål ut frå dei avsnitta i filene dine som ligg nærast det, og viser til dei som [1], [2] med kjeldene lista opp. Eit spørsmål om ein sjakkspelar blir svara ut frå alle partia til spelaren i partidatabasane dine.",
  "feature.ask_code.a1": "Spør les fila som kode: heile funksjonar og klassar med linjer og innrykk, kvar oppkalla etter elementet sitt, i alle språk. Svaret er framleis chatmodellen sitt: ein større modell med meir plass ser meir.",
  "feature.ask_code.a2": "Ord som arkitektur, rammeverk, bibliotek eller avhengnader gjer det til eit spørsmål om heile prosjektet: Spør les oversikta først, med eit kart over kvar fil, dei offentlege elementa i fila og kva prosjektfilene seier at prosjektet brukar.",
  "feature.ask_code.a3": "Der Innstillingar → Spør → Modell for kodespørsmål merkjer han som tilrådd: då har grafikkortet plass til han. På eit kort med 8 GB får ikkje qwen3-coder:30b plass, han blir merkt «tregt her», og Same som Spør blir ståande.",

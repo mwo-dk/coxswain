@@ -343,6 +343,10 @@ in the terminal app. Year and ECO code count only as words of their own; a word 
 a name (`aron` finds Aronian). A database in a folder Find does not read is not looked through,
 nor one changed since its table was made, until the search helper has read it again.
 
+**Ask** uses the same tables: a question that names a player is answered from a summary of
+his or her games there, all of them ([A player in a game
+database](../search/ask.md#how-much-it-reads)).
+
 A store made before this release reads each game file over 4 MB once more, in the
 background, a minute at a time, to make its table: only those files, and nothing the store
 keeps of them is read or made again (their text and their vectors stay).

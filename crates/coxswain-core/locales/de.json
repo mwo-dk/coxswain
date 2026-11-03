@@ -1308,7 +1308,7 @@
  "feature.ask.q2": "Warum heißt es, die Quellen enthielten die Antwort nicht?",
  "feature.ask.q3": "Die erste Antwort dauert lange. Warum?",
  "feature.ask.title": "Fragen",
- "feature.ask.what": "Beantwortet eine Frage aus den Abschnitten Ihrer Dateien, die ihr am nächsten sind, zitiert sie als [1], [2] und listet die Quellen.",
+ "feature.ask.what": "Beantwortet eine Frage aus den Abschnitten Ihrer Dateien, die ihr am nächsten sind, zitiert sie als [1], [2] und listet die Quellen. Eine Frage zu einem Schachspieler wird aus allen seinen Partien in Ihren Partiedatenbanken beantwortet.",
  "feature.ask_code.a1": "Es liest ihn als Code: ganze Funktionen und Klassen mit Zeilen und Einrückung, jede nach ihrem Element benannt, in jeder Sprache. Die Antwort bleibt die des Chatmodells: ein größeres Modell mit mehr Platz sieht mehr.",
  "feature.ask_code.a2": "Wörter wie Architektur, Framework, Bibliothek oder Abhängigkeiten machen sie zu einer Frage zum ganzen Projekt: Fragen liest zuerst seinen Überblick, mit einer Karte jeder Datei, ihrer öffentlichen Elemente und dessen, was die Projektdateien als genutzt nennen.",
  "feature.ask_code.a3": "Wo Einstellungen → Fragen → Modell für Fragen zu Code es als empfohlen markiert: Die Grafikkarte fasst es. Auf einer Karte mit 8 GB passt qwen3-coder:30b nicht, ist hier als langsam markiert, und Wie Fragen bleibt.",

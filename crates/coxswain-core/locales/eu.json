@@ -1308,7 +1308,7 @@
  "feature.ask.q2": "Zergatik dio iturriek ez dutela erantzunik?",
  "feature.ask.q3": "Lehen erantzunak asko irauten du. Zergatik?",
  "feature.ask.title": "Galdetu",
- "feature.ask.what": "Galdera bati erantzuten dio zure fitxategietako pasarte hurbilenetatik, [1], [2] gisa aipatuz eta iturriak zerrendatuz.",
+ "feature.ask.what": "Galdera bati erantzuten dio zure fitxategietako pasarte hurbilenetatik, [1], [2] gisa aipatuz eta iturriak zerrendatuz. Xakelari bati buruzko galderari zure partida-datu-baseetako bere partida guztietatik erantzuten zaio.",
  "feature.ask_code.a1": "Kode gisa irakurtzen du: funtzio eta klase osoak lerro eta koskekin, bakoitza bere elementuaren izenarekin, edozein hizkuntzatan. Erantzuna txat-ereduarena da oraindik: eredu handiago batek, leku gehiagorekin, gehiago ikusten du.",
  "feature.ask_code.a2": "Arkitektura, framework, liburutegi edo mendekotasun bezalako hitzek proiektu osoari buruzko galdera bihurtzen dute: Galdetu-k lehenik bere ikuspegi orokorra irakurtzen du, fitxategi bakoitzaren, bere elementu publikoen eta proiektu-fitxategien arabera erabiltzen duenaren maparekin.",
  "feature.ask_code.a3": "Ezarpenak → Galdetu → Kodeari buruzko galderetarako eredua aukerak gomendatutzat markatzen duenean: txartel grafikoan sartzen da. 8 GB-ko txartel batean qwen3-coder:30b ez da sartzen, motela hemen gisa markatzen da, eta Galdetu bezala geratzen da.",

@@ -1308,7 +1308,7 @@
  "feature.ask.q2": "Hvorfor siger den, at kilderne ikke indeholder svaret?",
  "feature.ask.q3": "Det første svar tager lang tid. Hvorfor?",
  "feature.ask.title": "Spørg",
- "feature.ask.what": "Besvarer et spørgsmål ud fra de afsnit i dine filer, der ligger tættest på det, og henviser til dem som [1], [2] med kilderne listet.",
+ "feature.ask.what": "Besvarer et spørgsmål ud fra de afsnit i dine filer, der ligger tættest på det, og henviser til dem som [1], [2] med kilderne listet. Et spørgsmål om en skakspiller besvares ud fra alle spillerens partier i dine partidatabaser.",
  "feature.ask_code.a1": "Den læser den som kode: hele funktioner og klasser med linjer og indrykning, hver navngivet efter sit element, i alle sprog. Svaret er stadig chatmodellens: en større model med mere plads ser mere.",
  "feature.ask_code.a2": "Ord som arkitektur, framework, bibliotek eller afhængigheder gør det til et spørgsmål om hele projektet: Spørg læser først dets overblik med et kort over hver fil, dens offentlige elementer og det, projektfilerne siger, den bruger.",
  "feature.ask_code.a3": "Hvor Indstillinger → Spørg → Model til spørgsmål om kode markerer den som anbefalet: grafikkortet kan rumme den. På et kort med 8 GB passer qwen3-coder:30b ikke, er markeret langsom her, og Samme som Spørg bliver.",

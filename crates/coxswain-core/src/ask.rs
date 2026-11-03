@@ -88,6 +88,10 @@ pub fn sources(
     } else {
         vec![]
     };
+    // The players a question names, from the games tables of the game databases searched
+    // (`chess::games::ask_about`): what thousands of near-alike move passages cannot say.
+    let within = |p: &Path| scope.is_none_or(|s| p.starts_with(s)) && cfg.text_roots.iter().any(|r| p.starts_with(r));
+    out.extend(crate::chess::games::ask_about(question, &within, budget / 4));
     let used: usize = out
         .iter()
         .map(|(p, t)| p.as_os_str().len() + t.len() + 32)

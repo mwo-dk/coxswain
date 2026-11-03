@@ -1358,7 +1358,7 @@
  "feature.ask.q2": "¿Por qué dice que las fuentes no tienen la respuesta?",
  "feature.ask.q3": "La primera respuesta tarda mucho. ¿Por qué?",
  "feature.ask.title": "Preguntar",
- "feature.ask.what": "Responde una pregunta a partir de los pasajes de tus archivos más cercanos a ella y los cita como [1], [2], con la lista de fuentes.",
+ "feature.ask.what": "Responde una pregunta a partir de los pasajes de tus archivos más cercanos a ella y los cita como [1], [2], con la lista de fuentes. Una pregunta sobre un jugador de ajedrez se responde con todas sus partidas en tus bases de partidas.",
  "feature.ask_code.a1": "Lo lee como código: funciones y clases enteras con sus líneas y sangría, cada una nombrada según su elemento, en cualquier lenguaje. La respuesta sigue siendo del modelo de chat: un modelo más grande, con más espacio, ve más.",
  "feature.ask_code.a2": "Palabras como arquitectura, framework, biblioteca o dependencias la vuelven una pregunta sobre todo el proyecto: Preguntar lee primero su resumen, con un mapa de cada archivo, sus elementos públicos y lo que los archivos del proyecto dicen que usa.",
  "feature.ask_code.a3": "Donde Configuración → Preguntar → Modelo para preguntas sobre código lo marca como recomendado: la placa de video lo contiene. En una placa de 8 GB qwen3-coder:30b no entra, se marca lento acá, y queda Igual que Preguntar.",
