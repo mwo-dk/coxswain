@@ -100,8 +100,14 @@ impl Quantum {
         }
     }
 
+    pub(crate) fn window_len(&self) -> usize {
+        self.window.len()
+    }
+
     /// The block `data` unpacked to `out_len` bytes (at most `BLOCK`), appended to `out`.
-    pub(crate) fn block(&mut self, data: &[u8], out_len: usize, out: &mut Vec<u8>) -> io::Result<()> {
+    /// `last`: the folder's last block, which may end in the middle of a match its maker had in
+    /// mind; in any other a match over the end is a broken block.
+    pub(crate) fn block(&mut self, data: &[u8], out_len: usize, last: bool, out: &mut Vec<u8>) -> io::Result<()> {
         if out_len > BLOCK {
             return Err(bad());
         }
@@ -133,7 +139,9 @@ impl Quantum {
                 }
                 _ => return Err(bad()),
             };
-            // The last block of a folder may end in the middle of a match its maker had in mind.
+            if len > left && !last {
+                return Err(bad_at("a match past the end of its block", out.len() - start, len, dist));
+            }
             let len = len.min(left);
             if dist as usize > self.window.len() {
                 return Err(bad_at("a distance past the window", out.len() - start, len, dist));
@@ -345,8 +353,22 @@ pub(crate) mod tests {
             for part in [&text[..2500], &text[2500..]] {
                 let packed = pack(&mut enc, part);
                 let mut out = vec![];
-                dec.block(&packed, part.len(), &mut out).unwrap();
+                dec.block(&packed, part.len(), false, &mut out).unwrap();
                 assert_eq!(out, part, "window of 2^{bits}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_match_over_the_end_of_a_block_is_refused_unless_it_is_the_last() {
+        let data = vec![b'a'; 100];
+        for (last, ok) in [(false, false), (true, true)] {
+            let packed = pack(&mut Quantum::new(12), &data);
+            let mut out = vec![];
+            let r = Quantum::new(12).block(&packed, 50, last, &mut out);
+            assert_eq!(r.is_ok(), ok, "last: {last}");
+            if ok {
+                assert_eq!(out, data[..50]);
             }
         }
     }
@@ -357,7 +379,7 @@ pub(crate) mod tests {
         for seed in 0..200u32 {
             let junk: Vec<u8> = (0..300u32).map(|i| (i.wrapping_mul(seed + 3) >> 3) as u8 ^ seed as u8).collect();
             let mut out = vec![];
-            let _ = q.block(&junk, BLOCK, &mut out);
+            let _ = q.block(&junk, BLOCK, false, &mut out);
             assert!(out.len() <= BLOCK);
         }
     }

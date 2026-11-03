@@ -6,6 +6,7 @@
 
 use crate::archive_ro::{Entry, bad, clean};
 use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
+use std::path::Path;
 
 pub(crate) trait Src: Read + Seek {}
 impl<T: Read + Seek> Src for T {}
@@ -17,7 +18,7 @@ pub(crate) type Open<'a> = &'a dyn Fn(&str) -> io::Result<Box<dyn Src>>;
 const CAB_WORK: u64 = if cfg!(test) { 2 << 20 } else { 4 << 30 };
 /// The most cabinets in one set, and files in all of them.
 const MAX_CABS: usize = 512;
-const MAX_FILES: usize = 300_000;
+const MAX_FILES: usize = if cfg!(test) { 100 } else { 300_000 };
 /// A name in a header, as long as `archive_ro` reads any.
 const NAME_MAX: usize = 4096;
 
@@ -69,7 +70,9 @@ fn le32(b: &[u8], i: usize) -> u32 {
     u32::from_le_bytes([b[i], b[i + 1], b[i + 2], b[i + 3]])
 }
 
-fn header(src: &mut dyn Src) -> io::Result<Cab> {
+/// `room`: how many more files the set may hold; a cabinet that says more is refused before
+/// its names are read.
+fn header(src: &mut dyn Src, room: usize) -> io::Result<Cab> {
     let mut r = BufReader::new(src);
     let mut h = [0u8; 36];
     r.read_exact(&mut h)?;
@@ -101,6 +104,9 @@ fn header(src: &mut dyn Src) -> io::Result<Cab> {
         r.seek_relative(folder_reserve)?;
         folders.push(Folder { at: u64::from(le32(&x, 0)), blocks: le16(&x, 4), method: le16(&x, 6) });
     }
+    if usize::from(n_files) > room {
+        return Err(bad("too many files in a cabinet set"));
+    }
     r.seek(SeekFrom::Start(u64::from(files_at)))?;
     let mut files = Vec::with_capacity(usize::from(n_files).min(1024));
     for _ in 0..n_files {
@@ -122,6 +128,53 @@ fn bare_name(n: &str) -> io::Result<&str> {
     if bare { Ok(n) } else { Err(bad("a cabinet set names a file outside its folder")) }
 }
 
+/// The names a cabinet holds for the one before it and the one after it, read without its
+/// folders or files.
+fn links(path: &Path) -> io::Result<(Option<String>, Option<String>)> {
+    let mut r = BufReader::new(std::fs::File::open(path)?);
+    let mut h = [0u8; 36];
+    r.read_exact(&mut h)?;
+    let flags = le16(&h, 30);
+    if &h[..4] != b"MSCF" {
+        return Err(bad("not a cabinet"));
+    }
+    if flags & 4 != 0 {
+        let mut x = [0u8; 4];
+        r.read_exact(&mut x)?;
+        r.seek_relative(i64::from(le16(&x, 0)))?;
+    }
+    let mut name = |on: bool| -> io::Result<Option<String>> {
+        if !on {
+            return Ok(None);
+        }
+        let n = String::from_utf8_lossy(&zstr(&mut r)?).into_owned();
+        zstr(&mut r)?;
+        Ok(Some(n))
+    };
+    Ok((name(flags & 1 != 0)?, name(flags & 2 != 0)?))
+}
+
+/// The other cabinets of the set `path` belongs to, found as `set` finds them; the ones that
+/// are not there are left out. For a cache to notice a part that changed.
+pub(crate) fn other_parts(path: &Path) -> Vec<std::path::PathBuf> {
+    let mut found: Vec<std::path::PathBuf> = vec![];
+    let Ok((prev, next)) = links(path) else { return found };
+    for (first, back) in [(prev, true), (next, false)] {
+        let (mut at, mut name) = (path.to_path_buf(), first);
+        while let Some(n) = name.take() {
+            let Some(p) = bare_name(&n).ok().and_then(|n| crate::archive_ro::sibling_path(&at, n).ok()) else { break };
+            if found.len() >= MAX_CABS || p == path || found.contains(&p) {
+                break;
+            }
+            let Ok(l) = links(&p) else { break };
+            name = if back { l.0 } else { l.1 };
+            found.push(p.clone());
+            at = p;
+        }
+    }
+    found
+}
+
 /// What a read says when a part of the set is not there: the file it ran over into is cut short.
 fn missing(name: &str) -> io::Error {
     io::Error::other(crate::t!("archive.cab_part_missing", "name" => name))
@@ -132,9 +185,10 @@ type Set = (Vec<Box<dyn Src>>, Vec<Cab>, Option<String>);
 
 fn set(first: Box<dyn Src>, open: Open) -> io::Result<Set> {
     let mut first = first;
-    let c = header(&mut *first)?;
+    let c = header(&mut *first, MAX_FILES)?;
     let (mut before, mut after) = (vec![], vec![]);
     let mut gone = None;
+    let mut total = c.files.len();
     let (mut lo, mut hi) = (c.prev.clone(), c.next.clone());
     let (set, mut lo_index, mut hi_index) = (c.set, c.index, c.index);
     while let Some(name) = lo {
@@ -148,7 +202,8 @@ fn set(first: Box<dyn Src>, open: Open) -> io::Result<Set> {
             }
             r => r?,
         };
-        let c = header(&mut *s)?;
+        let c = header(&mut *s, MAX_FILES.saturating_sub(total))?;
+        total += c.files.len();
         if c.set != set || lo_index.checked_sub(1) != Some(c.index) {
             return Err(bad("a cabinet of another set"));
         }
@@ -167,7 +222,8 @@ fn set(first: Box<dyn Src>, open: Open) -> io::Result<Set> {
             }
             r => r?,
         };
-        let c = header(&mut *s)?;
+        let c = header(&mut *s, MAX_FILES.saturating_sub(total))?;
+        total += c.files.len();
         if c.set != set || hi_index.checked_add(1) != Some(c.index) {
             return Err(bad("a cabinet of another set"));
         }
@@ -278,7 +334,12 @@ pub(crate) fn each(
         let go = if wanted(&it.entry) {
             // A file that starts before the folder's place (two with one offset): from the front again.
             if open_run.as_ref().is_none_or(|(r, u)| *r != it.run || u.pos > it.offset) {
-                open_run = Some((it.run, Unpack::new(&runs[it.run])?));
+                let u = Unpack::new(&runs[it.run])?;
+                work += u.window();
+                if work > CAB_WORK {
+                    return Err(io::Error::other(crate::t!("archive.cab_too_much")));
+                }
+                open_run = Some((it.run, u));
             }
             let u = &mut open_run.as_mut().unwrap().1;
             u.skip_to(it.offset, &mut srcs, &cabs, &mut work).map_err(cut)?;
@@ -316,11 +377,22 @@ struct Unpack {
     at: usize,
     /// How many bytes of the folder were handed out or passed over.
     pos: u64,
+    lzx_window: u64,
 }
 
 impl Unpack {
+    /// The memory its window takes (zeroed for each folder): counted as work.
+    fn window(&self) -> u64 {
+        match &self.dec {
+            Dec::Quantum(q) => q.window_len() as u64,
+            Dec::Lzx(_) => self.lzx_window,
+            _ => 0,
+        }
+    }
+
     fn new(run: &Run) -> io::Result<Unpack> {
         let bits = u32::from(run.method >> 8 & 0x1f);
+        let mut lzx_window = 0;
         let dec = match run.method & 0xf {
             0 => Dec::Stored,
             1 => Dec::MsZip { z: flate2::Decompress::new(false), dict: vec![] },
@@ -328,11 +400,12 @@ impl Unpack {
             3 if (15..=21).contains(&bits) => {
                 use lzxd::WindowSize::*;
                 let w = [KB32, KB64, KB128, KB256, KB512, MB1, MB2][bits as usize - 15];
+                lzx_window = 1 << bits;
                 Dec::Lzx(Box::new(lzxd::Lzxd::new(w)))
             }
             _ => return Err(bad("a cabinet packed in a way Coxswain does not read")),
         };
-        Ok(Unpack { parts: run.parts.clone(), next: 0, cab: 0, left: 0, dec, buf: vec![], at: 0, pos: 0 })
+        Ok(Unpack { parts: run.parts.clone(), next: 0, cab: 0, left: 0, dec, buf: vec![], at: 0, pos: 0, lzx_window })
     }
 
     /// The next block of the folder in `buf`; false when there is none.
@@ -400,7 +473,7 @@ impl Unpack {
                 self.buf = out;
             }
             Dec::Lzx(lz) => self.buf.extend_from_slice(lz.decompress_next(&packed, size).map_err(io::Error::other)?),
-            Dec::Quantum(q) => q.block(&packed, size, &mut self.buf)?,
+            Dec::Quantum(q) => q.block(&packed, size, self.left == 0 && self.next == self.parts.len(), &mut self.buf)?,
         }
         Ok(true)
     }
@@ -630,6 +703,28 @@ pub(crate) mod tests {
         for n in 0..whole.len() {
             let _ = read_all(whole[..n].to_vec(), &none);
         }
+    }
+
+    #[test]
+    fn a_window_counts_as_work_and_a_cabinet_of_many_files_is_refused_before_its_names() {
+        // Two Quantum folders of 1 MB windows (half the work limit in tests each), a few bytes each.
+        let blocks = |s: &[u8]| vec![Block { packed: crate::archive_quantum::tests::pack(&mut crate::archive_quantum::Quantum::new(20), s), size: s.len() as u16 }];
+        let cab = cab_bytes((1, 0), (None, None), &[(0x1442, blocks(b"one")), (0x1442, blocks(b"two"))], &[("a", 3, 0, 0), ("b", 3, 0, 1)]);
+        let e = read_all(cab.clone(), &HashMap::new()).unwrap_err();
+        assert!(e.to_string().contains("more than"), "{e}");
+        // Only one of the folders wanted: it fits.
+        let mut got = 0;
+        each(Box::new(Cursor::new(cab)), &|_| Err(io::ErrorKind::NotFound.into()), &|e| e.name == "a", &mut |_, r| {
+            got += io::copy(r, &mut io::sink())?;
+            Ok(true)
+        })
+        .unwrap();
+        assert_eq!(got, 3);
+        // 200 files said in a header, none there: refused for the number, not for the cut.
+        let mut many = cab_bytes((1, 0), (None, None), &[(0, vec![stored(b"x")])], &[("f", 1, 0, 0)]);
+        many[28..30].copy_from_slice(&200u16.to_le_bytes());
+        let e = read_all(many, &HashMap::new()).unwrap_err();
+        assert!(e.to_string().contains("too many"), "{e}");
     }
 
     #[test]

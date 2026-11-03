@@ -804,6 +804,9 @@ fn stamp(path: &Path) -> io::Result<Stamp> {
     if in_parts(path) {
         others.extend((2..=999).map(|n| part_name(&name, n)).take_while(|p| Path::new(p).is_file()));
     }
+    if matches!(ending_kind(path), Some(Kind::Ro(crate::archive_ro::Format::Cab))) {
+        others.extend(crate::archive_cab::other_parts(path).into_iter().map(|p| p.to_string_lossy().into_owned()));
+    }
     for p in others {
         let m = std::fs::metadata(p)?;
         len = len.wrapping_add(m.len()).wrapping_add(1);
@@ -5317,6 +5320,11 @@ mod tests {
         let out = d.join("set-out");
         std::fs::create_dir_all(&out).unwrap();
         assert_eq!(std::fs::read(copy_out(&p, "a.txt", &out, None, false).unwrap()).unwrap(), b"one");
+        // A part that changes changes the list kept of the set, though the file opened has not.
+        let first2 = cab_bytes((5, 0), (None, Some("DISK2.cab")), &[(0, vec![stored(b"onetwo")])], &[("a.txt", 3, 0, 0), ("a2.txt", 3, 3, 0)]);
+        std::fs::write(d.join("disk1.cab"), first2).unwrap();
+        let names: Vec<String> = list(&p, 10).unwrap().0.into_iter().map(|e| e.name).collect();
+        assert_eq!(names, ["a.txt", "a2.txt", "b.txt"]);
         let lone = cab_bytes((6, 0), (None, Some("gone.cab")), &[(0, vec![stored(b"x")])], &[("c.txt", 1, 0, 0)]);
         std::fs::write(d.join("lone.cab"), lone).unwrap();
         assert_eq!(list(&d.join("lone.cab"), 10).unwrap().0.len(), 1, "its own files are listed");
