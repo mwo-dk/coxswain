@@ -7391,7 +7391,7 @@ mod tests {
     }
 
     /// A store made before the games tables (2.36) gets one for each game file over the text
-    /// limit, once: later scans do nothing, and no text is touched. A file left out gets none.
+    /// limit, once: later scans do nothing. A file left out gets none.
     #[test]
     fn games_tables_are_made_once_for_a_store_made_before() {
         let d = std::env::temp_dir().join(format!("coxswain-games-tables-{}", std::process::id()));
