@@ -7390,6 +7390,34 @@ mod tests {
         std::fs::remove_dir_all(d).unwrap();
     }
 
+    /// A store made before the games tables (2.36) gets one for each game file over the text
+    /// limit, once: later scans do nothing. A file left out gets none.
+    #[test]
+    fn games_tables_are_made_once_for_a_store_made_before() {
+        let d = std::env::temp_dir().join(format!("coxswain-games-tables-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let game = "[White \"A\"]\n[Black \"B\"]\n[Result \"1-0\"]\n\n1.e4 e5 1-0\n\n";
+        let (big, out) = (d.join("big.pgn"), d.join("out.pgn"));
+        std::fs::write(&big, game.repeat(5)).unwrap();
+        std::fs::write(&out, game.repeat(7)).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        // Rows as a store of 2.35 holds them: the files read for text, sizes past the limit.
+        let size = crate::extract::MAX_TEXT as u64 + 1;
+        let file = |p: &Path| (p.to_string_lossy().into_owned(), size, 1, false);
+        store.apply(&[], &[file(&big), file(&out)], &[], false, None).unwrap();
+        store.db.lock().unwrap().execute("UPDATE files SET has_text = 1", []).unwrap();
+        let out_name = out.to_string_lossy().into_owned();
+        store.games_tables_made("tables.games", "1", &|p| p == out_name, &|| false, Instant::now() + Duration::from_secs(60)).unwrap();
+        assert!(store.tag_reached("tables.games", "1"));
+        let kept = |p: &Path| crate::chess::Library::open(p).map(|l| l.progress().kept).unwrap_or(false);
+        assert!(kept(&big), "its table was made by the pass");
+        assert!(!kept(&out), "a file left out got none (opening it now makes one)");
+        // Once: a second scan looks at no file.
+        store.games_tables_made("tables.games", "1", &|_| panic!("looked at a file again"), &|| false, Instant::now() + Duration::from_secs(60)).unwrap();
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
     /// #527: a PGN file whose positions the splitter before 2.34.0 numbered (an unclosed
     /// comment ran the games after it into one) gets its positions again, once, numbered as
     /// the table's rows; a PGN file whose numbers match keeps its rows, and no text is read.
