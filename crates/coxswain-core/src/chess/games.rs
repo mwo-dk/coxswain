@@ -818,7 +818,7 @@ impl Library {
         // A plain PGN over `PEEK_MAX` inside an archive: its games' text is kept in the table, as a
         // solid archive cannot give a game from its middle (`from_archive`).
         let streamed = inside && packing == Pack::None && kind(path) == super::Format::Pgn && size > limits.keep;
-        let entry = if inside && packing == Pack::None { Some(crate::entry_file::EntryFile::open(path)?) } else { None };
+        let entry = if inside && packing == Pack::None && !streamed { Some(crate::entry_file::EntryFile::open(path)?) } else { None };
         let source = Mutex::new(Source { path: path.to_path_buf(), open: None, points: None, entry, pack: packing });
         let scid = if super::scid::is_scid(path) { Some(Arc::new(super::scid::Base::open(path)?)) } else { None };
         let cbh = super::cbh::is_cbh(path);
@@ -1995,7 +1995,7 @@ mod tests {
     #[test]
     fn a_pgn_read_out_of_an_archive() {
         let d = tempdir::Dir::new();
-        let pgn = TWO.repeat(300);
+        let pgn = TWO.repeat(3000);
         std::fs::write(d.0.join("games.pgn"), &pgn).unwrap();
         let seven = d.0.join("big.7z");
         crate::archive::create(&seven, &[d.0.join("games.pgn")]).unwrap();
@@ -2010,19 +2010,20 @@ mod tests {
         let l = Library::open_with(&p, keep).unwrap();
         wait(&l);
         let pr = l.progress();
-        assert_eq!((pr.games, pr.error, pr.capped), (600, None, false));
+        assert_eq!((pr.games, pr.error, pr.capped), (6000, None, false));
         assert_eq!(pr.read, pgn.len() as u64, "the bar is full");
-        let r = l.row(598).unwrap();
+        let r = l.row(5998).unwrap();
         assert_eq!((r.white.as_str(), r.moves, r.eco.as_str()), ("Morphy, Paul", 4, "C41"));
-        assert_eq!(l.text(599).unwrap(), TWO[TWO.find("[Event \"London").unwrap()..]);
+        assert_eq!(l.text(5999).unwrap(), TWO[TWO.find("[Event \"London").unwrap()..]);
         assert!(l.text(0).unwrap().starts_with("[Event \"Paris\"]"));
+        assert_eq!(l.text(2501).unwrap(), TWO[TWO.find("[Event \"London").unwrap()..].to_string(), "a game in a later block");
         assert_eq!(l.game(0).unwrap().main_line().len(), 7);
         drop(l);
         // A later run prunes the tables: the archive is there, so is the table.
         crate::chess::table::prune_in(&crate::chess::table::folder().unwrap(), crate::chess::table::KEPT, crate::chess::table::MOST);
         // Again, the archive unchanged: the table and the games' text are taken from the disk.
         let again = Library::open_with(&p, keep).unwrap();
-        assert!(again.progress().kept && again.progress().games == 600);
+        assert!(again.progress().kept && again.progress().games == 6000);
         assert!(again.text(1).unwrap().contains("[not a tag]"));
     }
 
