@@ -600,7 +600,7 @@ apps) or **F3** (terminal app) without a copy of it on the disk. The archive is 
 from its start, and the games go into the table as they come: the first rows show at once and
 the line above the table says how far the reading is. A solid 7z cannot be unpacked from the
 middle, so the table also keeps the text of each game, packed, in its folder in the cache
-(`chess/tables/`): about a fifth of the PGN file's size, as games are packed in blocks of 256 KB (LZMA2),
+(`chess/tables/`): under a quarter of the PGN file's size, as games are packed in blocks of 256 KB (LZMA2),
 the tags of a block's games next to each other, then their moves without the move numbers
 (written back as they were when a game opens) (Lumbra's Gigabase: 12 GB of PGN, 2.8 GB in the cache with the table). Opening a game reads it from there,
 in about 2 ms. Opened again with the archive unchanged, the table is taken as it is and
@@ -625,7 +625,7 @@ kept on the disk ([Large databases](#large-databases)).
 
 Yes, one over 256 MB too: press **Enter** on it (**F3** in the terminal app). It is read as the
 7z unpacks and its games fill the table; nothing is unpacked to your disk, but the table keeps each
-game's text, packed, in the cache (about a fifth of the PGN file's size), because a solid 7z cannot
+game's text, packed, in the cache (under a quarter of the PGN file's size), because a solid 7z cannot
 give a game from its middle. See [A large PGN file in an archive](#a-large-pgn-file-in-an-archive).
 Close the games window and the reading stops; the table is kept for 30 days (while it is the newest, if it is over 4 GB), **Clear** on the
 *chess/* row of Disk use removes it.

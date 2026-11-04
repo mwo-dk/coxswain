@@ -1185,18 +1185,20 @@ fn game_in_block(raw: &[u8], k: usize) -> Option<Vec<u8>> {
         return None;
     }
     let sizes = |i: usize| Some((u32_at(4 + 8 * i)? as usize, u32_at(8 + 8 * i)?));
-    let (mut tags, mut moves) = (4 + 8 * count, 4 + 8 * count);
+    // Checked: a damaged block on a 32-bit system must not wrap around.
+    let start = count.checked_mul(8)?.checked_add(4)?;
+    let (mut tags, mut moves) = (start, start);
     for i in 0..count {
-        moves += sizes(i)?.0;
+        moves = moves.checked_add(sizes(i)?.0)?;
     }
     for i in 0..k {
         let (t, m) = sizes(i)?;
-        tags += t;
-        moves += (m & !KEPT_NUMBERS) as usize;
+        tags = tags.checked_add(t)?;
+        moves = moves.checked_add((m & !KEPT_NUMBERS) as usize)?;
     }
     let (t, m) = sizes(k)?;
-    let mut game = raw.get(tags..tags + t)?.to_vec();
-    let packed = raw.get(moves..moves + (m & !KEPT_NUMBERS) as usize)?;
+    let mut game = raw.get(tags..tags.checked_add(t)?)?.to_vec();
+    let packed = raw.get(moves..moves.checked_add((m & !KEPT_NUMBERS) as usize)?)?;
     if m & KEPT_NUMBERS != 0 {
         game.extend_from_slice(packed);
     } else {
@@ -2150,6 +2152,30 @@ mod tests {
         let again = Library::open_with(&p, keep).unwrap();
         assert!(again.progress().kept && again.progress().games == 6000);
         assert!(again.text(1).unwrap().contains("[not a tag]"));
+        drop(again);
+        // A table kept in the form before (2.36.0's, without `GAMES_FORM` in its key) is not
+        // taken, so the file is read again, nor removed, as that version still reads it.
+        let root = crate::chess::table::folder().unwrap();
+        let source = std::path::absolute(&p).unwrap();
+        let ours = std::fs::read_dir(&root)
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .find(|d| std::fs::read(d.join("done")).ok().and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok()).is_some_and(|v| v["source"].as_str() == source.to_str()))
+            .unwrap();
+        let old = ours.with_file_name(format!("{}-old-0", ours.file_name().unwrap().to_string_lossy().split('-').next().unwrap()));
+        std::fs::create_dir(&old).unwrap();
+        for f in ["rows", "names.db", GAMES] {
+            std::fs::copy(ours.join(f), old.join(f)).unwrap();
+        }
+        let done = std::fs::read_to_string(ours.join("done")).unwrap().replace(&format!(" {GAMES_FORM}"), "");
+        std::fs::write(old.join("done"), done).unwrap();
+        std::fs::remove_dir_all(&ours).unwrap();
+        let anew = Library::open_with(&p, keep).unwrap();
+        assert!(!anew.progress().kept, "read again");
+        wait(&anew);
+        assert_eq!(anew.text(5999).unwrap(), TWO[TWO.find("[Event \"London").unwrap()..]);
+        assert!(old.join("done").exists(), "the older table stays");
     }
 
     /// A game's moves lose their move numbers in the table and get them back as they were, also
@@ -2165,6 +2191,12 @@ mod tests {
             b"1.",
             b"1. e4 \x01 2. d4",
             b"[not a tag] 1. e4\n\n",
+            b"1.2. 3.4.",
+            b"1. 1. 2.",
+            b"12.3.",
+            b"999999. 1000000. 1000001.",
+            b"1.\r\n2.\r\n",
+            b"\xff1. e4\xff",
         ];
         for &moves in cases {
             let mut packed = vec![];
@@ -2195,7 +2227,7 @@ mod tests {
             assert_eq!(game_in_block(&raw, k).as_ref(), Some(t), "game {k}");
         }
         assert_eq!(game_in_block(&raw, texts.len()), None);
-        assert_eq!(game_in_block(&raw[..raw.len() - 1], texts.len() - 2), None, "a block cut short");
+        assert_eq!(game_in_block(&raw[..raw.len() - 1], texts.len() - 1), None, "a block cut short");
     }
 
     #[test]
