@@ -143,6 +143,10 @@ These rules hold for every contributor and every Claude session in this reposito
 - **Bills of materials:** a dependency that does cryptography needs its use described in
   `tools/bom/crypto.toml`, and an npm licence outside `deny.toml`'s list needs reading first;
   the *bills of materials* check fails until then (`tools/bom/README.md`).
+- **The BSDs build with their packaged Rust** (OpenBSD has no rustup), which can be a few
+  releases old. `tools/msrv-check.py` (in the docs job) fails a lock file that a system cannot
+  build with it; keep that one crate at its older version until the system's packages catch up,
+  then raise its line in the script. Nothing else is held back.
 - **The terminal app ships as a static musl binary.** A dependency that compiles C must build
   for `x86_64-unknown-linux-musl` too; CI checks it. Prefer pure-Rust crates.
 
