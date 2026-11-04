@@ -1786,6 +1786,42 @@ mod tests {
         (l, d)
     }
 
+    /// A large PGN in a locked 7z, read as it unpacks: the table stops with `LOCKED` until the
+    /// password is given, then the file is read again, whole.
+    #[test]
+    fn a_large_pgn_in_a_locked_7z_is_read_once_its_password_is_given() {
+        let d = tempdir::Dir::new();
+        std::fs::write(d.0.join("big.pgn"), TWO.repeat(50)).unwrap();
+        let sz = d.0.join("locked.7z");
+        let mut w = sevenz_rust2::ArchiveWriter::create(&sz).unwrap();
+        w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from("hunter2")).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+        w.push_archive_entry(sevenz_rust2::ArchiveEntry::from_path(d.0.join("big.pgn"), "big.pgn".into()), Some(File::open(d.0.join("big.pgn")).unwrap())).unwrap();
+        w.finish().unwrap();
+        let pgn = sz.join("big.pgn");
+        let wait = |l: &Library| {
+            let limit = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(60));
+            while !l.progress().done {
+                assert!(std::time::Instant::now() < limit, "games never read");
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        let limits = Limits { keep: 0, ..Limits::default() };
+        // Names visible or not, the read stops locked; whichever step reports it.
+        let locked = |r: io::Result<Library>| match r {
+            Err(e) => e.to_string().contains(crate::archive::LOCKED),
+            Ok(l) => {
+                wait(&l);
+                l.progress().error.is_some_and(|e| e.contains(crate::archive::LOCKED))
+            }
+        };
+        assert!(locked(Library::open_with(&pgn, limits)));
+        crate::archive::remember(&sz, "hunter2");
+        let l = Library::open_with(&pgn, limits).unwrap();
+        wait(&l);
+        assert_eq!((l.progress().games, l.progress().error), (100, None));
+        crate::archive::forget(&sz);
+    }
+
     /// The games of a PGN file and of a DhtmlXQ game inside a zip are read as they are unpacked:
     /// the table, a game at a place before the last one read, no copy on the disk.
     #[test]
