@@ -17,6 +17,9 @@ inputs:
   matched:
     description: On the save, the restore's matched-key output (nothing is saved under the same key).
     default: ""
+  free-room:
+    description: "true (virtual machines): before the restore, delete the runner's Android SDK, .NET and Haskell, which no VM build uses."
+    default: "false"
 outputs:
   matched-key:
     description: The key of the restored cache, or nothing.
@@ -24,6 +27,13 @@ outputs:
 runs:
   using: composite
   steps:
+    # A VM build holds the old target/, the VM's disk and the target.vm/ it gives back at once:
+    # with the dependencies of 2.36 that filled the runner's 14 GB (an illumos nightly, 4 Nov).
+    - if: inputs.save != 'true' && inputs.free-room == 'true' && runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+        df -h /
     - id: restore
       if: inputs.save != 'true'
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

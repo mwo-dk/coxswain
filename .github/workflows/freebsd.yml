@@ -61,6 +61,7 @@ jobs:
         uses: ./.github/actions/target-cache
         with:
           name: freebsd-${{ matrix.release }}-debug
+          free-room: "true"
 
       - uses: ./.github/actions/apt-install
         timeout-minutes: 10

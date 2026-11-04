@@ -57,6 +57,7 @@ jobs:
         uses: ./.github/actions/target-cache
         with:
           name: openbsd-7.9-debug
+          free-room: "true"
 
       - uses: ./.github/actions/apt-install
         timeout-minutes: 10

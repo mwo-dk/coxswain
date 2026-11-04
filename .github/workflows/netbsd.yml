@@ -55,6 +55,7 @@ jobs:
         uses: ./.github/actions/target-cache
         with:
           name: netbsd-10.1-debug
+          free-room: "true"
 
       - uses: ./.github/actions/apt-install
         timeout-minutes: 10
