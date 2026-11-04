@@ -42,6 +42,7 @@ jobs:
         uses: ./.github/actions/target-cache
         with:
           name: omnios-r151058-debug
+          free-room: "true"
 
       # Linking the tests needs more memory than the default 6 GB: illumos reserves swap for all
       # of it.
