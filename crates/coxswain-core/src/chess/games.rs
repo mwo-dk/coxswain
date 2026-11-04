@@ -1048,7 +1048,7 @@ impl Library {
             let mut n = [0u8; 4];
             f.read_exact(&mut n)?;
             let mut raw = vec![];
-            flate2::read::DeflateDecoder::new(f.take(u32::from_le_bytes(n) as u64)).take(BLOCK_MAX).read_to_end(&mut raw)?;
+            lzma_rust2::Lzma2Reader::new(f.take(u32::from_le_bytes(n) as u64), DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
             let mut rest = &raw[..];
             for k in 0.. {
                 let (head, tail) = rest.split_at_checked(4).ok_or_else(|| io::Error::from(io::ErrorKind::UnexpectedEof))?;
@@ -1089,12 +1089,14 @@ impl Library {
 }
 
 /// The file in a table's folder with the text of the games read out of an archive, in blocks of
-/// about `BLOCK` bytes of text, each packed (deflate) on its own: a u32 of the packed size, then
+/// about `BLOCK` bytes of text, each packed (LZMA2) on its own: a u32 of the packed size, then
 /// the packed games, each a u32 of its size and its bytes. A row's `offset` is its block's place
 /// and `len` its place in the block.
 const GAMES: &str = "games";
 /// A block is closed once its text is this long (a game is never split).
-const BLOCK: usize = 64 << 10;
+const BLOCK: usize = 256 << 10;
+/// The dictionary of a block's LZMA2: twice the block, so a block is one run.
+const DICT: u32 = 2 * BLOCK as u32;
 /// The most a block unpacks to: a game of `MAX_GAME` after less than `BLOCK`, and the sizes.
 const BLOCK_MAX: u64 = MAX_GAME as u64 + 2 * BLOCK as u64;
 
@@ -1117,13 +1119,14 @@ impl Block {
 
     /// The block is written and flushed, then its games are handed on; false when `each` said stop.
     fn close(&mut self, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<bool> {
-        use flate2::{Compression, write::DeflateEncoder};
         if self.heads.is_empty() {
             return Ok(true);
         }
-        let mut z = DeflateEncoder::new(Vec::new(), Compression::default());
+        let mut options = lzma_rust2::Lzma2Options::with_preset(3);
+        options.lzma_options.dict_size = DICT;
+        let mut z = lzma_rust2::Lzma2Writer::new(Vec::new(), options);
         z.write_all(&self.raw)?;
-        let packed = z.finish()?;
+        let packed = z.finish().map_err(io::Error::other)?;
         self.side.write_all(&(packed.len() as u32).to_le_bytes())?;
         self.side.write_all(&packed)?;
         self.side.flush()?;

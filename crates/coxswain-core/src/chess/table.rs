@@ -137,9 +137,7 @@ fn parts(path: &Path) -> Vec<PathBuf> {
         "cbh" => &["cbg", "cbp", "cbt", "cba", "cbj"],
         _ => &[],
     };
-    // A PGN through an archive: the archive's size and time say whether it changed.
-    let first = if path.exists() { None } else { crate::archive::split(path).map(|(a, _)| a) };
-    std::iter::once(first.unwrap_or_else(|| path.to_path_buf())).chain(siblings.iter().map(|e| path.with_extension(e))).collect()
+    std::iter::once(path.to_path_buf()).chain(siblings.iter().map(|e| path.with_extension(e))).collect()
 }
 
 /// The database's identity: its path, and the size and time of each of its files.

@@ -600,14 +600,14 @@ apps) or **F3** (terminal app) without a copy of it on the disk. The archive is 
 from its start, and the games go into the table as they come: the first rows show at once and
 the line above the table says how far the reading is. A solid 7z cannot be unpacked from the
 middle, so the table also keeps the text of each game, packed, in its folder in the cache
-(`chess/tables/`): about a quarter of the PGN file's size, as games are packed in blocks of 64 KB
-(Lumbra's Gigabase: 12 GB of PGN, 3.9 GB in the cache with the table). Opening a game reads it from there,
-in about 3 ms. Opened again with the archive unchanged, the table is taken as it is and
+(`chess/tables/`): about a quarter of the PGN file's size, as games are packed in blocks of 256 KB (LZMA2)
+(Lumbra's Gigabase: 12 GB of PGN, 3.4 GB in the cache with the table). Opening a game reads it from there,
+in about 2 ms. Opened again with the archive unchanged, the table is taken as it is and
 the archive is not read. Past 4 GB of tables in all the oldest go first, so a table as large as this one stays
 only while it is the newest one; saving a line from the game into the archive changes the archive,
 and the table is then read again. **Measured** (Lumbra's Gigabase, a 2.5 GB 7z of one 12 GB PGN file, on a desktop with an SSD):
-12,294,960 games, the first rows after 0.25 s, all read in 7 minutes (the 7z's unpacking sets the
-pace), 63 MB of memory at most, opened again in under 1 ms.
+12,294,960 games, the first rows after 0.5 s, all read in 13 minutes (packing the games sets the
+pace), 77 MB of memory at most, opened again in 10 ms.
 
 A PGN file inside another archive, in a split one or a
 `.pgn.gz`, and a file of 256 MB or less, are copied out as before. **Esc** closes the
