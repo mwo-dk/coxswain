@@ -291,6 +291,11 @@ impl Viewer {
         self.said = Some(t!("common.loading"));
     }
 
+    /// Whether the archive the games are read out of wants a password.
+    pub fn locked(&self) -> bool {
+        self.lib.as_ref().is_some_and(|l| l.progress().error.is_some_and(|e| e.contains(coxswain_core::archive::LOCKED)))
+    }
+
     /// The table follows the reading: asked again when there are more games, twice a second.
     /// The engine is asked about the position shown, once per position.
     pub fn poll(&mut self) {

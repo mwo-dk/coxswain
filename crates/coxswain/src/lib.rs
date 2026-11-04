@@ -5167,6 +5167,14 @@ impl App {
         if let Some(Dialog::Chess(v)) = &mut self.dialog {
             v.poll();
         }
+        // A large PGN in a locked archive, read as it unpacks: its password asked for, then read again.
+        if let Some(Dialog::Chess(v)) = &self.dialog
+            && v.locked()
+        {
+            let path = v.path.clone();
+            self.dialog = None;
+            self.input(&t!("archive.locked_title"), t!("archive.locked_label"), String::new(), Prompt::Peek(path));
+        }
         if let Some(Dialog::Go(v)) = &mut self.dialog {
             v.poll();
         }
