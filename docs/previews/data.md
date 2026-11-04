@@ -66,7 +66,7 @@ as bytes or tables. Each is known by what is inside it (the index by its first e
 store by its tables), so a copy elsewhere, under another name, is shown too; *Where* then says
 *a copy; Coxswain uses …* and names the one in use.
 
-![The desktop app with ~/.cache/coxswain open and index.bin under the cursor: the preview says Coxswain's name index, with the buttons Settings at Disk use and Clear, Entries 674: 317 files, 357 folders, Inside archives, Built 2026-10-08 14:56, Size, Where, Folders indexed /home/demo, and Folders with the most entries](../screenshots/preview-index-bin.png)
+![The desktop app with ~/.cache/coxswain open and index.bin under the cursor: the preview says Coxswain's name index, with the buttons Settings at Disk use and Clear, Entries 931: 493 files, 438 folders, Inside archives 11 archives, 48 entries, Built 2026-11-04 21:53, Size, Where, Folders indexed /home/demo, and Folders with the most entries](../screenshots/preview-index-bin.png)
 
 | `index.bin` | Shows |
 |---|---|
@@ -78,7 +78,7 @@ store by its tables), so a copy elsewhere, under another name, is shown too; *Wh
 | *Folders with the most entries* | The ten with the most names below them; a folder that is mostly one of its own folders gives way to that one |
 | *Left out* | `[search] name_exclude`; each folder with a `.nosearch` file (named, its text not read); files only in the cloud (named, their text not read) |
 
-![The preview of search.db: Coxswain's search store with Files known 129, Files read for their text 112, Waiting to be read 0, Without text to read 42, Only in the cloud 0, Last read, Size 1.5 MB, Where, then Files read, by kind: .java 44, .md 8, .json 5 …](../screenshots/preview-search-db.png)
+![The preview of search.db: Coxswain's search store with Files known 227, Files read for their text 148, Waiting to be read 0, Without text to read 128, Only in the cloud 0, Last read, Size 3.3 MB, Where, then Files read, by kind: .java 44, .md 9, .json 6 …](../screenshots/preview-search-db.png)
 
 | `search.db` | Shows |
 |---|---|

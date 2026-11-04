@@ -97,7 +97,7 @@ real media formats (`-format_whitelist`, `-protocol_whitelist file`): no playlis
 can make it read another file or reach the network. Under each video and song is a **Convert
 video or audio** button ([Convert video or audio](../files/convert-media.md)).
 
-![The desktop app in the Cyber theme with launch.avi under the cursor: the preview shows the engine buttons ffmpeg and container, the line "A frame of the video: the app's player cannot play this kind…", a frame of the video, the button Convert video or audio, and the facts Format, Length, Size in pixels, Video, Sound and Bitrate](../screenshots/previews-video-frame.png)
+![The desktop app in the Cyber theme with launch.avi under the cursor: the preview shows the engine buttons ffmpeg and container, the line "A frame of the video: the app's player cannot play this kind…", a frame of the video, the button Convert video or audio, a Transcript heading with the button Transcribe speech, and the facts Format, Length, Size in pixels, Video, Sound and Bitrate](../screenshots/previews-video-frame.png)
 
 ## Photos only ImageMagick or ffmpeg reads
 
