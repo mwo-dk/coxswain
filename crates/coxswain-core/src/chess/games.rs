@@ -1825,6 +1825,9 @@ mod tests {
             }
         };
         assert!(locked(Library::open_with(&pgn, limits)));
+        // A wrong password reads no table: the pass ends in the error, whole or not.
+        crate::archive::remember(&sz, "wrong");
+        assert!(locked(Library::open_with(&pgn, limits)));
         crate::archive::remember(&sz, "hunter2");
         let l = Library::open_with(&pgn, limits).unwrap();
         wait(&l);

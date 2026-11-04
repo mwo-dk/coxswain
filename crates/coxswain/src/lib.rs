@@ -2622,9 +2622,6 @@ impl App {
                 }
                 self.dialog = Some(Dialog::Chess(Box::new(v)));
             }
-            Err(e) if e.to_string().contains(coxswain_core::archive::LOCKED) && coxswain_core::archive::split(path).is_some() => {
-                self.input(&t!("archive.locked_title"), t!("archive.locked_label"), String::new(), Prompt::Peek(path.to_path_buf()));
-            }
             Err(e) => self.status = Some(e.to_string()),
         }
     }
