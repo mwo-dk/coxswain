@@ -2908,14 +2908,10 @@ pub fn streamable_known(path: &Path) -> bool {
     })
 }
 
-/// `stream`, also for a locked file of a 7z whose password was given in this run. The password
-/// is only proved by the checksum at the end, so `f` must read to the end and treat a failure
-/// as no data (the games table does: a table that failed is never kept).
-pub fn stream_known<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>) -> io::Result<T> {
-    stream_in(path, f, true)
-}
-
-fn stream_in<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>, known: bool) -> io::Result<T> {
+/// `stream`, also for a locked file of a 7z whose password was given in this run when `known`.
+/// The password is only proved by the checksum at the end, so `f` must read to the end and treat
+/// a failure as no data (the games table does: a table that failed is never kept).
+pub fn fn stream_in<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>, known: bool) -> io::Result<T> {
     let (archive, inner, it, _held) = entry_of(path)?;
     let locked = it.locked && !(known && kind(&archive) == Some(Kind::SevenZ) && password_for(&archive, None).is_some());
     if locked || kind(&archive) == Some(Kind::Disk) {
