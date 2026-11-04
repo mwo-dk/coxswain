@@ -2900,11 +2900,11 @@ pub fn stream<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>) ->
     stream_in(path, f, false)
 }
 
-/// Whether `stream_in` with `known` reads the file `path`: `streamable`, or a locked file of a 7z whose
-/// password was given in this run.
+/// Whether `stream_in` with `known` reads the file `path`: `streamable`, or a locked file of a 7z
+/// (without the password it fails with `LOCKED`, which the apps ask the password for).
 pub fn streamable_known(path: &Path) -> bool {
     entry_of(path).is_ok_and(|(archive, _, it, _)| {
-        kind(&archive) != Some(Kind::Disk) && (!it.locked || (kind(&archive) == Some(Kind::SevenZ) && password_for(&archive, None).is_some()))
+        kind(&archive) != Some(Kind::Disk) && (!it.locked || kind(&archive) == Some(Kind::SevenZ))
     })
 }
 
@@ -2913,8 +2913,11 @@ pub fn streamable_known(path: &Path) -> bool {
 /// a failure as no data (the games table does: a table that failed is never kept).
 pub fn stream_in<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>, known: bool) -> io::Result<T> {
     let (archive, inner, it, _held) = entry_of(path)?;
-    let locked = it.locked && !(known && kind(&archive) == Some(Kind::SevenZ) && password_for(&archive, None).is_some());
-    if locked || kind(&archive) == Some(Kind::Disk) {
+    let seven = known && kind(&archive) == Some(Kind::SevenZ);
+    if it.locked && seven && password_for(&archive, None).is_none() {
+        return Err(locked());
+    }
+    if (it.locked && !seven) || kind(&archive) == Some(Kind::Disk) {
         return Err(io::Error::new(io::ErrorKind::Unsupported, inner));
     }
     let (f, out) = (std::cell::RefCell::new(Some(f)), std::cell::RefCell::new(None));

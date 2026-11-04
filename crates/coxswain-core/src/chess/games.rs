@@ -1802,11 +1802,17 @@ mod tests {
     fn a_large_pgn_in_a_locked_7z_is_read_once_its_password_is_given() {
         let d = tempdir::Dir::new();
         std::fs::write(d.0.join("big.pgn"), TWO.repeat(50)).unwrap();
-        let sz = d.0.join("locked.7z");
-        let mut w = sevenz_rust2::ArchiveWriter::create(&sz).unwrap();
-        w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from("hunter2")).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
-        w.push_archive_entry(sevenz_rust2::ArchiveEntry::from_path(d.0.join("big.pgn"), "big.pgn".into()), Some(File::open(d.0.join("big.pgn")).unwrap())).unwrap();
-        w.finish().unwrap();
+        // Names locked too (the default of the writer), or only the contents.
+        let make = |name: &str, header: bool| {
+            let sz = d.0.join(name);
+            let mut w = sevenz_rust2::ArchiveWriter::create(&sz).unwrap();
+            w.set_encrypt_header(header);
+            w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from("hunter2")).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+            w.push_archive_entry(sevenz_rust2::ArchiveEntry::from_path(d.0.join("big.pgn"), "big.pgn".into()), Some(File::open(d.0.join("big.pgn")).unwrap())).unwrap();
+            w.finish().unwrap();
+            sz
+        };
+        for sz in [make("hidden.7z", true), make("shown.7z", false)] {
         let pgn = sz.join("big.pgn");
         let wait = |l: &Library| {
             let limit = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(60));
@@ -1833,6 +1839,7 @@ mod tests {
         wait(&l);
         assert_eq!((l.progress().games, l.progress().error), (100, None));
         crate::archive::forget(&sz);
+        }
     }
 
     /// The games of a PGN file and of a DhtmlXQ game inside a zip are read as they are unpacked:
