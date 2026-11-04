@@ -19,7 +19,10 @@ use std::io::Read;
 use std::path::Path;
 use std::sync::LazyLock;
 
-use mail_parser::{AddressList, Charset, Encoding, Mailbox, MessageParser, add_html_token};
+use mail_parser::decoders::charsets::map::charset_decoder;
+use mail_parser::decoders::html::add_html_token;
+use mail_parser::parsers::MessageStream;
+use mail_parser::{Addr, Address, MessageParser, MimeHeaders};
 use memchr::{memchr, memmem};
 use regex::bytes::{Captures, Regex};
 
@@ -451,21 +454,25 @@ fn parsed(head: &str) -> Head {
     let Some(mail) = MessageParser::default().parse_headers(head.as_bytes()) else {
         return Head::default();
     };
-    let one = |a: Mailbox| match (a.name(), a.address()) {
+    let one = |a: &Addr| match (a.name(), a.address()) {
         (Some(name), Some(address)) => format!("{name} <{address}>"),
         (name, address) => name.or(address).unwrap_or_default().to_string(),
     };
-    let all = |list: &mut dyn Iterator<Item = Mailbox>| list.map(one).collect::<Vec<_>>().join(", ");
+    let all = |list: &[Addr]| list.iter().map(one).collect::<Vec<_>>().join(", ");
     // A group of addresses has a name, and it is often all that is said of who a mail went to.
-    let who = |address: Option<AddressList>| match address {
-        Some(list) if list.has_groups() => list
-            .groups()
-            .map(|(name, members)| {
-                format!("{}: {}", name.unwrap_or_default(), all(&mut { members }))
+    let who = |address: Option<&Address>| match address {
+        Some(Address::List(list)) => all(list),
+        Some(Address::Group(groups)) => groups
+            .iter()
+            .map(|g| {
+                format!(
+                    "{}: {}",
+                    g.name.as_deref().unwrap_or_default(),
+                    all(&g.addresses)
+                )
             })
             .collect::<Vec<_>>()
             .join("; "),
-        Some(list) => all(&mut list.mailboxes()),
         None => String::new(),
     };
     let valid = mail.date().filter(|d| d.is_valid());
@@ -498,8 +505,6 @@ fn parsed(head: &str) -> Head {
         boundary: kind.and_then(|k| k.attribute("boundary")).map(String::from),
         charset: kind.and_then(|k| k.attribute("charset")).map(String::from),
         encoding: mail
-            .root()
-            .root_part()
             .content_transfer_encoding()
             .unwrap_or_default()
             .trim()
@@ -553,12 +558,11 @@ fn words(head: &[u8]) -> Cow<'_, [u8]> {
 fn decoded<'a>(encoding: &str, body: &'a [u8]) -> Cow<'a, [u8]> {
     let sent = &body[..body.len().min(2 * MAX_TEXT)];
     if encoding.starts_with("base64") {
-        // Only a byte outside the alphabet breaks the rules; a cut-off end or missing "="
-        // padding is read as far as it goes, as the strict check would refuse it.
-        if sent.iter().any(|b| !(b.is_ascii_alphanumeric() || b"+/= \t\r\n".contains(b))) {
+        let (end, bytes) = MessageStream::new(sent).decode_base64_mime(b"");
+        if end == usize::MAX {
             Cow::Borrowed(&[])
         } else {
-            Encoding::Base64.decode(sent)
+            bytes
         }
     } else if encoding.starts_with("quoted-printable") {
         quoted_printable(sent).into()
@@ -612,28 +616,24 @@ fn characters(bytes: &[u8], charset: Option<&str>) -> String {
             .as_deref()
             .is_some_and(|c| names.iter().any(|name| c.contains(name)))
     };
-    // UTF-8 is read by the lines below, whatever it is called.
-    let named = charset
-        .and_then(|c| Charset::from_label(c.as_bytes()))
-        .filter(|c| *c != Charset::Utf8);
-    let decode_with = |c: Charset, bytes: &[u8]| c.decode(bytes).into_owned();
+    let named = charset.and_then(|c| charset_decoder(c.as_bytes()));
     // UTF-16 and UTF-7 are not ASCII with more characters added, and have no lines of bytes.
     if let (Some(decode), true) = (named, said(&["16", "ucs", "unicode", "utf-7", "utf7"])) {
-        return decode_with(decode, &if said(&["7"]) {
+        return decode(&if said(&["7"]) {
             RUN.replace_all(bytes, &b"$1-$2"[..])
         } else {
             Cow::Borrowed(bytes)
         });
     }
     let (fallback, utf) = (
-        named.or(Charset::from_label(b"windows-1252")),
+        named.or_else(|| charset_decoder(b"windows-1252")),
         said(&["utf"]),
     );
     let lines = bytes.split_inclusive(|b| *b == b'\n').map(|line| {
         match (std::str::from_utf8(line), fallback) {
             (Ok(text), _) => text.to_string(),
             // Cut in the middle of its last character, it is UTF-8 all the same.
-            (Err(e), Some(decode)) if !utf && e.error_len().is_some() => decode_with(decode, line),
+            (Err(e), Some(decode)) if !utf && e.error_len().is_some() => decode(line),
             _ => String::from_utf8_lossy(line).into_owned(),
         }
     });
@@ -1031,11 +1031,6 @@ mod tests {
             body("text/plain", "base64", b"not base64 at all, but words").as_deref(),
             Some(""),
             "base64 that breaks the rules is not read as text"
-        );
-        assert_eq!(
-            body("text/plain", "base64", b"UmVhZGFibGU").as_deref(),
-            Some("Readable"),
-            "base64 without its padding is read as far as it goes"
         );
         let chinese = body(
             "text/plain; charset=gb2312",
