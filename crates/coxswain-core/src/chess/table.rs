@@ -137,7 +137,9 @@ fn parts(path: &Path) -> Vec<PathBuf> {
         "cbh" => &["cbg", "cbp", "cbt", "cba", "cbj"],
         _ => &[],
     };
-    std::iter::once(path.to_path_buf()).chain(siblings.iter().map(|e| path.with_extension(e))).collect()
+    // A PGN through an archive: the archive's size and time say whether it changed.
+    let first = if path.exists() { None } else { crate::archive::split(path).map(|(a, _)| a) };
+    std::iter::once(first.unwrap_or_else(|| path.to_path_buf())).chain(siblings.iter().map(|e| path.with_extension(e))).collect()
 }
 
 /// The database's identity: its path, and the size and time of each of its files.
@@ -278,6 +280,11 @@ impl Table {
 
     fn inner(&self) -> &Inner {
         self.inner.as_ref().expect("taken only when dropped")
+    }
+
+    /// The table's folder, where a database read out of an archive keeps its games' text.
+    pub fn dir(&self) -> &Path {
+        &self.dir
     }
 
     /// Rows and the names they bring, added at the end; readable once this returns.
@@ -475,7 +482,9 @@ pub(crate) fn prune_in(root: &Path, age: Duration, most: u64) {
         };
         let when = modified(&dir).unwrap_or(SystemTime::UNIX_EPOCH);
         // Gone from a folder that is there: a disk not plugged in keeps its tables.
-        let gone = !done.source.exists() && done.source.parent().is_some_and(|p| p.exists());
+        // A PGN through an archive is there while its archive is.
+        let src = if done.source.exists() { done.source.clone() } else { crate::archive::split(&done.source).map_or(done.source.clone(), |(a, _)| a) };
+        let gone = !src.exists() && src.parent().is_some_and(|p| p.exists());
         if gone || when.elapsed().unwrap_or_default() > age {
             crate::spill::gone(&dir);
         } else {

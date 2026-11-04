@@ -56,6 +56,9 @@ a `.cbv` holds its own, and so does a locked file once its password is given
 ([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)). *Save as new PGN*
 on a game read so asks where, as it does for a copy ([the choices](chess-play.md#a-game-from-inside-an-archive)).
 
+A PGN file over 256 MB inside an archive (a 7z, a zip, a tar) is not copied out: it is read
+as the archive unpacks, into the table of games ([A large PGN file in an archive](#a-large-pgn-file-in-an-archive)).
+
 While the cursor is on a chess file the command line (the status bar in the desktop app) says
 *Enter: Open games* (*Enter: Open positions* on an EPD or FEN file, *Enter: Open opening book*
 on a book, *Enter: Open opening book, if it is one* on a `.bin` inside an archive), and the first few times also *Alt+K opens its games: a table, then a board with
@@ -590,12 +593,41 @@ letters follow the app's language (*Settings → Looks → Language*).
 A move in the file cannot be played from the position before it, usually a typing error, or
 a null move (`--`) while in check. The line above the board names it; the moves after it are listed, without a board.
 
+### A large PGN file in an archive
+
+A PGN file over 256 MB inside an archive (Lumbra's Gigabase in a 7z) opens with **Enter** (both
+apps) or **F3** (terminal app) without a copy of it on the disk. The archive is unpacked once,
+from its start, and the games go into the table as they come: the first rows show at once and
+the line above the table says how far the reading is. A solid 7z cannot be unpacked from the
+middle, so the table also keeps the text of each game, packed, in its folder in the cache
+(`chess/tables/`): about a quarter of the PGN file's size, as games are packed in blocks of 64 KB
+(Lumbra's Gigabase: 12 GB of PGN, 3.9 GB in the cache with the table). Opening a game reads it from there,
+in about 3 ms. Opened again with the archive unchanged, the table is taken as it is and
+the archive is not read. Past 4 GB of tables in all the oldest go first, so a table as large as this one stays
+only while it is the newest one; saving a line from the game into the archive changes the archive,
+and the table is then read again. **Measured** (Lumbra's Gigabase, a 2.5 GB 7z of one 12 GB PGN file, on a desktop with an SSD):
+12,294,960 games, the first rows after 0.25 s, all read in 7 minutes (the 7z's unpacking sets the
+pace), 63 MB of memory at most, opened again in under 1 ms.
+
+A PGN file inside another archive, in a split one or a
+`.pgn.gz`, and a file of 256 MB or less, are copied out as before. **Esc** closes the
+games window, or the table, and stops the reading.
+
 #### How fast is a big file?
 
 The table fills as the file is read, at a few hundred MB a second: a million games show in a few
 seconds, and you can filter and open games before it is done. Filtering and sorting a million
 games takes a fraction of a second. Opened a second time, a file opens at once from the table
 kept on the disk ([Large databases](#large-databases)).
+
+#### Can I open a big PGN file inside a 7z without unpacking it?
+
+Yes, one over 256 MB too: press **Enter** on it (**F3** in the terminal app). It is read as the
+7z unpacks and its games fill the table; nothing is unpacked to your disk, but the table keeps each
+game's text, packed, in the cache (about a quarter of the PGN file's size), because a solid 7z cannot
+give a game from its middle. See [A large PGN file in an archive](#a-large-pgn-file-in-an-archive).
+Close the games window and the reading stops; the table is kept for 30 days (while it is the newest, if it is over 4 GB), **Clear** on the
+*chess/* row of Disk use removes it.
 
 #### Can it open a database of millions of games?
 
