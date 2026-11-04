@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
+use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -108,7 +108,7 @@ pub const MAX_GAME: u32 = 16 << 20;
 /// `format`: whose moves they are, chess's (`Pgn`), draughts' or xiangqi's. `full`: the moves
 /// counted to the end of each game (`Head::plies`); else past its first moves only where its
 /// comments start and end is looked at, to know where the next game starts. `keep`: each game's
-/// bytes kept in `Head::text` (PGN, PDN and xiangqi), its moves not looked at.
+/// bytes kept in `Head::text` (PGN, PDN and xiangqi), its moves not looked at unless `full`.
 pub(crate) fn scan(r: impl BufRead, stop: &AtomicBool, format: super::Format, full: bool, keep: bool, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     let mut r = Lexer::new(r);
     if matches!(format, super::Format::Kif | super::Format::Csa) {
@@ -171,7 +171,7 @@ pub(crate) fn scan(r: impl BufRead, stop: &AtomicBool, format: super::Format, fu
             has_tags = true;
         } else if !trimmed.is_empty() && (trimmed[0] != b'%' || in_brace) {
             has_moves = true;
-            moves(&text(&line), &mut head, &mut in_brace, &mut depth, full, keep);
+            moves(&text(&line), &mut head, &mut in_brace, &mut depth, full, keep && !full);
         }
     }
 }
@@ -415,11 +415,13 @@ pub struct Limits {
     pub names: usize,
     /// Bytes a packed file is unpacked to, at most.
     pub unpacked: u64,
+    /// A plain PGN file inside an archive over this size keeps its games' text in the table.
+    pub keep: u64,
 }
 
 impl Default for Limits {
     fn default() -> Self {
-        Limits { games: 1 << 30, names: 256 << 20, unpacked: 64 << 30 }
+        Limits { games: 1 << 30, names: 256 << 20, unpacked: 64 << 30, keep: crate::archive::PEEK_MAX }
     }
 }
 
@@ -779,6 +781,8 @@ pub struct Library {
     source: Mutex<Source>,
     /// A SCID database's names and files, when the file is one (`scid`).
     scid: Option<Arc<super::scid::Base>>,
+    /// A PGN read out of an archive: each game's text is kept in the table's folder (`GAMES`).
+    archived: bool,
     /// A ChessBase archive's unpacked files, kept while this reads them (`cbv::hold`).
     _held: Option<super::cbv::Held>,
     /// The names' order (`Table::ranks`), with how many names there were then.
@@ -811,15 +815,25 @@ impl Library {
         // A plain file inside an archive is read at a place by `entry`; a packed one, or a DhtmlXQ
         // game (read as the PGN it is turned into), from an unpacker (`Source::read`).
         let packing = pack(path);
-        let entry = if inside && packing == Pack::None { Some(crate::entry_file::EntryFile::open(path)?) } else { None };
+        // A plain PGN over `PEEK_MAX` inside an archive: its games' text is kept in the table, as a
+        // solid archive cannot give a game from its middle (`from_archive`).
+        let streamed = inside && packing == Pack::None && kind(path) == super::Format::Pgn && size > limits.keep;
+        let entry = if inside && packing == Pack::None && !streamed { Some(crate::entry_file::EntryFile::open(path)?) } else { None };
         let source = Mutex::new(Source { path: path.to_path_buf(), open: None, points: None, entry, pack: packing });
         let scid = if super::scid::is_scid(path) { Some(Arc::new(super::scid::Base::open(path)?)) } else { None };
         let cbh = super::cbh::is_cbh(path);
         let format = if scid.is_some() || cbh { super::Format::Pgn } else { kind(path) };
-        let (table, kept) = Table::open(path, &format!("{limits:?}"))?;
+        let (mut table, mut kept) = Table::open(path, &format!("{limits:?}"))?;
+        // A table of a PGN out of an archive whose games' text is gone is read anew.
+        if streamed && kept.is_some() && !table.dir().join(GAMES).exists() {
+            let dir = table.dir().to_path_buf();
+            drop(table);
+            crate::spill::gone(&dir);
+            (table, kept) = Table::open(path, &format!("{limits:?}"))?;
+        }
         let table = Arc::new(table);
         let _held = (cbh && super::cbv::is_cbv(path)).then(|| super::cbv::hold(path));
-        let lib = |shared, size| Library { path: path.to_path_buf(), format, shared, table: table.clone(), read: read.clone(), size, stop: stop.clone(), source, scid: scid.clone(), _held, ranks: Mutex::new(None) };
+        let lib = |shared, size| Library { path: path.to_path_buf(), format, shared, table: table.clone(), read: read.clone(), size, stop: stop.clone(), source, scid: scid.clone(), archived: streamed, _held, ranks: Mutex::new(None) };
         if let Some(done) = kept {
             {
                 let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
@@ -840,6 +854,11 @@ impl Library {
             let size = if super::cbv::is_cbv(path) { size.saturating_mul(2) } else { size };
             let p = path.to_path_buf();
             thread.spawn(move || index(|each| scan_cbh(&p, &st, &rd, size, true, each), &sh, &t, &st, super::Format::Pgn, limits, || false))?;
+            return Ok(lib(shared, size));
+        }
+        if streamed {
+            let (dir, cut, p) = (table.dir().to_path_buf(), rd.clone(), path.to_path_buf());
+            thread.spawn(move || index(|each| from_archive(&p, &dir, &st, &rd, limits.unpacked, each), &sh, &t, &st, format, limits, || cut.load(Ordering::Relaxed) >= limits.unpacked))?;
             return Ok(lib(shared, size));
         }
         let r = if matches!(packing, Pack::Gz | Pack::Zst) && !inside { None } else { Some(reader(path, read.clone(), limits.unpacked)?) };
@@ -1022,6 +1041,26 @@ impl Library {
         if let Some(base) = &self.scid {
             return base.pgn(offset as u32);
         }
+        if self.archived {
+            // `offset`: the block, `len`: the game's place in it.
+            let mut f = File::open(self.table.dir().join(GAMES))?;
+            f.seek(SeekFrom::Start(offset))?;
+            let mut n = [0u8; 4];
+            f.read_exact(&mut n)?;
+            let mut raw = vec![];
+            lzma_rust2::Lzma2Reader::new(f.take(u32::from_le_bytes(n) as u64), DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
+            let mut rest = &raw[..];
+            for k in 0.. {
+                let (head, tail) = rest.split_at_checked(4).ok_or_else(|| io::Error::from(io::ErrorKind::UnexpectedEof))?;
+                let size = u32::from_le_bytes(head.try_into().expect("4 bytes")) as usize;
+                let game = tail.get(..size).ok_or_else(|| io::Error::from(io::ErrorKind::UnexpectedEof))?;
+                if k == len {
+                    return Ok(text(game).into_owned());
+                }
+                rest = &tail[size..];
+            }
+            unreachable!()
+        }
         if let Some(pgn) = archived_pgn(&self.path) {
             return Ok(text(&Source { pack: pack(&pgn), path: pgn, open: None, points: None, entry: None }.read(offset, len)?).into_owned());
         }
@@ -1047,6 +1086,89 @@ impl Library {
             _ => pgn::parse(&text),
         })
     }
+}
+
+/// The file in a table's folder with the text of the games read out of an archive, in blocks of
+/// about `BLOCK` bytes of text, each packed (LZMA2) on its own: a u32 of the packed size, then
+/// the packed games, each a u32 of its size and its bytes. A row's `offset` is its block's place
+/// and `len` its place in the block.
+const GAMES: &str = "games";
+/// A block is closed once its text is this long (a game is never split).
+const BLOCK: usize = 256 << 10;
+/// The dictionary of a block's LZMA2: twice the block, so a block is one run.
+const DICT: u32 = 2 * BLOCK as u32;
+/// The most a block unpacks to: a game of `MAX_GAME` after less than `BLOCK`, and the sizes.
+const BLOCK_MAX: u64 = MAX_GAME as u64 + 2 * BLOCK as u64;
+
+/// The games of a block being made: their text, and their rows, handed on once the block is on
+/// the disk (a row is never shown before its text can be read).
+struct Block {
+    side: io::BufWriter<File>,
+    at: u64,
+    raw: Vec<u8>,
+    heads: Vec<Head>,
+}
+
+impl Block {
+    fn add(&mut self, h: &Head) {
+        self.raw.extend_from_slice(&(h.text.len() as u32).to_le_bytes());
+        self.raw.extend_from_slice(&h.text);
+        let place = self.heads.len() as u64;
+        self.heads.push(Head { offset: self.at, len: place, tags: h.tags.clone(), plies: h.plies, sans: h.sans.clone(), text: vec![], format: h.format });
+    }
+
+    /// The block is written and flushed, then its games are handed on; false when `each` said stop.
+    fn close(&mut self, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<bool> {
+        if self.heads.is_empty() {
+            return Ok(true);
+        }
+        let mut options = lzma_rust2::Lzma2Options::with_preset(3);
+        options.lzma_options.dict_size = DICT;
+        let mut z = lzma_rust2::Lzma2Writer::new(Vec::new(), options);
+        z.write_all(&self.raw)?;
+        let packed = z.finish().map_err(io::Error::other)?;
+        self.side.write_all(&(packed.len() as u32).to_le_bytes())?;
+        self.side.write_all(&packed)?;
+        self.side.flush()?;
+        self.at += 4 + packed.len() as u64;
+        self.raw.clear();
+        let mut more = true;
+        for h in self.heads.drain(..) {
+            more = more && each(&h);
+        }
+        Ok(more)
+    }
+}
+
+/// The games of the PGN file `path` inside an archive, read as it unpacks (`entry_file`): each
+/// game's text goes into `GAMES` in `dir` (a solid archive cannot be unpacked from the middle, so
+/// the table keeps what it needs to show a game), and the game is handed on with its place
+/// there. `unpacked` bytes at most are read.
+fn from_archive(path: &Path, dir: &Path, stop: &AtomicBool, read: &Arc<AtomicU64>, unpacked: u64, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<()> {
+    let mut block = Block { side: io::BufWriter::with_capacity(1 << 20, File::create(dir.join(GAMES))?), at: 0, raw: vec![], heads: vec![] };
+    let mut failed = None;
+    let r = reader(path, read.clone(), unpacked)?.take(unpacked);
+    scan(BufReader::with_capacity(1 << 16, r), stop, super::Format::Pgn, true, true, |h| {
+        block.add(h);
+        if block.raw.len() < BLOCK {
+            return true;
+        }
+        match block.close(each) {
+            Ok(more) => more,
+            Err(e) => {
+                failed = Some(e);
+                false
+            }
+        }
+    })?;
+    if let Some(e) = failed {
+        return Err(e);
+    }
+    // The last block, unless the pass was stopped.
+    if !stop.load(Ordering::Relaxed) {
+        block.close(each)?;
+    }
+    block.side.get_ref().sync_all()
 }
 
 /// What a name costs in memory while the file is read: its entry in the lookup of the names
@@ -1865,6 +1987,44 @@ mod tests {
         // No player named: no one is picked for a word inside a name ("the" in "Other").
         assert!(ask_about("what are the most played openings?", &only, 4000).is_empty());
         assert!(ask_about("Aronian", &only, 30)[0].1.len() <= 30);
+    }
+
+    /// A PGN inside a 7z is read as the archive unpacks, with no copy of it made: the table
+    /// has the games, and a game opens from the text the table kept of it, also when the table
+    /// is opened again (the archive then not read at all).
+    #[test]
+    fn a_pgn_read_out_of_an_archive() {
+        let d = tempdir::Dir::new();
+        let pgn = TWO.repeat(3000);
+        std::fs::write(d.0.join("games.pgn"), &pgn).unwrap();
+        let seven = d.0.join("big.7z");
+        crate::archive::create(&seven, &[d.0.join("games.pgn")]).unwrap();
+        std::fs::remove_file(d.0.join("games.pgn")).unwrap();
+        let p = seven.join("games.pgn");
+        let wait = |l: &Library| {
+            while !l.progress().done {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        let keep = Limits { keep: 0, ..Limits::default() };
+        let l = Library::open_with(&p, keep).unwrap();
+        wait(&l);
+        let pr = l.progress();
+        assert_eq!((pr.games, pr.error, pr.capped), (6000, None, false));
+        assert_eq!(pr.read, pgn.len() as u64, "the bar is full");
+        let r = l.row(5998).unwrap();
+        assert_eq!((r.white.as_str(), r.moves, r.eco.as_str()), ("Morphy, Paul", 4, "C41"));
+        assert_eq!(l.text(5999).unwrap(), TWO[TWO.find("[Event \"London").unwrap()..]);
+        assert!(l.text(0).unwrap().starts_with("[Event \"Paris\"]"));
+        assert_eq!(l.text(2501).unwrap(), TWO[TWO.find("[Event \"London").unwrap()..].to_string(), "a game in a later block");
+        assert_eq!(l.game(0).unwrap().main_line().len(), 7);
+        drop(l);
+        // A later run prunes the tables: the archive is there, so is the table.
+        crate::chess::table::prune_in(&crate::chess::table::folder().unwrap(), crate::chess::table::KEPT, crate::chess::table::MOST);
+        // Again, the archive unchanged: the table and the games' text are taken from the disk.
+        let again = Library::open_with(&p, keep).unwrap();
+        assert!(again.progress().kept && again.progress().games == 6000);
+        assert!(again.text(1).unwrap().contains("[not a tag]"));
     }
 
     #[test]
