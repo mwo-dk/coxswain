@@ -392,7 +392,17 @@ pub fn in_archive(path: &Path) -> bool {
 /// Whether the games of `path` can be read from inside its archive without a copy: a PGN family
 /// file by its name (also packed), and a DhtmlXQ game by its first bytes.
 pub fn streams(path: &Path) -> bool {
-    if !in_archive(path) || super::scid::is_scid(path) || super::cbh::is_cbh(path) || !crate::archive::streamable(path) {
+    streams_with(path, Limits::default().keep)
+}
+
+/// `streams`, a plain PGN over `keep` bytes being the one kept in the table (`Limits::keep`).
+fn streams_with(path: &Path, keep: u64) -> bool {
+    if !in_archive(path) || super::scid::is_scid(path) || super::cbh::is_cbh(path) {
+        return false;
+    }
+    // A locked 7z's large plain PGN is read as it unpacks once its password is given (`from_archive`).
+    let keeps = || pack(path) == Pack::None && kind(path) == super::Format::Pgn && crate::archive::entry_size(path).is_ok_and(|s| s > keep);
+    if !(crate::archive::streamable(path) || (keeps() && crate::archive::streamable_known(path))) {
         return false;
     }
     matches!(super::format(path), Some(super::Format::Pgn | super::Format::Pdn | super::Format::Pbn | super::Format::Kif | super::Format::Csa)) || is_dhtml(path)
@@ -806,7 +816,7 @@ impl Library {
     pub fn open_with(path: &Path, limits: Limits) -> io::Result<Library> {
         let inside = in_archive(path);
         let size = if inside { crate::archive::entry_size(path)? } else { std::fs::metadata(path)?.len() };
-        if inside && !streams(path) {
+        if inside && !streams_with(path, limits.keep) {
             return Err(io::Error::new(io::ErrorKind::Unsupported, path.display().to_string()));
         }
         let read = Arc::new(AtomicU64::new(0));
@@ -1147,7 +1157,7 @@ impl Block {
 fn from_archive(path: &Path, dir: &Path, stop: &AtomicBool, read: &Arc<AtomicU64>, unpacked: u64, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<()> {
     let mut block = Block { side: io::BufWriter::with_capacity(1 << 20, File::create(dir.join(GAMES))?), at: 0, raw: vec![], heads: vec![] };
     let mut failed = None;
-    let r = reader(path, read.clone(), unpacked)?.take(unpacked);
+    let r = BufReader::new(Counted { inner: crate::entry_file::EntryReader::open_known(path)?, read: read.clone() }).take(unpacked);
     scan(BufReader::with_capacity(1 << 16, r), stop, super::Format::Pgn, true, true, |h| {
         block.add(h);
         if block.raw.len() < BLOCK {

@@ -32,11 +32,21 @@ impl EntryReader {
     /// Start unpacking `path`. Waits for the first bytes, so a file that cannot be read so
     /// (locked, not there) fails here.
     pub fn open(path: &Path) -> io::Result<EntryReader> {
+        Self::start(path, false)
+    }
+
+    /// `open`, also for a locked file of a 7z whose password was given (`archive::stream_known`):
+    /// a wrong one fails somewhere in the read, at the end at the latest.
+    pub fn open_known(path: &Path) -> io::Result<EntryReader> {
+        Self::start(path, true)
+    }
+
+    fn start(path: &Path, known: bool) -> io::Result<EntryReader> {
         let (tx, rx) = sync_channel(IN_FLIGHT);
         let path = path.to_path_buf();
         std::thread::Builder::new().name("archive-stream".into()).spawn(move || {
             let sent = tx.clone();
-            let done = crate::archive::stream(&path, move |from| {
+            let done = (if known { crate::archive::stream_known::<()> } else { crate::archive::stream::<()> })(&path, move |from| {
                 loop {
                     let mut buf = vec![0u8; CHUNK];
                     let n = from.read(&mut buf)?;
