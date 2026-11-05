@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { ui, tab, item, keyOf, lineHistory, openHistory, openGitView, switchBranch, newBranch, remoteRun, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
   import { pageUrl, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, calendar, contacts, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, viewerReads, MAX_WHOLE, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -42,9 +42,9 @@
   /** A PGN family file inside an archive: its games are read as it is unpacked
    *  (`chess::games::streams`, no copy); ChessBase, SCID, positions, books and Go come from a copy. */
   const chessInside = $derived(inside && !inHistory && /\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa)$/i.test(raw.name) && !copied.includes(raw.path));
-  const DIRECT = ["text", "markdown", "data", "image", "log", "jsonl"];
-  const DRAWN = ["pdf", "audio", "video", "font"];
-  const direct = $derived(inside && !inHistory && (DIRECT.includes(previewKind(raw)) || (DRAWN.includes(previewKind(raw)) && raw.size <= 64 * 1024 * 1024)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
+  /** What the kind's viewer needs (`viewers::reads`): a stream or the whole file, read from
+   *  memory as the archive unpacks it, or else a copy. */
+  const direct = $derived(inside && !inHistory && (viewerReads(previewKind(raw)) === "stream" || (viewerReads(previewKind(raw)) === "whole" && raw.size <= MAX_WHOLE)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
   /** `path` as the web view asks for it: from memory when it is read so. */
   const src = (path) => convertFileSrc(path) + (direct ? "?inside" : "");
   // Off the files read from memory: the last one unpacked (up to 64 MB) is let go.

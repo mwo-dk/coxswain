@@ -421,8 +421,18 @@ export function sameEntry(a, b) {
 /** The core's table of which viewer shows a file (`viewers::rules`), set once the config has
  *  come (`setViewerRules`): the first rule that fits names the kind. */
 let viewerRules = [];
-export function setViewerRules(rules) {
+let readsByKind = {};
+export function setViewerRules(rules, reads = {}) {
   viewerRules = rules.map((r) => ({ ...r, re: r.when.re ? new RegExp(r.when.re) : null, set: new Set(r.when.endings ?? []) }));
+  readsByKind = reads;
+}
+
+/** The largest file inside an archive read whole into memory (`viewers::MAX_WHOLE`). */
+export const MAX_WHOLE = 64 * 1024 * 1024;
+/** What the viewer of `kind` needs of a file inside an archive (`viewers::reads`): `stream`
+ *  (read as it is unpacked), `whole` (in memory, up to `MAX_WHOLE`) or `copy`. */
+export function viewerReads(kind) {
+  return readsByKind[kind] ?? "copy";
 }
 
 /** How the preview pane should show a file (`viewers::kind_of`, which a test holds this to). */

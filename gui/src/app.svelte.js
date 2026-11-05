@@ -1298,7 +1298,7 @@ export async function init() {
   setPictureEndings(ui.cfg.picture_endings);
   setMediaEndings(ui.cfg.media_endings);
   setGeoEndings(ui.cfg.geo_endings);
-  setViewerRules(ui.cfg.viewer_rules);
+  setViewerRules(ui.cfg.viewer_rules, ui.cfg.viewer_reads);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;
