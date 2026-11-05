@@ -394,7 +394,7 @@ Some choices are not in `config.toml`, and that is on purpose:
 
 Each Settings item, the name `--settings=` opens it at (in both apps: `coxswain --settings=…`,
 `coxswain-gui --settings=…`) and the key it writes, area by area ([The Settings window](../customise/settings.md)).
-An area's own name opens it too: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`,
+An area's own name opens it too: `overview`, `search`, `previews`, `modules`, `games`, `looks`, `behaviour`, `keys`,
 `privacy`; `models` and `disk` open *Built-in models* and *Disk use*:
 
 | Settings area | Item | `--settings=` | Key |

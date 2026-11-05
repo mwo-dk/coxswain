@@ -131,8 +131,9 @@ See [Glyphs and fonts](../customise/glyphs-and-fonts.md).
 
 #### Does the guide send anything anywhere?
 
-No. Step 4 only shows what could leave the machine and
-lets you switch the update check.
+No. Step 4 only shows what could leave the machine,
+lets you switch the update check, and says where viewers can be turned off (**Choose modules**
+in the desktop app opens Settings at *Modules*).
 
 ---
 [← Previous: Panels and keys](README.md) · [Next: The screen →](the-screen.md)

@@ -5462,7 +5462,8 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
                   paths go to FILE or to standard output, one per line; exit 0 when chosen,
                   1 when cancelled
   --settings[=AREA|OPTION]  start with Settings open (in the app: F12): search, previews,
-                  games, looks, behaviour, keys, privacy, or an option such as show_hidden
+                  modules, games, looks, behaviour, keys, privacy, or an option such as
+                  show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
   --paths         print where everything is kept: config, state, index, search store, models

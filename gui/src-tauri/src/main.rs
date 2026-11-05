@@ -2936,8 +2936,9 @@ const USAGE: &str = "coxswain-gui [LEFT] [RIGHT]   a folder, or a file to open i
                             let another program choose files or folders, or a name to save
                             under: the paths go to FILE or to standard output, one per line;
                             exit 0 when chosen, 1 when cancelled
-  --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, games,
-                            looks, behaviour, keys, privacy, or an option such as show_hidden
+  --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, modules,
+                            games, looks, behaviour, keys, privacy, or an option such as
+                            show_hidden
   --duplicates [FOLDER …]   start with Find duplicates scanning these folders (default: this one)
   --version
   --help

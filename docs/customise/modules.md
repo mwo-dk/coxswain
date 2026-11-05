@@ -25,7 +25,7 @@ turn one off, so nothing changes until you do.
 |---|---|---|
 | Settings | **Ctrl+,** or **F12**, then *Modules* on the left: a checkbox per module | **F12**, then *Modules* (**Tab** moves between the areas): **Space** or **Enter** turns the module under the cursor on or off |
 | Straight there | `coxswain-gui --settings=modules` | `coxswain --settings=modules` |
-| First-run guide | Its last step says viewers can be turned off; **Choose modules** opens Settings at *Modules* | Its last step says where: Settings → *Modules* |
+| First-run guide | Its last step says viewers can be turned off; **Choose modules** opens Settings at *Modules* | Its last step says *Viewers you do not need can be turned off: F12 → Modules* (your Settings key) |
 | By hand | `[modules] off = ["games"]` in `config.toml` | The same file |
 
 Each module's row shows its name, the endings it shows, the libraries and programs it uses, and
@@ -59,7 +59,7 @@ in as much as by the next file.
 | [Build provenance](../previews/provenance.md) | `provenance` | In-toto attestations, Sigstore bundles | x509-parser |
 | [Disk images](../files/disk-images.md) | `disk_images` | The facts of `.iso`, `.vhd`, `.vmdk` and other disk images | 7-Zip |
 
-The names in the first column are the modules' names in Settings, in your language. No module
+Each module is named in Settings after its entry in F1 → Features (*E-books: MOBI, Kindle, FictionBook*, *Disk images, CHM and CBR* …), in your language; the first column links its page. No module
 sends your files anywhere; the ones that may download a container image say so, and what can
 leave the machine is listed under [Settings → Privacy and updates](settings.md#privacy-and-updates).
 
@@ -72,8 +72,8 @@ leave the machine is listed under [Settings → Privacy and updates](settings.md
   (its program), and does not open the games board or the image.
 - **Open games** (the chess action) says that the module is off.
 - **The first time** a file of a module that is off is shown, the status line says
-  *Shown as text: Chess games is off. Turn it on in Settings (F12) → Modules.* It is said once
-  per module.
+  *Shown as text: Chess games is off. Turn it on in Settings (F12) → Modules.* (with your Settings
+  key). It is said once per module.
 
 ## What stays whatever is off
 

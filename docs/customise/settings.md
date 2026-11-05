@@ -57,7 +57,7 @@ flowchart LR
    | **Show me** on a tip under *What's new* | The tip's area: the meaning and Ollama tips open *Finding files* at *Meaning*, the tesseract and cloud tips *Finding files*, a new language *Looks* at *Language*, the 2.0 renaming notice *Keys* |
    | `coxswain-gui --settings` | Overview |
    | `coxswain-gui --settings=search` | Finding files |
-   | `coxswain-gui --settings=<area>` | That area: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
+   | `coxswain-gui --settings=<area>` | That area: `overview`, `search`, `previews`, `modules`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
    | `coxswain-gui --settings=<option>` | The option's area, with its group unfolded, scrolled to it and lit up for a moment: `search_meaning` (the *Meaning* group), `ask_model` (*Ask*), `language`, `search_cloud`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
    | `coxswain-gui --settings=models`, `--settings=disk`, `--settings=disk_yours` | *Built-in models* under Finding files, *Disk use* under Privacy and updates, unfolded; `disk_yours` scrolled to its *Your own files* |
    | `coxswain-gui --settings=preview_tools`, `--settings=chess_engines` | *Preview tools* under Previews, *Chess engines* under Games |
@@ -231,7 +231,7 @@ on until you turn one off. `coxswain-gui --settings=modules` opens here. See
 
 ## Games
 
-![The desktop app's Settings at Games, in the Cyber theme: Games outlined between Previews and Looks on the left; the group Board with Chess board, Game pieces in the terminal and Move notation, then Chess engines with Chess engine on, Chess engine ~/engines/stockfish and the list of known engines with Stockfish chosen](../screenshots/gui-settings-games.png)
+![The desktop app's Settings at Games, in the Cyber theme: Games outlined between Modules and Looks on the left; the group Board with Chess board, Game pieces in the terminal and Move notation, then Chess engines with Chess engine on, Chess engine ~/engines/stockfish and the list of known engines with Stockfish chosen](../screenshots/gui-settings-games.png)
 
 ![The terminal app's Settings at Games, Classic blue: the headings Board, Chess engines and Game review in yellow, the known engines with (•) Stockfish and the others not installed, [ Test engine ], then how long the engine thinks; the cursor on Chess board, its explanation and [chess] board at the bottom](../screenshots/tui-settings-games.png)
 
@@ -411,7 +411,7 @@ explanations and costs: both apps read them from one description in `coxswain-co
 | **F9** → *Settings* in the [command list](../panels/command-list.md) | Overview |
 | **Ctrl+,** (the `settings` action's other key), in terminals that pass it on | Overview |
 | `coxswain --settings` | Overview, with both panels in the current folder |
-| `coxswain --settings=<area>` | That area: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
+| `coxswain --settings=<area>` | That area: `overview`, `search`, `previews`, `modules`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
 | `coxswain --settings=<option>` | The option's area, the cursor on it: `show_hidden`, `search_meaning`, `ask_model`, `language`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
 | Any other name, such as 1.x's `meaning`, `ask`, `news` or `cloud` | Overview |
 | **Enter** on a tip under *What's new* in Overview | The tip's area, as *Show me* in the desktop app; the tip is not shown again |
@@ -498,7 +498,7 @@ opens there, `--settings=search_text` and `--settings=search_meaning` at the swi
 
 #### Why does `--settings=meaning` open the Overview now?
 
-Since 2.0 `--settings=` takes only an area (`overview`, `search`, `previews`, `games`, `looks`,
+Since 2.0 `--settings=` takes only an area (`overview`, `search`, `previews`, `modules`, `games`, `looks`,
 `behaviour`, `keys`, `privacy`) or an option's name. The section names of 1.x went; a name it
 does not know opens the Overview. Use the option's name instead:
 
