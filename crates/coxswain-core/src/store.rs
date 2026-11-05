@@ -3151,7 +3151,7 @@ fn scan_for(
     store.reader_changed("readers.scid", "1", &[".si4"])?;
     // SCID 5 databases (2.34): read for the first time, as SCID 4's are; only `.si5` files.
     // At 2, a game's positions are numbered by its row (deleted games left out), so Find this
-    // position opens the right game: the `.si5` files are read once again. At 3 (2.37), the
+    // position opens the right game: the `.si5` files are read once again. At 3 (2.36), the
     // deleted flag read from its own bit and names after a base's description kept: once more.
     store.reader_changed("readers.scid5", "3", &[".si5"])?;
     // ChessBase databases (2.33): a line per game and their positions, as PGN files; read once.
