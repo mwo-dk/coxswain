@@ -40,11 +40,15 @@
    *  (`asset.rs`, `MAX_INSIDE`), a player's ranges from one unpacking. */
   let copied = $state([]);
   /** A PGN family file inside an archive: its games are read as it is unpacked
-   *  (`chess::games::streams`, no copy); ChessBase, SCID, positions, books and Go come from a copy. */
-  const chessInside = $derived(inside && !inHistory && /\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa)$/i.test(raw.name) && !copied.includes(raw.path));
+   *  (`chess::games::streams`, no copy); positions and a Go file up to 64 MB are unpacked into
+   *  memory whole (`games::in_memory`), as a book is (a `.bin`, told by `chess_is_book` below);
+   *  ChessBase and SCID come from a copy. */
+  const chessInside = $derived(
+    inside && !inHistory && (/\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa|epd|fen)$/i.test(raw.name) || (/\.sgf$/i.test(raw.name) && raw.size <= 64 * 1024 * 1024)) && !copied.includes(raw.path),
+  );
   const DIRECT = ["text", "markdown", "data", "image", "log", "jsonl"];
   const DRAWN = ["pdf", "audio", "video", "font"];
-  const direct = $derived(inside && !inHistory && (DIRECT.includes(previewKind(raw)) || (DRAWN.includes(previewKind(raw)) && raw.size <= 64 * 1024 * 1024)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
+  const direct = $derived(inside && !inHistory && (DIRECT.includes(previewKind(raw)) || (DRAWN.includes(previewKind(raw)) && raw.size <= 64 * 1024 * 1024)) && !(/\.bin$/i.test(raw.name) && raw.size > 64 * 1024 * 1024) && !copied.includes(raw.path));
   /** `path` as the web view asks for it: from memory when it is read so. */
   const src = (path) => convertFileSrc(path) + (direct ? "?inside" : "");
   // Off the files read from memory: the last one unpacked (up to 64 MB) is let go.
@@ -879,7 +883,7 @@
         {#if facts.length}<dl class="facts">{#each facts as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}</dl>{/if}
         {#key e.path}<NetronView path={e.path} dir={e.is_dir} />{/key}
       {:else if kind === "go"}
-        <GoView path={e.path} />
+        <GoView path={e.path} onfail={() => inside && needsCopy(raw.path)} />
       {:else if kind === "provenance" && !source && !statement}
         <ProvenanceView path={e.path} />
       {:else if kind === "provenance" && !source}

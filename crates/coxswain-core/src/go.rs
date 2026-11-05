@@ -623,6 +623,9 @@ pub struct Collection {
     read: Arc<AtomicU64>,
     size: u64,
     stop: Arc<AtomicBool>,
+    /// Inside an archive: the file, unpacked into memory whole (`games::whole`), each game read
+    /// from it at its place.
+    bytes: Option<Arc<[u8]>>,
 }
 
 #[derive(Default)]
@@ -643,9 +646,12 @@ impl Drop for Collection {
 impl Collection {
     /// Starts listing the file's games.
     pub fn open(path: &Path) -> io::Result<Collection> {
-        let size = std::fs::metadata(path)?.len();
         let read = Arc::new(AtomicU64::new(0));
-        let r = crate::chess::games::reader(path, read.clone(), u64::MAX)?;
+        let bytes = if crate::chess::games::in_archive(path) { Some(crate::chess::games::whole(path)?) } else { None };
+        let (size, r): (u64, Box<dyn Read + Send>) = match &bytes {
+            Some(b) => (b.len() as u64, Box::new(crate::chess::games::Counted { inner: io::Cursor::new(b.clone()), read: read.clone() })),
+            None => (std::fs::metadata(path)?.len(), crate::chess::games::reader(path, read.clone(), u64::MAX)?),
+        };
         let listed = Arc::new(Mutex::new(Listed::default()));
         let stop = Arc::new(AtomicBool::new(false));
         let (l, st) = (listed.clone(), stop.clone());
@@ -678,7 +684,7 @@ impl Collection {
                 Err(e) => l.error = Some(e.to_string()),
             }
         })?;
-        Ok(Collection { path: path.to_path_buf(), listed, read, size, stop })
+        Ok(Collection { path: path.to_path_buf(), listed, read, size, stop, bytes })
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, Listed> {
@@ -723,10 +729,18 @@ impl Collection {
     pub fn game(&self, i: usize) -> io::Result<Game> {
         self.wait(i + 1);
         let info = self.info(i).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such game"))?;
-        let mut f = std::fs::File::open(&self.path)?;
-        f.seek(SeekFrom::Start(info.offset))?;
         let mut b = vec![];
-        f.take(info.len.min(MAX_GAME)).read_to_end(&mut b)?;
+        match &self.bytes {
+            Some(all) => {
+                let at = (info.offset as usize).min(all.len());
+                b.extend_from_slice(&all[at..at + (info.len.min(MAX_GAME) as usize).min(all.len() - at)]);
+            }
+            None => {
+                let mut f = std::fs::File::open(&self.path)?;
+                f.seek(SeekFrom::Start(info.offset))?;
+                f.take(info.len.min(MAX_GAME)).read_to_end(&mut b)?;
+            }
+        }
         let mut g = parse(&b);
         g.info.n = info.n;
         // Longer than read: the note above the board says so.
