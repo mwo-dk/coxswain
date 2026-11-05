@@ -214,6 +214,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 lines.push(para(format!("  {} → {}{local}", o.what, o.to)));
             }
             lines.push(Line::from(""));
+            lines.push(para(coxswain_core::features::with_keys(cfg, &t!("guide.modules_tui"))));
             lines.push(Line::from(Span::styled(coxswain_core::features::with_keys(cfg, &t!("guide.again_tui")), dim)));
         }
     }

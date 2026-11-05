@@ -23,6 +23,8 @@ pub enum Area {
     /// Finding files: names, words in files, meaning, Ask.
     Search,
     Previews,
+    /// Which viewers are loaded (`modules`).
+    Modules,
     /// Chess and the other board games: the board, the engine, analysing a game, the book.
     Games,
     Looks,
@@ -34,10 +36,11 @@ pub enum Area {
 }
 
 impl Area {
-    pub const ALL: [Area; 8] = [
+    pub const ALL: [Area; 9] = [
         Area::Overview,
         Area::Search,
         Area::Previews,
+        Area::Modules,
         Area::Games,
         Area::Looks,
         Area::Behaviour,
@@ -51,6 +54,7 @@ impl Area {
             Area::Overview => "overview",
             Area::Search => "search",
             Area::Previews => "previews",
+            Area::Modules => "modules",
             Area::Games => "games",
             Area::Looks => "looks",
             Area::Behaviour => "behaviour",
@@ -217,6 +221,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("ebooks", &["preview", "ebooks"], Previews, &[Disk, Cpu, Network]),
     opt("virus_scan", &["preview", "virus_scan"], Previews, &[Disk, Network]),
     opt("preview_timeout", &["preview", "timeout"], Previews, &[]),
+    opt("modules_off", &["modules", "off"], Modules, &[]),
     opt("chess_notation", &["chess", "notation"], Games, &[]),
     opt("chess_board", &["chess", "board"], Games, &[]),
     opt("chess_book", &["chess", "book"], Games, &[]),
@@ -302,6 +307,7 @@ pub const GROUPS: &[Group] = &[
     group(Previews, "documents", Some("settings.group.documents"), &["latex_auto", "ebooks", "drawio"]),
     group(Previews, "images", Some("settings.group.images"), &["preview_container", "latex_image", "image_updates", "image_prune"]),
     group(Previews, "safety", Some("settings.group.safety"), &["virus_scan"]),
+    group(Modules, "module_switches", None, &["modules_off"]),
     group(Games, "board", Some("settings.group.board"), &["chess_board", "chess_pieces", "chess_notation"]),
     group(Games, "chess_engines", Some("chess.engines_title"), &["chess_analysis", "chess_engine", "chess_engine_limit", "chess_engine_time", "chess_engine_depth", "chess_engine_nodes", "chess_engine_lines"]),
     group(Games, "review", Some("settings.group.review"), &["chess_review_limit", "chess_review_time", "chess_review_depth", "chess_review_nodes"]),
@@ -446,6 +452,7 @@ pub fn save_to(
         crate::i18n::set_language(crate::i18n::resolve(&cfg.language));
     }
     crate::disk_image::set_open(cfg.archive.disk_images);
+    crate::modules::set_off(&cfg.modules.off);
     Ok(cfg)
 }
 

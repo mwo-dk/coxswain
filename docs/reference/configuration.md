@@ -23,6 +23,7 @@ app reads it and which Settings item writes it.
 - [`[gui]`](#gui)
 - [`[git]`](#git)
 - [`[archive]`](#archive)
+- [`[modules]`](#modules)
 - [`[chess]`](#chess)
 - [What has no key](#what-has-no-key)
 - [Settings and config.toml](#settings-and-configtoml)
@@ -341,6 +342,14 @@ Read by both apps when they start, and by each after a change in its own Setting
 |---|---|---|---|
 | `disk_images` | bool | `false` | Open disk images (.iso, .dmg, .vhd, .vhdx, .vmdk, .qcow2, .vdi, .wim, raw .img), .chm help files and .cbr comics like folders, read-only, with an installed 7-Zip. Off: **Enter** opens them like any file; the preview shows a disk image's facts either way ([Disk images](../files/disk-images.md)) |
 
+## `[modules]`
+
+Which viewers are loaded, in both apps ([Modules: choose the viewers](../customise/modules.md)). Read when the apps start and after a change in Settings.
+
+| Key | Type | Default | Does |
+|---|---|---|---|
+| `off` | list of strings | `[]` | The modules turned off: `documents`, `office`, `ebooks`, `latex`, `html`, `diagrams`, `openscad`, `kicad`, `data`, `media`, `old_formats`, `geodata`, `neural_networks`, `games`, `bom`, `provenance`, `disk_images`. A file one of them would show is shown as text or hex; Enter on a games file or a disk image of a module that is off does what it does with any file |
+
 ## `[chess]`
 
 How [chess games](../previews/chess.md), [Go games](../previews/go.md), [draughts games](../previews/draughts.md), [xiangqi games](../previews/xiangqi.md) and [shogi games](../previews/shogi.md) are shown, in both apps.
@@ -385,7 +394,7 @@ Some choices are not in `config.toml`, and that is on purpose:
 
 Each Settings item, the name `--settings=` opens it at (in both apps: `coxswain --settings=…`,
 `coxswain-gui --settings=…`) and the key it writes, area by area ([The Settings window](../customise/settings.md)).
-An area's own name opens it too: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`,
+An area's own name opens it too: `overview`, `search`, `previews`, `modules`, `games`, `looks`, `behaviour`, `keys`,
 `privacy`; `models` and `disk` open *Built-in models* and *Disk use*:
 
 | Settings area | Item | `--settings=` | Key |
@@ -447,6 +456,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `games`, `loo
 | | *Whole-game depth* | `chess_review_depth` | `[chess] review_depth` |
 | | *Whole-game positions* | `chess_review_nodes` | `[chess] review_nodes` |
 | *Games → Opening book* | *Opening book* | `chess_book` | `[chess] book` |
+| *Modules* | A checkbox per module | `modules_off` | `[modules] off` |
 | *Looks* | *Language* | `language` | `language` |
 | | *Theme of the desktop app* (*For*: *Desktop app*) | `theme` | `[gui] theme` |
 | | *Theme of the terminal app* (*For*: *Terminal app*) | `tui_theme` | `theme` |

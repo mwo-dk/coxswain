@@ -63,8 +63,13 @@ pub fn enter(path: &Path, is_dir: bool, place: Place) -> Enter {
         // An OCI layout's `index.json` by the listing: an `oci-layout` beside it.
         Place::Archive => crate::archive::opens_inside_as(path).or_else(|| crate::archive::layout_inside(path).then_some(Enter::Image)),
     };
+    // A disk image's module off: Enter does what it does with any file.
     if let Some(k) = opens {
-        return k;
+        return if k == Enter::DiskImage && !crate::modules::on("disk_images") { Enter::Other } else { k };
+    }
+    // Games' module off: their files are files like any other.
+    if !crate::modules::on("games") {
+        return Enter::Other;
     }
     let games = if read { crate::chess::sniff(path) } else { crate::chess::format(path) };
     use crate::chess::Format as F;
@@ -89,7 +94,8 @@ pub fn view(path: &Path, place: Place) -> View {
 /// Inside an archive, a file whose name does not say whether it is games but whose bytes may: a
 /// `.bin` opening book, a DhtmlXQ xiangqi game (`.che`, `.dhtmlxq`). Enter looks at a copy.
 pub fn may_be_games(path: &Path) -> bool {
-    path.extension()
+    crate::modules::on("games")
+        && path.extension()
         .is_some_and(|e| ["bin", "che", "dhtmlxq"].iter().any(|x| e.eq_ignore_ascii_case(x)))
 }
 

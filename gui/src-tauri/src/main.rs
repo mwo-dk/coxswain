@@ -234,6 +234,10 @@ struct UiConfig {
     viewer_rules: &'static [coxswain_core::viewers::Rule],
     /// What each kind's viewer needs of a file inside an archive (`viewers::reads`).
     viewer_reads: BTreeMap<&'static str, coxswain_core::viewers::Read>,
+    /// The module that shows each kind (`modules::of`); a kind of none is always shown.
+    viewer_modules: BTreeMap<&'static str, &'static str>,
+    /// Settings → Modules: each module, its line and whether it is on.
+    modules: Vec<coxswain_core::modules::Row>,
     /// Open the first-run guide at start; its keys and themes.
     guide: bool,
     guide_keys: Vec<(String, String)>,
@@ -320,6 +324,8 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         geo_endings: coxswain_core::geo::endings(),
         viewer_rules: coxswain_core::viewers::rules(),
         viewer_reads: coxswain_core::viewers::reads_by_kind(),
+        viewer_modules: coxswain_core::modules::MODULES.iter().flat_map(|m| m.kinds.iter().map(|k| (*k, m.id))).collect(),
+        modules: coxswain_core::modules::rows(&cfg.modules.off),
         guide: ctx.guide && ctx.pick.is_none(),
         guide_keys: coxswain_core::guide::keys(&cfg),
         guide_menu: coxswain_core::guide::menu_line(&cfg),
@@ -765,6 +771,13 @@ async fn git_config(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<(Option<Str
 async fn viewer_detect(path: PathBuf) -> Res<&'static str> {
     here(&path)?;
     blocking(move || Ok(coxswain_core::viewers::detect(&path))).await
+}
+
+/// A file of the module `module`, which is off, is shown as text: the first time for that
+/// module, what to say (which module would show it, and `key` that opens Settings).
+#[tauri::command(async)]
+fn module_notice(module: String, key: String) -> Option<String> {
+    coxswain_core::modules::notice_once(coxswain_core::modules::find(&module)?, &key)
 }
 
 /// A status line's error in plain words (`fs::plain`).
@@ -2923,8 +2936,9 @@ const USAGE: &str = "coxswain-gui [LEFT] [RIGHT]   a folder, or a file to open i
                             let another program choose files or folders, or a name to save
                             under: the paths go to FILE or to standard output, one per line;
                             exit 0 when chosen, 1 when cancelled
-  --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, games,
-                            looks, behaviour, keys, privacy, or an option such as show_hidden
+  --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, modules,
+                            games, looks, behaviour, keys, privacy, or an option such as
+                            show_hidden
   --duplicates [FOLDER …]   start with Find duplicates scanning these folders (default: this one)
   --version
   --help
@@ -2970,6 +2984,7 @@ fn main() {
     });
     coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&cfg.language));
     coxswain_core::disk_image::set_open(cfg.archive.disk_images);
+    coxswain_core::modules::set_off(&cfg.modules.off);
     // Over ssh, or on a console: GTK cannot start, and would say so with a panic.
     #[cfg(all(unix, not(target_os = "macos")))]
     if ["DISPLAY", "WAYLAND_DISPLAY", "GDK_BACKEND"].iter().all(|v| std::env::var_os(v).is_none_or(|x| x.is_empty())) {
@@ -3086,7 +3101,7 @@ fn main() {
         .invoke_handler(refuse_in_pick_mode(picking, tauri::generate_handler![
             get_config, action_menu, hint, enter_on, hint_once, action_ran, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, terminals, git_config, places, disks, get_state, repos, repo_edit, save_session, save_favorites, set_tags, set_note, get_note, bin_summary, bin_question, bin_restore, bin_delete, bin_empty, bin_finder,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, folder_to_add, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, replace::replace_plan, replace::replace_apply, replace::replace_progress, replace::replace_stop, attrs::attrs_plan, attrs::attrs_apply, attrs::attrs_progress, attrs::attrs_stop, folders_sync::sync_check, folders_sync::sync_plan, folders_sync::sync_apply, folders_sync::sync_progress, folders_sync::sync_stop, undo, undo_next, open_path, suggest_translation, edit_path, edit_open, edit_save, compare::compare_open, compare::compare_close, compare::compare_state, compare::compare_rows, compare::compare_hex, compare::compare_next, compare::compare_take, compare::compare_undo, compare::compare_save, compare::folders_open, compare::folders_close, compare::folders_state, compare::folders_states, compare::folders_diff_only, compare::folders_ahead, open_keys, open_config_at, scripts_folder,
-            plain_error, viewer_detect, git_blame, git_line_history, git_lines_cancel, git_lines_here,
+            plain_error, viewer_detect, module_notice, git_blame, git_line_history, git_lines_cancel, git_lines_here,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_peek, archive_beside, archive_unpack_beside, asset::inside_forget, disk_image_facts, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, drop_keys, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, chess::chess_streams, chess::chess_sniffed, chess::chess_moves, chess::chess_analyse, chess::chess_remembered, chess::chess_memory, chess_engines, chess_engine_test, chess_engine_set, chess_engine_config, chess::chess_save_line, chess::chess_save_origin, chess::chess_review, chess::chess_review_save, chess::chess_position_games, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, logs::log_open, logs::log_close, logs::log_state, logs::log_rows, logs::log_shape, logs::log_row_of, logs::log_follow, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,

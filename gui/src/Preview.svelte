@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { ui, tab, item, keyOf, lineHistory, openHistory, openGitView, switchBranch, newBranch, remoteRun, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
   import { pageUrl, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, calendar, contacts, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, viewerReads, MAX_WHOLE, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, kindByName, moduleOff, viewerReads, MAX_WHOLE, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -41,7 +41,7 @@
   let copied = $state([]);
   /** A PGN family file inside an archive: its games are read as it is unpacked
    *  (`chess::games::streams`, no copy); ChessBase, SCID, positions, books and Go come from a copy. */
-  const chessInside = $derived(inside && !inHistory && /\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa)$/i.test(raw.name) && !copied.includes(raw.path));
+  const chessInside = $derived(inside && !inHistory && !moduleOff("chess") && /\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa)$/i.test(raw.name) && !copied.includes(raw.path));
   /** What the kind's viewer needs (`viewers::reads`): a stream or the whole file, read from
    *  memory as the archive unpacks it, or else a copy. */
   const direct = $derived(inside && !inHistory && (viewerReads(previewKind(raw)) === "stream" || (viewerReads(previewKind(raw)) === "whole" && raw.size <= MAX_WHOLE)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
@@ -108,9 +108,21 @@
     if (!cur || cur.is_dir || cur.online || !/\.(h5|dot)$/i.test(cur.name) || sniffed.path === cur.path || (inside && cur === raw)) return;
     invoke("viewer_detect", { path: cur.path }).then((k) => e?.path === cur.path && k !== previewKind(cur) && (sniffed = { path: cur.path, kind: k }), () => {});
   });
-  const kind = $derived(
-    output ? "output" : online ? "online" : inside && e === raw && !direct && !chessInside ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
+  /** The kind whatever modules are off, and the kind shown: `text` when its module is off. */
+  const kindAny = $derived(
+    output ? "output" : online ? "online" : inside && e === raw && !direct && !chessInside ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : kindByName(e),
   );
+  // Read so that a change of `[modules] off` shows at once (`setModulesOff` follows it).
+  const kind = $derived((ui.cfg?.settings?.modules_off, moduleOff(kindAny) ? "text" : kindAny));
+  // The first time a file of a module that is off is shown as text: which module would show it
+  // (asked once a module while the page is open; the core remembers it for good).
+  const noticed = new Set();
+  $effect(() => {
+    const m = (ui.cfg?.settings?.modules_off, moduleOff(kindAny));
+    if (!m || noticed.has(m)) return;
+    noticed.add(m);
+    invoke("module_notice", { module: m, key: ui.cfg.actions.settings?.[1] ?? "" }).then((text) => text && (ui.status = text), () => {});
+  });
   /** A blob of a model store that holds weights (Ollama's, a Hugging Face one's): by the name the
    *  store gives it (`local_models::names`), as its own name says nothing. */
   function storeModel(f) {
@@ -223,7 +235,7 @@
           return;
         }
         // A Polyglot opening book: its moves on a board (ChessView), unless the source is asked for.
-        if (k === "text" && !src && /\.bin$/i.test(cur.name) && (await invoke("chess_is_book", { path: cur.path }))) {
+        if (k === "text" && !src && !moduleOff("chess") && /\.bin$/i.test(cur.name) && (await invoke("chess_is_book", { path: cur.path }))) {
           if (e?.path !== cur.path) return;
           ui.book = cur.path;
           sniffed = { path: cur.path, kind: "chess" };
@@ -248,7 +260,7 @@
         const special = !bin && /\.(json|jsonl|ndjson|xml)$/i.test(cur.name) && (looksLikeProvenance(s) || looksLikeBom(s));
         if (unpacked && special) return void needsCopy(cur.path);
         // A DhtmlXQ xiangqi game (`chess::sniff`): on its board, unless the source is asked for.
-        if (!bin && k === "text" && !src && looksLikeDhtml(cur.name, s)) {
+        if (!bin && k === "text" && !src && !moduleOff("chess") && looksLikeDhtml(cur.name, s)) {
           ui.book = cur.path;
           sniffed = { path: cur.path, kind: "chess" };
           return;
