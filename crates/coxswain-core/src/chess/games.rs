@@ -486,7 +486,7 @@ fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut 
                 head.tags[i] = elo.to_string();
             }
         }
-        read.fetch_add(47, Ordering::Relaxed);
+        read.fetch_add(base.entry_len(), Ordering::Relaxed);
         each(&head) && !stop.load(Ordering::Relaxed)
     })
 }
