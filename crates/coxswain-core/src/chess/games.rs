@@ -1294,7 +1294,9 @@ impl Block {
 
     /// The block, then every block still being packed, written. False when `each` said stop.
     fn finish(&mut self, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<bool> {
-        self.close(each)?;
+        if !self.close(each)? {
+            return Ok(false);
+        }
         while !self.packing.is_empty() {
             if !self.write_oldest(each)? {
                 return Ok(false);
