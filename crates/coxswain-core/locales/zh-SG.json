@@ -4700,7 +4700,7 @@
  "feature.chess_positions.title": "国际象棋:局面索引与开局树",
  "feature.chess_positions.what": "在对局表中按“建立局面索引”会为其对局的局面建立一次索引;之后对局棋盘上的“树”显示每个后续着法的对局数、结果、平均等级分、年份和等级分最高的棋手,点击即可走出,“列出”把列表缩小到到达该局面的对局,不论着法顺序。{chess} 打开对局。",
  "feature.chess_positions.q1": "为什么树说没有局面索引?",
- "feature.chess_positions.a1": "索引只在要求时建立:按对局列表数量下方的“建立局面索引”(终端程序中按 i),或打开 设置 → 游戏 → 为每个对局表建立局面索引。",
+ "feature.chess_positions.a1": "索引只在要求时建立:按对局列表数量下方的“建立局面索引”,或打开 设置 → 游戏 → 为每个对局表建立局面索引。",
  "feature.chess_positions.q2": "索引有多大,需要多久?",
  "feature.chess_positions.a2": "按钮在开始前会说明:每个读取的局面约 9 字节,即 30 回合时每局约 0.5 KB。它在后台建立,磁盘占用中有它的一行。",
  "feature.chess_positions.q3": "为什么最高等级分棋手不是我预期的那位?",

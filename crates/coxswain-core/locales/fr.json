@@ -4885,7 +4885,7 @@
  "feature.chess_positions.title": "Échecs : index des positions et arbre des ouvertures",
  "feature.chess_positions.what": "Construire l’index des positions dans une table de parties indexe une fois les positions de ses parties ; ensuite Arbre sur l’échiquier d’une partie montre chaque coup suivant avec ses parties, ses résultats, l’Elo moyen, les années et le joueur le mieux classé, un clic le joue, et Les lister réduit la liste aux parties qui atteignent la position, quel que soit l’ordre des coups. {chess} ouvre les parties.",
  "feature.chess_positions.q1": "Pourquoi l’arbre dit-il qu’il n’y a pas d’index des positions ?",
- "feature.chess_positions.a1": "L’index n’est construit que sur demande : appuyez sur Construire l’index des positions sous le nombre de parties (i dans l’application terminal), ou activez Paramètres → Jeux → Index des positions pour chaque table de parties.",
+ "feature.chess_positions.a1": "L’index n’est construit que sur demande : appuyez sur Construire l’index des positions sous le nombre de parties, ou activez Paramètres → Jeux → Index des positions pour chaque table de parties.",
  "feature.chess_positions.q2": "Quelle taille fera l’index, et combien de temps faut-il ?",
  "feature.chess_positions.a2": "Le bouton le dit avant de commencer : environ 9 octets par position lue, soit environ 0,5 Ko par partie à 30 coups. Il est construit en arrière-plan, et Espace disque a une ligne pour lui.",
  "feature.chess_positions.q3": "Pourquoi le meilleur joueur n’est-il pas celui que j’attendais ?",

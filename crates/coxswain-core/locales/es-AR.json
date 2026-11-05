@@ -4885,7 +4885,7 @@
  "feature.chess_positions.title": "Ajedrez: índice de posiciones y árbol de aperturas",
  "feature.chess_positions.what": "Construir índice de posiciones en una tabla de partidas indexa una vez las posiciones de sus partidas; después Árbol en el tablero de una partida muestra cada jugada siguiente con sus partidas, resultados, Elo promedio, años y el jugador mejor clasificado, un clic la juega, y Listarlas reduce la lista a las partidas que llegan a la posición, en cualquier orden de jugadas. {chess} abre las partidas.",
  "feature.chess_positions.q1": "¿Por qué el árbol dice que no hay índice de posiciones?",
- "feature.chess_positions.a1": "El índice se construye solo cuando lo pedís: apretá Construir índice de posiciones debajo de la cantidad de partidas (i en la app de terminal), o activá Configuración → Juegos → Índice de posiciones para cada tabla de partidas.",
+ "feature.chess_positions.a1": "El índice se construye solo cuando lo pedís: apretá Construir índice de posiciones debajo de la cantidad de partidas, o activá Configuración → Juegos → Índice de posiciones para cada tabla de partidas.",
  "feature.chess_positions.q2": "¿Qué tamaño tendrá el índice y cuánto tardará?",
  "feature.chess_positions.a2": "El botón lo dice antes de empezar: unos 9 bytes por cada posición leída, o sea unos 0,5 KB por partida a 30 jugadas. Se construye en segundo plano, y Uso del disco tiene una fila para él.",
  "feature.chess_positions.q3": "¿Por qué el mejor jugador no es el que esperaba?",

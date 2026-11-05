@@ -199,7 +199,11 @@ impl Kind for Xiangqi {
     }
 
     fn shown(&self, b: &Self::B, code: u16) -> Option<(String, String, String)> {
-        let mv = format!("{}{}", iccs(code & 127), iccs((code >> 7) & 127));
+        let (from, to) = (code & 127, (code >> 7) & 127);
+        if from >= 90 || to >= 90 {
+            return None;
+        }
+        let mv = format!("{}{}", iccs(from), iccs(to));
         let (_, fen, ..) = crate::xiangqi::Xiangqi.play(&b.0, &mv)?;
         Some((mv.clone(), mv, fen))
     }
@@ -453,7 +457,7 @@ fn decode(b: &[u8], count: usize, mut each: impl FnMut(Entry) -> bool) -> io::Re
         let dk = get_var(b, &mut at).ok_or_else(bad)?;
         let g = get_var(b, &mut at).ok_or_else(bad)?;
         key = key.checked_add(dk).ok_or_else(bad)?;
-        game = if dk == 0 && i > 0 { game.checked_add(g as u32).ok_or_else(bad)? } else { u32::try_from(g).map_err(|_| bad())? };
+        game = if dk == 0 && i > 0 { game.checked_add(u32::try_from(g).map_err(|_| bad())?).ok_or_else(bad)? } else { u32::try_from(g).map_err(|_| bad())? };
         let code = u16::from_le_bytes(b.get(at..at + 2).ok_or_else(bad)?.try_into().expect("2 bytes"));
         at += 2;
         if !each(entry(key, game, code)) {
@@ -472,7 +476,7 @@ fn read_block(r: &mut impl Read, buf: &mut Vec<u8>, out: &mut Vec<Entry>) -> io:
     }
     let len = u32::from_le_bytes(head[..4].try_into().expect("4 bytes")) as usize;
     let count = u32::from_le_bytes(head[4..].try_into().expect("4 bytes")) as usize;
-    if count > BLOCK || len > BLOCK * 22 {
+    if count == 0 || count > BLOCK || len > BLOCK * 22 {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "a damaged position index"));
     }
     buf.resize(len, 0);
@@ -553,7 +557,10 @@ struct Done {
     /// grew has the same bytes there.
     size: u64,
     tail: String,
-    /// Seconds since 1970 it was made.
+    /// The games table's form it was built from: a table read anew in another form may cut the
+    /// games differently, so a grown file is then read whole again.
+    table_form: String,
+    /// Nanoseconds since 1970 it was made: the newest of two is taken.
     made: u64,
 }
 
@@ -694,7 +701,7 @@ fn tally(found: &[(u32, u16)], info: &dyn Fn(u32) -> Option<Info>) -> Vec<Sums> 
     for &(g, c) in found {
         let Some(i) = info(g) else { continue };
         if last != Some(g) {
-            // The position's own: White's side, so the best of it is White's (not shown).
+            // The position's own (REACH has the side bit: its best is Black's, never shown).
             reach.add(g, &i);
             last = Some(g);
         }
@@ -808,6 +815,10 @@ struct Job {
     stamp: Mutex<String>,
     /// Games played out: the work, counted.
     walked: AtomicU64,
+    /// Entries sorted into runs, for the merge's progress.
+    entries: AtomicU64,
+    /// The index was removed while this ran: its folders go once it has let them go.
+    removed: AtomicBool,
 }
 
 /// The hash of `size`'s last 64 KB of the file at `path` (empty when it cannot be read).
@@ -827,7 +838,7 @@ fn grows(path: &Path) -> bool {
 }
 
 fn now() -> u64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs())
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos() as u64)
 }
 
 /// The games' entries, from game `from` on, played out and sorted in runs in `runs/`; `stop`
@@ -849,7 +860,7 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
         for &e in buf.iter() {
             w.push(e)?;
         }
-        w.finish()?;
+        job.entries.fetch_add(w.finish()?.2, Ordering::Relaxed);
         made.lock().unwrap_or_else(|e| e.into_inner()).push(p);
         buf.clear();
         Ok(())
@@ -956,6 +967,7 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
         streams.push(Stream::open(&p)?);
         total += old.done.entries;
     }
+    total += job.entries.load(Ordering::Relaxed);
     job.done.store(0, Ordering::Relaxed);
     job.of.store(total.max(1), Ordering::Relaxed);
     let mut post = Writer::new(BufWriter::with_capacity(1 << 20, File::create(dir.join("postings"))?));
@@ -1033,7 +1045,7 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
     std::fs::write(dir.join("blocks"), b)?;
     let _ = std::fs::remove_dir_all(&runs_dir);
     let size = std::fs::metadata(&lib.path).map_or(0, |m| m.len());
-    let done = Done { form: FORM, source: lib.path.clone(), stamp: stamp.to_string(), depth, games: count, entries, size, tail: if grows(&lib.path) { tail(&lib.path, size) } else { String::new() }, made: now() };
+    let done = Done { form: FORM, source: lib.path.clone(), stamp: stamp.to_string(), depth, games: count, entries, size, tail: if grows(&lib.path) { tail(&lib.path, size) } else { String::new() }, table_form: super::table::FORM.to_string(), made: now() };
     let part = dir.join("done.part");
     let mut f = File::create(&part)?;
     f.write_all(&serde_json::to_vec(&done).map_err(io::Error::other)?)?;
@@ -1071,7 +1083,9 @@ fn folders(path: &Path) -> Vec<(PathBuf, Done)> {
         }
         match read_done(&e.path()) {
             Some(d) if d.source == path && d.form == FORM => out.push((e.path(), d)),
-            Some(_) => crate::spill::gone(&e.path()),
+            // An older version's goes; a newer one's is left to it.
+            Some(d) if d.form < FORM => crate::spill::gone(&e.path()),
+            Some(_) => {}
             None if super::table::stale(&e.path()) => crate::spill::gone(&e.path()),
             None => {}
         }
@@ -1096,6 +1110,38 @@ fn opened(path: &Path) -> Option<Arc<Index>> {
     open.insert(path.to_path_buf(), i.clone());
     Some(i)
 }
+
+/// The database's stamp (`table::stamp`). The apps ask where the index stands each second: a file
+/// inside an archive, stamped by its archive, is asked again at most every few seconds.
+fn stamp(path: &Path) -> String {
+    // A file of its own: a few metadata calls, asked each time.
+    if path.exists() {
+        return super::table::stamp(path);
+    }
+    static KNOWN: Mutex<Option<HashMap<PathBuf, (std::time::Instant, String)>>> = Mutex::new(None);
+    let mut known = KNOWN.lock().unwrap_or_else(|e| e.into_inner());
+    let known = known.get_or_insert_with(HashMap::new);
+    if let Some((at, s)) = known.get(path)
+        && at.elapsed() < std::time::Duration::from_secs(3)
+    {
+        return s.clone();
+    }
+    let s = super::table::stamp(path);
+    known.insert(path.to_path_buf(), (std::time::Instant::now(), s.clone()));
+    s
+}
+
+/// Goes up each time an index is made or removed: a list cut to a position, kept by an app, is
+/// asked again when it changes.
+static GENERATION: AtomicU64 = AtomicU64::new(0);
+
+pub fn generation() -> u64 {
+    GENERATION.load(Ordering::Relaxed)
+}
+
+/// Databases whose index was removed by hand, with their stamp then: Settings' every games
+/// table does not build it again until the database changes.
+static REMOVED: Mutex<Option<HashMap<PathBuf, String>>> = Mutex::new(None);
 
 fn job(path: &Path) -> Option<Arc<Job>> {
     JOBS.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(HashMap::new).get(path).cloned()
@@ -1157,7 +1203,7 @@ pub fn status(lib: &Library, depth: u32) -> Status {
     let mut s = Status { can: true, ..Status::default() };
     if let Some(i) = opened(path) {
         (s.ready, s.depth, s.bytes, s.games) = (true, i.depth(), i.bytes(), i.games());
-        s.stale = i.done.stamp != super::table::stamp(path);
+        s.stale = i.done.stamp != stamp(path);
     }
     if let Some(j) = job(path) {
         match j.phase.load(Ordering::Relaxed) {
@@ -1192,6 +1238,8 @@ pub fn build(lib: Arc<Library>, depth: u32) {
         return;
     }
     let path = lib.path.clone();
+    let lib_path = path.clone();
+    REMOVED.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(HashMap::new).remove(&path);
     let j = Arc::new(Job::default());
     {
         let mut jobs = JOBS.lock().unwrap_or_else(|e| e.into_inner());
@@ -1222,7 +1270,7 @@ pub fn build(lib: Arc<Library>, depth: u32) {
         // Kept: the old games but the last (a game cut short at the end may have grown).
         let keep = old.as_ref().and_then(|o| {
             let size = std::fs::metadata(&path).ok()?.len();
-            let same = o.done.depth == depth && grows(&path) && size > o.done.size && !o.done.tail.is_empty() && tail(&path, o.done.size) == o.done.tail;
+            let same = o.done.depth == depth && o.done.table_form == super::table::FORM && grows(&path) && size > o.done.size && !o.done.tail.is_empty() && tail(&path, o.done.size) == o.done.tail;
             same.then(|| o.done.games.saturating_sub(1))
         });
         let made = build_in(&lib, depth, &dir, old.as_deref().zip(keep), &j, &stamp);
@@ -1231,7 +1279,18 @@ pub fn build(lib: Arc<Library>, depth: u32) {
         }
         made?;
         let new = Arc::new(Index::open(&dir)?);
-        let before = OPEN.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(HashMap::new).insert(path.clone(), new);
+        // Put in place under the lock `remove` takes: removed meanwhile, it is not put in.
+        let before = {
+            let mut open = OPEN.lock().unwrap_or_else(|e| e.into_inner());
+            if j.stop.load(Ordering::Relaxed) {
+                drop(open);
+                drop(new);
+                let _ = std::fs::remove_dir_all(&dir);
+                return Err(stopped());
+            }
+            open.get_or_insert_with(HashMap::new).insert(path.clone(), new)
+        };
+        GENERATION.fetch_add(1, Ordering::Relaxed);
         drop(old);
         // The old one goes once no one reads it; else the next open takes it out.
         if let Some(b) = before
@@ -1243,8 +1302,17 @@ pub fn build(lib: Arc<Library>, depth: u32) {
         }
         Ok(())
     };
-    let _ = std::thread::Builder::new().name("chess-positions".into()).spawn(move || {
-        let r = run();
+    let ended = job.clone();
+    let source = lib_path.clone();
+    let spawned = std::thread::Builder::new().name("chess-positions".into()).spawn(move || {
+        // A panic is a failed build, not one that never ends.
+        let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)).unwrap_or_else(|_| Err(io::Error::other("the build failed")));
+        // Removed while it ran: what it held open is let go now, so its folders can go.
+        if job.removed.load(Ordering::Relaxed) {
+            for (dir, _) in folders(&source) {
+                crate::spill::gone(&dir);
+            }
+        }
         match r {
             Ok(()) => job.phase.store(2, Ordering::Relaxed),
             Err(e) => {
@@ -1255,6 +1323,10 @@ pub fn build(lib: Arc<Library>, depth: u32) {
             }
         }
     });
+    if let Err(e) = spawned {
+        *ended.error.lock().unwrap_or_else(|e| e.into_inner()) = Some(e.to_string());
+        ended.phase.store(3, Ordering::Relaxed);
+    }
 }
 
 /// What the games table does when it is shown: builds the index when Settings says every games
@@ -1267,14 +1339,19 @@ pub fn keep_up(lib: &Arc<Library>, cfg: &crate::config::ChessConfig) {
     if let Some(j) = job(path) {
         // Under way, or tried for the database as it is now.
         let stamp = j.stamp.lock().unwrap_or_else(|e| e.into_inner()).clone();
-        if j.phase.load(Ordering::Relaxed) < 2 || stamp == super::table::stamp(path) {
+        if j.phase.load(Ordering::Relaxed) < 2 || stamp == self::stamp(path) {
             return;
         }
     }
     match opened(path) {
-        Some(i) if i.done.stamp != super::table::stamp(path) => build(lib.clone(), i.depth()),
+        Some(i) if i.done.stamp != stamp(path) => build(lib.clone(), i.depth()),
         Some(_) => {}
-        None if cfg.position_index => build(lib.clone(), depth_of(&cfg.position_depth)),
+        None if cfg.position_index => {
+            let removed = REMOVED.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(HashMap::new).get(path).cloned();
+            if removed.is_none_or(|s| s != stamp(path)) {
+                build(lib.clone(), depth_of(&cfg.position_depth));
+            }
+        }
         None => {}
     }
 }
@@ -1288,9 +1365,18 @@ pub fn stop(path: &Path) {
 
 /// `path`'s index stopped and removed, every folder of it. The bytes freed.
 pub fn remove(path: &Path) -> u64 {
+    let running = job(path).filter(|j| j.phase.load(Ordering::Relaxed) < 2);
+    if let Some(j) = &running {
+        j.removed.store(true, Ordering::Relaxed);
+    }
+    let open = OPEN.lock().unwrap_or_else(|e| e.into_inner());
     stop(path);
+    REMOVED.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(HashMap::new).insert(path.to_path_buf(), super::table::stamp(path));
+    GENERATION.fetch_add(1, Ordering::Relaxed);
     JOBS.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(HashMap::new).remove(path);
-    drop(OPEN.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(HashMap::new).remove(path));
+    let mut open = open;
+    drop(open.get_or_insert_with(HashMap::new).remove(path));
+    drop(open);
     let mut freed = 0;
     for (dir, _) in folders(path) {
         freed += crate::fs::dir_size(&dir).0;
@@ -1310,7 +1396,7 @@ pub fn tree(lib: &Library, fen: &str) -> Option<Tree> {
         _ => tree_of(&Chess, &idx, lib, fen),
     }
     .ok()?;
-    t.stale = idx.done.stamp != super::table::stamp(&lib.path);
+    t.stale = idx.done.stamp != stamp(&lib.path);
     Some(t)
 }
 

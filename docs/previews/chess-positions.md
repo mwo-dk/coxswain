@@ -11,9 +11,9 @@ on a move plays it and the tree follows; **List them** cuts the games list to th
 the position. Both apps have it. It is off until you ask for it: building an index reads every
 game once and takes room on the disk.
 
-<!-- screenshot: gui-chess-tree.png: the desktop app (Cyber) on a game of a database with a position index, Tree on, the opening tree of the position after 1.e4 c5 with its moves, games, the White · draw · Black bars, average Elo, years and best players -->
+<!-- screenshot: gui-chess-tree.png: the desktop app (Cyber) on a game of a database with a position index, Tree on, the opening tree of the position after 1.e4 c5 2.Nf3 with Black's replies, games, the White · draw · Black bars, average Elo, years and best players -->
 
-<!-- screenshot: tui-chess-tree.png: the terminal app (Classic blue) on a game of a database with a position index, t pressed, the opening tree of the position after 1.e4 c5 in place of the moves, a move chosen, with the tree's keys -->
+<!-- screenshot: tui-chess-tree.png: the terminal app (Classic blue) on a game of a database with a position index, t pressed, the opening tree of the position after 1.e4 c5 2.Nf3 in place of the moves, a move chosen, with the tree's keys -->
 
 - [Building the index](#building-the-index)
 - [The opening tree](#the-opening-tree)
@@ -26,9 +26,9 @@ game once and takes room on the disk.
 
 ## Building the index
 
-Every games table of chess games has it: a PGN file (also `.pgn.gz`, `.pgn.zst` and a PGN file
-inside an archive), a SCID database (`.si4`, `.si5`), a ChessBase database (`.cbh`, `.cbv`), and
-xiangqi games (DhtmlXQ, or a PGN file that says it holds xiangqi). Draughts, shogi and bridge
+Every games table of chess games can have one: a PGN file (also `.pgn.gz`, `.pgn.zst` and a PGN
+file inside an archive), a SCID database (`.si4`, `.si5`), a ChessBase database (`.cbh`, `.cbv`),
+and xiangqi games (DhtmlXQ, or a PGN file that says it holds xiangqi). Draughts, shogi and bridge
 tables have none.
 
 | | Desktop app | Terminal app |
@@ -43,7 +43,8 @@ the background: the table, the games and everything else go on as before, and th
 the moment it is done. Closing the view does not stop it; *Stop* (**i**) does, and keeps nothing.
 Quitting the app stops it too.
 
-How far into each game it reads is *Settings → Games → Position index → Position index depth*:
+Only a game's main line is read, up to the first move that cannot be played or a null move
+(`--`). How far into each game it reads is *Settings → Games → Position index → Position index depth*:
 15 moves, 30 moves (the default) or the whole game. *Position index for every games table*
 builds one for each games table you open, without the button.
 
@@ -70,7 +71,7 @@ for a Black move, whatever move order the game took to get there.
 
 | | Desktop app | Terminal app |
 |---|---|---|
-| Play a move of the tree | A click on it: it is played on the board as a move of yours would be (the game's own next move is stepped to; any other starts [your line](chess-play.md#your-line)), and the tree follows | **↑ ↓** choose it, **Enter** plays it |
+| Play a move of the tree | A click on it: it is played on the board as a move of yours would be (the game's own next move is stepped to; any other starts [your line](chess-play.md#your-line)), and the tree follows | **↑ ↓** choose it, **Enter** plays it (xiangqi: shown only) |
 | Step through the game | **← →** and the other keys of the board; the tree follows | **← →** and the other keys of the board; the tree follows |
 | Hide the tree | *Tree* again, or **t** | **t** or **Esc** |
 
@@ -97,8 +98,8 @@ so is one where a side can no longer castle.
 ## When the database changes
 
 When the file changes, the index is out of date: the tree is still shown from it, marked *out of
-date, built again in the background*, and a new one is built in the background (the same depth)
-the next time the table is opened. When it is done, it takes the old one's place and the old one
+date, built again in the background*, and a new one is built in the background (the same depth) as
+soon as the table is open, whether or not *Position index for every games table* is on. When it is done, it takes the old one's place and the old one
 is removed. A PGN file that only grew (games added at its end) keeps the old index's games and
 reads only the new ones, and the last old one again. Any other change reads every game again.
 
@@ -107,7 +108,8 @@ reads only the new ones, and the last old one again. Any other change reads ever
 An index takes about 9 bytes for each position of each game it reads, so about 0.5 KB a game at
 30 moves. It is kept in the cache folder's `positions/`, apart from the games tables. The games
 tables' limit of 4 GB does not count it, and nothing prunes it: it stays until you remove it,
-or until its database file is gone.
+or until its database file is gone from a folder that is still there (a disk that is not plugged
+in keeps its indexes; an empty folder where a network share or a disk is mounted does not).
 
 *Settings → Privacy and updates → Disk use* (`coxswain --disk`) has a row for each index,
 `positions/<file name>`, with *Remove*. *Clear everything that can be built again* leaves the
@@ -118,7 +120,7 @@ Measured on a 16-core machine on a database of 12.3 million games (a 12 GB PGN f
 | Depth | Built in | On the disk | Memory while it is built |
 |---|---|---|---|
 | 15 moves | 2 min 9 s | 2.8 GB | 290 MB |
-| 30 moves | 3 min 11 s | 6.1 GB | 300 MB |
+| 30 moves | 3 min 11 s to 3 min 29 s (two runs) | 6.1 GB | 300 MB |
 | The whole game | 4 min 55 s | 8.9 GB | 300 MB |
 
 It uses up to half the computer's cores (eight at most); the memory is the same for a database of
@@ -183,8 +185,8 @@ list. It also goes when its database file is gone.
 
 #### What happens when I add games to my PGN file?
 
-The index is marked out of date and built again in the background the next time the table is
-opened; the old tree is shown meanwhile. A file that only grew reads only the games added.
+The index is marked out of date and built again in the background as soon as its table is open;
+the old tree is shown meanwhile. A file that only grew reads only the games added.
 
 #### Why does a deep position show games but no moves?
 

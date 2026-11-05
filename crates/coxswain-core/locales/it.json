@@ -4885,7 +4885,7 @@
  "feature.chess_positions.title": "Scacchi: indice delle posizioni e albero delle aperture",
  "feature.chess_positions.what": "Costruisci l’indice delle posizioni in una tabella di partite indicizza una volta le posizioni delle sue partite; poi Albero sulla scacchiera di una partita mostra ogni mossa successiva con partite, risultati, Elo medio, anni e giocatore meglio classificato, un clic la gioca, ed Elencale riduce l’elenco alle partite che raggiungono la posizione, in qualunque ordine di mosse. {chess} apre le partite.",
  "feature.chess_positions.q1": "Perché l’albero dice che non c’è un indice delle posizioni?",
- "feature.chess_positions.a1": "L’indice si costruisce solo su richiesta: premi Costruisci l’indice delle posizioni sotto il numero di partite (i nell’app da terminale), oppure attiva Impostazioni → Giochi → Indice delle posizioni per ogni tabella di partite.",
+ "feature.chess_positions.a1": "L’indice si costruisce solo su richiesta: premi Costruisci l’indice delle posizioni sotto il numero di partite, oppure attiva Impostazioni → Giochi → Indice delle posizioni per ogni tabella di partite.",
  "feature.chess_positions.q2": "Quanto sarà grande l’indice, e quanto ci vorrà?",
  "feature.chess_positions.a2": "Il pulsante lo dice prima di iniziare: circa 9 byte per ogni posizione letta, cioè circa 0,5 KB a partita a 30 mosse. Si costruisce in background, e Uso del disco ha una riga per lui.",
  "feature.chess_positions.q3": "Perché il miglior giocatore non è quello che mi aspettavo?",

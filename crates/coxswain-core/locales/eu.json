@@ -4787,7 +4787,7 @@
  "feature.chess_positions.title": "Xakea: posizio-indizea eta irekiera-zuhaitza",
  "feature.chess_positions.what": "Partida-taula batean Eraiki posizio-indizea sakatzeak bere partiden posizioak behin indexatzen ditu; gero partida baten taulan Zuhaitzak hurrengo jokaldi bakoitza erakusten du bere partida, emaitza, batez besteko Elo, urte eta sailkapen oneneko jokalariarekin, klik batek jokatzen du, eta Zerrendatuk posiziora iristen diren partidetara murrizten du zerrenda, jokaldien ordena edozein dela ere. {chess}-k irekitzen ditu partidak.",
  "feature.chess_positions.q1": "Zergatik dio zuhaitzak ez dagoela posizio-indizerik?",
- "feature.chess_positions.a1": "Indizea eskatzen denean bakarrik eraikitzen da: sakatu Eraiki posizio-indizea partiden kopuruaren azpian (i terminaleko aplikazioan), edo aktibatu Ezarpenak → Jokoak → Posizio-indizea partida-taula bakoitzerako.",
+ "feature.chess_positions.a1": "Indizea eskatzen denean bakarrik eraikitzen da: sakatu Eraiki posizio-indizea partiden kopuruaren azpian, edo aktibatu Ezarpenak → Jokoak → Posizio-indizea partida-taula bakoitzerako.",
  "feature.chess_positions.q2": "Zenbaterainokoa izango da indizea, eta zenbat iraungo du?",
  "feature.chess_positions.a2": "Botoiak hasi aurretik esaten du: irakurritako posizio bakoitzeko 9 byte inguru, hau da, partida bakoitzeko 0,5 KB inguru 30 jokalditan. Atzeko planoan eraikitzen da, eta Diskoaren erabilerak errenkada bat du harentzat.",
  "feature.chess_positions.q3": "Zergatik ez da jokalari onena espero nuena?",

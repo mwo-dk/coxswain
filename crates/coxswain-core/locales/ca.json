@@ -4885,7 +4885,7 @@
  "feature.chess_positions.title": "Escacs: índex de posicions i arbre d'obertures",
  "feature.chess_positions.what": "Construeix l'índex de posicions en una taula de partides indexa una vegada les posicions de les partides; després Arbre al tauler d'una partida mostra cada jugada següent amb les seves partides, resultats, Elo mitjà, anys i el jugador millor classificat, un clic la juga, i Llista-les redueix la llista a les partides que arriben a la posició, en qualsevol ordre de jugades. {chess} obre les partides.",
  "feature.chess_positions.q1": "Per què l'arbre diu que no hi ha índex de posicions?",
- "feature.chess_positions.a1": "L'índex només es construeix quan es demana: premeu Construeix l'índex de posicions sota el nombre de partides (i a l'aplicació de terminal), o activeu Configuració → Jocs → Índex de posicions per a cada taula de partides.",
+ "feature.chess_positions.a1": "L'índex només es construeix quan es demana: premeu Construeix l'índex de posicions sota el nombre de partides, o activeu Configuració → Jocs → Índex de posicions per a cada taula de partides.",
  "feature.chess_positions.q2": "Quina mida tindrà l'índex i quant trigarà?",
  "feature.chess_positions.a2": "El botó ho diu abans de començar: uns 9 bytes per cada posició llegida, és a dir uns 0,5 kB per partida a 30 jugades. Es construeix en segon pla, i Ús del disc hi té una fila.",
  "feature.chess_positions.q3": "Per què el millor jugador no és el que esperava?",

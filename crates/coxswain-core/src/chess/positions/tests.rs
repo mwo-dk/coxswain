@@ -359,6 +359,14 @@ fn settings_build_for_every_table() {
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
     assert_eq!(status(&lib, 30).depth, 15);
+    // Removed by hand: not built again by itself until the database changes.
+    remove(&p);
+    let on = crate::config::ChessConfig { position_index: true, ..Default::default() };
+    keep_up(&lib, &on);
+    assert!(job(&p).is_none() && !status(&lib, 30).ready);
+    let before = generation();
+    built(&lib, 30);
+    assert!(generation() > before, "a list cut to a position is asked again");
     remove(&p);
 }
 

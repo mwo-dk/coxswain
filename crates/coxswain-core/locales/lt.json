@@ -4885,7 +4885,7 @@
  "feature.chess_positions.title": "Šachmatai: pozicijų rodyklė ir debiutų medis",
  "feature.chess_positions.what": "Kurti pozicijų rodyklę partijų lentelėje kartą suindeksuoja jos partijų pozicijas; tada Medis partijos lentoje rodo kiekvieną kitą ėjimą su partijomis, rezultatais, vidutiniu Elo, metais ir aukščiausio reitingo žaidėju, spustelėjimas jį sužaidžia, o Išvardyti susiaurina sąrašą iki partijų, patenkančių į poziciją, nesvarbu, kokia ėjimų tvarka. {chess} atveria partijas.",
  "feature.chess_positions.q1": "Kodėl medis sako, kad pozicijų rodyklės nėra?",
- "feature.chess_positions.a1": "Rodyklė kuriama tik paprašius: spauskite Kurti pozicijų rodyklę po partijų skaičiumi (i terminalo programoje) arba įjunkite Nuostatos → Žaidimai → Pozicijų rodyklė kiekvienai partijų lentelei.",
+ "feature.chess_positions.a1": "Rodyklė kuriama tik paprašius: spauskite Kurti pozicijų rodyklę po partijų skaičiumi arba įjunkite Nuostatos → Žaidimai → Pozicijų rodyklė kiekvienai partijų lentelei.",
  "feature.chess_positions.q2": "Kokio dydžio bus rodyklė ir kiek užtruks?",
  "feature.chess_positions.a2": "Mygtukas pasako prieš pradėdamas: apie 9 baitų kiekvienai perskaitytai pozicijai, t. y. apie 0,5 KB partijai esant 30 ėjimų. Ji kuriama fone, o Disko naudojime jai yra eilutė.",
  "feature.chess_positions.q3": "Kodėl geriausias žaidėjas ne tas, kurio tikėjausi?",

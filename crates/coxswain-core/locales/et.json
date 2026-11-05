@@ -4787,7 +4787,7 @@
  "feature.chess_positions.title": "Male: seisundite indeks ja avangupuu",
  "feature.chess_positions.what": "Ehita seisundite indeks partiide tabelis indekseerib korra selle partiide seisud; seejärel näitab Puu partii laual iga järgmist käiku koos partiide, tulemuste, keskmise Elo, aastate ja kõrgeima reitinguga mängijaga, klõps mängib selle ja Loetle need kitsendab loendi seisu jõudvatele partiidele, käigujärjekorrast olenemata. {chess} avab partiid.",
  "feature.chess_positions.q1": "Miks puu ütleb, et seisundite indeksit pole?",
- "feature.chess_positions.a1": "Indeks ehitatakse ainult soovi korral: vajuta Ehita seisundite indeks partiide loendi arvu all (i terminalirakenduses) või lülita sisse Seaded → Mängud → Seisundite indeks igale partiide tabelile.",
+ "feature.chess_positions.a1": "Indeks ehitatakse ainult soovi korral: vajuta Ehita seisundite indeks partiide loendi arvu all või lülita sisse Seaded → Mängud → Seisundite indeks igale partiide tabelile.",
  "feature.chess_positions.q2": "Kui suur indeks tuleb ja kui kaua see võtab?",
  "feature.chess_positions.a2": "Nupp ütleb selle enne algust: umbes 9 baiti iga loetud seisu kohta, seega umbes 0,5 KB partii kohta 30 käigu juures. See ehitatakse taustal ja Kettakasutuses on sellel rida.",
  "feature.chess_positions.q3": "Miks parim mängija pole see, keda ootasin?",

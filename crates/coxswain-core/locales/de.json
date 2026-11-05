@@ -4787,7 +4787,7 @@
  "feature.chess_positions.title": "Schach: Stellungsindex und Eröffnungsbaum",
  "feature.chess_positions.what": "Stellungsindex aufbauen in einer Partietabelle indiziert die Stellungen ihrer Partien einmal; danach zeigt Baum auf dem Brett einer Partie jeden nächsten Zug mit seinen Partien, Ergebnissen, mittlerer Elo, Jahren und bestbewertetem Spieler, ein Klick spielt ihn, und Auflisten kürzt die Liste auf die Partien, die die Stellung erreichen, in welcher Zugfolge auch immer. {chess} öffnet die Partien.",
  "feature.chess_positions.q1": "Warum sagt der Baum, es gebe keinen Stellungsindex?",
- "feature.chess_positions.a1": "Der Index wird nur auf Wunsch aufgebaut: Drücke Stellungsindex aufbauen unter der Anzahl der Partieliste (i in der Terminal-App) oder schalte Einstellungen → Spiele → Stellungsindex für jede Partietabelle ein.",
+ "feature.chess_positions.a1": "Der Index wird nur auf Wunsch aufgebaut: Drücke Stellungsindex aufbauen unter der Anzahl der Partieliste oder schalte Einstellungen → Spiele → Stellungsindex für jede Partietabelle ein.",
  "feature.chess_positions.q2": "Wie groß wird der Index, und wie lange dauert es?",
  "feature.chess_positions.a2": "Die Schaltfläche sagt es vor dem Start: etwa 9 Byte für jede gelesene Stellung, also etwa 0,5 KB pro Partie bei 30 Zügen. Er wird im Hintergrund aufgebaut, und die Speicherbelegung hat eine Zeile dafür.",
  "feature.chess_positions.q3": "Warum ist der beste Spieler nicht der erwartete?",

@@ -4787,7 +4787,7 @@
  "feature.chess_positions.title": "Sjakk: stillingsindeks og opningstre",
  "feature.chess_positions.what": "Bygg stillingsindeks i ein partitabell indekserer stillingane i partia éin gong; så viser Tre på brettet til eit parti kvart neste trekk med parti, resultat, gjennomsnittleg Elo, år og høgast rangerte spelar, eit klikk spelar det, og Vis dei kuttar lista ned til partia som når stillinga, same trekkfølgje. {chess} opnar partia.",
  "feature.chess_positions.q1": "Kvifor seier treet at det ikkje finst nokon stillingsindeks?",
- "feature.chess_positions.a1": "Indeksen blir berre bygd når du ber om det: trykk Bygg stillingsindeks under talet i partilista (i i terminalappen), eller slå på Innstillingar → Spel → Stillingsindeks for kvar partitabell.",
+ "feature.chess_positions.a1": "Indeksen blir berre bygd når du ber om det: trykk Bygg stillingsindeks under talet i partilista, eller slå på Innstillingar → Spel → Stillingsindeks for kvar partitabell.",
  "feature.chess_positions.q2": "Kor stor blir indeksen, og kor lang tid tek det?",
  "feature.chess_positions.a2": "Knappen seier det før han startar: om lag 9 byte for kvar stilling som blir lesen, altså om lag 0,5 KB per parti ved 30 trekk. Han blir bygd i bakgrunnen, og Diskbruk har ei rad for han.",
  "feature.chess_positions.q3": "Kvifor er beste spelar ikkje den eg venta?",

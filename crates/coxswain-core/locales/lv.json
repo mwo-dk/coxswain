@@ -4885,7 +4885,7 @@
  "feature.chess_positions.title": "Šahs: pozīciju rādītājs un atklātņu koks",
  "feature.chess_positions.what": "Izveidot pozīciju rādītāju partiju tabulā vienreiz indeksē tās partiju pozīcijas; pēc tam Koks uz partijas galdiņa rāda katru nākamo gājienu ar tā partijām, rezultātiem, vidējo Elo, gadiem un augstāk vērtēto spēlētāju, klikšķis to izspēlē, un Uzskaitīt sašaurina sarakstu līdz partijām, kas sasniedz pozīciju, neatkarīgi no gājienu secības. {chess} atver partijas.",
  "feature.chess_positions.q1": "Kāpēc koks saka, ka pozīciju rādītāja nav?",
- "feature.chess_positions.a1": "Rādītājs tiek veidots tikai pēc pieprasījuma: nospiediet Izveidot pozīciju rādītāju zem partiju skaita (i termināļa lietotnē) vai ieslēdziet Iestatījumi → Spēles → Pozīciju rādītājs katrai partiju tabulai.",
+ "feature.chess_positions.a1": "Rādītājs tiek veidots tikai pēc pieprasījuma: nospiediet Izveidot pozīciju rādītāju zem partiju skaita vai ieslēdziet Iestatījumi → Spēles → Pozīciju rādītājs katrai partiju tabulai.",
  "feature.chess_positions.q2": "Cik liels būs rādītājs un cik ilgi tas aizņems?",
  "feature.chess_positions.a2": "Poga to pasaka pirms sākuma: apmēram 9 baitu katrai nolasītajai pozīcijai, tātad apmēram 0,5 KB partijai pie 30 gājieniem. Tas tiek veidots fonā, un Diska lietojumā tam ir rinda.",
  "feature.chess_positions.q3": "Kāpēc labākais spēlētājs nav tas, ko gaidīju?",

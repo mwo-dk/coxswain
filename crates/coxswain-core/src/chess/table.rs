@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 /// A game's row on the disk.
 pub(crate) const ROW: usize = 52;
 /// What the folder holds changes form: an older form is never read.
-const FORM: &str = "2";
+pub(crate) const FORM: &str = "2";
 /// A table not opened for this long goes.
 pub const KEPT: Duration = Duration::from_secs(30 * 24 * 3600);
 /// The most all tables take: past it the ones opened longest ago go, never the newest.

@@ -4787,7 +4787,7 @@
  "feature.chess_positions.title": "Shakki: asemahakemisto ja avauspuu",
  "feature.chess_positions.what": "Rakenna asemahakemisto pelitaulukossa indeksoi sen pelien asemat kerran; sen jälkeen Puu pelin laudalla näyttää jokaisen seuraavan siirron pelit, tulokset, keskimääräisen Elon, vuodet ja parhaiten rankatun pelaajan, napsautus pelaa sen, ja Listaa ne rajaa luettelon asemaan päätyviin peleihin siirtojärjestyksestä riippumatta. {chess} avaa pelit.",
  "feature.chess_positions.q1": "Miksi puu sanoo, ettei asemahakemistoa ole?",
- "feature.chess_positions.a1": "Hakemisto rakennetaan vain pyydettäessä: paina Rakenna asemahakemisto peliluettelon määrän alla (i pääteohjelmassa) tai ota käyttöön Asetukset → Pelit → Asemahakemisto jokaiselle pelitaulukolle.",
+ "feature.chess_positions.a1": "Hakemisto rakennetaan vain pyydettäessä: paina Rakenna asemahakemisto peliluettelon määrän alla tai ota käyttöön Asetukset → Pelit → Asemahakemisto jokaiselle pelitaulukolle.",
  "feature.chess_positions.q2": "Kuinka suuri hakemistosta tulee, ja kauanko se kestää?",
  "feature.chess_positions.a2": "Painike kertoo sen ennen alkua: noin 9 tavua jokaista luettua asemaa kohden, eli noin 0,5 kt peliä kohden 30 siirrolla. Se rakennetaan taustalla, ja Levyn käytössä on sille rivi.",
  "feature.chess_positions.q3": "Miksi paras pelaaja ei ole se, jota odotin?",

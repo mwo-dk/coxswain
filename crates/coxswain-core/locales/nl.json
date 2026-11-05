@@ -4787,7 +4787,7 @@
  "feature.chess_positions.title": "Schaken: stellingenindex en openingsboom",
  "feature.chess_positions.what": "Stellingenindex bouwen in een partijentabel indexeert de stellingen van de partijen één keer; daarna toont Boom op het bord van een partij elke volgende zet met partijen, uitslagen, gemiddelde Elo, jaren en hoogst gerate speler, een klik speelt hem, en Toon ze beperkt de lijst tot de partijen die de stelling bereiken, in welke zetvolgorde ook. {chess} opent de partijen.",
  "feature.chess_positions.q1": "Waarom zegt de boom dat er geen stellingenindex is?",
- "feature.chess_positions.a1": "De index wordt alleen op verzoek gebouwd: druk op Stellingenindex bouwen onder het aantal van de partijenlijst (i in de terminal-app), of zet Instellingen → Spellen → Stellingenindex voor elke partijentabel aan.",
+ "feature.chess_positions.a1": "De index wordt alleen op verzoek gebouwd: druk op Stellingenindex bouwen onder het aantal van de partijenlijst, of zet Instellingen → Spellen → Stellingenindex voor elke partijentabel aan.",
  "feature.chess_positions.q2": "Hoe groot wordt de index, en hoe lang duurt het?",
  "feature.chess_positions.a2": "De knop zegt het voor hij begint: ongeveer 9 bytes voor elke gelezen stelling, dus ongeveer 0,5 KB per partij bij 30 zetten. Hij wordt op de achtergrond gebouwd, en Schijfgebruik heeft er een rij voor.",
  "feature.chess_positions.q3": "Waarom is de beste speler niet degene die ik verwachtte?",

@@ -86,7 +86,8 @@ never changed.
 name), *Opening or ECO* (in the opening's name, or the start of its code: `C4` finds C40 to
 C49), the result, *From year* and *To year*, and *Rating at least* (both players). In the
 terminal app: **/** player, **o** opening, **r** cycles the result, **y** years (`1850-1900`),
-**e** rating, **c** clears them all; type, then **Enter**.
+**e** rating, **c** clears them all; type, then **Enter**. **i** builds the position index (or
+stops its build), **I** removes it.
 
 **Position index.** *Build position index* under the count (**i** in the terminal app) indexes
 the games' positions, for the opening tree on a game's board and for the list cut to the games
@@ -656,7 +657,8 @@ file once. The group shows the first few, in the file's order; the count above i
 Its table of games is kept there (`chess/tables/`), 52 bytes a game and the names: 727 MB for
 12.3 million games. It goes by itself 30 days after you last opened the file, when the file changes
 or goes, or past 4 GB of tables in all; **Clear** on the *chess/* row of Disk use removes them
-at once.
+at once. A [position index](chess-positions.md#room-on-the-disk) (`positions/`) is kept apart and is
+not counted in the 4 GB.
 
 #### Why does the book line not show?
 

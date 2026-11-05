@@ -4700,7 +4700,7 @@
  "feature.chess_positions.title": "西洋棋:局面索引與開局樹",
  "feature.chess_positions.what": "在對局表中按「建立局面索引」會為其對局的局面建立一次索引;之後對局棋盤上的「樹」顯示每個後續著法的對局數、結果、平均等級分、年份和等級分最高的棋手,點擊即可走出,「列出」把列表縮小到到達該局面的對局,不論著法順序。{chess} 開啟對局。",
  "feature.chess_positions.q1": "為什麼樹說沒有局面索引?",
- "feature.chess_positions.a1": "索引只在要求時建立:按對局列表數量下方的「建立局面索引」(終端程式中按 i),或開啟 設定 → 遊戲 → 為每個對局表建立局面索引。",
+ "feature.chess_positions.a1": "索引只在要求時建立:按對局列表數量下方的「建立局面索引」,或開啟 設定 → 遊戲 → 為每個對局表建立局面索引。",
  "feature.chess_positions.q2": "索引有多大,需要多久?",
  "feature.chess_positions.a2": "按鈕在開始前會說明:每個讀取的局面約 9 位元組,即 30 回合時每局約 0.5 KB。它在背景建立,磁碟用量中有它的一行。",
  "feature.chess_positions.q3": "為什麼最高等級分棋手不是我預期的那位?",

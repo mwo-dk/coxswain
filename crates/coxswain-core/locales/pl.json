@@ -4983,7 +4983,7 @@
  "feature.chess_positions.title": "Szachy: indeks pozycji i drzewo otwarć",
  "feature.chess_positions.what": "Zbuduj indeks pozycji w tabeli partii raz indeksuje pozycje jej partii; potem Drzewo na szachownicy partii pokazuje każdy następny ruch z jego partiami, wynikami, średnim Elo, latami i najwyżej klasyfikowanym graczem, kliknięcie go gra, a Wypisz je zawęża listę do partii, które dochodzą do pozycji, w dowolnej kolejności ruchów. {chess} otwiera partie.",
  "feature.chess_positions.q1": "Dlaczego drzewo mówi, że nie ma indeksu pozycji?",
- "feature.chess_positions.a1": "Indeks buduje się tylko na żądanie: naciśnij Zbuduj indeks pozycji pod liczbą partii (i w aplikacji terminalowej) albo włącz Ustawienia → Gry → Indeks pozycji dla każdej tabeli partii.",
+ "feature.chess_positions.a1": "Indeks buduje się tylko na żądanie: naciśnij Zbuduj indeks pozycji pod liczbą partii albo włącz Ustawienia → Gry → Indeks pozycji dla każdej tabeli partii.",
  "feature.chess_positions.q2": "Jak duży będzie indeks i ile to potrwa?",
  "feature.chess_positions.a2": "Przycisk mówi to przed startem: około 9 bajtów na każdą odczytaną pozycję, czyli około 0,5 KB na partię przy 30 ruchach. Buduje się w tle, a Użycie dysku ma dla niego wiersz.",
  "feature.chess_positions.q3": "Dlaczego najlepszy gracz to nie ten, którego się spodziewałem?",

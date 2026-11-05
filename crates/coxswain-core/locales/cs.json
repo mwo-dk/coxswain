@@ -4888,7 +4888,7 @@
  "feature.chess_positions.title": "Šachy: index pozic a strom zahájení",
  "feature.chess_positions.what": "Sestavit index pozic v tabulce partií jednou zaindexuje pozice jejích partií; potom Strom na šachovnici partie ukáže každý další tah s jeho partiemi, výsledky, průměrným Elem, roky a nejlépe hodnoceným hráčem, kliknutí ho zahraje a Vypsat je zúží seznam na partie, které vedou k pozici, v jakémkoli pořadí tahů. {chess} otevře partie.",
  "feature.chess_positions.q1": "Proč strom říká, že index pozic chybí?",
- "feature.chess_positions.a1": "Index se sestavuje jen na požádání: stiskněte Sestavit index pozic pod počtem partií (i v terminálové aplikaci), nebo zapněte Nastavení → Hry → Index pozic pro každou tabulku partií.",
+ "feature.chess_positions.a1": "Index se sestavuje jen na požádání: stiskněte Sestavit index pozic pod počtem partií, nebo zapněte Nastavení → Hry → Index pozic pro každou tabulku partií.",
  "feature.chess_positions.q2": "Jak velký index bude a jak dlouho to potrvá?",
  "feature.chess_positions.a2": "Tlačítko to řekne předem: asi 9 bajtů na každou přečtenou pozici, tedy asi 0,5 kB na partii při 30 tazích. Sestavuje se na pozadí a Využití disku pro něj má řádek.",
  "feature.chess_positions.q3": "Proč nejlepší hráč není ten, koho jsem čekal?",

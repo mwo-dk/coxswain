@@ -4787,7 +4787,7 @@
  "feature.chess_positions.title": "Schack: ställningsindex och öppningsträd",
  "feature.chess_positions.what": "Bygg ställningsindex i en partitabell indexerar partiernas ställningar en gång; sedan visar Träd på ett partis bräde varje nästa drag med dess partier, resultat, genomsnittlig Elo, år och högst rankade spelare, ett klick spelar det, och Lista dem begränsar listan till partierna som når ställningen, oavsett dragföljd. {chess} öppnar partierna.",
  "feature.chess_positions.q1": "Varför säger trädet att det inte finns något ställningsindex?",
- "feature.chess_positions.a1": "Indexet byggs bara när du ber om det: tryck Bygg ställningsindex under partilistans antal (i i terminalappen), eller slå på Inställningar → Spel → Ställningsindex för varje partitabell.",
+ "feature.chess_positions.a1": "Indexet byggs bara när du ber om det: tryck Bygg ställningsindex under partilistans antal, eller slå på Inställningar → Spel → Ställningsindex för varje partitabell.",
  "feature.chess_positions.q2": "Hur stort blir indexet, och hur lång tid tar det?",
  "feature.chess_positions.a2": "Knappen säger det innan den startar: ungefär 9 byte för varje läst ställning, alltså ungefär 0,5 KB per parti vid 30 drag. Det byggs i bakgrunden, och Diskanvändning har en rad för det.",
  "feature.chess_positions.q3": "Varför är bästa spelaren inte den jag väntade mig?",

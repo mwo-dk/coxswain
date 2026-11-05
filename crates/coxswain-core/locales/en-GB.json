@@ -4798,7 +4798,7 @@
  "feature.chess_positions.title": "Chess: position index and opening tree",
  "feature.chess_positions.what": "Build position index in a games table indexes the positions of its games once; then Tree on a game's board shows each next move with its games, results, average Elo, years and best-rated player, a click plays it, and List them cuts the list to the games that reach the position, whatever their move order. {chess} opens the games.",
  "feature.chess_positions.q1": "Why does the tree say there is no position index?",
- "feature.chess_positions.a1": "The index is built only when asked for: press Build position index under the games list's count (i in the terminal app), or turn on Settings → Games → Position index for every games table.",
+ "feature.chess_positions.a1": "The index is built only when asked for: press Build position index under the games list's count, or turn on Settings → Games → Position index for every games table.",
  "feature.chess_positions.q2": "How large will the index be, and how long will it take?",
  "feature.chess_positions.a2": "The button says it before it starts: about 9 bytes for each position read, so about 0.5 KB a game at 30 moves. It is built in the background, and Disk use has a row for it.",
  "feature.chess_positions.q3": "Why is the best player not the one I expected?",
