@@ -1132,6 +1132,11 @@
           <summary>{t("settings.group.book")}</summary>
           {@render text("chess_book", t("settings.chess_book_auto"))}
         </details>
+        <details class="group" id="opt-chess_positions" open>
+          <summary>{t("settings.group.positions")}</summary>
+          {@render check("chess_position_index")}
+          {@render choice("chess_position_depth", [["15", t("settings.chess_depth_15")], ["30", t("settings.chess_depth_30")], ["all", t("settings.chess_depth_all")]])}
+        </details>
       {:else if area === "looks"}
         <!-- ------------------------------------------------ Looks -->
         <h3>{t("settings.area.looks")}</h3>
@@ -1299,7 +1304,7 @@
               <span>{d.cost}{#if d.in_use}<span class="badge">{t("models.in_use")}</span>{/if}</span>
               <span class="disk-buttons">
                 {#if d.paths.length}<button class="link" title={d.paths[0]} onclick={() => showInPanel(d.paths[0], !(d.name.endsWith("/") || d.kind !== "own"))}>{t("settings.show_in_panel")}</button>{/if}
-                {#if d.clear && d.kind === "yours"}
+                {#if d.clear && (d.kind === "yours" || d.id.startsWith("positions:"))}
                   <button class="danger" disabled={!d.bytes} onclick={() => clearDisk(d)} onblur={() => (clearing = "")}>{clearing === d.id ? t("disk.confirm_remove", { what: d.paths[0] ?? d.name }) : t("disk.remove")}</button>
                 {:else if d.clear}
                   <button class="danger" disabled={!d.bytes} onclick={() => clearDisk(d)} onblur={() => (clearing = "")}>{clearing === d.id ? t("disk.confirm_one", { what: d.paths[0] ?? d.name }) : t("disk.clear")}</button>

@@ -141,7 +141,7 @@ fn parts(path: &Path) -> Vec<PathBuf> {
 }
 
 /// The database's identity: its path, and the size and time of each of its files.
-fn stamp(path: &Path) -> String {
+pub(crate) fn stamp(path: &Path) -> String {
     let mut h = blake3::Hasher::new();
     h.update(FORM.as_bytes());
     h.update(path.as_os_str().as_encoded_bytes());
@@ -184,7 +184,7 @@ fn modified(p: &Path) -> Option<SystemTime> {
 /// A folder being made, by a run that ended without finishing it: its run (named in the
 /// folder, `<key>-<run>-<n>`) has ended; or, when that cannot be told, its rows did not grow
 /// for `STALE`.
-fn stale(dir: &Path) -> bool {
+pub(crate) fn stale(dir: &Path) -> bool {
     let name = dir.file_name().unwrap_or_default().to_string_lossy().into_owned();
     let run = name.split_once('-').and_then(|(_, r)| r.rsplit_once('-')).map(|(r, _)| r.to_string());
     match run.as_deref().and_then(crate::spill::alive) {

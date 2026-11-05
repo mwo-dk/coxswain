@@ -219,6 +219,7 @@ The terminal app, coxswain, has the rest: coxswain --help
 | `--settings=overview` | …at *Overview*, where *What's new* is ([Notices and what's new](../panels/notices.md)) |
 | `--settings=preview_tools` | …at *Previews*, scrolled to *Preview tools* ([Preview tools in Settings](../previews/tools.md#preview-tools-in-settings)) |
 | `--settings=chess_engines` | …at *Games*, scrolled to *Chess engines* ([Choosing an engine](../previews/chess-play.md#choosing-an-engine)) |
+| `--settings=chess_positions` | …at *Games*, scrolled to *Position index* ([Position index and opening tree](../previews/chess.md#settings-and-configtoml)) |
 | `--settings=AREA` | …at that area: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
 | `--settings=OPTION` | …at the area of that option, with its group open, scrolled to it and lit up for a moment: an option's name, such as `check_updates` or `folder_sizes` |
 | `--pick[=FILE]` | Pick mode, with the terminal app's flags: one window that only chooses, with a bar to *Choose* (or *Save*) and *Cancel*. Only the paths go to standard output; exit status `0` when chosen, `1` when cancelled (closing the window too), `2` for a flag it does not know. See [Pick mode](pick-mode.md) |

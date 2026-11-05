@@ -88,6 +88,10 @@ C49), the result, *From year* and *To year*, and *Rating at least* (both players
 terminal app: **/** player, **o** opening, **r** cycles the result, **y** years (`1850-1900`),
 **e** rating, **c** clears them all; type, then **Enter**.
 
+**Position index.** *Build position index* under the count (**i** in the terminal app) indexes
+the games' positions, for the opening tree on a game's board and for the list cut to the games
+that reach a position ([Chess: position index and opening tree](chess-positions.md)).
+
 **Sorting.** Desktop: a click on a heading sorts by it, a second click reverses. Terminal:
 **s** takes the next column, **S** reverses. Games with no name in that column come last. Names sort by the language's alphabet
 ([Sorting](../panels/sorting.md)).
@@ -188,6 +192,7 @@ is, on the bar beside the board).
 | **a**, **b** | The engine on or off, its best move ([The engine](chess-play.md#the-engine)) | The same |
 | **g**, **w** | Analyse the whole game, save it annotated ([Analysing a whole game](chess-play.md#analysing-a-whole-game)) | The same |
 | **p** | Find this position: the games that reach it ([Finding games](#finding-games)) | The same |
+| **t** | The opening tree of the position, from the database's position index (also *Tree*; [Chess: position index and opening tree](chess-positions.md)) | The same; **↑ ↓** and **Enter** play one of its moves |
 | **PgDn** / **PgUp** | The next / previous game of the table | The same |
 | **Esc** | Back to the table (*Games* too); on the table in the preview pane, the keys back to the panels | Back to the table |
 | A click on a move | Shows it | – |
@@ -467,6 +472,8 @@ ChessBase's password-protected archives (`.cbz`), its newer `.2cbh` format and o
 | *Chess board* | `[chess] board` | `theme` (default), `green`, `brown` |
 | *Opening book* | `[chess] book` | A path to a Polyglot `.bin` book; empty (default): the first book next to the game file |
 | *Game pieces in the terminal* | `[chess] pieces` | `auto` (default), `pictures`, `octants`, `sextants`, `quadrants`, `halves`, `figurines` ([Game pieces in the terminal](game-pieces.md#the-setting)) |
+| *Position index for every games table* | `[chess] position_index` | `false` (default): a database gets a position index only when its table's *Build position index* is pressed; `true`: every games table opened builds one in the background |
+| *Position index depth* | `[chess] position_depth` | `"15"` or `"30"` (default) moves of each game, or `"all"`: the whole game |
 
 ```toml
 [chess]
