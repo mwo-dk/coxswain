@@ -344,3 +344,46 @@ pub async fn chess_position_games(path: PathBuf, fen: String, ctx: tauri::State<
     .await
     .map_err(|e| e.to_string())?
 }
+
+/// Where the games table's position index stands (docs/previews/chess-positions.md), with the
+/// estimate of a build at Settings' depth; an out-of-date index, or every table when Settings
+/// says so, is built in the background from here.
+#[tauri::command]
+pub async fn chess_index_status(path: PathBuf, ctx: tauri::State<'_, crate::Ctx>) -> Res<chess::positions::Status> {
+    let cfg = ctx.cfg().chess.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let lib = library(&path)?;
+        chess::positions::keep_up(&lib, &cfg);
+        Ok(chess::positions::status(&lib, chess::positions::depth_of(&cfg.position_depth)))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The games table's *Build position index*, *Stop* and *Remove*: `build`, `stop`, `remove`.
+#[tauri::command]
+pub async fn chess_index(path: PathBuf, act: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<()> {
+    let depth = chess::positions::depth_of(&ctx.cfg().chess.position_depth);
+    tauri::async_runtime::spawn_blocking(move || {
+        match act.as_str() {
+            "build" => chess::positions::build(library(&path)?, depth),
+            "stop" => chess::positions::stop(&path),
+            "remove" => {
+                chess::positions::remove(&path);
+            }
+            _ => return Err(act),
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The opening tree of the position `fen` in the file's games; `None` without a position index.
+#[tauri::command]
+pub async fn chess_tree(path: PathBuf, fen: String) -> Res<Option<chess::positions::Tree>> {
+    tauri::async_runtime::spawn_blocking(move || -> Res<Option<chess::positions::Tree>> {
+        let lib = library(&path)?;
+        Ok(chess::positions::tree(&lib, &fen))
+    }).await.map_err(|e| e.to_string())?
+}
