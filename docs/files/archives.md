@@ -228,8 +228,9 @@ through an installed 7-Zip instead, read-only, like a disk image
   - too large to hold in memory: an old picture, a Parquet file, a PDF, song, video or font
     over 64 MB (the preview holds the file whole, a player's seeking included), and a document,
     workbook, notebook or deck over 25 MB (whose reader refuses it there too);
-  - read by jumping about in it, or in several files: a SCID or ChessBase database, an EPD or
-    FEN file, a Go file, an opening book ([Chess](../previews/chess.md));
+  - read in pieces from several files: a SCID or ChessBase database and a `.cbv`, and read by
+    jumping about in it, an opening book or a Go file over 64 MB (a smaller one is held in
+    memory, [Chess](../previews/chess.md));
   - locked, where paging would show lines before the checksum at the end proves the password: a
     locked log, JSON Lines file or long text to page through, and a locked file over 64 MB (a
     locked file the preview or the viewer holds in memory is read from the archive:
