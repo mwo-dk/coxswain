@@ -60,9 +60,9 @@
   let tries = $state(0);
   /** The file a password was last given for: asked again, the pane says it did not open it. */
   let asked = $state("");
-  /** `path` as the web view asks for it: from memory when it is read so. */
   /** How a file inside an archive is asked for from memory; a new `try` after each password. */
   const insideQuery = () => `?inside${tries ? `&try=${tries}` : ""}`;
+  /** `path` as the web view asks for it: from memory when it is read so. */
   const src = (path) => convertFileSrc(path) + (direct ? insideQuery() : "");
   // Off the files read from memory: the last one unpacked (up to 64 MB) is let go.
   $effect(() => {
