@@ -1,0 +1,1 @@
+| **Export draw.io diagram and Build PDF of AsciiDoc work again from the action menu, F9 and their keys in the desktop app.** They did nothing there; only the buttons in the preview worked. | [Export draw.io diagrams](files/drawio-export.md#how-to-use-it) · [AsciiDoc to PDF](files/asciidoc-pdf.md#how-to-use-it) |
