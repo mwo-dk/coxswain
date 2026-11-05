@@ -12,8 +12,9 @@ type Res<T> = Result<T, String>;
 /// The file in view and the one before, each reading its games on.
 static LIBS: crate::recent::Recent<Library> = crate::recent::Recent::new();
 
-/// The table's last order: file, query, games counted then, and the games it let through.
-type Order = (PathBuf, Query, usize, Arc<Vec<u32>>);
+/// The table's last order: file, query, games counted then, the position indexes then
+/// (`positions::generation`), and the games it let through.
+type Order = (PathBuf, Query, usize, u64, Arc<Vec<u32>>);
 static ORDER: Mutex<Option<Order>> = Mutex::new(None);
 
 fn library(path: &Path) -> Res<Arc<Library>> {
@@ -82,10 +83,11 @@ pub async fn chess_rows(path: PathBuf, query: Query, offset: usize, limit: usize
         let ids = {
             let mut last = ORDER.lock().unwrap_or_else(|e| e.into_inner());
             match last.as_ref() {
-                Some((p, q, n, ids)) if *p == path && *q == query && *n == progress.games => ids.clone(),
+                Some((p, q, n, g, ids)) if *p == path && *q == query && *n == progress.games && *g == chess::positions::generation() => ids.clone(),
                 _ => {
+                    let generation = chess::positions::generation();
                     let ids = Arc::new(lib.query(&query));
-                    *last = Some((path.clone(), query, progress.games, ids.clone()));
+                    *last = Some((path.clone(), query, progress.games, generation, ids.clone()));
                     ids
                 }
             }

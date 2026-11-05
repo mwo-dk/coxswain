@@ -229,9 +229,10 @@
       /* the table says why */
     }
   }
+  const tableRead = $derived(!!progress?.done);
   $effect(() => {
     void path;
-    if (!indexable || !progress?.done) return void (index = null);
+    if (!indexable || !tableRead) return void (index = null);
     untrack(fetchIndex);
     const timer = setInterval(() => (index?.building != null || index?.stale) && fetchIndex(), 1000);
     return () => clearInterval(timer);
@@ -247,20 +248,24 @@
 
   // The opening tree, again for each position shown while it is on; again when the index came.
   let treeSeq = 0;
+  const indexReady = $derived(index?.ready);
+  const indexGames = $derived(index?.games);
   $effect(() => {
     const f = fen;
     const p = path;
-    void index?.ready;
-    void index?.games;
+    void indexReady;
+    void indexGames;
     const s = ++treeSeq;
     if (!treeOn || !f || draughts || shogi || bridge) return void (tree = null);
     invoke("chess_tree", { path: p, fen: f }).then(
-      (tr) => s === treeSeq && (tree = tr),
+      (tr) => s === treeSeq && (tree = tr && { ...tr, fen: f }),
       () => {},
     );
   });
   /** A move of the tree played: as a click on the board would (xiangqi's are not played). */
   function playTree(m) {
+    // A tree of the position before, still shown while the new one is asked for: not played.
+    if (tree?.fen !== fen) return;
     const l = legal.find((x) => x.uci === m.uci);
     if (l) playMove(l);
   }
