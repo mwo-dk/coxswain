@@ -221,6 +221,8 @@ pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Respo
     match read() {
         Ok(r) => r,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => status(StatusCode::NOT_FOUND),
+        // Locked, its password not known (or wrong): told apart, so the preview asks for it.
+        Err(e) if e.to_string() == coxswain_core::archive::LOCKED => status(StatusCode::UNAUTHORIZED),
         Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => status(StatusCode::FORBIDDEN),
         Err(_) => status(StatusCode::INTERNAL_SERVER_ERROR),
     }
@@ -302,7 +304,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// A locked file inside an archive: refused as locked (403, which the preview asks the
+    /// A locked file inside an archive: refused as locked (401, which the preview asks the
     /// password for) until the right password is known, then served from memory: the wrong one
     /// is told by the checksum before a byte is served. The preview's retry (`&try=n`) is the
     /// same request.
@@ -321,9 +323,9 @@ mod tests {
         coxswain_core::archive::create_locked(&zip, std::slice::from_ref(&pic), Some("hunter2"), false).unwrap();
         // Packing it kept its password for this run, as for the user: not here.
         coxswain_core::archive::forget(&zip);
-        assert_eq!(ask("inside").status(), StatusCode::FORBIDDEN, "locked, no password");
+        assert_eq!(ask("inside").status(), StatusCode::UNAUTHORIZED, "locked, no password");
         coxswain_core::archive::remember(&zip, "wrong");
-        assert_eq!(ask("inside&try=1").status(), StatusCode::FORBIDDEN, "a wrong password");
+        assert_eq!(ask("inside&try=1").status(), StatusCode::UNAUTHORIZED, "a wrong password");
         coxswain_core::archive::remember(&zip, "hunter2");
         let r = ask("inside&try=2");
         assert_eq!((r.status(), r.body().as_slice()), (StatusCode::OK, &b"\x89PNG\r\n\x1a\nnot much of a picture"[..]));

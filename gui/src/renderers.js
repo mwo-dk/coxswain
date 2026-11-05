@@ -25,7 +25,8 @@ const escape = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", 
 /** File bytes through the asset protocol; refuses files too big to preview. */
 export async function bytes(path, max = 25 * 1024 * 1024, inside = false) {
   // A file inside an archive comes from memory, as it is unpacked (`asset.rs`, at most 64 MB).
-  const url = convertFileSrc(path) + (inside ? "?inside" : "");
+  // `inside`: true, or the query the preview asks with (`?inside&try=n`, after a password).
+  const url = convertFileSrc(path) + (inside === true ? "?inside" : inside || "");
   // The size first, so a file too big is never read.
   const head = await fetch(url, { method: "HEAD" });
   if (!head.ok) throw new Error(`${head.status} ${head.statusText}`);
@@ -200,7 +201,7 @@ let fontSeq = 0;
  *  that loaded it removes from `document.fonts` when it shows something else. */
 export async function loadFont(path, inside = false) {
   const family = `coxswain-preview-${++fontSeq}`;
-  const face = new FontFace(family, `url("${convertFileSrc(path)}${inside ? "?inside" : ""}")`);
+  const face = new FontFace(family, `url("${convertFileSrc(path)}${inside === true ? "?inside" : inside || ""}")`);
   document.fonts.add(await face.load());
   return { family, face };
 }

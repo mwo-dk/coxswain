@@ -61,7 +61,9 @@
   /** The file a password was last given for: asked again, the pane says it did not open it. */
   let asked = $state("");
   /** `path` as the web view asks for it: from memory when it is read so. */
-  const src = (path) => convertFileSrc(path) + (direct ? `?inside${tries ? `&try=${tries}` : ""}` : "");
+  /** How a file inside an archive is asked for from memory; a new `try` after each password. */
+  const insideQuery = () => `?inside${tries ? `&try=${tries}` : ""}`;
+  const src = (path) => convertFileSrc(path) + (direct ? insideQuery() : "");
   // Off the files read from memory: the last one unpacked (up to 64 MB) is let go.
   $effect(() => {
     if (!direct) invoke("inside_forget");
@@ -71,20 +73,19 @@
   $effect(() => {
     const cur = raw;
     if (!direct || previewKind(cur) !== "pdf") return;
-    tries;
-    fetch(convertFileSrc(cur.path) + "?inside", { method: "HEAD" }).then(
+    fetch(convertFileSrc(cur.path) + insideQuery(), { method: "HEAD" }).then(
       (r) => r.ok || failed(cur.path, r.status),
       () => needsCopy(cur.path),
     );
   });
   /** `path` gets its copy after all. */
   const needsCopy = (path) => !copied.includes(path) && (copied = [...copied.slice(-50), path]);
-  /** Reading `path` from memory failed: locked (the core answers 403, `LOCKED`), its password
+  /** Reading `path` from memory failed: locked (the core answers 401, `LOCKED`), its password
    *  is asked for here; anything else gets its copy. `status`: the answer, when known. */
   async function failed(path, status) {
-    status ??= await fetch(convertFileSrc(path) + "?inside", { method: "HEAD" }).then((r) => r.status, () => 0);
+    status ??= await fetch(convertFileSrc(path) + insideQuery(), { method: "HEAD" }).then((r) => r.status, () => 0);
     if (raw?.path !== path) return;
-    if (status === 403) lockedAt = path;
+    if (status === 401) lockedAt = path;
     else if (status !== 200) needsCopy(path);
   }
   let peeked = $state({ from: "", to: "", error: "" });
@@ -338,7 +339,7 @@
     const deck = k === "office" && DECKS.includes(ext(cur));
     // Inside an archive: from memory (`?inside`), else from a copy after all.
     const unpacked = direct;
-    const read = (render) => render(cur.path, unpacked).catch((err) => {
+    const read = (render) => render(cur.path, unpacked && insideQuery()).catch((err) => {
       if (unpacked) failed(cur.path);
       throw err;
     });
