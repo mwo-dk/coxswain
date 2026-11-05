@@ -246,7 +246,9 @@ cask on Linux is the AppImage, and its formula is the terminal app only) or pres
 
 What the desktop app's web view draws itself (a picture such as PNG, JPEG, GIF or WebP, a PDF,
 a song, a video, a font) is read straight out of the archive into memory, up to 64 MB, with no
-copy on the disk; a player's seeking is answered from that one unpacking. A text file's first
+copy on the disk; a player's seeking is answered from that one unpacking. So is a Word
+document, a workbook, a Jupyter notebook, a PowerPoint deck or a Parquet file, and in both apps
+a provenance file or a bill of materials in its viewer. A text file's first
 512 KB too, and a log, a JSON Lines file or a longer text in the log view, every line, as the
 archive unpacks it ([Logs](logs.md#logs-inside-an-archive)); a PGN family file's games likewise
 ([Chess](chess.md)). In the terminal app (its readers and players need a file), and for anything else,

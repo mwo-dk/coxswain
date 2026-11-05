@@ -196,6 +196,16 @@ through an installed 7-Zip instead, read-only, like a disk image
   from the archive (a player's seeking too, from one unpacking), and **F3** in the
   terminal app shows a file's first 16 MB in the viewer (*Showing the first 16 MB.* on its
   status line when there is more), whatever the file's size.
+- **Documents, workbooks, notebooks, slide decks and Parquet files are read into memory too**:
+  the desktop app's preview pane shows a Word document (`.docx`), a workbook (`.xlsx`, `.ods`,
+  `.csv` …), a Jupyter notebook and a PowerPoint deck (`.pptx`) up to 25 MB, the most their
+  readers take, and a Parquet file up to 64 MB, straight from the archive, unpacked whole into
+  memory, as it shows them outside. Nothing is written to the disk.
+- **Provenance and bills of materials open in their viewers from memory**: a provenance file
+  (in-toto, Sigstore, SLSA) or a CycloneDX BOM up to 64 MB is read as it is unpacked, in the
+  desktop app's preview pane and with **F3** in the terminal app, as outside the archive; **F3**
+  in the viewer shows its source, also from memory. Its subjects are looked for beside it on
+  the disk, so inside an archive they show as not found.
 - **Logs, JSON Lines and long texts are paged through as they are unpacked**: a log or JSON
   Lines file in either app, a text over 512 KB in the desktop app and a text over 16 MB in the
   terminal app open in the log view (the terminal app's viewer) with every line, nothing
@@ -204,9 +214,11 @@ through an installed 7-Zip instead, read-only, like a disk image
 - **Games are read as they are unpacked**: a PGN file (also packed), a draughts, shogi or bridge
   file and a DhtmlXQ game open in the games window with no copy on the disk
   ([Chess](../previews/chess.md)).
-- **Other files inside are previewed and viewed from a copy** (documents, spreadsheets,
-  notebooks, old picture formats, a PDF, song, video or font over 64 MB, a SCID or ChessBase
-  database, an EPD or FEN file, a Go file, an opening book, provenance and bills of materials,
+- **Other files inside are previewed and viewed from a copy** (an Office file LibreOffice
+  draws, such as `.doc` or `.odt`, old picture formats, a document, workbook, notebook or deck
+  over 25 MB (whose reader refuses it there too), a Parquet file, PDF, song, video or font over
+  64 MB, a SCID or ChessBase
+  database, an EPD or FEN file, a Go file, an opening book,
   a locked file once its password is given, every PDF, song, video and font in the
   terminal app, whose readers and players need a file, and every file when you set a
   `viewer` of your own in the terminal app), not opened or edited: **Enter** and **F4** say on
@@ -367,9 +379,11 @@ panel title says `[archive]` instead of a tint and a badge, and there is no prev
 
 Yes. Put the cursor on it with the preview pane open (**Space** in the desktop app), or press
 **F3** in the terminal app. A text file or a picture is read straight out of the archive, into
-memory: the preview pane shows its first 512 KB (a picture, PDF, song, video or font up to
-64 MB, whole), the terminal app's
-viewer its first 16 MB, and nothing is written to the disk. A log, JSON Lines file or longer text
+memory: the preview pane shows its first 512 KB (a picture, PDF, song, video, font, Word
+document, workbook, notebook or PowerPoint deck up to 25 MB, a Parquet file up to 64 MB,
+whole), the terminal
+app's viewer its first 16 MB, and nothing is written to the disk. A provenance file or a BOM
+opens in its viewer the same way, in both apps. A log, JSON Lines file or longer text
 is paged through the same way, all of it, in the log view; a PGN file's games likewise. Any other file is copied out, just
 that file, into Coxswain's cache folder, and the copy is shown; it goes when you look at the next
 file. Nothing next to the archive is written either way. A games file shows as outside the archive: its table of games, a game on its board
