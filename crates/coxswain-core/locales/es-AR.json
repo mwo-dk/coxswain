@@ -4583,6 +4583,7 @@
  "viewer.keys_follow": "F seguir · E frenar en errores · & filtro",
  "viewer.following": "Siguiendo: las líneas nuevas aparecen a medida que se escriben · F lo frena",
  "viewer.not_following": "Ya no se sigue",
+ "viewer.archive_still": "Un archivo dentro de un archivador no cambia mientras se lee, así que no hay nada que seguir",
  "viewer.stopped_at_error": "Se dejó de seguir en un error en la línea {line}",
  "viewer.level_all": "Todos los niveles",
  "viewer.level_warn": "Advertencias y errores",

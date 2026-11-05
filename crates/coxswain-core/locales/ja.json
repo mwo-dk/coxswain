@@ -4387,6 +4387,7 @@
  "viewer.keys_follow": "F 追跡 · E エラーで停止 · & フィルター",
  "viewer.following": "追跡中: 新しい行は書き込まれるたびに表示されます · F で停止",
  "viewer.not_following": "追跡を停止しました",
+ "viewer.archive_still": "アーカイブ内のファイルは読んでいる間に変わらないので、追跡するものはありません",
  "viewer.stopped_at_error": "{line} 行目のエラーで追跡を停止しました",
  "viewer.level_all": "すべてのレベル",
  "viewer.level_warn": "警告とエラー",
