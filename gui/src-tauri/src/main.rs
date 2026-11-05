@@ -775,7 +775,7 @@ async fn viewer_detect(path: PathBuf) -> Res<&'static str> {
 
 /// A file of the module `module`, which is off, is shown as text: the first time for that
 /// module, what to say (which module would show it, and `key` that opens Settings).
-#[tauri::command]
+#[tauri::command(async)]
 fn module_notice(module: String, key: String) -> Option<String> {
     coxswain_core::modules::notice_once(coxswain_core::modules::find(&module)?, &key)
 }

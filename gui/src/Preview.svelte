@@ -114,10 +114,14 @@
   );
   // Read so that a change of `[modules] off` shows at once (`setModulesOff` follows it).
   const kind = $derived((ui.cfg?.settings?.modules_off, moduleOff(kindAny) ? "text" : kindAny));
-  // The first time a file of a module that is off is shown as text: which module would show it.
+  // The first time a file of a module that is off is shown as text: which module would show it
+  // (asked once a module while the page is open; the core remembers it for good).
+  const noticed = new Set();
   $effect(() => {
     const m = (ui.cfg?.settings?.modules_off, moduleOff(kindAny));
-    if (m) invoke("module_notice", { module: m, key: ui.cfg.actions.settings?.[1] ?? "" }).then((text) => text && (ui.status = text), () => {});
+    if (!m || noticed.has(m)) return;
+    noticed.add(m);
+    invoke("module_notice", { module: m, key: ui.cfg.actions.settings?.[1] ?? "" }).then((text) => text && (ui.status = text), () => {});
   });
   /** A blob of a model store that holds weights (Ollama's, a Hugging Face one's): by the name the
    *  store gives it (`local_models::names`), as its own name says nothing. */
@@ -231,7 +235,7 @@
           return;
         }
         // A Polyglot opening book: its moves on a board (ChessView), unless the source is asked for.
-        if (k === "text" && !src && /\.bin$/i.test(cur.name) && (await invoke("chess_is_book", { path: cur.path }))) {
+        if (k === "text" && !src && !moduleOff("chess") && /\.bin$/i.test(cur.name) && (await invoke("chess_is_book", { path: cur.path }))) {
           if (e?.path !== cur.path) return;
           ui.book = cur.path;
           sniffed = { path: cur.path, kind: "chess" };

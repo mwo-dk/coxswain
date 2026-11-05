@@ -8,7 +8,8 @@ can turn off the modules you do not want loaded, in both apps. A file whose modu
 shown as text or hex, like any file with no viewer of its own. All modules are on until you
 turn one off, so nothing changes until you do.
 
-<!-- screenshot: gui-settings-modules.png: the desktop app (Cyber) at Settings → Modules: the hint, then each module with its checkbox, Games turned off, each with its endings, what it uses and Show me -->
+![The desktop app's Settings at Modules, in the Cyber theme: Modules outlined between Previews and Games on the left; on the right each module with its checkbox, its endings, what it uses and Show me, the ones that may download a container image with a downloads badge, and Chess games unticked](../screenshots/gui-settings-modules.png)
+*Settings at Modules with Chess games turned off, opened with `coxswain-gui --settings=modules`.*
 
 ## Contents
 
@@ -35,7 +36,7 @@ not installed (the desktop app marks those with the *downloads* badge). In the d
 bottom. A change is saved to `config.toml` at once and used straight away, by the panel you are
 in as much as by the next file.
 
-<!-- screenshot: tui-settings-modules.png: the terminal app (Classic blue) at Settings → Modules: the modules with [x] and [ ], the cursor on Games turned off, the bottom line with its endings and docs page -->
+![The terminal app's Settings at Modules, Classic blue: Modules chosen on the left; on the right the heading Viewers and every module with [x], the cursor on [ ] Chess games; at the bottom its endings, uses cozy-chess, stockfish and docs/previews/chess.md](../screenshots/tui-settings-modules.png)
 
 ## The modules
 

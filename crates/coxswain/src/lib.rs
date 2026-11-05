@@ -1975,8 +1975,8 @@ impl App {
                     // Its module off (`[modules] off`): shown as text or hex, and the first time,
                     // which module would show it.
                     if let Some(m) = coxswain_core::modules::off_for(any) {
-                        self.module_off(m);
-                        return self.view_or_edit(a, &e);
+                        self.view_or_edit(a, &e);
+                        return self.module_off(m);
                     }
                     let kind = any;
                     // An e-book calibre reads, when e-books are on: its title, authors and text.
@@ -3501,9 +3501,15 @@ impl App {
     /// View, edit (in the editor set, else the built-in one) or edit here (the built-in one).
     /// A file of a module that is off is shown as text: the first time for that module, the
     /// status line says which module would show it and where to turn it on.
+    /// Said in the built-in viewer when it opened, so the viewer does not hide it.
     fn module_off(&mut self, m: &coxswain_core::modules::Module) {
-        if let Some(text) = coxswain_core::modules::notice_once(m, &self.key_label(Action::Settings)) {
-            self.status = Some(text);
+        let Some(text) = coxswain_core::modules::notice_once(m, self.key_label(Action::Settings)) else { return };
+        match self.dialog.take() {
+            Some(Dialog::View { v, back }) => self.dialog = Some(Dialog::View { v: Box::new((*v).saying(text)), back }),
+            other => {
+                self.dialog = other;
+                self.status = Some(text);
+            }
         }
     }
 
@@ -4483,6 +4489,7 @@ impl App {
                         Some(Row::Hit { hit, .. }) => {
                             // A game in a PGN file: that game, on the board.
                             if matches!(coxswain_core::chess::format(&hit.path), Some(coxswain_core::chess::Format::Pgn | coxswain_core::chess::Format::Sgf | coxswain_core::chess::Format::Pdn | coxswain_core::chess::Format::Kif | coxswain_core::chess::Format::Csa | coxswain_core::chess::Format::Pbn))
+                                && coxswain_core::modules::on("games")
                                 && let Some(snippet) = hit.snippet.clone()
                             {
                                 let (path, game) = (hit.path.clone(), hit.game);

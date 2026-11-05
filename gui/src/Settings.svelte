@@ -5,7 +5,7 @@
   // once (comments and layout kept) and applied without a restart.
   import { tick, untrack } from "svelte";
   import { ui, setPreviewTool, setTheme, themeIds, themeName, tab, showInTab, keysOf } from "./app.svelte.js";
-  import { invoke, size, parent, without } from "./lib.js";
+  import { invoke, size, parent, without, setModulesOff } from "./lib.js";
   import { t, setLanguage } from "./i18n.svelte.js";
   import CopyLine from "./CopyLine.svelte";
   import derafsh from "../../docs/flags/derafsh.svg?url";
@@ -46,6 +46,7 @@
       const cfg = await invoke("save_settings", { changes });
       ui.cfg = cfg;
       setLanguage(cfg);
+      setModulesOff(cfg.viewer_modules, cfg.settings.modules_off);
       setTheme(cfg.settings.theme);
       saved = true;
       loadIndex();
