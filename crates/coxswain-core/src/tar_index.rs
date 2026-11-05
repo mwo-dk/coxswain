@@ -1137,6 +1137,46 @@ pub(crate) fn from(path: &Path, pack: crate::archive::Pack, at: u64) -> io::Resu
     }
 }
 
+/// The file `name` of the tar `archive` from byte `offset` of its own on, and how many bytes
+/// were unpacked to get there: from a kept place before it (an xz in blocks, a gzip, bzip2 or
+/// zstd listed whole before), or by seeking in a plain tar. `None` when there is no such place
+/// (the caller unpacks the entry from its start). Two reads: the header, for where the data
+/// starts, and the data from the place before `offset`.
+pub(crate) fn entry_from(archive: &Path, pack: crate::archive::Pack, name: &str, offset: u64) -> io::Result<Option<(Box<dyn Read>, u64)>> {
+    let Some(l) = load(archive).and_then(|all| all.into_iter().find(|l| l.name == name && !l.dir)) else { return Ok(None) };
+    if offset == 0 || offset >= l.size {
+        return Ok(None);
+    }
+    // The tar unpacked from `at` on, and the bytes unpacked to reach it.
+    let open = |at: u64| -> io::Result<Option<(Box<dyn Read>, u64)>> {
+        let found = if pack == crate::archive::Pack::None {
+            let mut f = File::open(archive)?;
+            f.seek(SeekFrom::Start(at))?;
+            Some((Box::new(io::BufReader::new(crate::stop::Reader(f))) as Box<dyn Read>, 0))
+        } else {
+            from(archive, pack, at)?
+        };
+        let Some((mut r, skip)) = found else { return Ok(None) };
+        if io::copy(&mut (&mut r).take(skip), &mut io::sink())? != skip {
+            return Err(io::ErrorKind::UnexpectedEof.into());
+        }
+        Ok(Some((r, skip)))
+    };
+    let Some((r, head)) = open(l.at)? else { return Ok(None) };
+    let mut tar = tar::Archive::new(r);
+    let data = {
+        let mut entries = tar.entries()?;
+        let e = entries.next().ok_or(io::ErrorKind::UnexpectedEof)??;
+        // A sparse file or anything else whose bytes are not the listed ones: from the start.
+        if e.size() != l.size || !e.header().entry_type().is_file() {
+            return Ok(None);
+        }
+        l.at + e.raw_file_position()
+    };
+    let Some((r, body)) = open(data + offset)? else { return Ok(None) };
+    Ok(Some((Box::new(r.take(l.size - offset)), head + body)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

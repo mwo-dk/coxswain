@@ -2911,6 +2911,26 @@ pub fn stream<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>) ->
     out.into_inner().ok_or_else(|| io::Error::other("nothing read"))
 }
 
+/// `stream`, with the reader at byte `offset` of the file, and `f` told how many bytes were
+/// unpacked to get there. A tar is read from a kept place before `offset` (`tar_index::entry_from`)
+/// where there is one; any other archive unpacks the entry from its start up to `offset`
+/// (zip's deflate, 7-Zip's LZMA and the like keep no decoder state to restart from).
+pub fn stream_at<T>(path: &Path, offset: u64, f: impl FnOnce(&mut dyn Read, u64) -> io::Result<T>) -> io::Result<T> {
+    if offset > 0 {
+        let (archive, inner, it, _held) = entry_of(path)?;
+        if !it.locked
+            && let Some(Kind::Tar(pack)) = kind(&archive)
+            && let Some((mut r, unpacked)) = crate::tar_index::entry_from(&archive, pack, &inner, offset)?
+        {
+            return f(&mut r, unpacked);
+        }
+    }
+    stream(path, |r| {
+        let skipped = io::copy(&mut r.take(offset), &mut io::sink())?;
+        f(r, skipped)
+    })
+}
+
 /// A name that is one file's in a folder: no `/` or `..`, and on Windows no `\\`, `:` (a drive
 /// or a stream) or device name, which are only characters elsewhere.
 fn one_name(n: &str) -> bool {
