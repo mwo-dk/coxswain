@@ -435,19 +435,20 @@ pub(crate) fn whole(path: &Path) -> io::Result<Arc<[u8]>> {
     let (archive, inner) = crate::archive::split(path).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, path.display().to_string()))?;
     let m = std::fs::metadata(&archive)?;
     let stamp = (m.len(), m.modified().ok());
-    let mut kept = KEPT.lock().unwrap_or_else(|e| e.into_inner());
-    if let Some((p, s, bytes)) = kept.as_ref()
+    let kept = || KEPT.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((p, s, bytes)) = kept().as_ref()
         && p == path
         && *s == stamp
     {
         return Ok(bytes.clone());
     }
+    // Unpacked without the lock: another file's book lookups do not wait for this one.
     let (bytes, more) = crate::archive::head(path, IN_MEMORY)?;
     if more {
         return Err(crate::archive::too_large(&inner));
     }
     let bytes: Arc<[u8]> = bytes.into();
-    *kept = Some((path.to_path_buf(), stamp, bytes.clone()));
+    *kept() = Some((path.to_path_buf(), stamp, bytes.clone()));
     Ok(bytes)
 }
 

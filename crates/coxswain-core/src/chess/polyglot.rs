@@ -200,8 +200,12 @@ pub fn is_book(path: &Path) -> bool {
     // Inside an archive, a `.bin` of another kind is not unpacked whole to tell: its size and its
     // first entries first.
     if super::games::in_archive(path) {
-        let fits = crate::archive::entry_size(path).is_ok_and(|n| n % 16 == 0 && n <= super::games::IN_MEMORY) && crate::archive::streamable(path);
-        if !fits || !crate::archive::head(path, 64 * 16).is_ok_and(|(first, _)| Book::of(first).sane()) {
+        if !crate::archive::entry_size(path).is_ok_and(|n| n % 16 == 0 && n <= super::games::IN_MEMORY) {
+            return false;
+        }
+        // A locked one or one in a disk image has no head to read: told from the whole (a locked
+        // one without its password is refused at once).
+        if crate::archive::streamable(path) && !crate::archive::head(path, 64 * 16).is_ok_and(|(first, _)| Book::of(first).sane()) {
             return false;
         }
     }
