@@ -289,7 +289,9 @@ the same size. Each game shows on the board with its variations, comments, annot
 as a new PGN file ([Chess: playing on](chess-play.md)); the database is never changed.
 
 A SCID 5 base also gives each game its *EventDate* tag from the index, and leaves out a game
-SCID marked deleted but has not compacted away yet. **What is not read:** in a SCID 4 base the
+SCID marked deleted (its *D* flag) but has not compacted away yet. Its `.sg5` file may be larger
+than 4 GB (Lumbra's Gigabase of 12.3 million games is 4.2 GB), and the base's own description
+in the names file is passed over. **What is not read:** in a SCID 4 base the
 *deleted* mark (such a game still shows) and the event's date kept in the index; SCID's other
 flags in either. The names file is read whole, up to 256 MB; one game up to 128 KB, as SCID
 itself writes them.
