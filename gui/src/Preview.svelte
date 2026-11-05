@@ -48,8 +48,11 @@
   const DRAWN = ["pdf", "audio", "video", "font", "docx", "sheet", "notebook", "parquet"];
   /** Slide decks this page draws itself (`renderPptx`); other Office files go to LibreOffice. */
   const DECKS = ["pptx", "pptm", "ppsx", "potx"];
-  const drawn = (f) => DRAWN.includes(previewKind(f)) || (previewKind(f) === "office" && DECKS.includes(ext(f)));
-  const direct = $derived(inside && !inHistory && (DIRECT.includes(previewKind(raw)) || (drawn(raw) && raw.size <= 64 * 1024 * 1024)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
+  const deck = (f) => previewKind(f) === "office" && DECKS.includes(ext(f));
+  /** The most of each read into memory: what its reader takes (`bytes`, 25 MB), else 64 MB. */
+  const most = (f) => (["docx", "sheet", "notebook"].includes(previewKind(f)) || deck(f) ? 25 : 64) * 1024 * 1024;
+  const drawn = (f) => (DRAWN.includes(previewKind(f)) || deck(f)) && f.size <= most(f);
+  const direct = $derived(inside && !inHistory && (DIRECT.includes(previewKind(raw)) || drawn(raw)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
   /** `path` as the web view asks for it: from memory when it is read so. */
   const src = (path) => convertFileSrc(path) + (direct ? "?inside" : "");
   // Off the files read from memory: the last one unpacked (up to 64 MB) is let go.
@@ -879,7 +882,7 @@
       {:else if diffing}
         {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{/if}
       {:else if kind === "bom" && !source}
-        <BomView path={e.path} />
+        <BomView path={e.path} onfail={() => direct && needsCopy(raw.path)} />
       {:else if kind === "chess"}
         <ChessView path={e.path} onfail={() => inside && needsCopy(raw.path)} />
       {:else if kind === "netron"}
@@ -889,7 +892,7 @@
       {:else if kind === "go"}
         <GoView path={e.path} />
       {:else if kind === "provenance" && !source && !statement}
-        <ProvenanceView path={e.path} />
+        <ProvenanceView path={e.path} onfail={() => direct && needsCopy(raw.path)} />
       {:else if kind === "provenance" && !source}
         {#if tree !== undefined}<div class="tree">{@render node(null, tree, 0)}</div>{:else}<p class="more">{t("provenance.reading")}</p>{/if}
       {:else if kind === "bom" || kind === "provenance"}

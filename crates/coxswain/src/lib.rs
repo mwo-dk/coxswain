@@ -2220,18 +2220,20 @@ impl App {
         if self.cfg.viewer.is_none() && enter::view(&path, enter::Place::Archive) == enter::View::Itself && !enter::may_be_games(&path) {
             let keys = [self.key_label(Action::Edit).to_string(), self.key_label(Action::View).to_string()];
             let labels = [keys[0].as_str(), keys[1].as_str()];
-            let log = coxswain_core::logs::is_log_name(&path.file_name().unwrap_or_default().to_string_lossy());
+            let name = path.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+            // A `.intoto.jsonl` is provenance first, as `viewers::detect` has it on the disk.
+            let log = coxswain_core::logs::is_log_name(&name) && !coxswain_core::provenance::sniff_name(&name);
             // A log is paged at once; the rest reads its head first to see whether it is long.
             if log && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
                 return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
             }
             if let Ok((bytes, more)) = coxswain_core::archive::head(&path, viewer::PLAIN_OVER) {
-            if more && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
-                return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
-            }
             // Provenance and a BOM in their viewers, read as they are unpacked (64 MB at most).
             if !log && let Some(d) = self.inside_viewer(&path, &bytes) {
                 return self.dialog = Some(d);
+            }
+            if more && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
+                return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
             }
             // A log that cannot be paged (locked, or no text) is read from a copy, as it was.
             if !log {
@@ -6994,7 +6996,9 @@ mod tests {
         std::fs::copy(core.join("bom/testdata/cbomkit/keycloak.cdx.json"), &bom_file).unwrap();
         std::fs::copy(core.join("provenance/testdata/made/statement-v1.json"), &stmt).unwrap();
         let zip = d.join("release.zip");
-        coxswain_core::archive::create(&zip, &[bom_file, stmt]).unwrap();
+        let jsonl = d.join("build.intoto.jsonl");
+        std::fs::copy(core.join("provenance/testdata/made/lenient.intoto.jsonl"), &jsonl).unwrap();
+        coxswain_core::archive::create(&zip, &[bom_file, stmt, jsonl]).unwrap();
         let mut app = app(d.clone(), d.clone());
         app.peek(zip.join("keycloak.cdx.json"));
         assert!(matches!(app.dialog, Some(Dialog::Bom(_))), "the BOM viewer");
@@ -7004,6 +7008,9 @@ mod tests {
         app.dialog = None;
         app.peek(zip.join("statement-v1.json"));
         assert!(matches!(app.dialog, Some(Dialog::Provenance(_))), "the provenance viewer");
+        app.dialog = None;
+        app.peek(zip.join("build.intoto.jsonl"));
+        assert!(matches!(app.dialog, Some(Dialog::Provenance(_))), "a .intoto.jsonl too, not the log view");
         let _ = std::fs::remove_dir_all(d);
     }
 

@@ -198,9 +198,9 @@ through an installed 7-Zip instead, read-only, like a disk image
   status line when there is more), whatever the file's size.
 - **Documents, workbooks, notebooks, slide decks and Parquet files are read into memory too**:
   the desktop app's preview pane shows a Word document (`.docx`), a workbook (`.xlsx`, `.ods`,
-  `.csv` …), a Jupyter notebook, a PowerPoint deck (`.pptx`) and a Parquet file up to 64 MB
-  straight from the archive, unpacked whole into memory, as it shows them outside. Nothing is
-  written to the disk.
+  `.csv` …), a Jupyter notebook and a PowerPoint deck (`.pptx`) up to 25 MB, the most their
+  readers take, and a Parquet file up to 64 MB, straight from the archive, unpacked whole into
+  memory, as it shows them outside. Nothing is written to the disk.
 - **Provenance and bills of materials open in their viewers from memory**: a provenance file
   (in-toto, Sigstore, SLSA) or a CycloneDX BOM up to 64 MB is read as it is unpacked, in the
   desktop app's preview pane and with **F3** in the terminal app, as outside the archive; **F3**
@@ -215,8 +215,9 @@ through an installed 7-Zip instead, read-only, like a disk image
   file and a DhtmlXQ game open in the games window with no copy on the disk
   ([Chess](../previews/chess.md)).
 - **Other files inside are previewed and viewed from a copy** (an Office file LibreOffice
-  draws, such as `.doc` or `.odt`, old picture formats, a document, workbook, notebook, deck or
-  Parquet file over 64 MB, a PDF, song, video or font over 64 MB, a SCID or ChessBase
+  draws, such as `.doc` or `.odt`, old picture formats, a document, workbook, notebook or deck
+  over 25 MB (whose reader refuses it there too), a Parquet file, PDF, song, video or font over
+  64 MB, a SCID or ChessBase
   database, an EPD or FEN file, a Go file, an opening book,
   a locked file once its password is given, every PDF, song, video and font in the
   terminal app, whose readers and players need a file, and every file when you set a
@@ -379,7 +380,8 @@ panel title says `[archive]` instead of a tint and a badge, and there is no prev
 Yes. Put the cursor on it with the preview pane open (**Space** in the desktop app), or press
 **F3** in the terminal app. A text file or a picture is read straight out of the archive, into
 memory: the preview pane shows its first 512 KB (a picture, PDF, song, video, font, Word
-document, workbook, notebook, PowerPoint deck or Parquet file up to 64 MB, whole), the terminal
+document, workbook, notebook or PowerPoint deck up to 25 MB, a Parquet file up to 64 MB,
+whole), the terminal
 app's viewer its first 16 MB, and nothing is written to the disk. A provenance file or a BOM
 opens in its viewer the same way, in both apps. A log, JSON Lines file or longer text
 is paged through the same way, all of it, in the log view; a PGN file's games likewise. Any other file is copied out, just
