@@ -956,9 +956,10 @@ export function stopWork() {
  *  (`coxswain_core::export`): the question (what it writes, which program runs, the first pull
  *  and its size), then the run, the status line saying how far it is with a Stop button. The
  *  action again while it runs stops it. */
-export function makeExport(adoc, op = adoc ? "adoc_pdf" : "", paths = targets()) {
+export async function makeExport(adoc, op = adoc ? "adoc_pdf" : "", paths = null) {
   const action = adoc ? "adoc_pdf" : "drawio_export";
   if (ui.exporting) return stopExport();
+  paths ??= await targets();
   const files = paths.filter((p) => (adoc ? /\.(adoc|asciidoc)$/i.test(p) : isDrawio(basename(p))));
   if (!files.length) return void (ui.status = t(adoc ? "export.none_adoc" : "export.none_drawio"));
   const ask = async (op) => {
