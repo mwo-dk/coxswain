@@ -44,8 +44,8 @@
   const chessInside = $derived(inside && !inHistory && /\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa)$/i.test(raw.name) && !copied.includes(raw.path));
   const DIRECT = ["text", "markdown", "data", "image", "log", "jsonl", "bom", "provenance"];
   /** Read whole into memory, up to 64 MB: drawn by the web view, or by a reader in this page
-   *  (`renderers.js`) or the core that takes the bytes. */
-  const DRAWN = ["pdf", "audio", "video", "font", "docx", "sheet", "notebook", "parquet"];
+   *  (`renderers.js`) or the core that takes the bytes (an old picture's PNG, `pictures`). */
+  const DRAWN = ["pdf", "audio", "video", "font", "docx", "sheet", "notebook", "parquet", "picture"];
   /** Slide decks this page draws itself (`renderPptx`); other Office files go to LibreOffice. */
   const DECKS = ["pptx", "pptm", "ppsx", "potx"];
   const deck = (f) => previewKind(f) === "office" && DECKS.includes(ext(f));
@@ -403,15 +403,19 @@
     if (untrack(() => pic?.path !== cur?.path)) pic = null;
     if (kind !== "picture") return;
     const timer = setTimeout(async () => {
+      const unpacked = direct;
       const r = await invoke("old_picture", { path: cur.path, page, side: 2048 }).catch((err) => ({ error: String(err) }));
       if (e?.path !== cur.path) return;
+      // Read from memory: locked, its password asked for; too large (over 64 MB), from a copy.
+      if (unpacked && r?.error) return void (r.error.includes(LOCKED) ? (lockedAt = cur.path) : needsCopy(cur.path));
       if (r === null) return void (sniffed = { path: cur.path, kind: "text" });
       pic = { ...r, path: cur.path };
     }, 80);
     return () => clearTimeout(timer);
   });
 
-  // A comic (.cbz): its pages one by one, each copied out of it when shown.
+  // A comic (.cbz): its pages one by one, each read out of it into memory when shown (a copy
+  // only for one that cannot be read so: locked, over 64 MB).
   let comic = $state(null);
   let comicAt = $state({ path: "", page: 0 });
   const comicPage = $derived(comicAt.path === e?.path ? comicAt.page : 0);
@@ -437,15 +441,28 @@
     const inner = c.pages[Math.min(n, c.pages.length - 1)];
     const timer = setTimeout(async () => {
       try {
-        let file = await invoke("archive_peek", { path: `${c.path}/${inner}` });
-        if (isOldPicture(inner)) file = (await invoke("old_picture", { path: file, page: 0, side: 2048 }))?.file ?? file;
-        if (comic === c) comicShown = { inner, file };
+        const path = `${c.path}/${inner}`;
+        const old = isOldPicture(inner) ? await invoke("old_picture", { path, page: 0, side: 2048 }).catch(() => null) : null;
+        const url = old ? convertFileSrc(old.file) : convertFileSrc(path) + "?inside&once";
+        if (comic === c) comicShown = { inner, path, url };
       } catch (err) {
         if (comic === c) comicShown = { inner, error: String(err) };
       }
     }, 60);
     return () => clearTimeout(timer);
   });
+
+  /** A comic's page that cannot be read into memory: from a copy, as before (once). */
+  async function comicCopy(shown) {
+    if (shown.copied) return;
+    try {
+      let file = await invoke("archive_peek", { path: shown.path });
+      if (isOldPicture(shown.inner)) file = (await invoke("old_picture", { path: file, page: 0, side: 2048 }))?.file ?? file;
+      if (comicShown === shown) comicShown = { ...shown, url: convertFileSrc(file), copied: true };
+    } catch (err) {
+      if (comicShown === shown) comicShown = { inner: shown.inner, error: String(err) };
+    }
+  }
 
   // Tracker music: its instruments' and samples' names (its facts come with the others). A
   // .mod that is Modula-2 source is shown as text.
@@ -1093,7 +1110,7 @@
           {#if comicShown?.error}
             <p class="more">{comicShown.error}</p>
           {:else if comicShown}
-            <div class="media checker"><img src={convertFileSrc(comicShown.file)} alt={comicShown.inner} /></div>
+            <div class="media checker"><img src={comicShown.url} alt={comicShown.inner} onerror={() => comicCopy(comicShown)} /></div>
           {/if}
           <p class="more">{t("preview.comic_open", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>
         {/if}

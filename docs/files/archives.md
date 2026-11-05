@@ -196,6 +196,12 @@ through an installed 7-Zip instead, read-only, like a disk image
   from the archive (a player's seeking too, from one unpacking), and **F3** in the
   terminal app shows a file's first 16 MB in the viewer (*Showing the first 16 MB.* on its
   status line when there is more), whatever the file's size.
+- **Old pictures, comic pages and thumbnails are made from memory too**: an old picture (TIFF,
+  TGA, PCX, Photoshop, JPEG XL …, [Old formats](../previews/old-formats.md)) up to 64 MB is
+  decoded from the bytes the archive unpacks, and only its PNG for the preview is kept in the
+  cache, as for one on the disk; a comic's page is read into memory when it is shown; and in the
+  desktop app's thumbnails view ([Views](../panels/views.md)) a picture's tile is a small PNG
+  made in memory, one picture at a time.
 - **Documents, workbooks, notebooks, slide decks and Parquet files are read into memory too**:
   the desktop app's preview pane shows a Word document (`.docx`), a workbook (`.xlsx`, `.ods`,
   `.csv` …), a Jupyter notebook and a PowerPoint deck (`.pptx`) up to 25 MB, the most their
@@ -215,7 +221,7 @@ through an installed 7-Zip instead, read-only, like a disk image
   file and a DhtmlXQ game open in the games window with no copy on the disk
   ([Chess](../previews/chess.md)).
 - **Other files inside are previewed and viewed from a copy** (an Office file LibreOffice
-  draws, such as `.doc` or `.odt`, old picture formats, a document, workbook, notebook or deck
+  draws, such as `.doc` or `.odt`, an old picture over 64 MB, a document, workbook, notebook or deck
   over 25 MB (whose reader refuses it there too), a Parquet file, PDF, song, video or font over
   64 MB, a SCID or ChessBase
   database, an EPD or FEN file, a Go file, an opening book,
