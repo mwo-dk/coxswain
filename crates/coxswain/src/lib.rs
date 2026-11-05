@@ -2235,8 +2235,9 @@ impl App {
             if more && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
                 return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
             }
-            // A log that cannot be paged (locked, or no text) is read from a copy, as it was.
-            if !log {
+            // A log that cannot be paged (locked, or no text) is read from a copy when it is
+            // longer than the viewer holds, as it was; a shorter one from memory.
+            if !log || !more {
                 let v = viewer::Viewer::bytes(&path, &bytes, more, labels);
                 return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
             }

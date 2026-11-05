@@ -80,6 +80,11 @@ without typing it again.
   asked again. With the cursor on such a 7z, the desktop app's preview says *This file is
   locked with a password.*, with the link *Enter the password* that lists it once given.
 - If you press **Esc** at the password question during a copy, nothing is copied from the locked part.
+- With the cursor on a locked file inside the archive, the desktop app's preview says *This
+  file is locked with a password.* with the link *Enter the password*; once it is given, the
+  file shows straight from the archive, from memory, as an unlocked one does (a wrong one: *That
+  password did not open it. Try again:*). **F3** in the terminal app asks in the *Locked archive*
+  dialog, then shows the file in the viewer the same way.
 
 ## How long the password is kept, and where
 
@@ -182,6 +187,16 @@ look at a locked file without a copy (the preview pane, **F3** in the terminal a
 its end for that checksum before anything is shown, so a wrong password shows as locked, never
 as garbage; so does a 7z's. A locked file over 256 MB is not shown there (*too large to look at
 here*), as its password could not be checked first: copy it out with **F5**.
+
+#### Is a locked file copied to the disk to be looked at?
+
+Not when it can be held in memory: a picture, PDF, song, video, font, document, workbook or
+notebook up to 64 MB in the desktop app's preview, a text's first 512 KB there, and a file's
+first 16 MB in the terminal app's viewer are read from the archive once the password is given,
+checked to the end first. A locked log, JSON Lines file or long text that the log view would
+page through, and a locked file over 64 MB in the preview, are read from a copy in the cache
+folder instead (up to 256 MB): paging would show lines before the checksum at the end could
+prove the password.
 
 ---
 [← Previous: Pack and extract](pack-and-extract.md) · [Next: Disk images, CHM help files and CBR comics →](disk-images.md)

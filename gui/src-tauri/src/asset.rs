@@ -302,6 +302,35 @@ mod tests {
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// A locked file inside an archive: refused as locked (403, which the preview asks the
+    /// password for) until the right password is known, then served from memory: the wrong one
+    /// is told by the checksum before a byte is served. The preview's retry (`&try=n`) is the
+    /// same request.
+    #[test]
+    fn a_locked_file_inside_is_served_once_its_password_is_known() {
+        let dir = std::env::temp_dir().join(format!("coxswain-test-inside-locked-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (pic, zip) = (dir.join("photo.png"), dir.join("locked.zip"));
+        let none = |_: &Path| false;
+        let ask = |q: &str| {
+            let mut r = get(&zip.join("photo.png"), None);
+            *r.uri_mut() = format!("{}?{q}", r.uri()).parse().unwrap();
+            respond(&r, none)
+        };
+        std::fs::write(&pic, b"\x89PNG\r\n\x1a\nnot much of a picture").unwrap();
+        coxswain_core::archive::create_locked(&zip, std::slice::from_ref(&pic), Some("hunter2"), false).unwrap();
+        // Packing it kept its password for this run, as for the user: not here.
+        coxswain_core::archive::forget(&zip);
+        assert_eq!(ask("inside").status(), StatusCode::FORBIDDEN, "locked, no password");
+        coxswain_core::archive::remember(&zip, "wrong");
+        assert_eq!(ask("inside&try=1").status(), StatusCode::FORBIDDEN, "a wrong password");
+        coxswain_core::archive::remember(&zip, "hunter2");
+        let r = ask("inside&try=2");
+        assert_eq!((r.status(), r.body().as_slice()), (StatusCode::OK, &b"\x89PNG\r\n\x1a\nnot much of a picture"[..]));
+        coxswain_core::archive::forget(&zip);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn ranges_and_bad_paths() {
         let dir = std::env::temp_dir().join(format!("coxswain-test-range-{}", std::process::id()));

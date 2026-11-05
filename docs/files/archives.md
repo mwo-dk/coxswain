@@ -219,7 +219,9 @@ through an installed 7-Zip instead, read-only, like a disk image
   over 25 MB (whose reader refuses it there too), a Parquet file, PDF, song, video or font over
   64 MB, a SCID or ChessBase
   database, an EPD or FEN file, a Go file, an opening book,
-  a locked file once its password is given, every PDF, song, video and font in the
+  a locked log, JSON Lines file or long text to page through once its password is given, and
+  a locked file over 64 MB (a locked file the preview or the viewer holds in memory is read
+  from the archive: [Passwords](archive-passwords.md#is-a-locked-file-copied-to-the-disk-to-be-looked-at)), every PDF, song, video and font in the
   terminal app, whose readers and players need a file, and every file when you set a
   `viewer` of your own in the terminal app), not opened or edited: **Enter** and **F4** say on
   the status line that **F5** copies the file out, since changes to a copy would be lost. The
