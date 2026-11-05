@@ -190,8 +190,8 @@ here*), as its password could not be checked first: copy it out with **F5**.
 
 #### Is a locked file copied to the disk to be looked at?
 
-Not when it can be held in memory: a picture, PDF, song, video, font, document, workbook or
-notebook up to 64 MB in the desktop app's preview, a text's first 512 KB there, and a file's
+Not when it can be held in memory: a picture, PDF, song, video or font up to 64 MB and a
+document, workbook or notebook up to 25 MB in the desktop app's preview, a text's first 512 KB there, and a file's
 first 16 MB in the terminal app's viewer are read from the archive once the password is given,
 checked to the end first. A locked log, JSON Lines file or long text that the log view would
 page through, and a locked file over 64 MB in the preview, are read from a copy in the cache
