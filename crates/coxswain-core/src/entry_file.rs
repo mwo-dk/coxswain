@@ -307,16 +307,16 @@ mod tests {
             f.read_at(&mut buf, far).unwrap();
             assert_eq!(buf, &text.as_bytes()[far as usize..][..100], "{name}");
             let to_far = f.unpacked();
-            // Back to near the start: the reader is past it, so the entry is opened again.
-            f.read_at(&mut buf, 10 * BLOCK + 5).unwrap();
-            assert_eq!(buf, &text.as_bytes()[10 * BLOCK as usize + 5..][..100], "{name}");
+            // Back to a line far above: the reader is past it, so the entry is opened again.
+            f.read_at(&mut buf, 30 * BLOCK + 5).unwrap();
+            assert_eq!(buf, &text.as_bytes()[30 * BLOCK as usize + 5..][..100], "{name}");
             let back = f.unpacked() - to_far;
             if smaller {
-                assert!(to_far < size / 4, "{name}: {to_far} bytes unpacked to reach the far end");
+                assert!(to_far >= far, "{name}: forward is read on, as before");
                 assert!(back < 12 * BLOCK, "{name}: {back} bytes unpacked to go back");
             } else {
                 assert!(to_far >= far, "{name}");
-                assert!(back >= 10 * BLOCK, "{name}");
+                assert!(back >= 27 * BLOCK, "{name}");
             }
         }
         std::fs::remove_dir_all(d).unwrap();

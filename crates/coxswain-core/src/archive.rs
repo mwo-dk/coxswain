@@ -24,7 +24,7 @@ pub struct ArchiveEntry {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum Kind {
+pub(crate) enum Kind {
     Zip,
     Tar(Pack),
     SevenZ,
@@ -530,7 +530,7 @@ fn not_archive(path: &Path) -> io::Error {
 }
 
 /// A tar, its compression undone as it is read.
-fn tar_reader(path: &Path, k: Kind) -> io::Result<tar::Archive<Box<dyn Read>>> {
+pub(crate) fn tar_reader(path: &Path, k: Kind) -> io::Result<tar::Archive<Box<dyn Read>>> {
     tar_reader_noting(path, k, None)
 }
 
