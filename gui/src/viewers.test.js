@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const src = readFileSync(new URL("./lib.js", import.meta.url), "utf8").replaceAll("\r\n", "\n");
-const { rules, cases } = JSON.parse(readFileSync(new URL("./viewer-kinds.json", import.meta.url), "utf8"));
+const { rules, reads, cases } = JSON.parse(readFileSync(new URL("./viewer-kinds.json", import.meta.url), "utf8"));
 
 /** lib.js's `viewerRules`, `setViewerRules` and `previewKind`, as a module: lib.js imports the
  *  app's state, which node cannot load. */
@@ -19,8 +19,8 @@ async function load() {
     while (end < lines.length && /^(\s|\}|$)/.test(lines[end]) && lines[end] !== "") end++;
     return lines.slice(at, end).join("\n").replace(/^export /, "");
   };
-  const code = ["viewerRules", "setViewerRules", "previewKind"].map(part).join("\n");
-  return import("data:text/javascript," + encodeURIComponent(`${code}\nexport { setViewerRules, previewKind };`));
+  const code = ["viewerRules", "readsByKind", "setViewerRules", "previewKind", "viewerReads"].map(part).join("\n");
+  return import("data:text/javascript," + encodeURIComponent(`${code}\nexport { setViewerRules, previewKind, viewerReads };`));
 }
 
 test("previewKind gives the core's kind for every case", async () => {
@@ -28,4 +28,12 @@ test("previewKind gives the core's kind for every case", async () => {
   setViewerRules(rules);
   for (const c of cases) assert.equal(previewKind({ name: c.name, is_dir: c.is_dir }), c.kind, `${c.name}${c.is_dir ? "/" : ""}`);
   assert.equal(previewKind(null), "none");
+});
+
+test("viewerReads gives what the core says each kind's viewer needs inside an archive", async () => {
+  const { setViewerRules, viewerReads } = await load();
+  setViewerRules(rules, reads);
+  for (const [kind, want] of Object.entries(reads)) assert.equal(viewerReads(kind), want, kind);
+  assert.equal(viewerReads("text"), "stream");
+  assert.equal(viewerReads("no such kind"), "copy");
 });
