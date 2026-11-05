@@ -271,4 +271,4 @@ Coxswain itself and take the theme's colours: the panel background, boxes in the
 slot's background, lines in the `border` colour. See [Diagrams](../previews/diagrams.md).
 
 ---
-[← Previous: The Settings window](settings.md) · [Next: Looks →](looks.md)
+[← Previous: Modules: choose the viewers](modules.md) · [Next: Looks →](looks.md)

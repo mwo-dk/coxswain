@@ -1851,6 +1851,7 @@ pub struct Config {
     pub git: GitConfig,
     pub archive: ArchiveConfig,
     pub chess: ChessConfig,
+    pub modules: ModulesConfig,
     /// The names in `[keys]` that are no action of this version, left out (`keys`): a notice
     /// names them.
     #[serde(skip)]
@@ -1916,6 +1917,15 @@ impl Default for ChessConfig {
     }
 }
 
+/// `[modules]`: which viewers are loaded (`modules::MODULES`).
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ModulesConfig {
+    /// The modules turned off, by name (`games`, `documents` …): a file one of them would show
+    /// is shown as text or hex. Empty: all are on.
+    pub off: Vec<String>,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ArchiveConfig {
@@ -1972,6 +1982,7 @@ impl Default for Config {
             gui: GuiConfig::default(),
             git: GitConfig::default(),
             archive: ArchiveConfig::default(),
+            modules: ModulesConfig::default(),
             chess: ChessConfig::default(),
             unknown_actions: vec![],
             refused: vec![],

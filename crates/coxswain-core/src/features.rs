@@ -294,6 +294,7 @@ pub const FEATURES: &[Feature] = &[
     f("virus_scan", "files/virus-scan.md", &[ScanViruses, Mark, ActionMenu, Settings]),
     // customise
     f("settings_window", "customise/settings.md", &[Settings]),
+    f("modules", "customise/modules.md", &[Settings]),
     f("themes", "customise/themes.md", &[Settings]),
     f("looks", "customise/looks.md", &[]),
     f("own_theme", "customise/own-theme.md", &[]),

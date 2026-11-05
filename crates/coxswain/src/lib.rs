@@ -1822,6 +1822,9 @@ impl App {
             }
             Action::LongFiles => self.long_files(),
             Action::Chess => {
+                if let Some(m) = coxswain_core::modules::off_for("chess") {
+                    return self.status = Some(coxswain_core::modules::off_text(m, self.key_label(Action::Settings)));
+                }
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
                 } else {
@@ -1968,7 +1971,14 @@ impl App {
                     }
                     // Which viewer: the core's table and, where a name is not enough, the bytes
                     // (`viewers::detect`), as the desktop app's preview has it.
-                    let kind = if a == Action::View { coxswain_core::viewers::detect(&e) } else { "" };
+                    let any = if a == Action::View { coxswain_core::viewers::detect_any(&e) } else { "" };
+                    // Its module off (`[modules] off`): shown as text or hex, and the first time,
+                    // which module would show it.
+                    if let Some(m) = coxswain_core::modules::off_for(any) {
+                        self.module_off(m);
+                        return self.view_or_edit(a, &e);
+                    }
+                    let kind = any;
                     // An e-book calibre reads, when e-books are on: its title, authors and text.
                     if kind == "ebook" {
                         if self.cfg.preview.ebooks {
@@ -3489,6 +3499,14 @@ impl App {
     }
 
     /// View, edit (in the editor set, else the built-in one) or edit here (the built-in one).
+    /// A file of a module that is off is shown as text: the first time for that module, the
+    /// status line says which module would show it and where to turn it on.
+    fn module_off(&mut self, m: &coxswain_core::modules::Module) {
+        if let Some(text) = coxswain_core::modules::notice_once(m, &self.key_label(Action::Settings)) {
+            self.status = Some(text);
+        }
+    }
+
     fn view_or_edit(&mut self, a: Action, file: &Path) {
         if a == Action::View && self.cfg.viewer.is_none() {
             return self.view_in(file, None);
@@ -5976,6 +5994,7 @@ pub fn main() {
     });
     coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&cfg.language));
     coxswain_core::disk_image::set_open(cfg.archive.disk_images);
+    coxswain_core::modules::set_off(&cfg.modules.off);
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
     let dir = |i: usize| {
         let d = args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());

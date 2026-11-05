@@ -21,7 +21,7 @@ use crate::ui::Cols;
 use coxswain_core::chess::play;
 
 /// The areas, in the order of the list on the left.
-pub const AREAS: [Area; 8] = Area::ALL;
+pub const AREAS: [Area; 9] = Area::ALL;
 
 /// Text options that are a switch: (name, value when on, value when off).
 const SWITCHES: &[(&str, &str, &str)] = &[("search_cloud", "all", "local-only"), ("meaning_device", "cpu", "auto")];
@@ -87,6 +87,8 @@ pub enum Row {
     EngineOpt(play::Shown),
     /// Chess: every option of the engine back to its own default.
     EngineReset,
+    /// Modules: one, on or off (Space or Enter turns it), its formats and what it uses.
+    Module(coxswain_core::modules::Row),
 }
 
 impl Row {
@@ -119,6 +121,7 @@ impl Row {
             Row::EngineTest => "engine_test".into(),
             Row::EngineOpt(o) => format!("eopt:{}", o.option.name),
             Row::EngineReset => "engine_reset".into(),
+            Row::Module(m) => format!("module:{}", m.id),
         }
     }
 
@@ -523,6 +526,11 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
             }
             let version = t!("settings.version", "version" => coxswain_core::update::VERSION);
             v.push(Row::Info(version.clone(), String::new(), t!("settings.stored_in", "path" => s.path.as_ref().map(|p| p.display().to_string()).unwrap_or_default())));
+        }
+        // Modules: what they are, then each one, on or off.
+        Area::Modules => {
+            v.push(Row::Info(t!("modules.title"), String::new(), t!("modules.hint")));
+            v.extend(coxswain_core::modules::rows(&cfg.modules.off).into_iter().map(Row::Module));
         }
         Area::Previews => {
             groups(&mut v, s, Area::Previews, &[]);
@@ -1177,6 +1185,10 @@ impl App {
                 };
                 return self.settings_change(s, changes);
             }
+            Some(Row::Module(m)) => {
+                let off = coxswain_core::modules::toggled(&self.cfg.modules.off, m.id, !m.on);
+                return self.settings_change(s, set("modules_off", Value::from(off)));
+            }
             Some(Row::Level(l)) => return self.settings_level(s, *l),
             Some(Row::SetUp) => self.setup_guide(),
             Some(Row::Guide) => return self.dialog = Some(Dialog::Guide(Box::default())),
@@ -1656,6 +1668,10 @@ fn explain(app: &App, s: &Settings, rows: &[Row]) -> Vec<Span<'static>> {
             }
             Some(Row::EngineTest) => text.push(Span::raw(t!("chess.engine_test_hint"))),
             Some(Row::EngineReset) => text.push(Span::raw(t!("chess.engine_reset_hint"))),
+            Some(Row::Module(m)) => {
+                text.push(Span::raw(m.about.clone()));
+                text.push(Span::styled(format!(" · docs/{}", m.docs), dim));
+            }
             Some(Row::EngineOpt(o)) => text.push(Span::raw(option_about(&o.option))),
             Some(Row::PreviewTool(r)) => {
                 let installed: Vec<String> = r.programs.iter().filter(|p| p.path.is_some()).map(|p| p.version.as_ref().map_or_else(|| p.name.to_string(), |v| format!("{} {v}", p.name))).collect();
@@ -1900,6 +1916,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                         }
                     }
                 }
+                Row::Module(m) => lines.extend(pair(&format!(" [{}] {}", if m.on { "x" } else { " " }, m.label), &m.about, st)),
                 // The kind, then what is used and the choice.
                 Row::PreviewTool(r) => {
                     let choice = if !r.can_choose { String::new() } else if r.choice.is_empty() { t!("ptools.choice.default", "value" => choice_label("preview_prefer", &cfg.preview.prefer)) } else if r.choice == "container" && !r.container { t!("ptools.choice.container_no_image") } else { t!(&format!("ptools.choice.{}", r.choice)) };

@@ -5,7 +5,7 @@
 Settings changes `config.toml` without opening the file, in both apps: a window over the panels
 in the desktop app, the full screen in the terminal app ([In the terminal app](#in-the-terminal-app)).
 It is sorted by what you come for: an **Overview** of how everything stands, **Finding files**, **Previews**,
-**Games**, **Looks**, **Behaviour**, **Keys**, and **Privacy and updates**; inside an area, the
+**Modules**, **Games**, **Looks**, **Behaviour**, **Keys**, and **Privacy and updates**; inside an area, the
 options stand in groups under headings (*General*, *Documents*, *Container images* …), the same in
 both apps. Each option has a label in plain words, one line under it on what it does, and badges
 for what it costs. *Find a setting* looks through every area at once. Every change applies at
@@ -33,6 +33,7 @@ flowchart LR
 - [Overview](#overview)
 - [Finding files](#finding-files)
 - [Previews](#previews)
+- [Modules](#modules)
 - [Games](#games)
 - [Looks](#looks)
 - [Behaviour](#behaviour)
@@ -216,6 +217,17 @@ it has. The chess options are in [Games](#games) since coxswain 2.35.0.
 |---|---|---|
 | *Neither podman nor docker is installed* | A line at the top of *Preview tools* when no container runtime answers | |
 | *Preview tools* | A row per kind of file (LaTeX, Office documents, Diagrams, Video and sound …) with its file endings, *Installed: <program version>* (or *Installed: none* and the *Install it:* line with **Copy**), its image, *Pulled, 5.9 GB* or *Not pulled (2.8 GB)*, **Pull** (also updates; its progress shows in place) and **Remove** (hover for what the image gives and costs, [The images](../previews/containers.md#the-images)), *Used now: …*, the choice *Default*, *Installed program*, *Container* or *Off*, and **Try**, which shows a sample of that kind ([Preview tools in Settings](../previews/tools.md#preview-tools-in-settings)). `coxswain-gui --settings=preview_tools` opens here | `[preview.tools]`, `[preview.images]` |
+
+## Modules
+
+Which viewers Coxswain loads: a checkbox per module, each with the endings it shows and what it
+uses, and **Show me** for its page. A file whose module is off is shown as text or hex. All are
+on until you turn one off. `coxswain-gui --settings=modules` opens here. See
+[Modules: choose the viewers](modules.md).
+
+| Option | Does | Key |
+|---|---|---|
+| *Viewers* | A checkbox per module (*Documents*, *Data files*, *Chess games* …) with its endings, what it uses, the *downloads* badge where it may download a container image, and **Show me** | `[modules] off` |
 
 ## Games
 
@@ -439,6 +451,7 @@ needs and the rows above it scroll.
 | Overview | One line each for Finding files (the level and the Words, Meaning and Ask lines), Previews, Looks (the terminal app's theme and the language) and Privacy (where things can go); **Enter** opens that area. *Set up…*, *[ Show the guide again ]* (the [first-run guide](../panels/first-run.md)), the tips not dismissed yet, and what the versions you have not read brought |
 | Finding files | The status block (*Names*, *Words*, *Meaning*, *Ask*, and *Tika* and *Speech* while they are on), each with its next step in brackets: **Space** or **Enter** runs it (*Read now*, *Start it*, *Turn on*, *Set up…*, *Try it*, whose answer shows at the bottom). The four levels and *Set up…*. Then every option under *What is read*, *Folders*, *Meaning*, *Ask*; *Programs that read more*, each `✓` or `✗` with the line that installs a missing one (**Space** copies it to the terminal's clipboard, see below); *Built-in models*, each with its size and state (**Enter** opens its folder in the panel, **Delete** deletes it, **U** unloads it) and *Delete all not in use*; and *Start with my session* under *Background reading* |
 | Previews | Its options under *General*, *Documents*, *Container images* and *Safety*, the desktop app's own among them since both apps share `config.toml`; then *Preview tools*, a line per kind of file (**Enter** takes the next choice, **C** copies the install line, **P** pulls the image, **Delete** removes it) |
+| Modules | A line first on what modules are, then each module as `[x]` or `[ ]` with its endings and what it uses: **Space** or **Enter** turns it on or off; the line at the bottom names its docs page |
 | Games | *Board*; *Chess engines* with *Chess engine on*, *Chess engine*, the known engines (**Enter** chooses one, **C** copies its install line), *[ Test engine ]* and the engine's own options it read, then how long it thinks; *Game review*; *Opening book* |
 | Behaviour | Its options under *Panels*, *Version control* and *Programs* |
 | Looks | First what both apps use: *Language* and *Icons and git glyphs*. Then, under the heading *Terminal app*, *Theme of the terminal app*; and under *Desktop app* that app's own: its theme, *Font*, *Monospaced font*, *Icon font*, *Text size* and *Row height*, there since both apps share `config.toml`. **Enter** on *Language* or a theme opens its list right under the row; **Esc** closes it |
@@ -610,4 +623,4 @@ Nothing of yours: each is made again the next time you show its file. See
 [Previews made by tools](../previews/tools.md).
 
 ---
-[← Previous: Customising](README.md) · [Next: Themes →](themes.md)
+[← Previous: Customising](README.md) · [Next: Modules: choose the viewers →](modules.md)

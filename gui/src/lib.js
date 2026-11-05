@@ -435,8 +435,29 @@ export function viewerReads(kind) {
   return readsByKind[kind] ?? "copy";
 }
 
-/** How the preview pane should show a file (`viewers::kind_of`, which a test holds this to). */
+/** The module that shows each kind (`modules::of`), and the modules turned off
+ *  (`[modules] off`), set with the config and again when it changes (`setModulesOff`). */
+let moduleOf = {};
+let modulesOff = new Set();
+export function setModulesOff(of, off) {
+  moduleOf = of ?? {};
+  modulesOff = new Set(off ?? []);
+}
+
+/** The module that would show a file of `kind`, when it is off (`modules::off_for`). */
+export function moduleOff(kind) {
+  const m = moduleOf[kind];
+  return m && modulesOff.has(m) ? m : null;
+}
+
+/** How the preview pane should show a file (`viewers::kind_of`): `text` when its module is off. */
 export function previewKind(item) {
+  const kind = kindByName(item);
+  return moduleOff(kind) ? "text" : kind;
+}
+
+/** `previewKind`, whatever modules are off (`viewers::by_name`, which a test holds this to). */
+export function kindByName(item) {
   if (!item) return "none";
   const lower = item.name.toLowerCase();
   const ext = lower.includes(".") ? lower.split(".").pop() : "";

@@ -138,6 +138,7 @@
       <ul>
         {#each ui.cfg.outbound as o, i (i)}<li>{o.what} → <span class="mono">{o.to}</span>{#if o.local} <small class="hint">({t("settings.privacy_local")})</small>{/if}</li>{:else}<li>{t("settings.privacy_nothing")}</li>{/each}
       </ul>
+      <p>{t("guide.modules")} <button onclick={() => (ui.modal = { kind: "settings", section: "modules" })}>{t("guide.modules_open")}</button></p>
       <p class="hint">{t("guide.again")}</p>
     {/if}
     {#if error}<p class="err">{error}</p>{/if}

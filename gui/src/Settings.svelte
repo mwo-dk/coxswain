@@ -18,7 +18,7 @@
   // Persian's banner is ours, kept with the docs' flags.
   const flag = (name) => (name === "derafsh" ? derafsh : flags[`../node_modules/flag-icons/flags/4x3/${name}.svg`]);
 
-  const AREAS = ["overview", "search", "previews", "games", "looks", "behaviour", "keys", "privacy"];
+  const AREAS = ["overview", "search", "previews", "modules", "games", "looks", "behaviour", "keys", "privacy"];
   const s = $derived(ui.cfg.settings);
   const optOf = (name) => ui.cfg.options.find((o) => o.name === name);
   /** An option's place in config.toml, as written there: `[search] text`. */
@@ -558,6 +558,10 @@
     if (el.validity.valid && el.value !== "") set(name, Number.isInteger(el.valueAsNumber * scale) ? el.valueAsNumber * scale : Math.round(el.valueAsNumber * scale * 100) / 100);
     else el.value = s[name] / scale;
   }
+  /** `[modules] off` with module `id` turned on or off, in Settings' order (`modules::toggled`). */
+  const moduleToggled = (id, on) => ui.cfg.modules.filter((m) => (m.id === id ? !on : (s.modules_off ?? []).includes(m.id))).map((m) => m.id);
+  /** A module's page, as F1 → Features' *Show me* opens it. */
+  const openModuleDocs = (m) => invoke("open_docs", { id: m.feature }).then((url) => (ui.status = t("features.opening", { url })), (e) => (ui.status = String(e)));
   const levelName = (l) => (l ? t(`settings.level.${l}`) : t("settings.level.custom"));
 </script>
 
@@ -1049,6 +1053,23 @@
               {/each}
             </div>
           </div>
+        </details>
+      {:else if area === "modules"}
+        <!-- ------------------------------------------------ Modules: which viewers are loaded -->
+        <h3>{t("settings.area.modules")}</h3>
+        <p class="hint">{t("modules.hint")}</p>
+        <details class="group" id="opt-modules_off" open>
+          <summary>{t("modules.title")}</summary>
+          {#each ui.cfg.modules as m (m.id)}
+            <div class="opt" id="opt-module-{m.id}" title={keyOf("modules_off")}>
+              <label class="check"
+                ><input type="checkbox" checked={!(s.modules_off ?? []).includes(m.id)} onchange={(e) => set("modules_off", moduleToggled(m.id, e.currentTarget.checked))} />
+                <span class="lab">{m.label}</span>
+                {#if m.downloads}<span class="badge">{t("settings.cost.network")}</span>{/if}</label
+              >
+              <p class="hint">{m.about} <button class="link" onclick={() => openModuleDocs(m)}>{t("features.show_me")}</button></p>
+            </div>
+          {/each}
         </details>
       {:else if area === "games"}
         <!-- ------------------------------------------------ Games: chess, and the boards of Go, draughts, shogi and xiangqi -->
