@@ -1182,6 +1182,11 @@ pub(crate) fn entry_from(archive: &Path, pack: crate::archive::Pack, name: &str,
         }
         Ok(Some((r, skip)))
     };
+    // No place kept before the wanted byte: nothing to restart from, so the header is not read
+    // either (that would unpack the tar up to it for nothing).
+    if !plain && from(archive, pack, at + offset)?.is_none() {
+        return Ok(None);
+    }
     let mut head = 0;
     if data.is_none() {
         let Some((r, n)) = open(at, true)? else { return Ok(None) };
