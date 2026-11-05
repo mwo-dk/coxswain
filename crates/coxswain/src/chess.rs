@@ -153,6 +153,12 @@ pub struct Viewer {
     /// Whether the file was looked at for having one game only (`Some`), and whether it has:
     /// that game opens on its board, and Esc there closes the view.
     lone: Option<bool>,
+    /// The position index (`positions`): where it stands, asked again every second.
+    pos_index: Option<chess::positions::Status>,
+    pos_index_asked: Option<Instant>,
+    /// The opening tree is shown (t) and its move chosen; the last position's tree.
+    tree: Option<usize>,
+    tree_of: Option<(String, Option<chess::positions::Tree>)>,
 }
 
 impl Drop for Viewer {
@@ -247,6 +253,10 @@ impl Viewer {
             finding: None,
             found: None,
             lone: None,
+            pos_index: None,
+            pos_index_asked: None,
+            tree: None,
+            tree_of: None,
         };
         match chess::sniff(path) {
             Some(Format::Pgn) => {
@@ -330,6 +340,18 @@ impl Viewer {
             self.counted = p.games;
             self.asked = Instant::now();
             self.cursor = self.cursor.min(self.ids.len().saturating_sub(1));
+        }
+        // The position index: built when Settings says so or when it is out of date.
+        if p.done && matches!(lib.format, Format::Pgn | Format::Xiangqi) && self.pos_index_asked.is_none_or(|t| t.elapsed().as_millis() >= 1000) {
+            chess::positions::keep_up(lib, &self.chess);
+            let st = chess::positions::status(lib, chess::positions::depth_of(&self.chess.position_depth));
+            // A new index came: the trees and the list cut to a position are asked again.
+            if self.pos_index.as_ref().is_some_and(|o| o.games != st.games || o.ready != st.ready) {
+                self.tree_of = None;
+                self.counted = usize::MAX;
+            }
+            self.pos_index = Some(st);
+            self.pos_index_asked = Some(Instant::now());
         }
         // A file of one game opens on its board, once it is read to its end.
         if self.lone.is_none() && p.done {
@@ -878,9 +900,82 @@ impl Viewer {
                 self.query = Query { sort: self.query.sort, desc: self.query.desc, ..Query::default() };
                 self.requery();
             }
+            KeyCode::Char('i') => self.index_key(false),
+            KeyCode::Char('I') => self.index_key(true),
             _ => {}
         }
         Outcome::Stay
+    }
+
+    /// i: the position index built, or its build stopped; I: removed.
+    fn index_key(&mut self, remove: bool) {
+        let (Some(lib), Some(st)) = (self.lib.clone(), self.pos_index.clone()) else { return };
+        if !st.can {
+            return;
+        }
+        if remove {
+            if st.ready || st.building.is_some() {
+                chess::positions::remove(&lib.path);
+                self.said = Some(t!("chess.index_removed"));
+                if !self.query.position.is_empty() {
+                    self.query.position.clear();
+                    self.requery();
+                }
+            }
+        } else if st.building.is_some() {
+            chess::positions::stop(&lib.path);
+        } else if !st.ready || st.stale {
+            chess::positions::build(lib, chess::positions::depth_of(&self.chess.position_depth));
+        }
+        self.pos_index_asked = None;
+    }
+
+    /// The opening tree of the position shown, asked once per position.
+    fn tree_now(&mut self) -> Option<chess::positions::Tree> {
+        let fen = self.now().0?;
+        let lib = self.lib.clone()?;
+        if self.tree_of.as_ref().is_none_or(|(f, _)| *f != fen) {
+            self.tree_of = Some((fen.clone(), chess::positions::tree(&lib, &fen)));
+        }
+        self.tree_of.as_ref().and_then(|(_, t)| t.clone())
+    }
+
+    /// A key while the tree is shown: ↑ ↓ choose, Enter plays the move, l lists the games that
+    /// reach the position, t or Esc hide it. Any other key does what it does in the game, and
+    /// the tree follows.
+    fn tree_key(&mut self, key: Key) -> Option<Outcome> {
+        let sel = self.tree?;
+        let n = self.tree_now().map_or(0, |t| t.moves.len());
+        match key.code {
+            KeyCode::Char('t') | KeyCode::Esc => self.tree = None,
+            KeyCode::Down => self.tree = Some((sel + 1).min(n.saturating_sub(1))),
+            KeyCode::Up => self.tree = Some(sel.saturating_sub(1)),
+            KeyCode::Enter => {
+                let fen = self.now().0?;
+                let m = self.tree_now()?.moves.get(sel)?.clone();
+                if self.xiangqi() {
+                    return Some(Outcome::Stay);
+                }
+                match play::play(&fen, &m.uci) {
+                    Some(p) => {
+                        self.play(p);
+                        self.tree = Some(0);
+                    }
+                    None => self.said = Some(t!("chess.no_moves")),
+                }
+            }
+            KeyCode::Char('l') => {
+                self.query.position = self.now().0?;
+                self.requery();
+                self.open = None;
+                self.played = None;
+                self.review = None;
+                self.tree = None;
+                self.cursor = 0;
+            }
+            _ => return None,
+        }
+        Some(Outcome::Stay)
     }
 
     /// The book's moves for `fen`, read once per position.
@@ -929,6 +1024,13 @@ impl Viewer {
     fn game_key(&mut self, key: Key) -> Outcome {
         if self.picking.is_some() {
             return self.pick_key(key);
+        }
+        if let Some(out) = self.tree_key(key) {
+            return out;
+        }
+        if key.code == KeyCode::Char('t') && self.lib.as_ref().is_some_and(|l| matches!(l.format, Format::Pgn | Format::Xiangqi)) {
+            self.tree = Some(0);
+            return Outcome::Stay;
         }
         if self.found.is_some() {
             return self.found_key(key);
@@ -1138,8 +1240,11 @@ impl Viewer {
         let said = Rect { y: inner.bottom() - 2, height: 1, ..inner };
         let body = Rect { height: inner.height - 2, ..inner };
         let w = inner.width as usize;
+        let indexed = self.pos_index.as_ref().is_some_and(|i| i.can);
         let keys = if self.picking.is_some() {
             t!("chess.keys_pick")
+        } else if self.tree.is_some() && self.open.is_some() {
+            t!("chess.keys_tree_mode")
         } else if self.found.is_some() {
             t!("chess.keys_found")
         } else if self.book_only {
@@ -1148,16 +1253,18 @@ impl Viewer {
             if self.bridge() {
                 t!("bridge.keys_game")
             } else if self.other_game() {
-                t!("draughts.keys_game")
+                if indexed { format!("{} · {}", t!("draughts.keys_game"), t!("chess.keys_tree")) } else { t!("draughts.keys_game") }
             } else if self.lib.is_some() {
-                t!("chess.keys_game")
+                format!("{} · {}", t!("chess.keys_game"), t!("chess.keys_tree"))
             } else {
                 t!("chess.keys_position")
             }
         } else if self.bridge() {
             t!("bridge.keys_list")
         } else if self.other_game() {
-            t!("draughts.keys_list")
+            if indexed { format!("{} · {}", t!("draughts.keys_list"), t!("chess.keys_index")) } else { t!("draughts.keys_list") }
+        } else if indexed {
+            format!("{} · {}", t!("chess.keys_list"), t!("chess.keys_index"))
         } else {
             t!("chess.keys_list")
         };
@@ -1226,10 +1333,16 @@ impl Viewer {
         if let Some(e) = q.elo {
             filter.push(format!("{} ≥ {e}", t!("chess.filter_elo")));
         }
+        if !q.position.is_empty() {
+            filter.push(t!("chess.index_filtered"));
+        }
         if !filter.is_empty() {
             state = format!("{state} · {}", filter.join(", "));
         }
         state = format!("{state} · {} {}{}", t!("chess.sorted_by"), column(q.sort), if q.desc { " ↓" } else { " ↑" });
+        if let Some(i) = self.pos_index.as_ref().filter(|i| i.can) {
+            state = format!("{state} · {}", index_state(i));
+        }
         f.render_widget(Paragraph::new(fit(&state, w)).style(dim), Rect { height: 1, ..area });
         // Columns: fixed ones, and the names sharing the rest.
         // Draughts has no openings: their two columns go to the names and the event.
@@ -1853,6 +1966,7 @@ impl Viewer {
         let draughts = self.draughts();
         let other = self.other_game();
         let rev = self.review.as_ref().map(|r| r.now());
+        let shown_tree = self.tree.filter(|_| picks.is_none() && self.found.is_none()).map(|sel| (sel, self.tree_now()));
         let Some(o) = &self.open else { return };
         let g = &o.game;
         let right = Rect { x: area.x + board_w + 2, width: area.width.saturating_sub(board_w + 2), ..area };
@@ -1936,6 +2050,46 @@ impl Viewer {
         });
         if let Some(state) = review_state {
             head.push(Line::styled(fit(&state, w), dim));
+        }
+        // The opening tree, in place of the moves while it is shown.
+        if let Some((sel, tree)) = shown_tree {
+            let st = self.pos_index.clone();
+            head.push(Line::from(""));
+            match (&tree, st.as_ref()) {
+                (Some(tr), _) => {
+                    let mut title = t!("chess.tree_title", "n" => tr.games);
+                    if tr.stale {
+                        title = format!("{title} · {}", t!("chess.index_stale"));
+                    }
+                    head.push(Line::styled(fit(&title, w), base.add_modifier(Modifier::BOLD)));
+                    if tr.moves.is_empty() {
+                        let s = if tr.games > 0 && tr.depth > 0 { t!("chess.tree_past", "depth" => depth_name(tr.depth)) } else { t!("chess.tree_no_moves") };
+                        head.push(Line::styled(fit(&s, w), dim));
+                    } else {
+                        let head_row = format!("{:<8} {:>7}  {:<13} {:>4}  {:<9}  {}", t!("chess.tree_move"), t!("chess.tree_games_col"), t!("chess.tree_score"), t!("chess.col_elo"), t!("chess.tree_years"), t!("chess.tree_best"));
+                        head.push(Line::styled(fit(&head_row, w), dim));
+                        let room = (right.height as usize).saturating_sub(head.len());
+                        let top = sel.saturating_sub(room.saturating_sub(1));
+                        for (k, m) in tr.moves.iter().enumerate().skip(top).take(room) {
+                            let years = match (m.first, m.last) {
+                                (Some(a), Some(b)) if a != b => format!("{a}–{b}"),
+                                (Some(a), _) => a.to_string(),
+                                _ => String::new(),
+                            };
+                            let best = m.best.as_ref().map(|(n, e)| format!("{n} ({e})")).unwrap_or_default();
+                            let san = if other { m.san.clone() } else { chess::show_san(&m.san, &pieces) };
+                            let score = format!("{}·{}·{}", m.white, m.draws, m.black);
+                            let text = format!("{san:<8} {:>7}  {score:<13} {:>4}  {years:<9}  {best}", m.games, m.elo.map(|e| e.to_string()).unwrap_or_default());
+                            let style = if k == sel { sty(&theme.dialog_input) } else { base };
+                            head.push(Line::styled(fit(&text, w), style));
+                        }
+                    }
+                }
+                (None, Some(i)) if i.building.is_some() => head.push(Line::styled(fit(&index_state(i), w), dim)),
+                _ => head.push(Line::styled(fit(&t!("chess.tree_none_tui"), w), dim)),
+            }
+            f.render_widget(Paragraph::new(head), right);
+            return;
         }
         head.push(Line::from(""));
         // The move list being chosen from, in place of the moves.
@@ -2128,6 +2282,30 @@ fn wrap(words: Vec<(String, Style, bool)>, w: usize, base: Style, room: usize, k
 }
 
 /// A column's name, for the order line.
+/// A position index's depth as Settings names it: "30 moves", "The whole game".
+fn depth_name(d: u32) -> String {
+    if d == 0 { t!("settings.chess_depth_all") } else { t!("chess.index_depth", "n" => d) }
+}
+
+/// Where the position index stands, for the list's state line and the tree.
+fn index_state(i: &chess::positions::Status) -> String {
+    let size = coxswain_core::settings::human(i.bytes);
+    if let Some(b) = i.building {
+        let s = t!("chess.index_building", "percent" => (b * 100.0) as u32);
+        if i.ready { format!("{s} · {}", t!("chess.index_old_in_use")) } else { s }
+    } else if i.ready {
+        let s = t!("chess.index_ready", "depth" => depth_name(i.depth), "size" => size);
+        if i.stale { format!("{s} · {}", t!("chess.index_stale")) } else { s }
+    } else {
+        let est = t!("chess.index_estimate", "size" => coxswain_core::settings::human(i.estimate_bytes), "minutes" => (i.estimate_seconds / 60).max(1));
+        let s = format!("{} ({est})", t!("chess.index_build_tui"));
+        match &i.error {
+            Some(e) => format!("{s} · {e}"),
+            None => s,
+        }
+    }
+}
+
 fn column(s: Sort) -> String {
     match s {
         Sort::Number => "#".into(),
