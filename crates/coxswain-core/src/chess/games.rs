@@ -1230,6 +1230,9 @@ fn pack_block(raw: &[u8]) -> io::Result<Vec<u8>> {
     z.finish().map_err(io::Error::other)
 }
 
+/// A block being packed, on its own thread.
+type Packer = std::thread::JoinHandle<io::Result<Vec<u8>>>;
+
 /// The games of a block being made: their sizes, tags and moves, and their rows, handed on once
 /// the block is on the disk (a row is never shown before its text can be read). Closed blocks
 /// are packed on threads of their own, at most `threads` at once, and written in turn, so the
@@ -1241,7 +1244,7 @@ struct Block {
     tags: Vec<u8>,
     moves: Vec<u8>,
     heads: Vec<Head>,
-    packing: std::collections::VecDeque<(std::thread::JoinHandle<io::Result<Vec<u8>>>, Vec<Head>)>,
+    packing: std::collections::VecDeque<(Packer, Vec<Head>)>,
     threads: usize,
 }
 
