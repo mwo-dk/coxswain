@@ -220,16 +220,22 @@ through an installed 7-Zip instead, read-only, like a disk image
 - **Games are read as they are unpacked**: a PGN file (also packed), a draughts, shogi or bridge
   file and a DhtmlXQ game open in the games window with no copy on the disk
   ([Chess](../previews/chess.md)).
-- **Other files inside are previewed and viewed from a copy** (an Office file LibreOffice
-  draws, such as `.doc` or `.odt`, an old picture over 64 MB, a document, workbook, notebook or deck
-  over 25 MB (whose reader refuses it there too), a Parquet file, PDF, song, video or font over
-  64 MB, a SCID or ChessBase
-  database, an EPD or FEN file, a Go file, an opening book,
-  a locked log, JSON Lines file or long text to page through once its password is given, and
-  a locked file over 64 MB (a locked file the preview or the viewer holds in memory is read
-  from the archive: [Passwords](archive-passwords.md#is-a-locked-file-copied-to-the-disk-to-be-looked-at)), every PDF, song, video and font in the
-  terminal app, whose readers and players need a file, and every file when you set a
-  `viewer` of your own in the terminal app), not opened or edited: **Enter** and **F4** say on
+- **Other files inside are previewed and viewed from a copy**, each for a reason:
+  - a program of its own needs a file: an Office file LibreOffice draws (`.doc`, `.odt` …) and
+    every file when you set a `viewer` of your own in the terminal app (in the terminal app a
+    PDF, song, video or font has no reader of its own: **F3** shows its bytes in hex from
+    memory, and **F5** copies it out for a program);
+  - too large to hold in memory: an old picture, a Parquet file, a PDF, song, video or font
+    over 64 MB (the preview holds the file whole, a player's seeking included), and a document,
+    workbook, notebook or deck over 25 MB (whose reader refuses it there too);
+  - read by jumping about in it, or in several files: a SCID or ChessBase database, an EPD or
+    FEN file, a Go file, an opening book ([Chess](../previews/chess.md));
+  - locked, where paging would show lines before the checksum at the end proves the password: a
+    locked log, JSON Lines file or long text to page through, and a locked file over 64 MB (a
+    locked file the preview or the viewer holds in memory is read from the archive:
+    [Passwords](archive-passwords.md#is-a-locked-file-copied-to-the-disk-to-be-looked-at)).
+
+  These are not opened or edited: **Enter** and **F4** say on
   the status line that **F5** copies the file out, since changes to a copy would be lost. The
   copy is made in the cache folder (`coxswain/peek/`, readable by you alone), one at
   a time, and removed when the next is made; copies left by an app that ended go after a day.
