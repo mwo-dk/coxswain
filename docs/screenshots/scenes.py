@@ -268,7 +268,7 @@ def mk_club():
     """Documents/Chess/tournaments.pgn, and what its index and table leave in the cache, gone again."""
     def run():
         p = demo("Documents", "Chess", "tournaments.pgn")
-        p.write_text(club_pgn())
+        p.write_text(club_pgn(), encoding="utf-8")
         cache = demo(".cache", "coxswain")
         before = {q for d in ("positions", "chess/tables") for q in (cache / d).glob("*")}
         def undo():
@@ -335,7 +335,7 @@ scene("pick-tui.png", args=["--pick", "--multiple", "--filter", "rs,toml", "--st
 
 # ---- chess: the opening tree of a database with its position index (i builds it, t shows the tree)
 scene("tui-chess-tree.png", args=["/home/demo/Documents/Chess", "/home/demo"], setup=mk_club(), size=(140, 36),
-      keys=["type:tournaments", "Escape", "F3", "wait:3", "i", "wait:5", "Enter", "wait:2", "Right", "Right", "t", "Down", "wait:2"])
+      keys=["End", "F3", "wait:3", "i", "wait:5", "Down*5", "Enter", "wait:2", "Right*3", "t", "Down", "wait:2"])
 
 # ---- GIFs: the first frame is saved beside as <name>.png
 scene("copy.gif", args=["/home/demo/Documents", "/home/demo/Backups"], record=5.5, setup=keep("Backups"),
