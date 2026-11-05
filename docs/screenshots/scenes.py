@@ -208,6 +208,78 @@ def mk_viruses():
     return run
 
 
+
+# A games database for the opening tree (docs/previews/chess-positions.md): openings played on to
+# move 7 to 14, by made-up players, made the same each time.
+LINES = [
+    (9, "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5 Nb3 Be6"),
+    (6, "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Be3 Bg7 f3 O-O"),
+    (5, "e4 c5 Nf3 e6 d4 cxd4 Nxd4 Nf6 Nc3 d6 Be2 Be7 O-O O-O"),
+    (4, "e4 c5 Nf3 e6 d4 cxd4 Nxd4 Nc6 Nc3 Qc7 Be2 a6"),
+    (4, "e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 Nf6 Nc3 e5 Ndb5 d6 Bg5 a6"),
+    (3, "e4 c5 c3 Nf6 e5 Nd5 d4 cxd4 Nf3 Nc6"),
+    (2, "e4 c5 Nc3 Nc6 g3 g6 Bg2 Bg7 d3 d6"),
+    (3, "e4 c5 Nf3 Nc6 Bb5 g6 O-O Bg7 Re1 Nf6"),
+    (2, "e4 c5 Nf3 d6 Bb5+ Bd7 Bxd7+ Qxd7 c4 Nc6"),
+    (2, "e4 c5 Nf3 e6 d4 cxd4 Nxd4 a6 Bd3 Nf6 O-O d6"),
+    (1, "e4 c5 d4 cxd4 c3 dxc3 Nxc3 Nc6 Nf3 d6"),
+    (6, "e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 d6"),
+    (4, "e4 e5 Nf3 Nc6 Bc4 Bc5 c3 Nf6 d3 d6 O-O O-O"),
+    (4, "e4 e6 d4 d5 Nc3 Bb4 e5 c5 a3 Bxc3+ bxc3 Ne7"),
+    (3, "e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5 Ng3 Bg6 h4 h6"),
+    (5, "d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 h6"),
+    (4, "d4 d5 c4 c6 Nf3 Nf6 Nc3 dxc4 a4 Bf5"),
+    (4, "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5"),
+    (4, "d4 Nf6 c4 e6 Nc3 Bb4 Qc2 O-O a3 Bxc3+ Qxc3 b6"),
+    (3, "c4 e5 Nc3 Nf6 Nf3 Nc6 g3 Bb4 Bg2 O-O"),
+    (2, "Nf3 d5 g3 Nf6 Bg2 c6 O-O Bg4 d3 Nbd7"),
+]
+PLAYERS = ["Aaltonen, Mikko", "Berglund, Ida", "Castell, Marc", "Dvořák, Jan", "Eriksen, Sofie", "Fontaine, Luc",
+           "Galdós, Ana", "Halvorsen, Erik", "Ilić, Petar", "Jansen, Bram", "Kowalczyk, Ewa", "Lindqvist, Nils",
+           "Moreau, Claire", "Novak, Tomas", "Okafor, Daniel", "Petrova, Maria", "Quint, Oskar", "Rossi, Giulia",
+           "Santos, Rui", "Takács, Bence", "Ueda, Ren", "Varga, Lili", "Weiss, Jonas", "Yilmaz, Deniz"]
+
+
+def club_pgn(n=4000):
+    """The games' text: chosen by a fixed sequence, so every run makes the same file."""
+    seed = 7
+    def rnd(k):
+        nonlocal seed
+        seed = (seed * 6364136223846793005 + 1442695040888963407) % (1 << 64)
+        return (seed >> 33) % k
+    pool = [line for w, line in LINES for _ in range(w)]
+    out = []
+    for i in range(n):
+        moves = pool[rnd(len(pool))].split()
+        moves = moves[: max(8, len(moves) - rnd(4))]
+        w, b = rnd(len(PLAYERS)), rnd(len(PLAYERS))
+        if w == b:
+            b = (b + 1) % len(PLAYERS)
+        welo, belo = 1700 + rnd(30) * 25 + w * 5, 1700 + rnd(30) * 25 + b * 5
+        result = ["1-0", "1/2-1/2", "0-1", "1-0", "1/2-1/2"][rnd(5)]
+        text = " ".join((f"{k // 2 + 1}. {m}" if k % 2 == 0 else m) for k, m in enumerate(moves))
+        out.append(f'[Event "Club championship"]\n[Site "Riverside"]\n[Date "{1996 + rnd(30)}.{1 + rnd(12):02}.{1 + rnd(28):02}"]\n'
+                   f'[Round "{1 + rnd(9)}"]\n[White "{PLAYERS[w]}"]\n[Black "{PLAYERS[b]}"]\n[Result "{result}"]\n'
+                   f'[WhiteElo "{welo}"]\n[BlackElo "{belo}"]\n\n{text} {result}\n')
+    return "\n".join(out)
+
+
+def mk_club():
+    """Documents/Chess/tournaments.pgn, and what its index and table leave in the cache, gone again."""
+    def run():
+        p = demo("Documents", "Chess", "tournaments.pgn")
+        p.write_text(club_pgn(), encoding="utf-8")
+        cache = demo(".cache", "coxswain")
+        before = {q for d in ("positions", "chess/tables") for q in (cache / d).glob("*")}
+        def undo():
+            p.unlink(missing_ok=True)
+            for d in ("positions", "chess/tables"):
+                for q in (cache / d).glob("*"):
+                    if q not in before:
+                        shutil.rmtree(q, ignore_errors=True)
+        return undo
+    return run
+
 START = []                         # the first-run guide is closed before the keys (guide=False: not)
 ROCKET_README = START + ["Down"] * 8
 
@@ -260,6 +332,10 @@ scene("tui-copy-stop.png", args=["/home/demo/Big", "/home/demo/Backups"], setup=
 
 # ---- pick mode (coxswain --pick): the key line shows the picker's keys, other files are dimmed
 scene("pick-tui.png", args=["--pick", "--multiple", "--filter", "rs,toml", "--start", "/home/demo/projects/rocket"], guide=False, keys=["Down*6", "IC"])
+
+# ---- chess: the opening tree of a database with its position index (i builds it, t shows the tree)
+scene("tui-chess-tree.png", args=["/home/demo/Documents/Chess", "/home/demo"], setup=mk_club(), size=(140, 36),
+      keys=["End", "F3", "wait:3", "i", "wait:5", "Down*5", "Enter", "wait:2", "Right*3", "t", "Down", "wait:2"])
 
 # ---- GIFs: the first frame is saved beside as <name>.png
 scene("copy.gif", args=["/home/demo/Documents", "/home/demo/Backups"], record=5.5, setup=keep("Backups"),
