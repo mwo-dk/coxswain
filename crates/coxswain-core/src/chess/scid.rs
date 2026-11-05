@@ -738,6 +738,8 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
         assert_eq!(lib.progress().games, 29);
+        // The deleted game's entry counts as read: the bar is full.
+        assert_eq!(lib.progress().read, lib.progress().size);
         assert_eq!(lib.row(2).unwrap().event, base.event(&base.entry(3).unwrap()));
         // Find this position numbers games by their rows too: row 2 is SCID's game 3, and the
         // deleted game's positions are not there.
