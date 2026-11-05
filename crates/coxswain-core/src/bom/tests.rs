@@ -1403,3 +1403,38 @@ fn a_component_keeps_its_own_fields_not_those_of_the_components_inside() {
     assert!(outer.raw.get("components").is_none());
     assert_eq!(outer.raw["name"], "outer");
 }
+
+/// A BOM and a provenance statement inside a zip are read as the zip unpacks them: the same as
+/// outside, and not a byte of a copy on the disk.
+#[test]
+fn a_bom_and_provenance_inside_an_archive_are_read_with_no_copy() {
+    let d = crate::fs::Scratch::named("bom-inside");
+    let (bom_file, statement) = (d.join("keycloak.cdx.json"), d.join("statement-v1.json"));
+    std::fs::copy(fixture("cbomkit/keycloak.cdx.json"), &bom_file).unwrap();
+    std::fs::copy(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/provenance/testdata/made/statement-v1.json"),
+        &statement,
+    )
+    .unwrap();
+    let zip = d.join("release.zip");
+    crate::archive::create(&zip, &[bom_file.clone(), statement.clone()]).unwrap();
+    let written = || -> u64 {
+        fn walk(p: &std::path::Path) -> u64 {
+            std::fs::read_dir(p).map_or(0, |r| {
+                r.flatten().map(|e| if e.path().is_dir() { walk(&e.path()) } else { e.metadata().map_or(0, |m| m.len()) }).sum()
+            })
+        }
+        // This thread's peek folder, looked at without `peek_folder`, which empties it.
+        let peek = crate::helper::folder().unwrap().join(format!("peek-{:?}", std::thread::current().id()));
+        walk(&peek.join(crate::spill::run()))
+    };
+    let before = written();
+    let inside = load(&zip.join("keycloak.cdx.json")).unwrap();
+    assert_eq!(inside.nodes.len(), load(&bom_file).unwrap().nodes.len());
+    let a = crate::provenance::load(&zip.join("statement-v1.json")).unwrap();
+    assert_eq!(a.entries.len(), crate::provenance::load(&statement).unwrap().entries.len());
+    assert_eq!(written(), before, "nothing was copied to the disk");
+    // The way it was read before: a copy of the whole file in the cache.
+    crate::archive::peek(&zip.join("keycloak.cdx.json")).unwrap();
+    assert_eq!(written(), before + std::fs::metadata(&bom_file).unwrap().len(), "the measure sees a copy");
+}
