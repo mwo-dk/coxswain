@@ -11,10 +11,15 @@
   let { t, active, onfocus } = $props();
   /** A picture's tile: the file itself, or inside an archive a small PNG of it made in memory as
    *  the archive unpacks it (`?thumb`, no copy on the disk). */
-  const pic = (e) => convertFileSrc(e.path) + (t.archive ? "?thumb" : "");
+  const pic = (e) => convertFileSrc(e.path) + (t.archive ? `?thumb&v=${e.modified}-${e.size}` : "");
   /** Tiles whose picture could not be read (locked, too large, no picture): their icon instead. */
   let broken = $state(new Set());
   const fail = (e) => (broken = new Set([...broken, e.path]));
+  // Another folder, or the same listed again (a password given): every tile tried anew.
+  $effect(() => {
+    t.items;
+    broken = new Set();
+  });
   let grid = $state();
   let tiles = $state();
   let cols = $state(1);

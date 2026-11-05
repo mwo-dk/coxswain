@@ -80,7 +80,7 @@ const THUMB_AS_IS: usize = 8 << 20;
 
 /// A grid's tile of `path`, a picture inside `archive`: its type and bytes, a PNG of at most
 /// `THUMB_SIDE` made in memory (`pictures::thumbnail`), or a small picture the web view reads
-/// itself as it is. `None` for one that is neither, or larger than `MAX_INSIDE`. One at a time:
+/// itself as it is (an SVG, an AVIF). `None` for one that is neither, or larger than `MAX_INSIDE`. One at a time:
 /// a grid asks for many at once, and each holds its picture in memory.
 fn thumb(path: &Path, archive: &Path) -> std::io::Result<Option<(String, Vec<u8>)>> {
     static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -89,8 +89,9 @@ fn thumb(path: &Path, archive: &Path) -> std::io::Result<Option<(String, Vec<u8>
     if let Some(png) = coxswain_core::pictures::thumbnail(&bytes, THUMB_SIDE) {
         return Ok(Some(("image/png".into(), png)));
     }
+    // Only what `image` cannot read: a picture it refused (too many pixels) is not handed on.
     let mime = content_type(&bytes[..bytes.len().min(8192)], path);
-    Ok((mime.starts_with("image/") && bytes.len() <= THUMB_AS_IS).then(|| (mime, bytes.to_vec())))
+    Ok((["image/svg+xml", "image/avif"].contains(&mime.as_str()) && bytes.len() <= THUMB_AS_IS).then(|| (mime, bytes.to_vec())))
 }
 
 /// The type a file is served as, from its first bytes and its name. A document type that could
@@ -182,7 +183,7 @@ pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Respo
         {
             return Ok(thumb(&path, &archive)?.map_or_else(
                 || status(StatusCode::UNSUPPORTED_MEDIA_TYPE),
-                |(mime, body)| answer().header(header::CONTENT_TYPE, mime).header(header::X_CONTENT_TYPE_OPTIONS, "nosniff").header(header::CONTENT_SECURITY_POLICY, "sandbox").body(body).expect("a tile's answer"),
+                |(mime, body)| answer().header(header::CONTENT_TYPE, mime).header(header::CACHE_CONTROL, "private, max-age=600").header(header::X_CONTENT_TYPE_OPTIONS, "nosniff").header(header::CONTENT_SECURITY_POLICY, "sandbox").body(body).expect("a tile's answer"),
             ));
         }
         if has("inside")

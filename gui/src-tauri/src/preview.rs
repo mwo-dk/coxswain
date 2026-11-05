@@ -94,6 +94,11 @@ fn picture_in(previews: &Path, path: &Path, page: usize, side: u32) -> Res<Optio
             return Ok(hit);
         }
         if !coxswain_core::pictures::readable(path) {
+            // Inside an archive, not read at all (locked, in a disk image) is no answer that it
+            // is no picture: said, so the preview asks the password or reads a copy.
+            if !path.exists() && coxswain_core::archive::split(path).is_some() {
+                coxswain_core::archive::head(path, 64).map_err(|e| e.to_string())?;
+            }
             return Ok(None);
         }
         let _one = if side <= 256 { &THUMBS } else { &PREVIEW }.lock().unwrap_or_else(|e| e.into_inner());
@@ -544,6 +549,26 @@ mod tests {
         assert!(big.file.is_file() && big.pages == 1);
         let thumb = picture_in(&cache, &pic, 0, 256).unwrap().unwrap();
         assert_eq!(thumb.file, big.file, "the preview's PNG, not a second decode");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// An old picture inside a locked zip: said as locked (the preview asks the password), not
+    /// taken for text; with the password, its PNG made from memory.
+    #[test]
+    fn an_old_picture_inside_a_locked_archive_asks_for_its_password() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-old-picture-locked-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let (cache, pic, zip) = (d.join("cache"), d.join("a.ppm"), d.join("locked.zip"));
+        std::fs::write(&pic, b"P6\n2 1\n255\n\xff\0\0\0\xff\0").unwrap();
+        coxswain_core::archive::create_locked(&zip, std::slice::from_ref(&pic), Some("hunter2"), false).unwrap();
+        coxswain_core::archive::forget(&zip);
+        let inner = zip.join("a.ppm");
+        assert_eq!(picture_in(&cache, &inner, 0, 2048).err().as_deref(), Some(coxswain_core::archive::LOCKED));
+        coxswain_core::archive::remember(&zip, "hunter2");
+        let made = picture_in(&cache, &inner, 0, 2048).unwrap().unwrap();
+        assert!(made.file.is_file() && made.pages == 1);
+        coxswain_core::archive::forget(&zip);
         std::fs::remove_dir_all(d).unwrap();
     }
 
