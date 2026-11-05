@@ -49,11 +49,14 @@ nested ones too, opens the same way: **Enter** in both apps, **F3** in the termi
 preview pane in the desktop app. A PGN file (also `.pgn.gz` and `.pgn.zst`), a draughts, shogi
 or bridge file and a DhtmlXQ game are read as they are unpacked, with no copy on the disk: the
 table fills while the archive is read, and a game far into a big file is found by unpacking the
-file again from its start (the way a packed PGN file is read). A SCID or ChessBase
-database, an EPD or FEN file, a Go file and an opening book are read from a copy Coxswain takes
-out of the archive, a SCID or ChessBase database with the files beside it under the same name;
-a `.cbv` holds its own, and so does a locked file once its password is given
-([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)). *Save as new PGN*
+file again from its start (the way a packed PGN file is read). An opening book and a Go file up
+to 64 MB, and an EPD or FEN file of any size (its first 16 MB, as outside), are unpacked into
+memory whole and read there, also with no copy on the disk: a book is looked up at each position
+and a Go game read at its place in the file, which an unpacker cannot jump to. A SCID or
+ChessBase database is read from a copy Coxswain takes out of the archive, with the files beside
+it under the same name: it is read in pieces from several files, here and there in each. So is a
+`.cbv` (it holds its own), a book or Go file over 64 MB, and a locked file once its password is
+given ([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)). *Save as new PGN*
 on a game read so asks where, as it does for a copy ([the choices](chess-play.md#a-game-from-inside-an-archive)).
 
 A PGN file over 256 MB inside an archive (a 7z, a zip, a tar) is not copied out: it is read
@@ -537,8 +540,12 @@ The table shows its games like a PGN file's.
 Yes. **Enter** on the zip opens it like a folder; on a games file inside (a `.pgn`, a ChessBase
 `.cbv` archive or `.cbh` database, a SCID `.si4` or `.si5` index, an `.sgf` …) press **Enter**
 in either app (the command line says *Enter: Open games*), **F3** in the terminal app, or rest
-the cursor on it with the preview open in the desktop app. That file is copied out into Coxswain's cache folder, a database with the files beside it
-under its name (`.cbg`, `.cbp`, `.sg4` …), and its games table opens as outside the archive.
+the cursor on it with the preview open in the desktop app. A PGN family file is read as the
+archive unpacks it, and an opening book, an EPD or FEN file and a Go file up to 64 MB are
+unpacked into memory: nothing is written to the disk. A ChessBase or SCID database (and a book
+or Go file over 64 MB, or a locked file) is copied out into Coxswain's cache folder, a database
+with the files beside it under its name (`.cbg`, `.cbp`, `.sg4` …), since its games are read in
+pieces from those files, here and there. Either way its games table opens as outside the archive.
 It works in an archive inside an archive too ([Archives as folders](../files/archives.md)).
 
 #### What happens with a database too large to open inside its archive?

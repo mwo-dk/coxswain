@@ -1,0 +1,1 @@
+| **Opening books, EPD and FEN positions and Go files inside an archive open with no copy on the disk.** Up to 64 MB they are unpacked into memory and read there, in both apps; SCID and ChessBase databases, bigger files and locked ones are still read from a copy. | [Chess games](previews/chess.md#using-it) |

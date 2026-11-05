@@ -202,8 +202,9 @@ through an installed 7-Zip instead, read-only, like a disk image
   written to the disk and a few megabytes in memory. Going back to a line far above unpacks the
   file again from its start ([Logs](../previews/logs.md#logs-inside-an-archive)).
 - **Games are read as they are unpacked**: a PGN file (also packed), a draughts, shogi or bridge
-  file and a DhtmlXQ game open in the games window with no copy on the disk
-  ([Chess](../previews/chess.md)).
+  file and a DhtmlXQ game open in the games window with no copy on the disk, and an opening book,
+  an EPD or FEN file and a Go file up to 64 MB are unpacked into memory whole and read there
+  ([Chess](../previews/chess.md#using-it)).
 - **Other files inside are previewed and viewed from a copy** (documents, spreadsheets,
   notebooks, old picture formats, a PDF, song, video or font over 64 MB, a SCID or ChessBase
   database, an EPD or FEN file, a Go file, an opening book, provenance and bills of materials,

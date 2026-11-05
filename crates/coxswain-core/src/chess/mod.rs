@@ -93,11 +93,16 @@ pub struct Position {
 /// The most positions read from one file.
 pub const MAX_POSITIONS: usize = 100_000;
 
-/// The positions of the EPD or FEN file at `path`, from its first 16 MB.
+/// The positions of the EPD or FEN file at `path`, from its first 16 MB (inside an archive,
+/// unpacked into memory, no copy).
 pub fn read_positions(path: &Path) -> std::io::Result<Vec<Position>> {
     use std::io::Read;
     let mut bytes = vec![];
-    std::fs::File::open(path)?.take(games::MAX_GAME as u64).read_to_end(&mut bytes)?;
+    if games::in_archive(path) {
+        bytes = crate::archive::head(path, games::MAX_GAME as u64)?.0;
+    } else {
+        std::fs::File::open(path)?.take(games::MAX_GAME as u64).read_to_end(&mut bytes)?;
+    }
     Ok(positions(&String::from_utf8_lossy(&bytes)))
 }
 
