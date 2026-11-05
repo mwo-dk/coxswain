@@ -601,6 +601,7 @@
       "name": "Model.MLPackage"
     }
   ],
+  "max_whole": 67108864,
   "reads": {
     "archive": "copy",
     "asciidoc": "copy",

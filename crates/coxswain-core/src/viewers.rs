@@ -412,7 +412,7 @@ mod tests {
     #[test]
     fn the_desktop_apps_copy_of_the_table_is_current() {
         let cases: Vec<serde_json::Value> = CASES.iter().map(|(n, d)| serde_json::json!({ "name": n, "is_dir": d, "kind": kind_of(n, *d) })).collect();
-        let want = serde_json::to_string_pretty(&serde_json::json!({ "rules": rules(), "reads": reads_by_kind(), "cases": cases })).unwrap() + "\n";
+        let want = serde_json::to_string_pretty(&serde_json::json!({ "rules": rules(), "reads": reads_by_kind(), "max_whole": MAX_WHOLE, "cases": cases })).unwrap() + "\n";
         let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../gui/src/viewer-kinds.json");
         if std::env::var_os("COXSWAIN_WRITE_VARIANTS").is_some() {
             std::fs::write(&file, &want).unwrap();

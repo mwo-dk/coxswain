@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const src = readFileSync(new URL("./lib.js", import.meta.url), "utf8").replaceAll("\r\n", "\n");
-const { rules, reads, cases } = JSON.parse(readFileSync(new URL("./viewer-kinds.json", import.meta.url), "utf8"));
+const { rules, reads, max_whole, cases } = JSON.parse(readFileSync(new URL("./viewer-kinds.json", import.meta.url), "utf8"));
 
 /** lib.js's `viewerRules`, `setViewerRules` and `previewKind`, as a module: lib.js imports the
  *  app's state, which node cannot load. */
@@ -36,4 +36,7 @@ test("viewerReads gives what the core says each kind's viewer needs inside an ar
   for (const [kind, want] of Object.entries(reads)) assert.equal(viewerReads(kind), want, kind);
   assert.equal(viewerReads("text"), "stream");
   assert.equal(viewerReads("no such kind"), "copy");
+  const limit = src.match(/^export const MAX_WHOLE = (.+);$/m);
+  assert.ok(limit, "lib.js says MAX_WHOLE");
+  assert.equal(Function(`return ${limit[1]}`)(), max_whole, "lib.js's MAX_WHOLE is the core's");
 });
