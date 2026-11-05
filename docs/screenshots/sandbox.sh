@@ -15,6 +15,7 @@ demo="${DEMO_HOME:-${XDG_RUNTIME_DIR:-/tmp}/coxswain-demo-home}"
 # No containers in here: a podman run in the sandbox (a preview's tool, Settings listing the
 # images) starts its pause process in the sandbox's namespaces and points the user's rootless
 # podman at it. Every podman and docker on the PATH is covered with an empty file.
+# For a screen that needs a container tool, podman-relay.py runs podman outside the sandbox.
 no_containers=()
 for b in $(type -ap podman docker 2>/dev/null) /usr/bin/podman /usr/bin/docker; do
   [ -e "$b" ] && no_containers+=(--ro-bind /dev/null "$(readlink -f "$b")")
