@@ -3314,7 +3314,9 @@ fn copy_entries(
             };
             *any = true;
             if dir {
-                std::fs::create_dir_all(&path)?;
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
                 continue;
             }
             let mut e = match (encrypted, password) {
@@ -3416,7 +3418,7 @@ fn copy_entries(
                 return Ok(false);
             }
             let done = if e.is_directory {
-                std::fs::create_dir_all(&path)
+                if how.head.is_none() { std::fs::create_dir_all(&path) } else { Ok(()) }
             } else {
                 write(&path, &mut from, seven_secs(e))
             }
@@ -5011,21 +5013,22 @@ mod tests {
     fn a_folder_below_a_streamed_file_is_not_made() {
         let d = crate::pictures::tests::folder("stream-no-folders");
         let mut b = tar::Builder::new(vec![]);
-        let mut h = tar::Header::new_gnu();
-        h.set_size(2);
-        h.set_mode(0o644);
-        b.append_data(&mut h, "notes.txt", &b"hi"[..]).unwrap();
+        // The folder first: the read stops at the file.
         let mut h = tar::Header::new_gnu();
         h.set_entry_type(tar::EntryType::Directory);
         h.set_size(0);
         h.set_mode(0o755);
         b.append_data(&mut h, "notes.txt/made-by-a-stream/", std::io::empty()).unwrap();
+        let mut h = tar::Header::new_gnu();
+        h.set_size(2);
+        h.set_mode(0o644);
+        b.append_data(&mut h, "notes.txt", &b"hi"[..]).unwrap();
         let tar = d.join("crafted.tar");
         std::fs::write(&tar, b.into_inner().unwrap()).unwrap();
         let mut got = vec![];
         stream(&tar.join("notes.txt"), |r| r.read_to_end(&mut got)).unwrap();
         assert_eq!(got, b"hi");
-        assert!(!Path::new("made-by-a-stream").exists());
+        assert!(!Path::new("made-by-a-stream").exists() && !Path::new("notes.txt").exists());
         std::fs::remove_dir_all(d).unwrap();
     }
 
