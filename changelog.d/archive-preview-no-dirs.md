@@ -1,0 +1,1 @@
+| **A program inside a cpio or package previews.** Reading one for its bytes failed on a permission for a file that was never made, and a crafted archive could make an empty folder outside it. | [Archives](files/archives.md) |
