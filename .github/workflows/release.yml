@@ -770,7 +770,7 @@ jobs:
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           brew tap-new --no-git rehearsal/check
           # Homebrew 6 loads no formula from a tap it was not told to trust; older ones lack the command.
-          if brew commands --quiet | grep -qx trust; then brew trust rehearsal/check; fi
+          if brew commands --quiet | grep -qx trust; then brew trust --tap rehearsal/check; fi
           dir="$(brew --repository rehearsal/check)"
           packaging/retry.sh packaging/taps/generate.sh "$TAG" "$dir"
           brew audit --formula rehearsal/check/coxswain
