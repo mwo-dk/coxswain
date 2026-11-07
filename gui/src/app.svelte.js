@@ -1020,7 +1020,8 @@ export function stopExport() {
 export async function scanViruses(tb = tab()) {
   if (ui.viruses) return stopViruses();
   if (subject(tb).place !== "disk") return void (ui.status = t("viruses.none"));
-  const paths = targets(tb).length ? targets(tb) : [tb.dir];
+  const chosen = await targets(tb);
+  const paths = chosen.length ? chosen : [tb.dir];
   let plan;
   try {
     plan = await invoke("viruses_plan", { paths });
