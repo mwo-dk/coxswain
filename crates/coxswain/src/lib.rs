@@ -5172,6 +5172,16 @@ impl App {
         if let Some(Dialog::Chess(v)) = &mut self.dialog {
             v.poll();
         }
+        // A large PGN in a locked archive, read as it unpacks: its password asked for, then read again.
+        if let Some(Dialog::Chess(v)) = &self.dialog
+            && v.locked()
+        {
+            let path = v.path.clone();
+            self.dialog = None;
+            let wrong = coxswain_core::archive::split(&path).is_some_and(|(a, _)| coxswain_core::archive::has_password(&a));
+            let label = t!(if wrong { "archive.locked_again" } else { "archive.locked_label" });
+            self.input(&t!("archive.locked_title"), label, String::new(), Prompt::Peek(path));
+        }
         if let Some(Dialog::Go(v)) = &mut self.dialog {
             v.poll();
         }

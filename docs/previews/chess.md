@@ -611,9 +611,23 @@ and the table is then read again. **Measured** (Lumbra's Gigabase, a 2.5 GB 7z o
 12,294,960 games, the first rows after 0.5 s, all read in 13 minutes (packing the games sets the
 pace), 77 MB of memory at most, opened again in 10 ms.
 
+A PGN file in a **locked 7z** asks for the password first, the box the other locked archives
+use ([Archive passwords](../files/archive-passwords.md)): **Enter** (or **F3**) on it, or the
+preview, shows *Locked archive* and the box; once the password is given the games are read as they
+unpack. A wrong password ends the reading with the same box again, and no table is kept.
+A locked zip's large PGN file is still copied out, as before.
+
 A PGN file inside another archive, in a split one or a
 `.pgn.gz`, and a file of 256 MB or less, are copied out as before. **Esc** closes the
 games window, or the table, and stops the reading.
+
+#### What if the 7z with a big PGN file is locked?
+
+You are asked for its password, as for any locked archive (desktop app: the preview's *Unlock*
+link, or the box that opens when the table finds the archive locked; terminal app: the box that
+opens on **Enter** or **F3**). With the right one the games are read as the archive unpacks. With a
+wrong one the table stops with the box again and keeps nothing. The password is kept in memory for
+this run only.
 
 #### How fast is a big file?
 
