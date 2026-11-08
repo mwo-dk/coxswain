@@ -2195,7 +2195,7 @@ fn picked(ctx: &Ctx, paths: &[PathBuf]) -> Res<()> {
 /// command line): every command that writes, moves or deletes files, runs a program on them,
 /// or writes settings or the session. A picker only chooses.
 const PICK_REFUSES: &[&str] = &[
-    "copy", "rename", "delete", "mkdir", "rename_apply", "replace_apply", "attrs_apply", "sync_apply", "undo", "edit_open", "edit_save", "edit_path", "compare_take", "compare_save", "compare_undo",
+    "copy", "rename", "delete", "mkdir", "archive_unpack_beside", "cloud_fetch", "rename_apply", "replace_apply", "attrs_apply", "sync_apply", "undo", "edit_open", "edit_save", "edit_path", "compare_take", "compare_save", "compare_undo",
     "open_keys", "open_config_at", "scripts_folder", "run_command", "run_script", "add_user_command", "extract", "pack", "set_flags", "set_permissions", "paste", "start_drag", "set_tags", "set_note",
     "save_session", "save_favorites", "repo_edit", "git_switch", "git_new_branch", "git_tool", "remote_run", "bin_restore", "bin_delete", "bin_empty", "chess_save_line", "chess_save_origin",
     "chess_review_save", "chess_engine_set", "ebook_run", "searchable_run", "viruses_run", "viruses_act", "media_run", "export_run", "sums_make", "split_file", "join_parts", "transcribe",
