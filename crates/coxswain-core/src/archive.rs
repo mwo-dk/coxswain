@@ -764,6 +764,11 @@ pub fn remember(archive: &Path, password: &str) {
     uncache(archive);
 }
 
+/// Whether a password was given for `archive` in this run: one that still fails was wrong.
+pub fn has_password(archive: &Path) -> bool {
+    password_for(archive, None).is_some()
+}
+
 /// Forget the password given for `archive`.
 pub fn forget(archive: &Path) {
     PASSWORDS.lock().unwrap().retain(|(a, _)| a != archive);

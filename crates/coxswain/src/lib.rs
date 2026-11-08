@@ -5173,7 +5173,9 @@ impl App {
         {
             let path = v.path.clone();
             self.dialog = None;
-            self.input(&t!("archive.locked_title"), t!("archive.locked_label"), String::new(), Prompt::Peek(path));
+            let wrong = coxswain_core::archive::split(&path).is_some_and(|(a, _)| coxswain_core::archive::has_password(&a));
+            let label = t!(if wrong { "archive.locked_again" } else { "archive.locked_label" });
+            self.input(&t!("archive.locked_title"), label, String::new(), Prompt::Peek(path));
         }
         if let Some(Dialog::Go(v)) = &mut self.dialog {
             v.poll();

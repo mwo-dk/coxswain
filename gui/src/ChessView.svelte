@@ -200,20 +200,24 @@
   let lonePath = null;
   // A large PGN in a locked archive is read as it unpacks and the table stops with the archive's
   // error: the password is asked for as it is for a preview, then the file is read again.
+  let tried = null;
   function unlock(p) {
     if (full || ui.modal) return;
+    const again = tried === p;
     ui.modal = {
       kind: "input",
       feature: "archive_passwords",
       secret: true,
       title: t("archive.locked_title"),
-      label: t("archive.locked_label"),
+      label: t(again ? "archive.locked_again" : "archive.locked_label"),
       value: "",
       ok: t("verb.unlock"),
-      run: (password) =>
-        invoke("archive_password", { path: p, password })
+      run: (password) => {
+        tried = p;
+        return invoke("archive_password", { path: p, password })
           .then(() => invoke("chess_close", { path: p }))
-          .then(() => fetchRows()),
+          .then(() => fetchRows());
+      },
     };
   }
 
