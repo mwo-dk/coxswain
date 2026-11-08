@@ -145,6 +145,11 @@ fn stamp(path: &Path) -> String {
     let mut h = blake3::Hasher::new();
     h.update(FORM.as_bytes());
     h.update(path.as_os_str().as_encoded_bytes());
+    // SCID 5's reader changed (deleted games, names after the base's description): its tables
+    // are read again once.
+    if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("si5")) {
+        h.update(b"si5 2");
+    }
     // A file inside an archive (read as it is unpacked): the archive's size and date, and the entry's size.
     let outer = (!path.exists()).then(|| crate::archive::split(path)).flatten().map(|(a, _)| a);
     if outer.is_some() {
