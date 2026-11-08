@@ -1,1 +1,0 @@
-| **Scan for viruses scans what you marked.** In the desktop app it took the whole folder, whatever was marked. A picker no longer unpacks files beside an archive or fetches a cloud file, and in the terminal app a folder that vanished no longer leaves its rows under the parent. | [Scan for viruses](files/virus-scan.md) · [Pick mode](reference/pick-mode.md) |
