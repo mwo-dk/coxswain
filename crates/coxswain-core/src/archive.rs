@@ -764,6 +764,11 @@ pub fn remember(archive: &Path, password: &str) {
     uncache(archive);
 }
 
+/// Whether a password was given for `archive` in this run: one that still fails was wrong.
+pub fn has_password(archive: &Path) -> bool {
+    password_for(archive, None).is_some()
+}
+
 /// Forget the password given for `archive`.
 pub fn forget(archive: &Path) {
     PASSWORDS.lock().unwrap().retain(|(a, _)| a != archive);
@@ -2897,8 +2902,27 @@ pub fn streamable(path: &Path) -> bool {
 /// password is only proved by the checksum at the end, so a copy is read instead), and so is
 /// one in a disk image (7-Zip reads those whole).
 pub fn stream<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>) -> io::Result<T> {
+    stream_in(path, f, false)
+}
+
+/// Whether `stream_in` with `known` reads the file `path`: `streamable`, or a locked file of a 7z
+/// (without the password it fails with `LOCKED`, which the apps ask the password for).
+pub fn streamable_known(path: &Path) -> bool {
+    entry_of(path).is_ok_and(|(archive, _, it, _)| {
+        kind(&archive) != Some(Kind::Disk) && (!it.locked || kind(&archive) == Some(Kind::SevenZ))
+    })
+}
+
+/// `stream`, also for a locked file of a 7z whose password was given in this run when `known`.
+/// The password is only proved by the checksum at the end, so `f` must read to the end and treat
+/// a failure as no data (the games table does: a table that failed is never kept).
+pub fn stream_in<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>, known: bool) -> io::Result<T> {
     let (archive, inner, it, _held) = entry_of(path)?;
-    if it.locked || kind(&archive) == Some(Kind::Disk) {
+    let seven = known && kind(&archive) == Some(Kind::SevenZ);
+    if it.locked && seven && password_for(&archive, None).is_none() {
+        return Err(locked());
+    }
+    if (it.locked && !seven) || kind(&archive) == Some(Kind::Disk) {
         return Err(io::Error::new(io::ErrorKind::Unsupported, inner));
     }
     let (f, out) = (std::cell::RefCell::new(Some(f)), std::cell::RefCell::new(None));
@@ -2907,7 +2931,7 @@ pub fn stream<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>) ->
         *out.borrow_mut() = Some(f(from)?);
         Ok(())
     };
-    copy_out_with(&archive, &inner, Path::new(""), password_for(&archive, None).as_deref(), Copy { head: Some(&sink), ..Copy::default() })?;
+    copy_out_with(&archive, &inner, Path::new(""), password_for(&archive, None).as_deref(), Copy { head: Some(&sink), unchecked: known, ..Copy::default() })?;
     out.into_inner().ok_or_else(|| io::Error::other("nothing read"))
 }
 
@@ -3039,6 +3063,9 @@ struct Copy<'a> {
     whole: bool,
     limit: u64,
     head: Option<&'a dyn Fn(&mut dyn Read) -> io::Result<()>>,
+    /// A locked 7z's file handed on as it unpacks, without the up-front read to its end that
+    /// proves the password: the reader reads to the end itself and the checksum fails there.
+    unchecked: bool,
 }
 
 impl Default for Copy<'_> {
@@ -3047,6 +3074,7 @@ impl Default for Copy<'_> {
             whole: false,
             limit: u64::MAX,
             head: None,
+            unchecked: false,
         }
     }
 }
@@ -3226,13 +3254,16 @@ fn copy_entries(
             };
             *any = true;
             if e.dir {
-                std::fs::create_dir_all(&path)?;
+                // A file read for its bytes makes nothing, a crafted folder below it neither.
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
             } else if e.file {
                 let mut from = Noting { from, left: e.size, failed: false };
                 write(&path, &mut from, e.modified).map_err(|err| copy_error(err, &from, false))?;
                 // A program stays one; nothing but the permission bits is taken.
                 #[cfg(unix)]
-                if e.mode & 0o111 != 0 {
+                if how.head.is_none() && e.mode & 0o111 != 0 {
                     std::fs::set_permissions(&path, std::os::unix::fs::PermissionsExt::from_mode(e.mode & 0o755))?;
                 }
                 // The one file asked for is out: nothing after it is read.
@@ -3311,7 +3342,9 @@ fn copy_entries(
             };
             *any = true;
             if dir {
-                std::fs::create_dir_all(&path)?;
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
                 continue;
             }
             let mut e = match (encrypted, password) {
@@ -3407,13 +3440,13 @@ fn copy_entries(
             };
             // Locked, only a head asked for: read to its end too, as a zip's, since AES has no
             // check of the password but the checksum at the end.
-            let check = locked && how.head.is_some() && !e.is_directory;
+            let check = locked && how.head.is_some() && !how.unchecked && !e.is_directory;
             if check && e.size > PEEK_MAX {
                 failed = Some(too_large(&name));
                 return Ok(false);
             }
             let done = if e.is_directory {
-                std::fs::create_dir_all(&path)
+                if how.head.is_none() { std::fs::create_dir_all(&path) } else { Ok(()) }
             } else {
                 write(&path, &mut from, seven_secs(e))
             }
@@ -3479,7 +3512,9 @@ fn copy_entries(
             *any = true;
             let t = e.header().entry_type();
             if t.is_dir() {
-                std::fs::create_dir_all(&path)?;
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
             } else if t.is_file() {
                 let secs = e.header().mtime().unwrap_or(0);
                 write(&path, e, secs)?;
@@ -4998,6 +5033,43 @@ mod tests {
         let _ = crate::i18n::date_time(list[0].modified);
         assert_eq!(std::fs::read(peek(&tar.join("later.txt")).unwrap()).unwrap(), b"hi");
         assert!(extract(&tar, &d).unwrap().join("later.txt").is_file());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A file read for its bytes writes nothing, where a crafted tar puts a folder below it.
+    #[test]
+    fn a_folder_below_a_streamed_file_is_not_made() {
+        let d = crate::pictures::tests::folder("stream-no-folders");
+        let mut b = tar::Builder::new(vec![]);
+        // The folder first: the read stops at the file.
+        let mut h = tar::Header::new_gnu();
+        h.set_entry_type(tar::EntryType::Directory);
+        h.set_size(0);
+        h.set_mode(0o755);
+        b.append_data(&mut h, "notes.txt/made-by-a-stream/", std::io::empty()).unwrap();
+        let mut h = tar::Header::new_gnu();
+        h.set_size(2);
+        h.set_mode(0o644);
+        b.append_data(&mut h, "notes.txt", &b"hi"[..]).unwrap();
+        let tar = d.join("crafted.tar");
+        std::fs::write(&tar, b.into_inner().unwrap()).unwrap();
+        let mut got = vec![];
+        stream(&tar.join("notes.txt"), |r| r.read_to_end(&mut got)).unwrap();
+        assert_eq!(got, b"hi");
+        assert!(!Path::new("made-by-a-stream").exists() && !Path::new("notes.txt").exists());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A program in a cpio read for its bytes: no permission is set on a file that was not made.
+    #[cfg(unix)]
+    #[test]
+    fn a_program_in_a_cpio_streams() {
+        let d = crate::pictures::tests::folder("stream-program");
+        let cpio = d.join("a.cpio");
+        std::fs::write(&cpio, crate::archive_ro::tests::newc(&[("run.sh", b"hi")])).unwrap();
+        let mut got = vec![];
+        stream(&cpio.join("run.sh"), |r| r.read_to_end(&mut got)).unwrap();
+        assert_eq!(got, b"hi");
         std::fs::remove_dir_all(d).unwrap();
     }
 
