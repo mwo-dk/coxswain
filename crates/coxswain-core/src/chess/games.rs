@@ -392,7 +392,17 @@ pub fn in_archive(path: &Path) -> bool {
 /// Whether the games of `path` can be read from inside its archive without a copy: a PGN family
 /// file by its name (also packed), and a DhtmlXQ game by its first bytes.
 pub fn streams(path: &Path) -> bool {
-    if !in_archive(path) || super::scid::is_scid(path) || super::cbh::is_cbh(path) || !crate::archive::streamable(path) {
+    streams_with(path, Limits::default().keep)
+}
+
+/// `streams`, a plain PGN over `keep` bytes being the one kept in the table (`Limits::keep`).
+fn streams_with(path: &Path, keep: u64) -> bool {
+    if !in_archive(path) || super::scid::is_scid(path) || super::cbh::is_cbh(path) {
+        return false;
+    }
+    // A locked 7z's large plain PGN is read as it unpacks once its password is given (`from_archive`).
+    let keeps = || pack(path) == Pack::None && kind(path) == super::Format::Pgn && crate::archive::entry_size(path).is_ok_and(|s| s > keep);
+    if !(crate::archive::streamable(path) || (keeps() && crate::archive::streamable_known(path))) {
         return false;
     }
     matches!(super::format(path), Some(super::Format::Pgn | super::Format::Pdn | super::Format::Pbn | super::Format::Kif | super::Format::Csa)) || is_dhtml(path)
@@ -472,7 +482,8 @@ fn archived_pgn(path: &Path) -> Option<PathBuf> {
 /// The games of a SCID database (`scid`), from its index as it streams by: a game's place in
 /// the index is its `offset`. `read` counts the index bytes read, for the progress.
 fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
-    base.entries(|n, e| {
+    let mut last = 0u32;
+    let res = base.entries(|n, e| {
         let mut head = Head { offset: n as u64, len: 0, tags: Default::default(), plies: e.plies, sans: vec![], text: vec![], format: super::Format::Pgn };
         head.tags[WHITE] = base.white(e).to_string();
         head.tags[BLACK] = base.black(e).to_string();
@@ -486,9 +497,15 @@ fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut 
                 head.tags[i] = elo.to_string();
             }
         }
-        read.fetch_add(47, Ordering::Relaxed);
+        // Deleted games, skipped, count as read too.
+        last = n + 1;
+        read.store(last as u64 * base.entry_len(), Ordering::Relaxed);
         each(&head) && !stop.load(Ordering::Relaxed)
-    })
+    });
+    if !stop.load(Ordering::Relaxed) && last > 0 {
+        read.store(base.count as u64 * base.entry_len(), Ordering::Relaxed);
+    }
+    res
 }
 
 /// The games of a ChessBase database (`cbh`), as the pass over a PGN file sees them: a game's
@@ -806,7 +823,7 @@ impl Library {
     pub fn open_with(path: &Path, limits: Limits) -> io::Result<Library> {
         let inside = in_archive(path);
         let size = if inside { crate::archive::entry_size(path)? } else { std::fs::metadata(path)?.len() };
-        if inside && !streams(path) {
+        if inside && !streams_with(path, limits.keep) {
             return Err(io::Error::new(io::ErrorKind::Unsupported, path.display().to_string()));
         }
         let read = Arc::new(AtomicU64::new(0));
@@ -1274,7 +1291,7 @@ impl Block {
 fn from_archive(path: &Path, dir: &Path, stop: &AtomicBool, read: &Arc<AtomicU64>, unpacked: u64, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<()> {
     let mut block = Block { side: io::BufWriter::with_capacity(1 << 20, File::create(dir.join(GAMES))?), at: 0, sizes: vec![], tags: vec![], moves: vec![], heads: vec![] };
     let mut failed = None;
-    let r = reader(path, read.clone(), unpacked)?.take(unpacked);
+    let r = BufReader::new(Counted { inner: crate::entry_file::EntryReader::open_known(path)?, read: read.clone() }).take(unpacked);
     scan(BufReader::with_capacity(1 << 16, r), stop, super::Format::Pgn, true, true, |h| {
         block.add(h);
         if block.len() < BLOCK {
@@ -1911,6 +1928,52 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
         (l, d)
+    }
+
+    /// A large PGN in a locked 7z, read as it unpacks: the table stops with `LOCKED` until the
+    /// password is given, then the file is read again, whole.
+    #[test]
+    fn a_large_pgn_in_a_locked_7z_is_read_once_its_password_is_given() {
+        let d = tempdir::Dir::new();
+        std::fs::write(d.0.join("big.pgn"), TWO.repeat(50)).unwrap();
+        // Names locked too (the default of the writer), or only the contents.
+        let make = |name: &str, header: bool| {
+            let sz = d.0.join(name);
+            let mut w = sevenz_rust2::ArchiveWriter::create(&sz).unwrap();
+            w.set_encrypt_header(header);
+            w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from("hunter2")).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+            w.push_archive_entry(sevenz_rust2::ArchiveEntry::from_path(d.0.join("big.pgn"), "big.pgn".into()), Some(File::open(d.0.join("big.pgn")).unwrap())).unwrap();
+            w.finish().unwrap();
+            sz
+        };
+        for sz in [make("hidden.7z", true), make("shown.7z", false)] {
+        let pgn = sz.join("big.pgn");
+        let wait = |l: &Library| {
+            let limit = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(60));
+            while !l.progress().done {
+                assert!(std::time::Instant::now() < limit, "games never read");
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        let limits = Limits { keep: 0, ..Limits::default() };
+        // Names visible or not, the read stops locked; whichever step reports it.
+        let locked = |r: io::Result<Library>| match r {
+            Err(e) => e.to_string().contains(crate::archive::LOCKED),
+            Ok(l) => {
+                wait(&l);
+                l.progress().error.is_some_and(|e| e.contains(crate::archive::LOCKED))
+            }
+        };
+        assert!(locked(Library::open_with(&pgn, limits)));
+        // A wrong password reads no table: the pass ends in the error, whole or not.
+        crate::archive::remember(&sz, "wrong");
+        assert!(locked(Library::open_with(&pgn, limits)));
+        crate::archive::remember(&sz, "hunter2");
+        let l = Library::open_with(&pgn, limits).unwrap();
+        wait(&l);
+        assert_eq!((l.progress().games, l.progress().error), (100, None));
+        crate::archive::forget(&sz);
+        }
     }
 
     /// The games of a PGN file and of a DhtmlXQ game inside a zip are read as they are unpacked:
