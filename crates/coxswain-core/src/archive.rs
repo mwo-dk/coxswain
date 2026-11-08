@@ -3254,13 +3254,16 @@ fn copy_entries(
             };
             *any = true;
             if e.dir {
-                std::fs::create_dir_all(&path)?;
+                // A file read for its bytes makes nothing, a crafted folder below it neither.
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
             } else if e.file {
                 let mut from = Noting { from, left: e.size, failed: false };
                 write(&path, &mut from, e.modified).map_err(|err| copy_error(err, &from, false))?;
                 // A program stays one; nothing but the permission bits is taken.
                 #[cfg(unix)]
-                if e.mode & 0o111 != 0 {
+                if how.head.is_none() && e.mode & 0o111 != 0 {
                     std::fs::set_permissions(&path, std::os::unix::fs::PermissionsExt::from_mode(e.mode & 0o755))?;
                 }
                 // The one file asked for is out: nothing after it is read.
@@ -3339,7 +3342,9 @@ fn copy_entries(
             };
             *any = true;
             if dir {
-                std::fs::create_dir_all(&path)?;
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
                 continue;
             }
             let mut e = match (encrypted, password) {
@@ -3441,7 +3446,7 @@ fn copy_entries(
                 return Ok(false);
             }
             let done = if e.is_directory {
-                std::fs::create_dir_all(&path)
+                if how.head.is_none() { std::fs::create_dir_all(&path) } else { Ok(()) }
             } else {
                 write(&path, &mut from, seven_secs(e))
             }
@@ -3507,7 +3512,9 @@ fn copy_entries(
             *any = true;
             let t = e.header().entry_type();
             if t.is_dir() {
-                std::fs::create_dir_all(&path)?;
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
             } else if t.is_file() {
                 let secs = e.header().mtime().unwrap_or(0);
                 write(&path, e, secs)?;
@@ -5026,6 +5033,43 @@ mod tests {
         let _ = crate::i18n::date_time(list[0].modified);
         assert_eq!(std::fs::read(peek(&tar.join("later.txt")).unwrap()).unwrap(), b"hi");
         assert!(extract(&tar, &d).unwrap().join("later.txt").is_file());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A file read for its bytes writes nothing, where a crafted tar puts a folder below it.
+    #[test]
+    fn a_folder_below_a_streamed_file_is_not_made() {
+        let d = crate::pictures::tests::folder("stream-no-folders");
+        let mut b = tar::Builder::new(vec![]);
+        // The folder first: the read stops at the file.
+        let mut h = tar::Header::new_gnu();
+        h.set_entry_type(tar::EntryType::Directory);
+        h.set_size(0);
+        h.set_mode(0o755);
+        b.append_data(&mut h, "notes.txt/made-by-a-stream/", std::io::empty()).unwrap();
+        let mut h = tar::Header::new_gnu();
+        h.set_size(2);
+        h.set_mode(0o644);
+        b.append_data(&mut h, "notes.txt", &b"hi"[..]).unwrap();
+        let tar = d.join("crafted.tar");
+        std::fs::write(&tar, b.into_inner().unwrap()).unwrap();
+        let mut got = vec![];
+        stream(&tar.join("notes.txt"), |r| r.read_to_end(&mut got)).unwrap();
+        assert_eq!(got, b"hi");
+        assert!(!Path::new("made-by-a-stream").exists() && !Path::new("notes.txt").exists());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A program in a cpio read for its bytes: no permission is set on a file that was not made.
+    #[cfg(unix)]
+    #[test]
+    fn a_program_in_a_cpio_streams() {
+        let d = crate::pictures::tests::folder("stream-program");
+        let cpio = d.join("a.cpio");
+        std::fs::write(&cpio, crate::archive_ro::tests::newc(&[("run.sh", b"hi")])).unwrap();
+        let mut got = vec![];
+        stream(&cpio.join("run.sh"), |r| r.read_to_end(&mut got)).unwrap();
+        assert_eq!(got, b"hi");
         std::fs::remove_dir_all(d).unwrap();
     }
 

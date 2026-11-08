@@ -1437,6 +1437,8 @@ impl App {
                     p.error = Some(e.to_string());
                     let why = p.error.clone();
                     if let Some(up) = p.dir.parent() {
+                        // A row names its file by the panel's folder: old rows must not meet the new one.
+                        p.entries.clear();
                         p.dir = up.to_path_buf();
                         self.load(side, None);
                     }
@@ -2807,6 +2809,9 @@ impl App {
     /// The files of `b` copied out of their archive into its folder, as **F5** copies them (the
     /// job's line, Esc stops it, **Ctrl+Z** undoes it); then the database opens there.
     fn unpack_beside(&mut self, b: coxswain_core::archive::Beside) {
+        if self.picker_refuses() {
+            return;
+        }
         if let Err(e) = std::fs::create_dir_all(&b.folder) {
             return self.status = Some(e.to_string());
         }

@@ -482,7 +482,8 @@ fn archived_pgn(path: &Path) -> Option<PathBuf> {
 /// The games of a SCID database (`scid`), from its index as it streams by: a game's place in
 /// the index is its `offset`. `read` counts the index bytes read, for the progress.
 fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
-    base.entries(|n, e| {
+    let mut last = 0u32;
+    let res = base.entries(|n, e| {
         let mut head = Head { offset: n as u64, len: 0, tags: Default::default(), plies: e.plies, sans: vec![], text: vec![], format: super::Format::Pgn };
         head.tags[WHITE] = base.white(e).to_string();
         head.tags[BLACK] = base.black(e).to_string();
@@ -496,9 +497,15 @@ fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut 
                 head.tags[i] = elo.to_string();
             }
         }
-        read.fetch_add(47, Ordering::Relaxed);
+        // Deleted games, skipped, count as read too.
+        last = n + 1;
+        read.store(last as u64 * base.entry_len(), Ordering::Relaxed);
         each(&head) && !stop.load(Ordering::Relaxed)
-    })
+    });
+    if !stop.load(Ordering::Relaxed) && last > 0 {
+        read.store(base.count as u64 * base.entry_len(), Ordering::Relaxed);
+    }
+    res
 }
 
 /// The games of a ChessBase database (`cbh`), as the pass over a PGN file sees them: a game's
