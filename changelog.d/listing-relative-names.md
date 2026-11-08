@@ -1,1 +1,0 @@
-| **A folder of millions takes less memory while it is shown.** Both apps hold each entry of a listing by its name, no longer with its whole path as well: a folder of two million files in a 7z holds about 420 MB instead of 720 MB, and a folder of millions on disk saves as much. | [Archives as folders](files/archives.md#limits) |

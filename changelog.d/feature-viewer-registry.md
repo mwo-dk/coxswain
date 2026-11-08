@@ -1,1 +1,0 @@
-| **A Graphviz `.dot` file is drawn as a graph again in the desktop app.** It went to LibreOffice as a Word template; now a `.dot` that is text is drawn by Graphviz and one that is not is shown as a Word document. | [Diagrams](previews/diagrams.md#my-dot-file-is-a-word-template-not-a-graph) |

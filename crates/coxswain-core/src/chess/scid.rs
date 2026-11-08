@@ -43,7 +43,8 @@ fn is_scid5(path: &Path) -> bool {
 /// A game's index entry: where its moves are and what the table shows.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Entry {
-    pub offset: u32,
+    /// Where the game starts in the games file: SCID 5's can be past 4 GiB.
+    pub offset: u64,
     pub len: u32,
     pub white: u32,
     pub black: u32,
@@ -89,7 +90,7 @@ impl Entry {
         let u32_at = |i: usize| u32::from_be_bytes([b[i], b[i + 1], b[i + 2], b[i + 3]]);
         let eco = eco(u16_at(23));
         Entry {
-            offset: u32_at(0),
+            offset: u32_at(0) as u64,
             len: u16_at(4) | ((b[6] as u32 & 0x80) << 9),
             white: ((b[9] as u32 >> 4) << 16) | u16_at(10),
             black: ((b[9] as u32 & 15) << 16) | u16_at(12),
@@ -108,8 +109,9 @@ impl Entry {
     }
 
     /// A SCID 5 entry: 14 little-endian words. The ids of White, Black, the event, the site
-    /// and the round; White's Elo and the date; Black's Elo and the event's date; the plies
-    /// and flags; the game's length; its place; then the result and ECO code in word 11.
+    /// and the round (its top bit: Chess960); White's Elo and the date; Black's Elo and the
+    /// event's date; the plies and flags (bit 3: deleted); the game's length above the top 15
+    /// bits of its place, then the low 32 bits of its place; the result and ECO code in word 11.
     fn parse5(b: &[u8; ENTRY5 as usize]) -> Entry {
         let w = |i: usize| u32::from_le_bytes([b[4 * i], b[4 * i + 1], b[4 * i + 2], b[4 * i + 3]]);
         let event_date = match w(6) & 0xF_FFFF {
@@ -117,13 +119,13 @@ impl Entry {
             d => date(d),
         };
         Entry {
-            offset: w(9),
+            offset: ((w(8) & 0x7FFF) as u64) << 32 | w(9) as u64,
             len: w(8) >> 15,
             white: w(0) & 0x0FFF_FFFF,
             black: w(1) & 0x0FFF_FFFF,
             event: w(2) & 0x0FFF_FFFF,
             site: w(3),
-            round: w(4),
+            round: w(4) & 0x7FFF_FFFF,
             result: (w(11) >> 16) as u8 & 3,
             eco: eco(w(11) & 0xFFFF),
             date: date(w(5) & 0xF_FFFF),
@@ -131,7 +133,7 @@ impl Entry {
             black_elo: (w(6) >> 20) as u16,
             plies: w(7) >> 22,
             event_date,
-            deleted: w(7) & 0x10 != 0,
+            deleted: w(7) & 0x08 != 0,
         }
     }
 }
@@ -199,6 +201,11 @@ impl Base {
         self.name(SITE, e.site)
     }
 
+    /// The bytes of one game's entry in the index.
+    pub fn entry_len(&self) -> u64 {
+        if self.v5 { ENTRY5 } else { ENTRY }
+    }
+
     /// The games' entries in order, each handed to `each` (with its number, from 0) until it
     /// says to stop. The index is read as it streams by.
     pub fn entries(&self, mut each: impl FnMut(u32, &Entry) -> bool) -> io::Result<()> {
@@ -239,7 +246,7 @@ impl Base {
     pub fn pgn(&self, n: u32) -> io::Result<String> {
         let e = self.entry(n)?;
         let mut f = File::open(&self.games)?;
-        f.seek(SeekFrom::Start(e.offset as u64))?;
+        f.seek(SeekFrom::Start(e.offset))?;
         let mut bytes = Vec::with_capacity(e.len as usize);
         f.take(e.len as u64).read_to_end(&mut bytes)?;
         Ok(self.pgn_of(&e, &bytes))
@@ -336,7 +343,8 @@ fn read_names(path: &Path) -> io::Result<[Vec<Box<str>>; 4]> {
 
 /// SCID 5's names file: the names one after another, each after one number in 7-bit groups
 /// (low first, the top bit set while more follow): its length times 8 plus its kind (0 player,
-/// 1 event, 2 site, 3 round). A name's id is its place among those of its kind.
+/// 1 event, 2 site, 3 round; 4 the base's own facts, such as its description, skipped). A
+/// name's id is its place among those of its kind.
 fn read_names5(path: &Path) -> io::Result<[Vec<Box<str>>; 4]> {
     let mut bytes = vec![];
     File::open(path)?.take(MAX_NAMES).read_to_end(&mut bytes)?;
@@ -356,13 +364,14 @@ fn read_names5(path: &Path) -> io::Result<[Vec<Box<str>>; 4]> {
         }
         let (len, kind) = ((v >> 3) as usize, (v & 7) as usize);
         let Some(name) = bytes.get(at..at.saturating_add(len)) else { break };
-        let Some(list) = out.get_mut(kind) else { break };
         // A name may be a byte long: without a cap, a file of such names would ask for gigabytes.
         names += 1;
         if names > MAX_NAME_COUNT {
             return Err(bad("names"));
         }
-        list.push(super::games::text(name).trim().into());
+        if let Some(list) = out.get_mut(kind) {
+            list.push(super::games::text(name).trim().into());
+        }
         at += len;
     }
     Ok(out)
@@ -708,10 +717,12 @@ mod tests {
         for ext in ["si5", "sg5", "sn5"] {
             std::fs::copy(dir().join("test").with_extension(ext), d.join("t").with_extension(ext)).unwrap();
         }
-        // Game 3's flags, as SCID 5 itself sets them for a deleted game.
+        // Game 3's flags, as SCID 5 itself sets them for a deleted game (`sc_base gameflag … set
+        // D`); game 4 has SCID's White openings flag, the bit above, and stays.
         let si5 = d.join("t.si5");
         let mut b = std::fs::read(&si5).unwrap();
-        b[2 * 56 + 28] |= 0x10;
+        b[2 * 56 + 28] |= 0x08;
+        b[3 * 56 + 28] |= 0x10;
         std::fs::write(&si5, b).unwrap();
         let base = Base::open(&si5).unwrap();
         let mut seen = vec![];
@@ -727,6 +738,8 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
         assert_eq!(lib.progress().games, 29);
+        // The deleted game's entry counts as read: the bar is full.
+        assert_eq!(lib.progress().read, lib.progress().size);
         assert_eq!(lib.row(2).unwrap().event, base.event(&base.entry(3).unwrap()));
         // Find this position numbers games by their rows too: row 2 is SCID's game 3, and the
         // deleted game's positions are not there.
@@ -754,6 +767,17 @@ mod tests {
         assert!(read_names5(&p).is_err());
         std::fs::write(&p, vec![0u8; 1000]).unwrap();
         assert_eq!(read_names5(&p).unwrap()[0].len(), 1000);
+        // The base's description (kind 4), as `sc_base extra … description` writes it between
+        // names: skipped, and the players after it still read.
+        // Each length and kind in one byte: every name here is under 16 bytes.
+        let mut sn5 = vec![];
+        for (kind, name) in [(0u8, "Anand"), (4, "descriptionX"), (0, "Carlsen"), (1, "Wijk")] {
+            sn5.push((name.len() as u8) << 3 | kind);
+            sn5.extend_from_slice(name.as_bytes());
+        }
+        std::fs::write(&p, &sn5).unwrap();
+        let names = read_names5(&p).unwrap();
+        assert_eq!((names[0].iter().map(|n| &**n).collect::<Vec<_>>(), &*names[1][0]), (vec!["Anand", "Carlsen"], "Wijk"));
         // SCID 4: a header that claims 16M names of each kind is refused; the real file reads.
         let mut sn4 = std::fs::read(dir().join("test.sn4")).unwrap();
         sn4[12..24].fill(0xff);
@@ -763,13 +787,26 @@ mod tests {
         let _ = std::fs::remove_file(&p);
     }
 
+    /// SCID 5 keeps a game's place in 47 bits (the high 15 under its length) and Chess960 in
+    /// the round's top bit, as SCID 5.2 writes them: a games file past 4 GiB opens its last games.
+    #[test]
+    fn a_scid5_entry_reads_places_past_4_gib() {
+        let mut b = [0u8; ENTRY5 as usize];
+        let mut put = |i: usize, v: u32| b[4 * i..4 * i + 4].copy_from_slice(&v.to_le_bytes());
+        put(4, 1 << 31 | 7);
+        put(8, 300 << 15 | 1);
+        put(9, 5);
+        let e = Entry::parse5(&b);
+        assert_eq!((e.offset, e.len, e.round), ((1 << 32) + 5, 300, 7));
+    }
+
     /// Bytes that are no SCID game, or a game cut short, give what can be read, never a panic.
     #[test]
     fn hostile_bytes_are_read_without_a_panic() {
         let base = Base::open(&dir().join("test.si4")).unwrap();
         let e = base.entry(0).unwrap();
         let mut bytes = std::fs::read(dir().join("test.sg4")).unwrap();
-        bytes.truncate((e.offset + e.len) as usize);
+        bytes.truncate((e.offset + e.len as u64) as usize);
         for cut in 0..bytes.len() {
             let _ = base.pgn_of(&e, &bytes[e.offset as usize..cut.max(e.offset as usize)]);
         }
@@ -812,6 +849,10 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
         assert_eq!((lib.progress().games, lib.progress().error.clone()), (30, None));
+        // SCID 5's index is all entries: read whole, its bar is full.
+        if name.ends_with("si5") {
+            assert_eq!(lib.progress().read, lib.progress().size);
+        }
         let r = lib.row(0).unwrap();
         assert_eq!((r.white.as_str(), r.black.as_str(), r.eco.as_str(), r.date.as_str(), r.result.as_str()), ("Morphy, Paul", "Duke Karl / Count Isouard", "C41", "1858.11.02", "1-0"));
         assert_eq!((r.white_elo, r.moves, r.event.as_str()), (Some(2690), 17, "Paris"));

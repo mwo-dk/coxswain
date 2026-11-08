@@ -34,11 +34,17 @@ impl EntryReader {
     /// Start unpacking `path`. Waits for the first bytes, so a file that cannot be read so
     /// (locked, not there) fails here.
     pub fn open(path: &Path) -> io::Result<EntryReader> {
-        EntryReader::open_at(path, 0, Arc::default())
+        EntryReader::open_at(path, 0, Arc::default(), false)
+    }
+
+    /// `open`, also for a locked file of a 7z whose password was given (`archive::stream_in`):
+    /// a wrong one fails somewhere in the read, at the end at the latest.
+    pub fn open_known(path: &Path) -> io::Result<EntryReader> {
+        EntryReader::open_at(path, 0, Arc::default(), true)
     }
 
     /// `open`, from byte `offset` of the entry on; `unpacked` counts the bytes unpacked.
-    fn open_at(path: &Path, offset: u64, unpacked: Arc<AtomicU64>) -> io::Result<EntryReader> {
+    fn open_at(path: &Path, offset: u64, unpacked: Arc<AtomicU64>, known: bool) -> io::Result<EntryReader> {
         let (tx, rx) = sync_channel(IN_FLIGHT);
         let path = path.to_path_buf();
         std::thread::Builder::new().name("archive-stream".into()).spawn(move || {
@@ -56,7 +62,7 @@ impl EntryReader {
                     // The reader is gone: the unpacking stops.
                     tx.send(Ok(buf)).map_err(|_| io::Error::new(io::ErrorKind::Interrupted, "closed"))?;
                 }
-            });
+            }, known);
             if let Err(e) = done {
                 let _ = sent.send(Err(e));
             }
@@ -161,7 +167,7 @@ impl EntryFile {
         // Going back (or no unpacking yet): from the blocks kept before `n`, where the archive
         // can start there (a tar), else from the entry's start.
         if c.reader.as_ref().is_none_or(|(_, at)| *at > want) {
-            c.reader = Some((EntryReader::open_at(&self.path, back * BLOCK, self.unpacked.clone())?, back * BLOCK));
+            c.reader = Some((EntryReader::open_at(&self.path, back * BLOCK, self.unpacked.clone(), false)?, back * BLOCK));
             self.opened.fetch_add(1, Ordering::Relaxed);
         }
         let first = back.max(c.reader.as_ref().map_or(0, |(_, at)| at.div_ceil(BLOCK)));
