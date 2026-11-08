@@ -134,7 +134,7 @@ impl App {
         };
         // Marked in the panels: each file found there, and each folder with one in it.
         for p in self.panels.iter_mut().filter(|_| !report.found.is_empty()) {
-            let hit: Vec<usize> = (0..p.entries.len()).filter(|&i| !p.entries[i].is_parent() && report.found.iter().any(|f| f.path.starts_with(&p.entries[i].path))).collect();
+            let hit: Vec<usize> = (0..p.entries.len()).filter(|&i| !p.entries[i].is_parent() && report.found.iter().any(|f| f.path.starts_with(&*p.entries[i].path_in(&p.dir)))).collect();
             if !hit.is_empty() {
                 p.clear_marks();
                 hit.into_iter().for_each(|i| p.toggle_mark(i));

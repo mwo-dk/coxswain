@@ -214,6 +214,50 @@ impl Place {
     }
 }
 
+/// Widths of the git glyph, name, size and date columns in a panel `w` wide (date 0 when narrow).
+pub fn header_cols(w: usize) -> (usize, usize, usize, usize) {
+    let (gw, sw, dw) = (2, 9, if w >= 44 { 16 } else { 0 });
+    (gw, w.saturating_sub(gw + sw + 1 + if dw > 0 { dw + 1 } else { 0 }), sw, dw)
+}
+
+/// A header label centred in `w` columns; the sorted column's arrow always shows: the label is
+/// cut to `w - 2` first.
+fn header_label(label: &str, sorted: Option<bool>, w: usize) -> String {
+    let text = match sorted {
+        Some(reverse) => format!("{} {}", fit(label, w.saturating_sub(2)).trim_end(), if reverse { '\u{25B2}' } else { '\u{25BC}' }),
+        None => label.to_string(),
+    };
+    fit(&center(&text, w), w)
+}
+
+/// The key a click at column `x` (from the panel's left inner edge) of the header sorts by;
+/// none in a panel too small for `panel` to draw its header.
+pub fn header_key(w: usize, x: usize) -> Option<coxswain_core::fs::SortKey> {
+    let (gw, nw, sw, dw) = header_cols(w);
+    if w < 12 {
+        None
+    } else if x < gw {
+        None
+    } else if x < gw + nw {
+        Some(coxswain_core::fs::SortKey::Name)
+    } else if x == gw + nw {
+        None
+    } else if x < gw + nw + 1 + sw {
+        Some(coxswain_core::fs::SortKey::Size)
+    } else {
+        (dw > 0 && x > gw + nw + sw + 1).then_some(coxswain_core::fs::SortKey::Time)
+    }
+}
+
+impl crate::Panel {
+    /// Sort by `key`; the same key again reverses.
+    pub fn sort_by(&mut self, key: coxswain_core::fs::SortKey) {
+        self.reverse = self.sort == key && !self.reverse;
+        self.sort = key;
+        self.resort();
+    }
+}
+
 fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     // What drawing needs from the disk, read when the folder or the symlink under the cursor
     // is new, not at every frame.
@@ -319,16 +363,16 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     // Columns: git glyph | name | size | date
     let w = inner.width as usize;
     let show_date = w >= 44;
-    let (gw, sw, dw) = (2, 9, if show_date { 16 } else { 0 });
-    let nw = w - gw - sw - 1 - if show_date { dw + 1 } else { 0 };
+    let (gw, nw, sw, dw) = header_cols(w);
     let bar = Span::styled("│", border);
 
     let header = {
         let hs = sty(&t.header).bg(base.bg.unwrap_or(Color::Reset));
-        let mut v = vec![Span::styled(" ".repeat(gw), hs), Span::styled(fit(&center(&t!("tui.col.name"), nw), nw), hs), bar.clone(), Span::styled(fit(&center(&t!("tui.col.size"), sw), sw), hs)];
+        let mark = |key: coxswain_core::fs::SortKey| (p.sort == key).then_some(p.reverse);
+        let mut v = vec![Span::styled(" ".repeat(gw), hs), Span::styled(header_label(&t!("tui.col.name"), mark(coxswain_core::fs::SortKey::Name), nw), hs), bar.clone(), Span::styled(header_label(&t!("tui.col.size"), mark(coxswain_core::fs::SortKey::Size), sw), hs)];
         if show_date {
             v.push(bar.clone());
-            v.push(Span::styled(fit(&center(&t!("tui.col.modified"), dw), dw), hs));
+            v.push(Span::styled(header_label(&t!("tui.col.modified"), mark(coxswain_core::fs::SortKey::Time), dw), hs));
         }
         Line::from(v)
     };
@@ -370,6 +414,7 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
     let colours = [&t.git_branch, &t.git_added, &t.git_modified, &t.git_renamed, &t.git_untracked, &t.symlink];
     let mut lines = vec![];
     for (i, e) in p.entries.iter().enumerate().skip(p.offset).take(rows) {
+        let e = &p.full(e);
         let marked = p.marked.contains(&e.path);
         let at = i == p.cursor && active;
         let mut s = if marked {
@@ -385,6 +430,10 @@ fn panel(f: &mut Frame, app: &mut App, side: usize, area: Rect) {
         } else {
             base
         };
+        // Pick mode: a file the filter does not take is dimmed.
+        if app.pick.as_ref().is_some_and(|r| !e.is_parent() && r.dims(&e.name, e.is_dir)) {
+            s = s.add_modifier(Modifier::DIM);
+        }
         s = s.bg(base.bg.unwrap_or(Color::Reset));
         if at {
             s = if marked { sty(&t.marked_cursor) } else { sty(&t.cursor) };
@@ -542,7 +591,9 @@ fn status_text(app: &App) -> Option<String> {
     if let Some(q) = &app.quick {
         return Some(t!("quick_search", "query" => q));
     }
-    app.status.as_ref().filter(|s| !s.is_empty() && app.cmdline.is_empty()).map(|s| s.replace('\n', " "))
+    let status = app.status.as_ref().filter(|s| !s.is_empty() && app.cmdline.is_empty()).map(|s| s.replace('\n', " "));
+    // Pick mode says what is asked for until something else is said.
+    status.or_else(|| app.pick.as_ref().filter(|_| app.cmdline.is_empty() && !app.cmd_open).map(|r| r.ask()))
 }
 
 fn cmdline(f: &mut Frame, app: &App, area: Rect) {
@@ -568,7 +619,13 @@ fn cmdline(f: &mut Frame, app: &App, area: Rect) {
         // While the line is empty: what Enter does here, and a hint that fits what is under the
         // cursor, dimmed.
         let enter = app.enter_on.as_ref().and_then(|(_, l)| l.as_deref());
-        let said: Vec<&str> = enter.into_iter().chain(app.hint.as_ref().map(|(_, h)| h.as_str())).collect();
+        let mut said: Vec<&str> = vec![];
+        // Typing jumps to names: where the command line is, first so it is never cut off.
+        let open_it = t!("tui.command_line_key", "key" => app.key_label(Action::CommandLine));
+        if app.cfg.type_to_jump(false) && !app.cmd_open && !app.key_label(Action::CommandLine).is_empty() {
+            said.push(&open_it);
+        }
+        said.extend(enter.into_iter().chain(app.hint.as_ref().map(|(_, h)| h.as_str())));
         if let (false, true, None) = (said.is_empty(), app.cmdline.is_empty(), &app.dialog) {
             let room = (area.width as usize).saturating_sub(prompt.width());
             line.push_span(Span::styled(fit(&said.join(" · "), room), st.add_modifier(Modifier::DIM)));
@@ -583,6 +640,15 @@ fn cmdline(f: &mut Frame, app: &App, area: Rect) {
 
 fn keybar(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
+    // Pick mode has its own few keys.
+    if let Some(req) = &app.pick {
+        let key = |a| app.cfg.tty_key(a).unwrap_or("").to_string();
+        let mut line = if req.save.is_some() { t!("pick.keys_save", "parent" => key(Action::Parent)) } else { t!("pick.keys", "mark" => key(Action::Mark), "parent" => key(Action::Parent)) };
+        if !req.filter.is_empty() {
+            line = format!("{line} · {}", t!(if req.show_all { "pick.key_filter" } else { "pick.key_show_all" }, "key" => coxswain_core::pick::SHOW_ALL_KEY));
+        }
+        return f.render_widget(Paragraph::new(fit(&line, area.width as usize)).style(sty(&t.keybar_num)), area);
+    }
     // F1 to F10 as in NC, then F11 and F12 when they run something (F12: Settings).
     let fkey = |n| app.keymap.get(&Key::new(KeyCode::F(n), false, false, false));
     let keys: Vec<u8> = (1..=12u8).filter(|&n| n <= 10 || fkey(n).is_some()).collect();
@@ -697,8 +763,9 @@ fn dialog(f: &mut Frame, app: &mut App) {
             input_line(f, app, b, &shown);
             f.render_widget(Paragraph::new(keys(&prompt.verb())).centered(), c);
         }
-        Dialog::Confirm { title, text, .. } | Dialog::Switch { title, text, .. } | Dialog::Server { title, text, .. } | Dialog::Bin { title, text, .. } => {
+        Dialog::Confirm { title, text, .. } | Dialog::Overwrite { title, text, .. } | Dialog::Switch { title, text, .. } | Dialog::Server { title, text, .. } | Dialog::Bin { title, text, .. } => {
             let verb = match app.dialog.as_ref() {
+                Some(Dialog::Overwrite { .. }) => t!("pick.overwrite_yes"),
                 Some(Dialog::Bin { free_name: true, .. }) => t!("bin.free_name"),
                 Some(Dialog::Bin { op, .. }) => Action::from_bin(*op).label(),
                 Some(Dialog::Confirm { forever: false, .. }) => t!("app.move_to_trash"),
@@ -719,7 +786,7 @@ fn dialog(f: &mut Frame, app: &mut App) {
             f.render_widget(p, a);
             f.render_widget(Paragraph::new(keys(&t!("whisper.go"))).centered(), b);
         }
-        d @ (Dialog::Searchable { title, text, .. } | Dialog::Media { title, text, .. } | Dialog::Ebook { title, text, .. } | Dialog::Export { title, text, .. } | Dialog::VirusScan { title, text, .. }) => {
+        d @ (Dialog::Searchable { title, text, .. } | Dialog::Beside { title, text, .. } | Dialog::Media { title, text, .. } | Dialog::Ebook { title, text, .. } | Dialog::Export { title, text, .. } | Dialog::VirusScan { title, text, .. }) => {
             let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: true });
             let inner = frame(f, app, text_box(full, 64, &p, 4), title);
             let [a, _, b] = Layout::vertical([Constraint::Min(0), Constraint::Length(1), Constraint::Length(1)]).areas(inner);
@@ -731,11 +798,21 @@ fn dialog(f: &mut Frame, app: &mut App) {
                 Dialog::Export { op: coxswain_core::export::Op::AdocPdf, .. } => t!("export.go_adoc"),
                 Dialog::Export { .. } => t!("export.go_drawio"),
                 Dialog::VirusScan { .. } => t!("viruses.go"),
+                Dialog::Beside { .. } => t!("chess.beside_go"),
                 _ => t!("searchable.go"),
             };
             f.render_widget(Paragraph::new(keys(&verb)).centered(), b);
         }
         Dialog::Viruses(v) => crate::viruses::draw(f, app, full, v),
+        Dialog::Keys { lines, .. } => {
+            let mut text = vec![Line::from(t!("keytest.intro")), Line::from("")];
+            text.extend(lines.iter().map(|l| Line::from(l.as_str())));
+            let p = Paragraph::new(text).wrap(Wrap { trim: false });
+            let inner = frame(f, app, text_box(full, 76, &p, 4 + 12_u16.saturating_sub(lines.len() as u16)), &t!("keytest.title"));
+            let [body, key] = Layout::vertical([Constraint::Min(0), Constraint::Length(1)]).areas(inner);
+            f.render_widget(p, body);
+            f.render_widget(Paragraph::new(t!("keytest.keys", "verb" => t!("common.close"))).centered(), key);
+        }
         Dialog::Message { title, text } => {
             let p = Paragraph::new(text.as_str()).wrap(Wrap { trim: false });
             let inner = frame(f, app, text_box(full, 76, &p, 4), title);
@@ -1295,7 +1372,7 @@ mod tests {
         use coxswain_core::index::Hit;
         let hit = |i: usize| Row::Hit {
             group: GroupId::Names,
-            hit: Hit { path: format!("/f{i}").into(), is_dir: false, snippet: i.is_multiple_of(2).then(|| "x".into()), similar: None },
+            hit: Hit { path: format!("/f{i}").into(), is_dir: false, snippet: i.is_multiple_of(2).then(|| "x".into()), similar: None, game: None },
         };
         let rows: Vec<Row> = (0..10_000).map(hit).collect();
         let mut offset = 0;
@@ -1438,4 +1515,47 @@ mod sty_tests {
             assert_eq!(sty(&s).fg, (!c.is_empty()).then(|| Color::from_str(c).ok()).flatten(), "{c}");
         }
     }
+
+    #[test]
+    fn header_click_picks_the_column() {
+        use coxswain_core::fs::SortKey::*;
+        // w = 60: glyph 0..2, name 2..33, bar 33, size 34..43, bar 43, date 44..60
+        let k = |x| header_key(60, x);
+        assert_eq!((k(0), k(2), k(32), k(33), k(34), k(42), k(43), k(44), k(59)), (None, Some(Name), Some(Name), None, Some(Size), Some(Size), None, Some(Time), Some(Time)));
+        assert_eq!(header_key(30, 29), Some(Size));
+        assert_eq!(header_key(8, 3), None);
+    }
+
+    #[test]
+    fn the_arrow_shows_in_every_language() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../coxswain-core/locales");
+        let (_, nw, sw, dw) = header_cols(70);
+        let mut seen = 0;
+        for f in std::fs::read_dir(dir).unwrap().flatten().filter(|f| f.path().extension().is_some_and(|e| e == "json")) {
+            let j: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(f.path()).unwrap()).unwrap();
+            for (key, w) in [("tui.col.name", nw), ("tui.col.size", sw), ("tui.col.modified", dw)] {
+                let Some(label) = j[key].as_str() else { continue };
+                for (rev, arrow) in [(false, '\u{25BC}'), (true, '\u{25B2}')] {
+                    let s = header_label(label, Some(rev), w);
+                    assert!(s.contains(arrow) && s.width() == w, "{} {key}: {s:?}", f.path().display());
+                }
+                seen += 1;
+            }
+        }
+        assert!(seen >= 60, "{seen}");
+    }
+
+    #[test]
+    fn sorting_again_reverses_another_key_starts_over() {
+        use coxswain_core::fs::SortKey::*;
+        let mut p = crate::Panel::new(std::env::temp_dir(), false);
+        p.sort_by(Size);
+        assert_eq!((p.sort, p.reverse), (Size, false));
+        p.sort_by(Size);
+        assert!(p.reverse);
+        p.sort_by(Size);
+        assert!(!p.reverse);
+        p.sort_by(Size);
+        p.sort_by(Time);
+        assert_eq!((p.sort, p.reverse), (Time, false));    }
 }

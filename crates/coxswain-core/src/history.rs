@@ -85,7 +85,13 @@ impl Scope {
 }
 
 pub(crate) fn git(dir: &Path) -> Command {
-    git_with(dir, &crate::git::repo_filters(dir))
+    let keys = crate::git::repo_filters(dir);
+    let mut c = git_with(dir, keys.as_deref().unwrap_or_default());
+    if keys.is_none() {
+        // After the store `git_with` names: its filters are not known either.
+        crate::git::no_repository(&mut c);
+    }
+    c
 }
 
 /// `git` with the filter settings given (`git::command_with`): none for a command that runs no
@@ -99,9 +105,9 @@ fn git_with(dir: &Path, keys: &[(String, &str)]) -> Command {
     c
 }
 
-/// What `c` prints, or its complaint as the error.
-pub(crate) fn run(mut c: Command) -> io::Result<Vec<u8>> {
-    let o = c.output()?;
+/// What `c` prints, or its complaint as the error; ended past `git::LIMIT`.
+pub(crate) fn run(c: Command) -> io::Result<Vec<u8>> {
+    let o = crate::git::output_within(c, crate::git::LIMIT)?;
     if !o.status.success() {
         let why = String::from_utf8_lossy(&o.stderr).trim().to_string();
         return Err(io::Error::other(if why.is_empty() {
@@ -149,6 +155,49 @@ pub(crate) fn records_within(mut c: Command, sep: u8, budget: Duration, mut f: i
     }
     drop(done);
     Ok(watch.join().unwrap_or(false) || cut)
+}
+
+/// Ends `child` (and what it started) when the `Ticking` reader of its output got nothing for
+/// `limit`, or once the sender is dropped; the thread says whether it was the limit.
+fn quiet_watch(
+    mut child: std::process::Child,
+    start: std::time::Instant,
+    last: Arc<std::sync::atomic::AtomicU64>,
+    limit: Duration,
+) -> (std::sync::mpsc::Sender<()>, std::thread::JoinHandle<bool>) {
+    let (done, told) = std::sync::mpsc::channel::<()>();
+    let watch = std::thread::spawn(move || {
+        loop {
+            if told.recv_timeout(Duration::from_secs(1).min(limit)) != Err(std::sync::mpsc::RecvTimeoutError::Timeout) {
+                // Still running (a copy stopped by an error): with what it started.
+                if !matches!(child.try_wait(), Ok(Some(_))) {
+                    crate::tools::kill_tree(&mut child);
+                }
+                return false;
+            }
+            let quiet = start.elapsed().saturating_sub(Duration::from_millis(last.load(std::sync::atomic::Ordering::Relaxed)));
+            if quiet > limit {
+                crate::tools::kill_tree(&mut child);
+                return true;
+            }
+        }
+    });
+    (done, watch)
+}
+
+/// A reader that notes when it last got something, in milliseconds from `start`.
+struct Ticking<R> {
+    r: R,
+    start: std::time::Instant,
+    last: Arc<std::sync::atomic::AtomicU64>,
+}
+
+impl<R: Read> Read for Ticking<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let n = self.r.read(buf)?;
+        self.last.store(self.start.elapsed().as_millis() as u64, std::sync::atomic::Ordering::Relaxed);
+        Ok(n)
+    }
 }
 
 /// The most of one record (a line of a diff) that is kept: a line of a 400 MB file with no
@@ -572,28 +621,52 @@ pub fn read(at: &At, max: usize) -> io::Result<(Vec<u8>, bool)> {
     crate::vcs::of(&at.base).read(&at.base, rev, &at.inner, max)
 }
 
-/// The first `max` bytes of `c`'s output, and whether there was more.
+/// The first `max` bytes of `c`'s output, and whether there was more; ended past `git::LIMIT`.
 pub(crate) fn read_out(mut c: Command, max: usize) -> io::Result<(Vec<u8>, bool)> {
-    let mut child = c.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    crate::tools::own_group(&mut c);
+    let mut child = c.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    let out = child.stdout.take().ok_or_else(|| io::Error::other("no output"))?;
+    let mut err = child.stderr.take().ok_or_else(|| io::Error::other("no output"))?;
+    let errs = std::thread::spawn(move || {
+        let mut s = String::new();
+        let _ = (&mut err).take(64 << 10).read_to_string(&mut s);
+        let _ = io::copy(&mut err, &mut io::sink());
+        s
+    });
+    // Told to stop (all that is wanted is read) or past the limit: ended, with what it started;
+    // otherwise waited for once its output ends.
+    let (stop, told) = std::sync::mpsc::channel::<()>();
+    let watch = std::thread::spawn(move || {
+        match told.recv_timeout(crate::git::LIMIT) {
+            // Its output ended: it gets the limit once more to end too.
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => crate::tools::wait(&mut child, crate::git::LIMIT),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                crate::tools::kill_tree(&mut child);
+                Err(io::Error::new(io::ErrorKind::TimedOut, "took too long"))
+            }
+            Ok(()) => {
+                crate::tools::kill_tree(&mut child);
+                child.wait()
+            }
+        }
+    });
     let mut buf = vec![];
-    child
-        .stdout
-        .take()
-        .ok_or_else(|| io::Error::other("no output"))?
-        .take(max as u64 + 1)
-        .read_to_end(&mut buf)?;
+    let read = out.take(max as u64 + 1).read_to_end(&mut buf);
     let more = buf.len() > max;
+    if more || read.is_err() {
+        let _ = stop.send(());
+    }
+    drop(stop);
+    let status = watch.join().map_err(|_| io::Error::other("git"))??;
+    let why = errs.join().unwrap_or_default();
+    read?;
     buf.truncate(max);
     if more {
-        let _ = child.kill();
-        let _ = child.wait();
         return Ok((buf, true));
     }
-    let o = child.wait_with_output()?;
-    if !o.status.success() {
-        return Err(io::Error::other(
-            String::from_utf8_lossy(&o.stderr).trim().to_string(),
-        ));
+    if !status.success() {
+        let why = why.trim();
+        return Err(io::Error::other(if why.is_empty() { "git failed" } else { why }.to_string()));
     }
     Ok((buf, false))
 }
@@ -614,9 +687,8 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
             ),
         ));
     }
-    let to = crate::archive::peek_folder()?.join(at.inner.rsplit('/').next().unwrap_or("file"));
-    std::fs::write(&to, bytes)?;
-    Ok(to)
+    // The path names the commit: each commit's file has a folder of its own.
+    crate::archive::peek_write(path, at.inner.rsplit('/').next().unwrap_or("file"), &bytes)
 }
 
 /// What the commit changed in the file (or folder): its diff against the commit before.
@@ -808,6 +880,7 @@ pub(crate) fn git_write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     // One git for every file: the ids in, the contents out.
     let mut c = git(&at.base);
     c.args(["cat-file", "--batch"]);
+    crate::tools::own_group(&mut c);
     let mut child = c
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -819,12 +892,15 @@ pub(crate) fn git_write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
         .ok_or_else(|| io::Error::other("no input"))?;
     let ids: String = files.iter().map(|(oid, ..)| format!("{oid}\n")).collect();
     let feed = std::thread::spawn(move || input.write_all(ids.as_bytes()));
-    let mut out = BufReader::new(
-        child
-            .stdout
-            .take()
-            .ok_or_else(|| io::Error::other("no output"))?,
-    );
+    let start = std::time::Instant::now();
+    let last = Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let mut out = BufReader::new(Ticking {
+        r: child.stdout.take().ok_or_else(|| io::Error::other("no output"))?,
+        start,
+        last: last.clone(),
+    });
+    // A big copy may take long, so the limit is on silence, as a git waiting on a FIFO is.
+    let (done, watch) = quiet_watch(child, start, last, crate::git::LIMIT);
     // Links are made last: a file listed after a link must not be written through it.
     let mut links = vec![];
     let r = (|| -> io::Result<()> {
@@ -876,9 +952,12 @@ pub(crate) fn git_write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
         }
         Ok(())
     })();
+    drop(done);
+    let late = watch.join().unwrap_or(false);
     let _ = feed.join();
-    let _ = child.kill();
-    let _ = child.wait();
+    if late {
+        return Err(io::Error::new(io::ErrorKind::TimedOut, "took too long"));
+    }
     r
 }
 
@@ -1176,7 +1255,7 @@ pub fn sort_by_last(entries: &mut [Entry], lasts: &Lasts, reverse: bool) {
     crate::fs::sort_keyed(entries, false, |a, ka, b, kb| {
         let group = |e: &Entry| (!e.is_parent(), !e.is_dir);
         group(a).cmp(&group(b)).then_with(|| {
-            let ord = when(b).cmp(&when(a)).then_with(|| ka.name.cmp(&kb.name));
+            let ord = when(b).cmp(&when(a)).then_with(|| ka.name.cmp(kb.name)).then_with(|| a.name.cmp(&b.name));
             if reverse { ord.reverse() } else { ord }
         })
     });
@@ -1352,7 +1431,7 @@ pub(crate) fn git_grew(root: &Path, old: &str, now: &str) -> bool {
     c.args(["merge-base", "--is-ancestor", old, now])
         .stdout(Stdio::null())
         .stderr(Stdio::null());
-    c.status().is_ok_and(|s| s.success())
+    crate::git::output(c).is_some_and(|o| o.status.success())
 }
 
 /// The store's key of a commit of the repository at `root`: not a path on disk, so no folder
@@ -1440,13 +1519,14 @@ pub fn changes_cost(root: &Path, max: usize) -> (usize, u64) {
             commits += 1;
             return true;
         }
-        // ` 3 files changed, 10 insertions(+), 2 deletions(-)`: some 40 bytes a line.
+        // ` 3 files changed, 10 insertions(+), 2 deletions(-)`: some 80 bytes a line with its
+        // context and headers (57 to 124 measured in real repositories).
         let s = String::from_utf8_lossy(line);
         let lines: u64 = match s.split_once(": ") {
             Some((_, hg)) => hg.split('/').filter_map(|p| p.trim_start_matches(['+', '-']).trim().parse::<u64>().ok()).sum(),
             None => s.split(',').skip(1).filter_map(|p| p.split_whitespace().next()?.parse::<u64>().ok()).sum(),
         };
-        this += lines * 40;
+        this += lines * 80;
         true
     });
     bytes += this.min(CHANGE_MOST as u64);
@@ -1457,19 +1537,55 @@ pub fn changes_cost(root: &Path, max: usize) -> (usize, u64) {
 pub(crate) mod tests {
     use super::*;
 
+    /// A program that prints a line and then nothing is ended once it has been quiet for the
+    /// limit; one that is told to stop is not counted as late.
+    #[cfg(unix)]
+    #[test]
+    fn a_quiet_program_is_ended() {
+        let run = |limit| {
+            let mut c = std::process::Command::new("sh");
+            c.args(["-c", "echo one; sleep 600"]);
+            crate::tools::own_group(&mut c);
+            let mut child = c.stdout(Stdio::piped()).spawn().unwrap();
+            let start = std::time::Instant::now();
+            let last = Arc::new(std::sync::atomic::AtomicU64::new(0));
+            let mut out = BufReader::new(Ticking { r: child.stdout.take().unwrap(), start, last: last.clone() });
+            // Read before the watch starts, so a slow machine cannot make it quiet too soon.
+            let mut line = String::new();
+            out.read_line(&mut line).unwrap();
+            assert_eq!(line, "one\n");
+            let (done, watch) = quiet_watch(child, start, last, limit);
+            (out, done, watch)
+        };
+        let (mut out, _done, watch) = run(Duration::from_secs(1));
+        // Ended, so its output ends (the sleep in its group too, or this would wait 600 s).
+        let mut rest = vec![];
+        out.read_to_end(&mut rest).unwrap();
+        assert!(watch.join().unwrap(), "ended by the limit");
+        let (_out, done, watch) = run(crate::test_limit(Duration::from_secs(60)));
+        drop(done);
+        assert!(!watch.join().unwrap(), "told to stop");
+    }
+
     /// A record longer than any line worth keeping (a diff line of a file without line
     /// breaks) is cut at `RECORD_MOST`, the rest passed over, and the records after it read.
     #[cfg(unix)]
     #[test]
     fn a_giant_record_is_cut_not_held() {
-        let mut c = Command::new("sh");
-        c.args(["-c", "head -c 3000000 /dev/zero | tr '\\0' a; echo; echo b"]);
+        // A file read by `cat`, not a shell pipeline: OpenBSD's tools made it differently.
+        let f = std::env::temp_dir().join(format!("coxswain-giant-record-{}", std::process::id()));
+        let mut data = vec![b'a'; 3_000_000];
+        data.extend_from_slice(b"\nb\n");
+        std::fs::write(&f, data).unwrap();
+        let mut c = Command::new("cat");
+        c.arg(&f);
         let mut got = vec![];
         let cut = records_within(c, b'\n', Duration::from_secs(30), |r| {
             got.push(r.to_vec());
             true
         })
         .unwrap();
+        let _ = std::fs::remove_file(&f);
         assert!(!cut);
         assert_eq!(got.len(), 2);
         assert!(got[0].len() == RECORD_MOST && got[0].iter().all(|&b| b == b'a'));

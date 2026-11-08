@@ -37,7 +37,7 @@ pub(crate) use coxswain_core::logs::LONGEST_READ;
 
 /// Files bigger than this are shown without colours: a log of that size is read for its
 /// lines, not its syntax.
-const PLAIN_OVER: u64 = 16 << 20;
+pub(crate) const PLAIN_OVER: u64 = 16 << 20;
 /// A line longer than this is not highlighted (a minified file): it would take the grammar long.
 const LONGEST_HIGHLIGHTED: usize = 4000;
 /// Highlighting keeps where it stands every this many lines, to start from there again.
@@ -334,6 +334,56 @@ impl Viewer {
         Ok(v)
     }
 
+    /// The first part of a file held in memory (a file inside an archive, unpacked as it is read,
+    /// no copy on the disk; `PLAIN_OVER` at most), read as `open` reads a file: text, UTF-16, or a
+    /// hex dump. `more`: the file goes on past it, which the viewer says.
+    pub fn bytes(path: &Path, bytes: &[u8], more: bool, labels: [&str; 2]) -> Viewer {
+        let utf16 = bytes.starts_with(&[0xff, 0xfe]) || bytes.starts_with(&[0xfe, 0xff]);
+        let binary = !utf16 && bytes[..bytes.len().min(8192)].contains(&0);
+        let (lines, encoding) = match coxswain_core::view::decode(bytes).filter(|_| !binary) {
+            Some(text) => (text.lines().map(str::to_owned).collect(), match () {
+                _ if utf16 => Encoding::Utf16,
+                _ if coxswain_core::view::is_utf8(bytes) => Encoding::Utf8,
+                _ => Encoding::Latin1,
+            }),
+            None => (coxswain_core::view::hex(bytes, HEX_LINES), Encoding::Binary),
+        };
+        let head = if encoding == Encoding::Binary { String::new() } else { lines.iter().take(20).cloned().collect::<Vec<String>>().join("\n") };
+        let syntax = (encoding != Encoding::Binary && !more && bytes.len() as u64 <= PLAIN_OVER).then(|| syntax_for(path, &head)).flatten();
+        let [edit, view] = labels;
+        let mut v = Viewer::text(path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned()), "");
+        v.path = path.to_path_buf();
+        v.body = Body::Whole(lines);
+        v.encoding = encoding;
+        v.points = syntax.map(|s| vec![Point::new(s)]).unwrap_or_default();
+        v.syntax = syntax;
+        v.numbers = true;
+        v.key_line = t!("viewer.keys", "edit" => edit, "view" => view);
+        v.said = more.then(|| t!("viewer.first_part"));
+        v
+    }
+
+    /// The file `path` inside an archive as a log or a long text, read as it is unpacked a block
+    /// at a time (`logs::View::open_in_archive`), no copy made. `None` for a file that is no text
+    /// read by lines (binary, UTF-16); an error for one that cannot be read so (locked).
+    pub fn in_archive(path: &Path, labels: [&str; 2]) -> std::io::Result<Option<Viewer>> {
+        let Some(view) = logs::View::open_in_archive(path)? else { return Ok(None) };
+        let [edit, view_key] = labels;
+        let (log, utf8) = (view.log, view.reader().utf8);
+        let mut v = Viewer::text(path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned()), "");
+        v.path = path.to_path_buf();
+        v.body = Body::File(view);
+        v.encoding = if utf8 { Encoding::Utf8 } else { Encoding::Latin1 };
+        v.points = vec![];
+        v.syntax = None;
+        v.numbers = true;
+        // The keys of a log without F and E: a file in an archive never changes, so it is not followed.
+        let keys = if log { t!("viewer.keys_log") } else { t!("viewer.keys_follow") };
+        let keys: Vec<&str> = keys.split(" · ").filter(|k| !k.starts_with("F ") && !k.starts_with("E ")).collect();
+        v.key_line = format!("{} · {}", keys.join(" · "), t!("viewer.keys", "edit" => edit, "view" => view_key));
+        Ok(Some(v))
+    }
+
     /// Long lines wrapped from the start, as **w** does: a text of paragraphs, not of lines.
     pub fn wrapped(mut self) -> Viewer {
         self.wrap = true;
@@ -435,6 +485,11 @@ impl Viewer {
             self.said = Some(text);
         }
         self
+    }
+
+    /// `text` on the viewer's line now, in place of what it said.
+    pub fn say(&mut self, text: String) {
+        self.said = Some(text);
     }
 
     /// Rows known so far, and whether that is all of them.
@@ -584,8 +639,18 @@ impl Viewer {
         self.top = n.saturating_sub(self.page.max(1));
     }
 
+    /// Whether the file is inside an archive, which does not change while it is read: then
+    /// **F** and **E** say so and do nothing.
+    fn still(&mut self) -> bool {
+        let still = matches!(&self.body, Body::File(v) if v.is_entry());
+        if still {
+            self.said = Some(t!("viewer.archive_still"));
+        }
+        still
+    }
+
     fn set_follow(&mut self, on: bool) {
-        if !matches!(self.body, Body::File(_)) {
+        if !matches!(self.body, Body::File(_)) || (on && self.still()) {
             return;
         }
         self.follow = on;
@@ -773,6 +838,7 @@ impl Viewer {
             return Outcome::Stay;
         }
         if let Some(typing) = &mut self.typing {
+            let typed = crate::typed(&key);
             let field = match typing {
                 Typing::Search(s) | Typing::Line(s) | Typing::Filter(s) => s,
             };
@@ -817,7 +883,7 @@ impl Viewer {
                     }
                     None => {}
                 },
-                KeyCode::Char(c) if !key.ctrl && !key.alt => field.push(c),
+                _ if typed.is_some() => field.extend(typed),
                 _ => {}
             }
             return Outcome::Stay;
@@ -834,10 +900,7 @@ impl Viewer {
         }
         self.seek = None;
         self.said = None;
-        let ch = match key.code {
-            KeyCode::Char(c) if !key.ctrl && !key.alt => Some(c),
-            _ => None,
-        };
+        let ch = crate::typed(&key).filter(|_| !key.ctrl);
         let page = self.page.max(1) as isize;
         let file = matches!(self.body, Body::File(_));
         let log = self.is_log();
@@ -874,6 +937,7 @@ impl Viewer {
             }
             (_, Some('p')) => return Outcome::Pager(self.path.clone()),
             (_, Some('h')) if self.original.is_some() => return Outcome::Original(self.original.clone().unwrap_or_default()),
+            (_, Some('F' | 'E')) if file && self.still() => {}
             (_, Some('F')) if file => self.set_follow(!self.follow),
             (_, Some('&')) if file => self.typing = Some(Typing::Filter(self.shape().typed_text())),
             (_, Some('E')) if file => {
@@ -1149,6 +1213,48 @@ mod tests {
         }
     }
 
+    /// A long text inside a zip is paged through as it is unpacked: all its lines, and a search
+    /// finds one far down, with no copy of the file made.
+    #[test]
+    fn a_text_inside_an_archive_is_paged_without_a_copy() {
+        let d = std::env::temp_dir().join(format!("coxswain-viewer-archive-{}", std::process::id()));
+        std::fs::create_dir_all(d.join("src")).unwrap();
+        let text: String = (0..200_000).map(|i| format!("row {i} of a long text\n")).collect();
+        std::fs::write(d.join("src/long.txt"), &text).unwrap();
+        let zip = d.join("long.zip");
+        coxswain_core::archive::create(&zip, &[d.join("src/long.txt")]).unwrap();
+        let mut v = Viewer::in_archive(&zip.join("long.txt"), ["F4", "F3"]).unwrap().unwrap();
+        wait(&v);
+        assert_eq!(v.count().0, 200_000);
+        v.key(key(KeyCode::Char('/')), None);
+        for c in "row 199999 ".chars() {
+            v.key(key(KeyCode::Char(c)), None);
+        }
+        v.key(key(KeyCode::Enter), None);
+        finish(&mut v);
+        assert_eq!(v.found, Some(199_999));
+        assert!(Viewer::in_archive(&zip.join("none.txt"), ["F4", "F3"]).is_err());
+        // Nothing to follow in a file that cannot grow: no F or E on the key line, and F says why.
+        assert!(!v.key_line.contains("F follow") && !v.key_line.contains("E stop"), "{}", v.key_line);
+        v.key(key(KeyCode::Char('F')), None);
+        assert!(!v.follow && v.said == Some(t!("viewer.archive_still")));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Terminals report Shift+A as `a` with Shift: every text field types the capital.
+    #[test]
+    fn a_search_field_types_capitals_with_shift() {
+        let d = std::env::temp_dir().join(format!("coxswain-viewer-shift-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("s.txt");
+        std::fs::write(&p, "a\n").unwrap();
+        let mut v = Viewer::open(&p, ["F4", "F3"]).unwrap();
+        v.key(key(KeyCode::Char('/')), None);
+        v.key(Key { code: KeyCode::Char('d'), ctrl: false, alt: false, shift: true }, None);
+        let Some(Typing::Search(s)) = &v.typing else { panic!("no search field") };
+        assert_eq!(s, "D");
+    }
+
     #[test]
     fn every_hit_on_a_line_is_marked_and_nothing_between() {
         let d = std::env::temp_dir().join(format!("coxswain-viewer-marks-{}", std::process::id()));
@@ -1215,6 +1321,20 @@ mod tests {
         assert!(matches!(v.key(key(KeyCode::Esc), None), Outcome::Close));
         drop(v);
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// A file inside an archive, shown from its first bytes in memory: text with its lines and
+    /// grammar, binary as hex, and the first part said to be the first part.
+    #[test]
+    fn a_files_first_bytes_are_shown_from_memory() {
+        let p = Path::new("/x/logs.zip/src/main.rs");
+        let v = Viewer::bytes(p, b"fn main() {}\nlet x = 1;\n", false, ["F4", "F3"]);
+        assert_eq!((v.count().0, v.encoding, v.syntax.is_some(), v.said.is_none()), (2, Encoding::Utf8, true, true));
+        assert_eq!((v.path.as_path(), v.title.as_str()), (p, "main.rs"));
+        let v = Viewer::bytes(p, b"fn main", true, ["F4", "F3"]);
+        assert_eq!((v.syntax.is_none(), v.said.as_deref()), (true, Some(t!("viewer.first_part").as_str())));
+        let v = Viewer::bytes(Path::new("/x/a.zip/b.bin"), &[0, 1, 2, 3], false, ["F4", "F3"]);
+        assert_eq!(v.encoding, Encoding::Binary);
     }
 
     #[test]

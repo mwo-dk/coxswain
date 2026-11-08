@@ -47,7 +47,7 @@ sentences](../search/diagrams.md).)
 |---|---|---|
 | `.drawio`, `.dio`, and `.drawio.svg`, `.drawio.png` with the diagram inside | draw.io's own viewer, shipped inside Coxswain: every page (a tab each), zoom, layers | Nothing; [exports and thumbnails](../files/drawio-export.md) need draw.io |
 | `.mmd`, `.mermaid`, and ```` ```mermaid ```` blocks in Markdown | [Mermaid](https://mermaid.js.org/), in the theme's colours, `securityLevel: "strict"` | Nothing |
-| `.dot`, `.gv` | [Graphviz](https://graphviz.org/) compiled to WebAssembly ([viz.js](https://github.com/mdaines/viz-js)) | Nothing |
+| `.dot`, `.gv` | [Graphviz](https://graphviz.org/) compiled to WebAssembly ([viz.js](https://github.com/mdaines/viz-js)); a `.dot` that is no text is a Word template, shown as an [Office document](office.md) | Nothing |
 | `.puml`, `.plantuml`, `.pu`, `.iuml`, `.wsd` | [PlantUML](https://plantuml.com/), as SVG | `plantuml` installed, or the container `docker.io/plantuml/plantuml:latest` |
 | `.d2` | [D2](https://d2lang.com/), as SVG | `d2` installed, or Kroki's image |
 | `.svgbob`, `.bob` | [svgbob](https://github.com/ivanceras/svgbob): ASCII drawings as SVG | `svgbob` installed, or Kroki's image |
@@ -132,6 +132,12 @@ boxes with their labels. Open the file in draw.io for the real icons.
 draw.io draws maths with MathJax, which its viewer would fetch from diagrams.net. The preview
 fetches nothing, so a label such as `$$x^2$$` shows as that text; the rest of the diagram is
 drawn as usual. Open the file in draw.io for the typeset formula.
+
+#### My `.dot` file is a Word template, not a graph.
+
+The desktop app tells them apart by the file's bytes: a Graphviz graph is text, a Word
+template is not. A `.dot` that is no text goes to the [Office preview](office.md) (LibreOffice
+draws it); one that is text is drawn by Graphviz.
 
 #### Do I need draw.io, Graphviz or Mermaid installed?
 

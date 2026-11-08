@@ -82,6 +82,12 @@
       <p class="hint">{t("guide.panels_more")}</p>
       <p class="hint">{ui.cfg.guide_menu}</p>
       <p class="hint">{ui.cfg.guide_features}</p>
+      <label class="row">{t("setting.typing")}
+        <select value={s.typing} onchange={(e) => save({ typing: e.currentTarget.value })}>
+          <option value="find">{t("settings.typing_find")}</option>
+          <option value="command">{t("settings.typing_command")}</option>
+        </select>
+      </label>
     {:else if m.step === 1}
       <p class="lead">{t("guide.find_intro", { key: keyOf("search") })}</p>
       <div class="levels" role="radiogroup">

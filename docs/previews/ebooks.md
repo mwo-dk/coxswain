@@ -37,6 +37,10 @@ It is off by default: the image is large. Both apps; the cover is the desktop ap
 3. With [text search](../search/text.md) on and no calibre installed, the search helper pulls
    calibre's image at once, in the background, and then reads your e-books. With text search
    off, the image is pulled the first time a preview or a conversion asks for it, after a click.
+   If the search helper's pull fails for no network, it is tried again by itself (after 5
+   minutes, then 10, 20, 40, then hourly); the *calibre* line at the top of *Settings → Finding
+   files* says why and when, with **Retry now** and **Details** (the runtime's own error); see
+   [Apache Tika](../search/tika.md#what-you-see), which works the same way.
 
 ![Settings in the desktop app at Previews: the option E-books with calibre ticked, with its badges disk space, processor time and downloads, and the line under it naming the formats, the image's size and that books locked with DRM are left alone](../screenshots/ebook-settings.png)
 
@@ -232,6 +236,10 @@ They have readers built into Coxswain, which need nothing: EPUB in [Documents](d
 Only the image, downloaded from Docker Hub when you allowed it; *Settings → Privacy and updates →
 What can leave this machine* names `docker.io`. calibre runs with no network, and an installed
 calibre reads and writes only here.
+
+#### The image could not be downloaded. What now?
+
+A conversion or a preview says why in plain words (*no network*) and the time it can be run again; the image's row in *Settings → Previews → Preview tools* says the same, and **Retry now** (the **Pull** button, **P** in the terminal app) pulls it at once. See [An image that cannot be downloaded](tools.md#an-image-that-cannot-be-downloaded).
 
 ---
 [← Previous: Old pictures and files](old-formats.md) · [Next: Diagrams →](diagrams.md)

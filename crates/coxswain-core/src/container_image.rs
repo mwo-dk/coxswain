@@ -460,6 +460,10 @@ pub(crate) struct Node {
     /// A symbolic link's target until links are resolved.
     #[serde(skip)]
     link: Option<String>,
+    /// A symbolic link resolved to its file, or a file in a folder a link copies: shown as
+    /// that file, not counted again in folder sizes.
+    #[serde(default)]
+    pub linked: bool,
     /// The layer that made it: a whiteout takes away only what lower layers made.
     #[serde(skip)]
     layer: usize,
@@ -525,7 +529,8 @@ fn points_file(path: &Path, store: &Store, name: &str) -> Option<PathBuf> {
 
 /// Where the merged tree of the image at `path` is kept: it changes with any of its layers.
 fn tree_file(path: &Path, o: &Opened) -> Option<PathBuf> {
-    let mut part = String::from("image-tree-1");
+    // 2: links marked, so folder sizes count each file once.
+    let mut part = String::from("image-tree-2");
     for (name, packed) in &o.image.layers {
         part.push_str(&format!("\0{name}\0{packed}\0{}", o.store.blob_stamp(name)));
     }
@@ -700,6 +705,7 @@ fn merge(o: &Opened, path: &Path) -> io::Result<Tree> {
                 mode: h.mode().unwrap_or(0o644),
                 src: None,
                 link: None,
+                linked: false,
                 layer: l,
             };
             if ty.is_file() || ty.is_gnu_sparse() {
@@ -710,7 +716,8 @@ fn merge(o: &Opened, path: &Path) -> io::Result<Tree> {
                 // Only a file already in the merged tree.
                 let Some(target) = link.as_deref().and_then(clean) else { return Ok(true) };
                 let Some(t) = files.get(&target).filter(|t| !t.dir) else { return Ok(true) };
-                node = Node { layer: l, ..t.clone() };
+                // Its bytes are the target's: counted once, as `du` does (busybox's applets).
+                node = Node { layer: l, linked: true, ..t.clone() };
             } else if ty.is_symlink() {
                 let Some(target) = link.filter(|t| !t.contains('\0') && t.len() <= 4096) else { return Ok(true) };
                 node.link = Some(target);
@@ -784,7 +791,7 @@ fn resolve_links(files: &mut BTreeMap<String, Node>) {
         let Some(to) = to else { continue };
         match files.get(&to) {
             Some(n) if !n.dir && n.link.is_none() => {
-                let n = Node { layer: link.layer, modified: link.modified, ..n.clone() };
+                let n = Node { layer: link.layer, modified: link.modified, linked: true, ..n.clone() };
                 files.insert(at.clone(), n);
             }
             Some(n) if n.link.is_some() => {}
@@ -807,7 +814,7 @@ fn resolve_links(files: &mut BTreeMap<String, Node>) {
         copies.push((at.clone(), Node { dir: true, size: 0, src: None, link: None, ..link }));
         for (k, n) in files.range(prefix.clone()..).take_while(|(k, _)| k.starts_with(&prefix)) {
             if n.link.is_none() {
-                copies.push((format!("{at}/{}", &k[prefix.len()..]), n.clone()));
+                copies.push((format!("{at}/{}", &k[prefix.len()..]), Node { linked: true, ..n.clone() }));
             }
             if files.len() + copies.len() > FILES_MAX {
                 return;
@@ -1178,6 +1185,28 @@ pub(crate) mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// Links show as their files, but a folder's size counts each file once: alpine's bin/ of
+    /// busybox applets is busybox's size, not busybox's times the links to it.
+    #[test]
+    fn folder_sizes_count_a_linked_file_once() {
+        let dir = crate::pictures::tests::folder("image-link-sizes");
+        let layer = tar_of(&[
+            ("bin/", b""), ("bin/busybox", b"0123456789"), ("bin/ls -> busybox", b""), ("bin/cat -> /bin/busybox", b""), ("bin/sh => bin/busybox", b""),
+            ("usr/", b""), ("usr/bin -> /bin", b""), ("etc/", b""), ("etc/os", b"alpine"),
+        ]);
+        let img = dir.join("alpine.tar");
+        std::fs::write(&img, docker_tar(&[layer])).unwrap();
+        let size = |inner: &str, name: &str| {
+            crate::archive::list_in(&img, inner).unwrap().into_iter().find(|e| e.name == name).map(|e| e.size)
+        };
+        assert_eq!(size("bin", "ls"), Some(10), "a link shows as its file");
+        assert_eq!(size("bin", "sh"), Some(10), "a hard link too");
+        assert_eq!(size("", "bin"), Some(10));
+        assert_eq!(size("", "usr"), Some(0), "a link to a folder adds nothing");
+        assert_eq!(size("", "etc"), Some(6));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn hostile_paths_stay_inside() {
         let dir = crate::pictures::tests::folder("image-hostile");
@@ -1316,6 +1345,32 @@ pub(crate) mod tests {
         assert!(entries.iter().any(|e| e.name == "hello.txt" && e.size == 2));
         // A digest that is no digest is never a path.
         assert_eq!(blob("sha256:../../etc/passwd"), None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// An OCI layout folder inside a zip opens as the image, as on the disk: Enter says so, and
+    /// its `index.json` lists the merged layers from a copy of the folder.
+    #[test]
+    fn oci_layout_folder_inside_an_archive() {
+        let dir = crate::pictures::tests::folder("image-oci-in-zip");
+        let src = dir.join("src");
+        let layout = src.join("rocket");
+        std::fs::create_dir_all(&layout).unwrap();
+        oci_dir(&layout, &[tar_of(&[("hello.txt", b"hi")])]);
+        std::fs::write(src.join("index.json"), b"{}").unwrap();
+        let zip = dir.join("all.zip");
+        crate::archive::create(&zip, &[layout.clone(), src.join("index.json")]).unwrap();
+        let ix = zip.join("rocket/index.json");
+        use crate::enter::{Enter, Place, enter};
+        assert_eq!(enter(&ix, false, Place::Archive), Enter::Image);
+        // An index.json with no oci-layout beside it is a file.
+        assert_eq!(enter(&zip.join("index.json"), false, Place::Archive), Enter::Other);
+        let (entries, _) = crate::archive::listing(&zip, "rocket/index.json").unwrap();
+        assert!(entries.iter().any(|e| e.name == "hello.txt" && e.size == 2), "{:?}", entries.iter().map(|e| &e.name).collect::<Vec<_>>());
+        // Inside it nothing is changed, as in any archive inside an archive; beside it, the zip is.
+        assert!(crate::archive::nested_dir(&ix) && !crate::archive::nested_dir(&zip.join("rocket")));
+        let copy = crate::archive::peek(&zip.join("rocket/index.json/hello.txt")).unwrap();
+        assert_eq!(std::fs::read(copy).unwrap(), b"hi");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

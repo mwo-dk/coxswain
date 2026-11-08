@@ -1,6 +1,9 @@
 //! Coxswain core: everything that is not UI, shared by the TUI and the GUI.
 
 pub mod archive;
+mod archive_cab;
+mod archive_quantum;
+mod archive_ro;
 pub mod attrs;
 pub mod bin;
 pub mod ask;
@@ -28,6 +31,7 @@ pub mod drag;
 pub mod dupes;
 pub mod edit;
 pub mod enter;
+pub mod entry_file;
 pub mod ebook;
 pub mod export;
 pub mod extract;
@@ -65,6 +69,7 @@ pub mod models;
 pub mod music;
 pub mod neural;
 pub mod notices;
+pub mod pick;
 pub mod pictures;
 pub mod pinned;
 #[cfg(any(target_os = "illumos", target_os = "solaris"))]
@@ -99,6 +104,7 @@ pub mod user_menu;
 pub mod vcs;
 pub mod wc;
 pub mod view;
+pub mod viewers;
 pub mod viruses;
 #[cfg(any(
     target_os = "android",

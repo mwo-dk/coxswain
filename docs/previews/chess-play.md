@@ -24,6 +24,7 @@ PGN file when you ask. Both apps have it.
 - [The engine's own options](#the-engines-own-options)
 - [Stepping through an engine line](#stepping-through-an-engine-line)
 - [Analysing a whole game](#analysing-a-whole-game)
+- [Positions remembered](#positions-remembered)
 - [Settings and config.toml](#settings-and-configtoml)
 - [Questions](#questions)
 
@@ -72,12 +73,43 @@ click on a book move is, and **←** takes it back.
 result made `*`), the game's moves up to the move your line starts from, then your line. The name
 is the game file's with ` line` added, `games line.pgn`, then `games line 2.pgn` and on; no file
 is ever written over, and the game file itself stays as it is. The status line says *Saved as
-games line.pgn, next to this file*. A line from an EPD position, or from a game that starts from
+games line.pgn, next to this file*; for a game inside an archive it asks where instead
+([below](#a-game-from-inside-an-archive)). A line from an EPD position, or from a game that starts from
 a set-up position, gets the `SetUp` and `FEN` tags, so it opens from the same position.
 
 The new file is a normal PGN file: **Enter** or **Alt+K** on it shows it in the table, and any chess program
-reads it. When the folder cannot be written to (a read-only disk, an archive), the status line
+reads it. When the folder cannot be written to (a read-only disk), the status line
 says *Could not save the line:* and why.
+
+### A game from inside an archive
+
+A game opened from inside an archive is read from the archive (a PGN family file as it is
+unpacked, the others from a copy in the cache), so saving next to the file would leave the new
+one where it can be swept or cannot be written. *Save as new PGN* (**s**) and *Save as
+annotated PGN* (**w**) ask where the file goes instead:
+
+| Choice | Terminal app | Desktop app | Result |
+| --- | --- | --- | --- |
+| Beside the archive (default) | **b** or **Enter** | *Beside games.zip*, then *Save* | `games line.pgn` in the archive's folder, then `games line 2.pgn` and on; never over a file |
+| Another folder | **f**, type the folder (the archive's folder is filled in), **Enter** | *Another folder*, type the folder (the archive's folder is filled in), then *Save* | The same name in that folder |
+| Inside the archive | **i** | *Inside games.zip*, then *Save* | A new entry in the archive's folder that holds the game, under the same names; the archive is rewritten |
+
+![The terminal app after s on a game from chess-club.zip: the status line asks Save where? with b beside chess-club.zip, f another folder, i inside chess-club.zip](../screenshots/tui-chess-save-where.png)
+
+![The terminal app asking for the folder: Folder (Enter saves, Esc cancels) with the archive's folder filled in](../screenshots/tui-chess-save-folder.png)
+
+![The desktop app under the board: Where should the new PGN go? with Beside chess-club.zip, Another folder, Inside chess-club.zip, Save and Cancel](../screenshots/gui-chess-save-where.png)
+
+![The desktop app with Another folder chosen and a relative path typed: Type a full folder path (or one starting with ~), the question still open](../screenshots/gui-chess-save-folder.png)
+
+*Inside the archive* is offered only for an archive Coxswain can write: a zip, 7z or tar, not a
+disk image, a mailbox, an archive split into parts, or an archive inside another. Without it the
+terminal app's question and the desktop app's choices leave it out, and nothing is rewritten.
+A typed folder may start with `~`; an empty or relative one is refused with a message and
+the question stays open. If the archive has gone (deleted or renamed) since the game was opened,
+nothing is saved and the status line says so; a file is never saved into the cache. **Esc** (terminal) or *Cancel* (desktop) saves nothing. The status line names where the file
+went: *Saved as games line.pgn, beside games.zip*, *… in /home/you/chess*, or *… inside
+games.zip*.
 
 ## The engine
 
@@ -326,6 +358,32 @@ show the evaluations and marks from it.
 
 ![The same in the terminal app, its pieces in block characters: +8.89 and the bar under the board, the row of bars for the game below it with this move highlighted, the marks after the moves, Stockfish 17.1: the game analysed, 9 moves marked above them](../screenshots/tui-chess-review.png)
 
+## Positions remembered
+
+Each position the engine analyses, on the board (**a** or *Engine*) or as part of a whole game
+(**g** or *Analyse game*), is kept in Coxswain's cache folder, in `chess/positions/` under it,
+with the engine and its settings. Both apps share it.
+
+- **Stepping back** to a position the engine has seen shows its lines at once, with the same
+  engine name and depth as before; the engine is not asked again.
+- **A reviewed game:** each position the game review analysed shows its evaluation and best line
+  in the engine pane at once, marked *from the game review, looking deeper…* after the engine's
+  name and depth. Meanwhile the engine looks at the position with your live settings, and its
+  answer replaces the review's when it comes. The next visit shows that answer at once.
+- **Another game through the same positions** (the same opening) is not analysed again for them,
+  live or in a game review.
+
+A position is the same when its pieces, side to move, castling rights and en passant square are
+the same; the move counters do not count, so a position reached at another move number is the
+same position. (So near the fifty-move rule, a position kept from earlier in the game shows the
+evaluation it had then.) Another engine, another limit (*Engine stops after*, its time, depth or positions),
+another number of *Engine lines* or another engine option is another analysis, made afresh.
+
+At most 3000 positions are kept (2 to 11 KB each, so under 40 MB); past that the oldest go. *Settings
+→ Games → Game review* says where they are, under *Positions remembered*, in both apps; *Settings
+→ Disk use* clears them with the rest of `chess/` ([Disk use](../reference/disk-use.md)). Nothing
+is sent anywhere.
+
 ## Settings and config.toml
 
 *Settings → Games*, in both apps (*Chess engines* and *Game review*):
@@ -363,6 +421,13 @@ Threads = 2
 with.
 
 ## Questions
+
+#### Where does Save as new PGN put a game from an archive?
+
+It asks. In the terminal app press **b** (or **Enter**) for beside the archive, **f** for another folder, **i** for inside
+the archive; in the desktop app pick one of the choices that appear and press *Save*. Beside the
+archive is the default, and no file is ever written over. Inside the archive is offered only
+when the archive can be written ([the choices](#a-game-from-inside-an-archive)).
 
 #### Does playing a move change my PGN file?
 
@@ -452,6 +517,25 @@ Your line holds the game, and *Save as new PGN* keeps it.
 By how much a move lowers the engine's evaluation for the side that played it: half a pawn is `?!`,
 a pawn `?`, three pawns `??` (see [How a move is marked](#analysing-a-whole-game)). `!?` marks the
 only move that holds: the engine's best, with its second choice three pawns worse.
+
+#### Why does the engine answer at once on a position I saw before?
+
+Each position it analysed, live or in a game review, is kept in Coxswain's cache (`chess/positions/`)
+with the engine and its settings, so it shows at once with the depth it had then
+([Positions remembered](#positions-remembered)). To have it think again, change a setting (a longer
+*Engine time*, say: that is another analysis), or clear `chess/` in *Settings → Disk use*.
+
+#### Why does the engine pane say *from the game review, looking deeper…*?
+
+The game was analysed as a whole (**g**), so the review's evaluation and best line for this
+position show at once. The review thinks for *Analysis time a move* (half a second unless set) and
+asks for two lines; the live analysis meanwhile thinks with your *Engine* settings, and its lines
+replace the review's when they come.
+
+#### How much disk do the remembered positions take?
+
+At most 3000 positions, under 40 MB, in `chess/positions/` in Coxswain's cache folder; the oldest
+go first. *Settings → Games → Game review* shows the folder; *Settings → Disk use* clears it.
 
 #### Why does analysing a game take so long?
 

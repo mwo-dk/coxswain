@@ -53,7 +53,7 @@ pub const FEATURES: &[Feature] = &[
         "panels/moving.md",
         &[Open, Parent, GotoLeft, GotoRight, EditPath, Refresh, SameDir, SwapPanels],
     ),
-    f("quick_search", "panels/quick-search.md", &[]),
+    f("quick_search", "panels/quick-search.md", &[CommandLine]),
     f(
         "marking",
         "panels/marking.md",
@@ -298,7 +298,7 @@ pub const FEATURES: &[Feature] = &[
     f("looks", "customise/looks.md", &[]),
     f("own_theme", "customise/own-theme.md", &[]),
     f("languages", "customise/languages.md", &[Settings, SuggestTranslation]),
-    f("change_keys", "customise/keys.md", &[Help, Settings]),
+    f("change_keys", "customise/keys.md", &[Help, Settings, KeyTest]),
     f(
         "glyphs_and_fonts",
         "customise/glyphs-and-fonts.md",
@@ -311,6 +311,7 @@ pub const FEATURES: &[Feature] = &[
         &[Menu, Help, View, Edit, Refresh, Quit],
     ),
     f("command_line_flags", "reference/command-line-flags.md", &[]),
+    f("pick", "reference/pick-mode.md", &[Mark]),
     f("configuration", "reference/configuration.md", &[Settings]),
     f("privacy", "reference/privacy.md", &[Settings]),
     f("updates", "reference/updates.md", &[Settings]),

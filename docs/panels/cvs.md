@@ -12,7 +12,7 @@ only once you say yes to that server: **Ctrl+G** asks first, then lists the comm
 ([Fetch and pull](fetch-and-pull.md)). Commit stays with CVS: **Alt+G** opens a terminal in the folder for it.
 Both apps do this.
 
-![The terminal app in Classic blue: the CVS working copy kite on the left with src marked modified and notes.txt unknown, the line cvs HEAD with its counts in the panel's bottom border; on the right the Subversion working copy balloon with svn r2 trunk](../screenshots/cvs-line.png)
+![The terminal app in Classic blue: the CVS working copy kite on the left with the cursor on src, marked modified, notes.txt marked unknown, and the line cvs HEAD with one modified and one unknown file in the panel's bottom border; on the right rocket with its git line](../screenshots/cvs-line.png)
 
 ## Contents
 
@@ -79,7 +79,7 @@ read; `-d`: the root of the folder asked about, for every folder below too, what
 - **A file's history** is the commits of its folder that touched it, so a commit has the same
   name in both.
 
-![The terminal app's kite/@history after the yes: 1d6dd92 Spar a little longer, 672e4cb Longer spar, red sail, 2287482 Initial revision and 055056e Start the kite, newest first](../screenshots/tui-cvs-history.png)
+![The terminal app's kite/@history after the yes: c8575e7 Spar a little longer, 0d27708 Longer spar, red sail, 08e009c Initial revision and e1a4e43 Start the kite, newest first](../screenshots/tui-cvs-history.png)
 
 ## Inside a commit
 
@@ -96,7 +96,7 @@ files removed by then are left out. Only the file contents are asked of the serv
 | What the commit changed | **Diff** at the top of the preview pane: each file's change against its revision before | – | `cvs diff -N -u -r <before> -r <revision>` |
 | A copy out | **F5** on a file, a folder or a commit in the list, to the other pane | The same | `cvs update -p`, one file at a time |
 
-![The terminal app in Classic blue inside a commit of kite: the panel titled /home/demo/projects/kite/@history/38962ab664a4 [commit 38962ab] lists frame.txt, line.txt and README.txt as they were at Longer spar, red sail, each dated with the commit and sized 0](../screenshots/tui-cvs-commit.png)
+![The terminal app in Classic blue inside a commit of kite: the panel titled /home/demo/projects/kite/@history/0d2770841d1f [commit 0d27708] lists frame.txt, line.txt and README.txt as they were at Longer spar, red sail, each dated with the commit and sized 0](../screenshots/tui-cvs-commit.png)
 
 - **Nothing a working copy names runs:** only `log`, `update -p` and `diff` are run, always with
   `-f` and `-d <root>`. `update -p` writes nothing to the working copy and runs no
@@ -154,8 +154,10 @@ changed until `cvs update` sets the time again.
 
 Press **Alt+D** (*Pull (fast-forward only)*). Coxswain first runs `cvs -n update`, which
 changes nothing; when it lists a file changed here (`M` or `C`), the update is refused and the
-file named, since `cvs update` would merge into it. Otherwise `cvs update` runs and the status
-line says how many files came from the server. A folder with `CVS/Update.prog` (a program
+file named, since `cvs update` would merge into it. When that look fails (the server refuses
+without a `cvs login`, or does not answer), nothing is updated and the status line shows cvs's
+own words. Otherwise `cvs update` runs and the status line says how many files came from the
+server. A folder with `CVS/Update.prog` (a program
 `cvs update` would run) is refused. There is no Fetch in CVS.
 
 #### Which files are left out as ignored?

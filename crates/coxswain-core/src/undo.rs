@@ -405,6 +405,11 @@ impl Record {
         }
     }
 
+    /// `undo`, with `stop` as its Stop: a wait for a busy bin ends there, and so does the rest.
+    pub fn undo_until(&self, stop: &Arc<AtomicBool>, at: impl FnMut(usize)) -> Undone {
+        crate::stop::during(stop, || self.undo(at))
+    }
+
     /// Undo it, the last item first; `at` hears which item is next. What is no longer as the
     /// operation left it is refused, each with a line saying why.
     pub fn undo(&self, mut at: impl FnMut(usize)) -> Undone {
@@ -412,6 +417,25 @@ impl Record {
         let mut done = 0;
         // What came back where it was, for the apps to put the cursor on.
         let mut back = vec![];
+        // Out of the bin: no other Coxswain deletes or empties between a listing and its move,
+        // after which the name may hold another file. Taken once, waiting, so a busy bin
+        // refuses nothing (the record is used up either way).
+        // Stopped while waiting: nothing is done unlocked.
+        #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios")))]
+        let _held = match matches!(self.kind, Kind::Trash | Kind::Sync)
+            .then(|| crate::bin::fd::wait(&crate::bin::fd::bins()))
+        {
+            Some(Err(e)) => {
+                return Undone {
+                    label: self.label(),
+                    done: 0,
+                    refused: vec![e.to_string()],
+                    back: vec![],
+                    touched: self.touched(),
+                };
+            }
+            held => held,
+        };
         if let Some(u) = self.sync.as_ref().filter(|_| self.kind == Kind::Sync) {
             (done, refused) = u.undo(|path, name| restore(path, name, self.since));
         } else if self.kind == Kind::Rename {
@@ -671,8 +695,24 @@ pub fn run(
     stop: &Arc<AtomicBool>,
     at: impl FnMut(usize),
 ) -> Ran {
-    crate::stop::during(stop, || run_items(op, items, dst, password, at))
+    run_counted(op, items, dst, password, stop, &Arc::default(), at)
 }
+
+/// `run`, with `bytes` counting how far it is inside an item where that is known (an
+/// extract), for the apps' progress line.
+pub fn run_counted(
+    op: Op,
+    items: &[PathBuf],
+    dst: &Path,
+    password: Option<&str>,
+    stop: &Arc<AtomicBool>,
+    bytes: &Arc<Bytes>,
+    at: impl FnMut(usize),
+) -> Ran {
+    crate::stop::during(stop, || crate::stop::counting(bytes, || run_items(op, items, dst, password, at)))
+}
+
+pub use crate::stop::Bytes;
 
 fn run_items(
     op: Op,
@@ -1066,6 +1106,20 @@ mod tests {
         fs::remove_dir_all(&d).unwrap();
     }
 
+    /// An undo out of a bin another Coxswain is busy in waits, and Stop ends the wait: refused,
+    /// with nothing done unlocked.
+    #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios")))]
+    #[test]
+    fn undo_out_of_a_busy_bin_hears_stop() {
+        let home = crate::dirs::data_dir().unwrap().join("Trash");
+        fs::create_dir_all(home.join("info")).unwrap();
+        fs::create_dir_all(home.join("files")).unwrap();
+        let _other = crate::bin::fd::hold(&crate::bin::fd::bins()).unwrap();
+        let stop = Arc::new(AtomicBool::new(true));
+        let u = Record::new(Kind::Trash).undo_until(&stop, |_| {});
+        assert_eq!((u.done, u.refused.len()), (0, 1), "{:?}", u.refused);
+    }
+
     #[test]
     fn history_keeps_the_last_ones() {
         let d = tmp("history");
@@ -1344,6 +1398,35 @@ mod tests {
         assert_eq!(r.unwrap_err().kind(), io::ErrorKind::AlreadyExists);
         assert_eq!(fs::read_to_string(d.join("a.txt")).unwrap(), "keep me");
         assert_eq!(fs::read_to_string(d.join("b.txt")).unwrap(), "keep me");
+    }
+
+    /// An extract of one large file says how far it is inside that file, for a zip, a 7z (solid)
+    /// and a tar.zst: the bytes move on while it is written, and end at all of them.
+    #[test]
+    fn an_extract_of_one_large_file_counts_its_bytes_as_they_come() {
+        let d = tmp("extract-bytes");
+        let big = d.join("games.pgn");
+        // Text that does not pack to nothing: more reads than one buffer.
+        let text: String = (0..200_000).map(|i| format!("{} ", i * 7919 % 100_003)).collect();
+        fs::write(&big, &text).unwrap();
+        for name in ["one.zip", "one.7z", "one.tar.zst"] {
+            let archive = d.join(name);
+            crate::archive::create(&archive, std::slice::from_ref(&big)).unwrap();
+            let to = d.join(format!("out-{name}"));
+            fs::create_dir(&to).unwrap();
+            let bytes = Arc::new(Bytes::default());
+            let seen = std::rc::Rc::new(std::cell::RefCell::new(vec![]));
+            let (b, s) = (bytes.clone(), seen.clone());
+            crate::stop::LOOK.with(|l| *l.borrow_mut() = Some(Box::new(move || s.borrow_mut().push(b.now()))));
+            let r = run_counted(Op::Extract, std::slice::from_ref(&archive), &to, None, &Arc::default(), &bytes, |_| {});
+            crate::stop::LOOK.with(|l| *l.borrow_mut() = None);
+            assert!(r.failed.is_empty(), "{name}: {:?}", r.failed);
+            let (done, all) = bytes.now().unwrap();
+            assert_eq!(done, all, "{name}: all done at the end");
+            let between = seen.borrow().iter().flatten().filter(|(d, a)| *d > 0 && d < a).count();
+            assert!(between >= 2, "{name}: how far moved on inside the file ({between} looks between)");
+            assert!(bytes.line().is_some_and(|l| !l.starts_with("job.")));
+        }
     }
 
     #[test]

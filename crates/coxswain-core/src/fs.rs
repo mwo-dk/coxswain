@@ -163,6 +163,16 @@ impl Entry {
         self.name == ".."
     }
 
+    /// Its path in a listing of `dir`: a listing of millions (`list_lean`) keeps none where it
+    /// is `dir` joined with the name.
+    pub fn path_in(&self, dir: &Path) -> std::borrow::Cow<'_, Path> {
+        if self.path.as_os_str().is_empty() {
+            dir.join(&self.name).into()
+        } else {
+            self.path.as_path().into()
+        }
+    }
+
     pub fn ext(&self) -> &str {
         match self.name.rfind('.') {
             Some(i) if i > 0 && !self.is_dir => &self.name[i + 1..],
@@ -242,6 +252,36 @@ pub fn list_with_archive(
     dir: &Path,
     show_hidden: bool,
 ) -> io::Result<(Vec<Entry>, Option<InArchive>)> {
+    list_inner(dir, show_hidden, false)
+}
+
+/// `list_with_archive` as a panel holds it: an entry's path is left out (empty) where it is
+/// `dir` joined with its name, as it is for nearly all, so a folder of millions holds each name
+/// once and not its whole path too. `Entry::path_in` gives it back.
+pub fn list_lean(dir: &Path, show_hidden: bool) -> io::Result<(Vec<Entry>, Option<InArchive>)> {
+    list_inner(dir, show_hidden, true)
+}
+
+/// The paths of `entries` (a listing of `dir`) that are `dir` joined with the name, left out.
+fn lean(dir: &Path, entries: &mut [Entry]) {
+    for e in entries {
+        if !e.path.as_os_str().is_empty() && e.path.parent() == Some(dir) && e.path.file_name().is_some_and(|n| n == e.name.as_str()) {
+            e.path = PathBuf::new();
+        }
+    }
+}
+
+fn list_inner(dir: &Path, show_hidden: bool, lean_paths: bool) -> io::Result<(Vec<Entry>, Option<InArchive>)> {
+    let (mut all, inside) = list_full(dir, show_hidden, lean_paths)?;
+    if lean_paths {
+        lean(dir, &mut all);
+    }
+    Ok((all, inside))
+}
+
+/// `lean_paths`: the two that can be millions (a folder on disk, one in an archive) leave the
+/// paths out as they are made, so they are never all held at once.
+fn list_full(dir: &Path, show_hidden: bool, lean_paths: bool) -> io::Result<(Vec<Entry>, Option<InArchive>)> {
     if !dir.is_dir()
         && let Some(at) = crate::history::split(dir)
     {
@@ -266,7 +306,7 @@ pub fn list_with_archive(
     if !dir.is_dir()
         && let Some((archive, inner)) = crate::archive::split(dir)
     {
-        let (mut all, locked) = crate::archive::listing(&archive, &inner)?;
+        let (mut all, locked) = crate::archive::listing_at(&archive, &inner, lean_paths.then_some(dir))?;
         all.retain(|e| show_hidden || !e.hidden || e.is_parent());
         return Ok((all, Some((archive, locked))));
     }
@@ -289,9 +329,14 @@ pub fn list_with_archive(
         let de = de?;
         let name = de.file_name().to_string_lossy().into_owned();
         // Entries can vanish between readdir and stat; skip them.
-        if let Ok(e) = Entry::from_path(de.path(), name, de.metadata())
+        // A name that is not UTF-8 is shown changed: its own path is kept, joined it would be another.
+        let lossless = lean_paths && de.file_name().to_str().is_some();
+        if let Ok(mut e) = Entry::from_path(de.path(), name, de.metadata())
             && (show_hidden || !e.hidden)
         {
+            if lossless {
+                e.path = PathBuf::new();
+            }
             out.push(e);
         }
     }
@@ -381,7 +426,7 @@ pub fn sort_in(
             if !e.is_dir || listed {
                 Some(e.size)
             } else {
-                measured.get(&e.path).copied()
+                measured.get(&*e.path_in(dir)).copied()
             }
         });
     }
@@ -403,7 +448,7 @@ fn sort_sized(
     sort_keyed(entries, key == SortKey::Ext, |a, ka, b, kb| {
         let group = |e: &Entry| (!e.is_parent(), !e.is_dir);
         group(a).cmp(&group(b)).then_with(|| {
-            let name = || ka.name.cmp(&kb.name);
+            let name = || ka.name.cmp(kb.name).then_with(|| a.name.cmp(&b.name));
             let sizes = (key == SortKey::Size).then(|| (size(a), size(b)));
             if let Some((x, y)) = sizes
                 && (x.is_none() || y.is_none())
@@ -413,7 +458,7 @@ fn sort_sized(
             }
             let ord = match key {
                 SortKey::Name | SortKey::Commit => name(),
-                SortKey::Ext => ka.ext.cmp(&kb.ext).then_with(name),
+                SortKey::Ext => ka.ext.cmp(kb.ext).then_with(|| a.ext().cmp(b.ext())).then_with(name),
                 SortKey::Time => b.modified.cmp(&a.modified).then_with(name),
                 SortKey::Size => {
                     let (x, y) = sizes.unwrap_or_default();
@@ -425,30 +470,70 @@ fn sort_sized(
     });
 }
 
-/// An entry's collation keys (`collate::key`): its name's, and its extension's when asked.
+/// A listing's collation keys (`collate::sort_key_into`), one after another in blocks of
+/// `KEY_BLOCK` entries: a folder of millions takes the keys' own bytes and 4 an entry while it
+/// is sorted, not two allocations of an entry's (with its name again) as each key on its own did.
 pub(crate) struct Keys {
-    pub name: Vec<u8>,
-    pub ext: Vec<u8>,
+    blocks: Vec<(Vec<u8>, Vec<u32>)>,
 }
 
-/// `entries` sorted by `cmp`, which gets each entry with its `Keys`, made once per entry (on
+const KEY_BLOCK: usize = 4096;
+
+impl Keys {
+    /// The keys of `of(e)` for each of `entries`, on every core.
+    fn of<'a>(entries: &'a [Entry], of: impl Fn(&'a Entry) -> &'a str + Sync) -> Keys {
+        use rayon::prelude::*;
+        let blocks = entries
+            .par_chunks(KEY_BLOCK)
+            .map(|block| {
+                let (mut bytes, mut ends) = (Vec::new(), Vec::with_capacity(block.len()));
+                for e in block {
+                    crate::collate::sort_key_into(of(e), &mut bytes);
+                    // A block of 4096 names of at most a few KB of key each: far below 4 GB.
+                    ends.push(bytes.len() as u32);
+                }
+                bytes.shrink_to_fit();
+                (bytes, ends)
+            })
+            .collect();
+        Keys { blocks }
+    }
+
+    fn get(&self, i: usize) -> &[u8] {
+        let (bytes, ends) = &self.blocks[i / KEY_BLOCK];
+        let j = i % KEY_BLOCK;
+        let start = if j == 0 { 0 } else { ends[j - 1] as usize };
+        &bytes[start..ends[j] as usize]
+    }
+
+    /// The memory they take.
+    #[cfg(test)]
+    fn bytes(&self) -> usize {
+        self.blocks.capacity() * std::mem::size_of::<(Vec<u8>, Vec<u32>)>()
+            + self.blocks.iter().map(|(b, e)| b.capacity() + e.capacity() * 4).sum::<usize>()
+    }
+}
+
+/// An entry's collation keys while it is sorted: its name's, and its extension's when asked
+/// (empty when not). Alike keys are told apart by the names themselves.
+pub(crate) struct Key<'a> {
+    pub name: &'a [u8],
+    pub ext: &'a [u8],
+}
+
+/// `entries` sorted by `cmp`, which gets each entry with its `Key`, made once per entry (on
 /// every core): a sort of 200,000 names compares them some four million times.
 pub(crate) fn sort_keyed(
     entries: &mut [Entry],
     ext: bool,
-    cmp: impl Fn(&Entry, &Keys, &Entry, &Keys) -> std::cmp::Ordering,
+    cmp: impl Fn(&Entry, Key, &Entry, Key) -> std::cmp::Ordering,
 ) {
-    use rayon::prelude::*;
-    let keys: Vec<Keys> = entries
-        .par_iter()
-        .map(|e| Keys {
-            name: crate::collate::key(&e.name),
-            ext: if ext { crate::collate::key(e.ext()) } else { Vec::new() },
-        })
-        .collect();
+    let names = Keys::of(entries, |e| e.name.as_str());
+    let exts = Keys::of(if ext { entries } else { &[] }, Entry::ext);
+    let key = |i: usize| Key { name: names.get(i), ext: if ext { exts.get(i) } else { &[] } };
     let mut order: Vec<usize> = (0..entries.len()).collect();
-    order.sort_by(|&i, &j| cmp(&entries[i], &keys[i], &entries[j], &keys[j]));
-    drop(keys);
+    order.sort_by(|&i, &j| cmp(&entries[i], key(i), &entries[j], key(j)));
+    drop((names, exts));
     // Where each entry goes, then each swapped there in place: no second list of a folder of
     // millions.
     let mut to = vec![0; order.len()];
@@ -566,6 +651,53 @@ impl Drop for Scratch {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.0);
     }
+}
+
+/// A file lock, let go by an unlock before its handle closes: a program another thread starts
+/// meanwhile holds a copy of every handle until it runs (a fork, then exec), and the lock
+/// belongs to all the copies, so closing ours alone left it locked until then: the bin busy
+/// for the next restore (#797), a helper or a run seen alive that is not (#802).
+#[derive(Debug)]
+pub struct Held(pub(crate) fs::File);
+
+impl Held {
+    /// `f` locked, if no one else holds it.
+    pub(crate) fn try_lock(f: fs::File) -> Result<Held, fs::TryLockError> {
+        f.try_lock().map(|()| Held(f))
+    }
+}
+
+impl Drop for Held {
+    fn drop(&mut self) {
+        let _ = self.0.unlock();
+    }
+}
+
+/// Runs `f` while another thread starts programs one after the other, each holding a copy of
+/// every handle until it runs: what a lock let go meanwhile must not stay held by.
+#[cfg(all(test, unix))]
+pub(crate) fn while_programs_start<T>(f: impl FnOnce() -> T) -> T {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let stop = std::sync::Arc::new(AtomicBool::new(false));
+    let s = stop.clone();
+    let (started, first) = std::sync::mpsc::channel();
+    let t = std::thread::spawn(move || {
+        while !s.load(Ordering::Relaxed) {
+            let _ = std::process::Command::new("true").status();
+            let _ = started.send(());
+        }
+    });
+    // Programs start already when `f` begins.
+    let begun = first.recv_timeout(crate::test_limit(std::time::Duration::from_secs(10)));
+    drop(first);
+    if begun.is_err() {
+        stop.store(true, Ordering::Relaxed);
+        panic!("no program started");
+    }
+    let out = f();
+    stop.store(true, Ordering::Relaxed);
+    t.join().unwrap();
+    out
 }
 
 /// A history is read-only: nothing goes into it, nothing is made or taken out there. So are a
@@ -1208,6 +1340,9 @@ pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Opt
             ))
         };
     }
+    // No other Coxswain empties the home bin while this put may be copying into it.
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios"))))]
+    let _held = crate::bin::fd::wait(&crate::bin::fd::bins_for(path))?;
     #[cfg(not(any(target_os = "android", target_os = "illumos", target_os = "solaris")))]
     return trash::delete(path).map(|_| None).map_err(io::Error::other);
     #[cfg(any(target_os = "android", target_os = "illumos", target_os = "solaris"))]
@@ -1734,6 +1869,12 @@ pub fn canonical(p: &Path) -> io::Result<PathBuf> {
     dunce::canonicalize(p)
 }
 
+/// `p` without the `\\?\` in front on Windows where the path does without it (as `canonical`
+/// gives it), read from the path alone; anywhere else `p` as it is.
+pub fn without_verbatim(p: &Path) -> &Path {
+    dunce::simplified(p)
+}
+
 /// `s` as a path: `~` is the home folder, and a relative path starts from `base`.
 pub fn resolve(base: &Path, s: &str) -> PathBuf {
     let s = s.trim();
@@ -1953,6 +2094,76 @@ const KINDS: &[io::ErrorKind] = &[
 
 #[cfg(test)]
 mod tests {
+    /// The bytes a listing holds for its entries' names and paths, past the entries themselves.
+    fn held(v: &[super::Entry]) -> usize {
+        v.iter().map(|e| e.name.capacity() + e.path.capacity()).sum()
+    }
+
+    /// A panel's listing (`list_lean`) of a folder deep down, on disk and in a zip, holds each
+    /// name and no path: n against 8n entries, its bytes grow with the names alone, and every
+    /// entry still gives its whole path.
+    #[test]
+    fn sort_keys_hold_their_bytes_and_4_an_entry() {
+        let entries = |k: usize| {
+            (0..k).map(|i| super::Entry { name: format!("Game {i:05} – Ålborg.sgf"), ..Default::default() }).collect::<Vec<_>>()
+        };
+        let (small, big) = (entries(1000), entries(8000));
+        let (ks, kb) = (super::Keys::of(&small, |e| e.name.as_str()), super::Keys::of(&big, |e| e.name.as_str()));
+        let own = |v: &[super::Entry]| v.iter().map(|e| crate::collate::key(&e.name).len() - 1 - e.name.len()).sum::<usize>();
+        // The keys' own bytes, 4 an entry, and some bytes a block: no more.
+        assert!(ks.bytes() <= own(&small) + 4 * small.len() + 256, "{} against {}", ks.bytes(), own(&small));
+        assert!(kb.bytes() <= 8 * ks.bytes() + 2 * 256, "8n: eight times n");
+        // Each key on its own, with its name again, took more than twice that.
+        let apart = |v: &[super::Entry]| v.iter().map(|e| 2 * std::mem::size_of::<Vec<u8>>() + crate::collate::key(&e.name).capacity()).sum::<usize>();
+        assert!(2 * kb.bytes() < apart(&big), "{} against {}", kb.bytes(), apart(&big));
+        // And they sort as those did.
+        let mut a = big.clone();
+        super::sort(&mut a, super::SortKey::Name, false);
+        let mut b = big;
+        b.sort_by_cached_key(|e| crate::collate::key(&e.name));
+        assert!(a.iter().zip(&b).all(|(x, y)| x.name == y.name));
+    }
+
+    #[test]
+    fn lean_listings_hold_names_not_paths() {
+        use std::io::Write;
+        let d = super::Scratch::named("lean");
+        let deep = d.join("a-folder-with-a-long-name/another-folder-below-it/and-one-more-folder-below");
+        let zip = d.join("games.zip");
+        let (n, names) = (250, |k: usize| (0..k).map(|i| format!("game-{i:05}.sgf")).collect::<Vec<_>>());
+        for (k, dir) in [(n, deep.join("n")), (8 * n, deep.join("8n"))] {
+            std::fs::create_dir_all(&dir).unwrap();
+            for f in names(k) {
+                std::fs::write(dir.join(f), "").unwrap();
+            }
+        }
+        let mut z = zip::ZipWriter::new(std::fs::File::create(&zip).unwrap());
+        for (k, top) in [(n, "n"), (8 * n, "8n")] {
+            for f in names(k) {
+                z.start_file(format!("collections/{top}/{f}"), zip::write::SimpleFileOptions::default()).unwrap();
+                z.write_all(b"(;)").unwrap();
+            }
+        }
+        z.finish().unwrap();
+        let name_bytes = |k: usize| names(k).iter().map(String::len).sum::<usize>();
+        for (n_dir, n8_dir) in [(deep.join("n"), deep.join("8n")), (zip.join("collections/n"), zip.join("collections/8n"))] {
+            let (small, _) = super::list_lean(&n_dir, true).unwrap();
+            let (mut big, _) = super::list_lean(&n8_dir, true).unwrap();
+            let (mut full, _) = super::list_with_archive(&n8_dir, true).unwrap();
+            big.sort_by(|a, b| a.name.cmp(&b.name));
+            full.sort_by(|a, b| a.name.cmp(&b.name));
+            assert_eq!((small.len(), big.len(), full.len()), (n + 1, 8 * n + 1, 8 * n + 1));
+            // `..` keeps its path; the rest hold their names, and nothing for a path.
+            let up = |v: &[super::Entry]| v.iter().filter(|e| e.is_parent()).map(|e| e.name.capacity() + e.path.capacity()).sum::<usize>();
+            assert_eq!(held(&small) - up(&small), name_bytes(n), "{}", n_dir.display());
+            assert_eq!(held(&big) - up(&big), name_bytes(8 * n), "8n: eight times the names, no more");
+            assert!(held(&full) > held(&big) + 8 * n * n8_dir.as_os_str().len(), "the full listing holds every path");
+            for (l, f) in big.iter().zip(&full) {
+                assert_eq!(l.path_in(&n8_dir), f.path.as_path());
+            }
+        }
+    }
+
     /// A folder shows as `C:\…`, never as `\\?\C:\…`, and still names the same folder.
     #[test]
     fn canonical_paths_have_no_verbatim_prefix() {

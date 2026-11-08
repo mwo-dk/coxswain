@@ -7,12 +7,14 @@
 pub mod cbh;
 pub mod cbv;
 pub mod games;
+pub mod memory;
 pub(crate) mod lex;
 pub mod openings;
 pub mod pgn;
 pub mod play;
 pub mod review;
 pub mod scid;
+pub(crate) mod table;
 pub mod polyglot;
 
 pub use games::{Library, Progress, Query, Row, Sort};

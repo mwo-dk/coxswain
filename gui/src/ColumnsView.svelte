@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   // Miller columns: two ancestor levels, the current folder, and a peek into the folder
   // under the cursor. Left/Right walk the hierarchy (handled in App).
-  import { ui, cd, openItem, toggleMark, gitFacts, dragOut, newId } from "./app.svelte.js";
+  import { ui, cd, openItem, pickDim, toggleMark, gitFacts, dragOut, newId } from "./app.svelte.js";
   import { invoke, parent, TAG_COLORS } from "./lib.js";
   import { Paged, SPAN } from "./paged.svelte.js";
   import { t as tr, i18n } from "./i18n.svelte.js"; // `t` is the tab here
@@ -94,7 +94,7 @@
 
 {#snippet entry(e, cls, onclick, ondblclick, drag)}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="row {cls}" class:dir={e.is_dir} class:hidden={e.hidden} class:drop={e.is_dir && ui.dropDir === e.path} data-drop={e.is_dir ? e.path : undefined} draggable={!!drag} ondragstart={drag && ((ev) => (ev.preventDefault(), drag()))} role="option" tabindex="-1" aria-selected={cls.includes("cursor")} {onclick} {ondblclick} title={ui.facts[e.path]?.join("\n")} onmouseenter={e.is_dir ? () => gitFacts(e.path) : undefined}>
+  <div class="row {cls}" class:dir={e.is_dir} class:hidden={e.hidden} class:dimmed={pickDim(e)} class:drop={e.is_dir && ui.dropDir === e.path} data-drop={e.is_dir ? e.path : undefined} draggable={!!drag} ondragstart={drag && ((ev) => (ev.preventDefault(), drag()))} role="option" tabindex="-1" aria-selected={cls.includes("cursor")} {onclick} {ondblclick} title={ui.facts[e.path]?.join("\n")} onmouseenter={e.is_dir ? () => gitFacts(e.path) : undefined}>
     <span class="icon" style:color={e.icon.color || null}>{e.icon.glyph}</span>
     <span class="label" dir="auto" title={e.origin ? tr("bin.from", { folder: e.origin }) : null}>{t.models?.[e.name] ?? e.name}</span>
     {#if e.tag}<span class="tag" style:background={TAG_COLORS[e.tag]}></span>{/if}
@@ -197,6 +197,10 @@
   }
   .hidden {
     opacity: 0.6;
+  }
+  /* Pick mode: a file the filter does not take. */
+  .dimmed {
+    opacity: 0.35;
   }
   .tag {
     width: 8px;

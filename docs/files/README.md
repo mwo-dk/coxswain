@@ -27,7 +27,7 @@ folder; **Ctrl+E** extracts it.*
 | [Drag and drop](drag-and-drop.md) | Dragging files out to other applications (out of archives too), between panes, onto folders and in |
 | [Batch rename (Ctrl+M)](batch-rename.md) | Renaming many files with a regular expression and a counter, previewed |
 | [Find and replace across files (Alt+R)](find-and-replace.md) | Replacing text or a regular expression in many files, every change previewed first, undone in one step |
-| [Archives as folders](archives.md) | Opening zip, tar and 7z like folders; copying in, out and between; formats; why not RAR |
+| [Archives as folders](archives.md) | Opening zip, tar, 7z, cpio, .deb, .rpm and .cab like folders; copying in, out and between; formats; why not RAR |
 | [Pack (Alt+F5) and extract (Ctrl+E)](pack-and-extract.md) | Making a new archive, and unpacking one into a folder of its own |
 | [Passwords for encrypted zip and 7z](archive-passwords.md) | The password question, and how long Coxswain keeps a password |
 | [Disk images, CHM help files and CBR comics](disk-images.md) | An image's facts in the preview; with the option on, **Enter** opens .iso, .dmg, .vhd, .vmdk, .qcow2, .chm and .cbr like folders, read-only, through 7-Zip |

@@ -159,6 +159,9 @@ pub(crate) fn jj_store(dir: &Path) -> Option<(PathBuf, PathBuf)> {
 /// git pointed at the store `jj_store` finds for `dir`, when it has one.
 pub(crate) fn use_store(c: &mut Command, dir: &Path) {
     if let Some((store, root)) = jj_store(dir) {
+        // A store naming a FIFO or a device (`git::readable`): no repository, git fails at once.
+        let none = Path::new(if cfg!(windows) { "NUL" } else { "/dev/null" });
+        let store = if crate::git::readable(&store) { store.as_path() } else { none };
         c.env("GIT_DIR", store).env("GIT_WORK_TREE", root);
     }
 }
@@ -1053,8 +1056,9 @@ pub(crate) fn date_folders<'a>(to: &Path, dsts: impl Iterator<Item = &'a Path>, 
     }
 }
 
-fn said(mut c: Command) -> io::Result<String> {
-    let o = c.output()?;
+/// hg's message, or its complaint as the error; ended past `branches::SWITCH_LIMIT`.
+fn said(c: Command) -> io::Result<String> {
+    let o = crate::git::output_within(c, crate::branches::SWITCH_LIMIT)?;
     let text = |b: &[u8]| String::from_utf8_lossy(b).trim().to_string();
     if !o.status.success() {
         let why = text(&o.stderr);

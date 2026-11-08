@@ -39,10 +39,9 @@ do this, for git, [Mercurial](mercurial.md) and [Jujutsu](jujutsu.md); a
    its ahead and behind, and *Last fetch* are read again. A refusal or an error opens a dialog:
    our reason first, the tool's own words under it.
 
-**Esc**, or the same key again, stops it while it runs: the tool is ended, and on FreeBSD, the
-other BSDs, illumos, Linux and macOS everything it started too (ssh, `git-remote-https`). On
-Windows the tool is ended and its helpers end when their pipes close. What came in before the
-stop is kept; nothing is merged.
+**Esc**, or the same key again, stops it while it runs: the tool is ended, and everything it
+started too (ssh, `git-remote-https`, on Windows Git Credential Manager and its sign-in window).
+What came in before the stop is kept; nothing is merged.
 
 ## What each system runs
 

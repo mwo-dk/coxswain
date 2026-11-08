@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """File "sysutils/coxswain: Update to X.Y.Z" in FreeBSD's Bugzilla, with port.diff attached and
 maintainer-approval set. Reads FREEBSD_BUGZILLA_KEY, VERSION and the changelog row from README.md.
-Run by release.yml only when the key is set and the port is in the ports tree."""
+Run by release.yml only when the key is set and the port is in the ports tree, and by hand by
+freebsd-bugzilla.yml."""
 
 import base64
 import json
@@ -21,15 +22,16 @@ diff = open(sys.argv[1], "rb").read()
 
 HEADERS = {
     "Content-Type": "application/json",
-    "X-BUGZILLA-API-KEY": key,
     "User-Agent": "coxswain-release (+https://github.com/mwo-dk/coxswain)",
 }
 
 
 def call(path, body=None):
     """One request, tried again on a passing fault (5xx, network): Bugzilla answered 503 to a
-    release run once (27 Oct)."""
-    data = None if body is None else json.dumps(body).encode()
+    release run once (27 Oct). The key goes in the body of a write: FreeBSD's Bugzilla ignores the
+    X-BUGZILLA-API-KEY header (a write with only the header was refused 401, 1 Nov), and a key in
+    the URL would show in a traceback. Reads need no key."""
+    data = None if body is None else json.dumps({**body, "api_key": key}).encode()
     for wait in (30, 60, 120, 0):
         try:
             req = urllib.request.Request(f"{API}/{path}", data, HEADERS)

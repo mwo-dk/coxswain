@@ -343,6 +343,22 @@ The folder is not inside a git work tree, or `git` is not on your `PATH`. On mac
 app started from the Dock reads `PATH` from your login shell; a `git` installed elsewhere is
 not found. Inside an archive there is no git line either.
 
+A repository that names a FIFO (a named pipe) or a device for git to read gets no git line
+either: in its config, an `[include]` of it (or an include of an include), `core.excludesFile`,
+`core.attributesFile`, `HEAD`, the index, `info/exclude` or the `.gitignore` at the top of the
+work tree. git would wait on it for ever, so Coxswain looks at what each one is before git
+runs, opens only plain files, and runs no git there: no status, no filters, no branch switch,
+and the git config view (**Alt+C**) says git could not read the config. A folder unpacked from
+someone else's archive can hold such a file; a clone cannot. On Windows a name that is a
+device there (`CON`, `NUL`, `COM1`, `LPT1`, also with an ending such as `con.txt`) counts as
+one too. A FIFO elsewhere in the repository (a ref, a pack) is not looked for: the git status,
+the filter check, the config view, the preview's diff, a commit and its diff in the history (**Ctrl+G**), a file read
+from a commit and the checks before a switch are ended after two minutes instead, a blame after
+one minute, a copy out of the history (**F5** in a commit) when git has given nothing for two
+minutes, and a branch switch itself after thirty minutes, since one ended halfway leaves a
+half-changed work tree. When git cannot say within its two minutes which filters the
+repository sets, no git runs there: as with a FIFO, there is no git line and no switch.
+
 #### Why are the counts different from `git status`?
 
 They are the same counts, taken from `git status --porcelain=v2`, but grouped: a file both

@@ -441,7 +441,7 @@ pub fn run(
         .iter()
         .filter(|h| crate::history::is_history(&h.path))
         .count();
-    let (in_files, about, history) = fuse(
+    let (mut in_files, about, history) = fuse(
         Words {
             hits: &words.hits,
             every,
@@ -461,6 +461,30 @@ pub fn run(
     } else {
         words.total.saturating_sub(commits_found)
     };
+    // The games of game databases, each a hit of its own, in the place of their file's.
+    let mut games_found = 0;
+    if kind != Kind::About && !syntax {
+        // Only files Find reads: a table of a file opened elsewhere is not looked through.
+        let within = |p: &Path| scope.is_none_or(|s| p.starts_with(s)) && text_roots.iter().any(|r| p.starts_with(r));
+        for (path, hits, n) in crate::chess::games::find(q, &within, rows) {
+            // Among the rows shown: the file's own hit's place, else as far down as they fit.
+            let last = rows.saturating_sub(hits.len());
+            let at = match in_files.iter().position(|h| h.path == path && h.game.is_none()) {
+                Some(i) => {
+                    in_files.remove(i);
+                    games_found += n.saturating_sub(1);
+                    i.min(last)
+                }
+                None => {
+                    games_found += n;
+                    last
+                }
+            };
+            let at = at.min(in_files.len());
+            in_files.splice(at..at, hits);
+        }
+    }
+    let with_words = with_words + games_found;
     found.in_files = group(in_files, with_words);
     found.about = group(about, 0);
     found.history = group(history, commits_found);
@@ -709,6 +733,7 @@ mod tests {
             is_dir: false,
             snippet: Some(p.into()),
             similar: None,
+            game: None,
         }
     }
 

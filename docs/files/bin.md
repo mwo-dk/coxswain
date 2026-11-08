@@ -22,7 +22,7 @@ preview, **F3**, **F5** (copy out) and Find work on the files in it as on any ot
 | Where | Desktop app | Terminal app |
 |---|---|---|
 | The sidebar | The *Bin* row, under *Clouds* (and FreeBSD's *Jails*), above the favourites, with what is in it (*3 items · 1.2 MB*). A click opens it in the active tab; a right-click or its **⋯** offers *The bin* and, when it holds something, *Empty the bin* | No sidebar |
-| The go-to list | – | **Alt+F1** (left panel) or **Alt+F2** (right panel): *Bin: 3 items · 1.2 MB*, under *Type a path…* and the clouds |
+| The go-to list | – | **Alt+F1** (left panel) or **Alt+F2** (right panel): *Bin: 3 items · 1.2 MB*, under *Type a path…*, the drives and the clouds |
 | The command list | **F9** → *The bin* | **F9** → *The bin* |
 | A path | `~/@bin` in the path bar (**Ctrl+L**) | `cd ~/@bin` does not work (it is no folder); use the go-to list |
 
@@ -66,7 +66,7 @@ All three ask first, naming how many items and their size, and say that it canno
 |---|---|
 | *Restore from the bin* | Puts the marked items (or the one under the cursor) back where they were; on the BSDs, illumos and Linux the folder is made again if it is gone. When another file has the place now, nothing is overwritten: Coxswain asks *Restore under a free name*, which puts it beside that file as `name (2)`; Esc leaves it in the bin. A file that came into your home's bin from another disk goes back across, copied and then removed from the bin, as **F6** moves between disks |
 | *Delete from the bin for good* | Deletes the marked items, folders with all in them. Also **F8** and **Shift+F8** in the bin |
-| *Empty the bin* | Deletes everything in the bin for good. Also from the sidebar row's menu, from anywhere |
+| *Empty the bin* | Deletes everything in the bin for good: what it held when it started. On the BSDs, illumos and Linux a file put in the bin while it empties (from the other app, a browser, the desktop) stays there. Also from the sidebar row's menu, from anywhere |
 
 The status line then says *Restored 3 items*, *Deleted 2 items for good* or *The bin is empty*.
 What could not be done (a file in use, no permission) is listed in a dialog with its name.
@@ -134,6 +134,27 @@ system's bin in your file manager, or install Coxswain another way ([Install](..
 Each disk keeps its own bin at its top (`.Trash-1000` on a stick). It is listed while the disk
 is mounted; files deleted on a disk without a bin were deleted for good (see
 [Delete](delete.md)).
+
+#### The bin opens a folder called @bin instead.
+
+`~/@bin` is the bin only while no real folder of that name is in your home. When another
+program made one, the *Bin* row, **F9** → *The bin* and `~/@bin` open that folder, and a notice
+says once *A real folder named @bin in your home (…) hides the bin*. Rename or move that folder
+and the bin is back. Coxswain itself never makes it: nothing is copied, moved or made into the
+bin, also when your home is reached through a link to it (`/home` a link to `/usr/home`, say).
+#### What if the desktop's own trash works on the bin at the same time?
+
+Two Coxswains (the terminal app and the desktop app) take turns: while one restores, deletes
+for good or empties, the other says *Another Coxswain is working in the bin* and does nothing. Other programs (the
+desktop's file manager, `gio trash`, `trash-cli`) take no turn of ours, as the freedesktop.org
+bin has no lock. So on the BSDs, illumos, Linux and Termux Coxswain looks at each item again
+just before each removal: the file and its info file must still be the ones listed (the same inode
+and change time). One that another program took away meanwhile counts as done; another file put
+under its name meanwhile stays in the bin, listed, and the dialog names it *Not in the bin*.
+What is left is the instant between that last look and the removal itself, a few microseconds,
+and, for *Empty the bin*, the time it takes to list the bin before it looks at the first item
+(longer in a bin of thousands); no program can close these alone: emptying or deleting from the
+bin in two programs at once is not guarded.
 
 #### Can Find search inside the files in the bin?
 

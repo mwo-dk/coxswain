@@ -3,9 +3,9 @@
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
-  import { ui, openFind, init, gamesOf, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders, remoteRun, stopRemote, refreshBin, openBin, binAct } from "./app.svelte.js";
+  import { ui, openFind, init, gamesOf, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, pickItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders, remoteRun, stopRemote, refreshBin, openBin, binAct } from "./app.svelte.js";
   import { failure } from "./errors.js";
-  import { invoke, keyString, basename, parent, quote, isArchive, diskName, packFormat, LOCKED, inside, keyOwner } from "./lib.js";
+  import { invoke, keyString, basename, parent, quote, isArchive, diskName, packFormat, LOCKED, inside, keyOwner, fkeyAction } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -23,6 +23,7 @@
   import Settings from "./Settings.svelte";
   import SetupSearch from "./SetupSearch.svelte";
   import Guide from "./Guide.svelte";
+  import PickBar from "./PickBar.svelte";
 
   let dialogs = $state();
   let panes = $state([]);
@@ -54,6 +55,12 @@
   const dismissNotice = (n) => invoke("dismiss_notice", { id: n.id }).then(() => (ui.news.notices = ui.news.notices.filter((x) => x.id !== n.id)), () => {});
   init().then(
     () => {
+      // Pick mode: Enter chooses, and what would change files only says why not (the backend
+      // refuses those commands too, whatever sends them).
+      if (ui.cfg.pick) {
+        actions.open = () => pickItem(tab());
+        for (const n of ui.cfg.pick_refused) actions[n] = () => (ui.status = t("pick.refused"));
+      }
       ready = true;
       // Once a day (check_update itself throttles), so a window left open for weeks still hears.
       const check = () => invoke("check_update").then((v) => (update = v), () => {});
@@ -84,7 +91,8 @@
       (e) => saveFailed || ((saveFailed = true), (ui.status = String(e))),
     );
   $effect(() => {
-    if (!ready) return;
+    // A picker leaves the session as it was: its tabs are not saved.
+    if (!ready || ui.cfg.pick) return;
     const snap = JSON.stringify(snapshot());
     const timer = setTimeout(() => saveSession(JSON.parse(snap)), 600);
     return () => clearTimeout(timer);
@@ -107,7 +115,9 @@
   listen("dir-changed", (ev) => {
     if (ui.bin?.watch?.some((d) => ev.payload.includes(d))) refreshBin();
     const shown = visibleTabs();
-    for (const t of allTabs()) if (ev.payload.includes(t.dir) || gitDirs(t).some((g) => ev.payload.includes(g))) shown.includes(t) ? load(t) : (t.unread = true);
+    // A tab whose first listing is under way is left to it: read again, it would lose the way
+    // to the folder above when its saved folder is gone (`readWhenShown`).
+    for (const t of allTabs()) if (ev.payload.includes(t.dir) || gitDirs(t).some((g) => ev.payload.includes(g))) shown.includes(t) ? !(t.items.loading && !t.items.shown) && load(t) : (t.unread = true);
   });
   $effect(() => {
     if (ready) for (const t of visibleTabs()) if (t.unread) readWhenShown(t);
@@ -651,8 +661,8 @@
           // Under the group headings of F1; the themes close the last group (App).
           ...ui.cfg.groups.flatMap(([group, names]) =>
             names
-              .filter((n) => !["menu", "up", "down"].includes(n))
-              .map((n) => ({ key: ui.cfg.actions[n][1], label: actionLabel(n), group, run: () => actions[n]?.() })),
+              .filter((n) => !["menu", "up", "down"].includes(n) && (n !== "command_line" || ui.cfg.settings.typing === "find"))
+              .map((n) => ({ key: ui.cfg.actions[n][1], label: actionLabel(n), group, run: () => ranFromMenu(n) })),
           ),
           ...themeIds().map((id) => ({ key: id === ui.theme ? t("app.current") : "", label: t("app.theme", { name: themeName(id) }), group: ui.cfg.groups.at(-1)?.[0], icon: "\u{f53f}", run: () => setTheme(id, true) })),
         ],
@@ -670,6 +680,7 @@
     toggle_view: () => (tab().view = nextView(tab().view)),
     toggle_sidebar: () => (ui.showSidebar = !ui.showSidebar),
     edit_path: () => panes[ui.dual ? ui.activePane : 0]?.editPath(),
+    command_line: () => cmdInput?.focus(),
     folder_sizes: async () => {
       const tb = tab();
       const dirs = tb.marks.count ? await targets(tb) : (await pick(tb, "dirs")).map((e) => e.path);
@@ -702,6 +713,7 @@
     duplicates: () => (ui.modal = { kind: "dupes" }),
     settings: () => (ui.modal = { kind: "settings" }),
     disk_use: () => (ui.modal = { kind: "settings", section: "disk" }),
+    key_test: () => (ui.modal = { kind: "keytest", lines: [], esc: false }),
     suggest_translation: () => invoke("suggest_translation", { language: ui.cfg.language }).catch((err) => (ui.status = String(err))),
     disk_images: async () => {
       try {
@@ -714,6 +726,14 @@
     back: () => goBack(),
     forward: () => goForward(),
   };
+
+  /** An action chosen in F9 or the action menu: run, and its key named once it has only ever
+   *  run from there (`menu::ran`). */
+  function ranFromMenu(n) {
+    actions[n]?.();
+    // Once the action has shown what it shows: the hint only where the status line is free.
+    setTimeout(() => invoke("action_ran", { action: n, viaMenu: true, canShow: !ui.status && !ui.modal }).then((h) => h && !ui.status && !ui.modal && (ui.status = h), () => {}), 400);
+  }
 
   /** The actions that fit the marked entries (or the one under the cursor), under the
    *  headings of F1 and F9, each with its key: Enter runs one, Esc closes. */
@@ -728,7 +748,7 @@
       direct: false,
       filter: "",
       cursor: 0,
-      items: groups.flatMap(([group, names]) => names.map((n) => ({ key: ui.cfg.actions[n][1], label: ui.cfg.actions[n][0], group, run: () => actions[n]?.() }))),
+      items: groups.flatMap(([group, names]) => names.map((n) => ({ key: ui.cfg.actions[n][1], label: ui.cfg.actions[n][0], group, run: () => ranFromMenu(n) }))),
     };
   }
   hooks.actionMenu = actionMenu;
@@ -770,6 +790,8 @@
   function onkeydown(e) {
     if (!ready) return;
     const k = keyString(e);
+    // Show keys as they arrive: every key, lone modifiers and dead keys too, is listed, none runs.
+    if (ui.modal?.kind === "keytest") return keySeen(e, k);
     if (!k) return;
     if (ui.modal) {
       if (dialogs.handleKey(e, k)) e.preventDefault();
@@ -818,12 +840,22 @@
       if (esc) return e.preventDefault();
     }
     const act = ui.cfg.keymap[k];
+    // Typing jumps to names: the command line is open while it has the focus (its own key).
+    const jump = ui.cfg.settings.typing === "find";
+    const inCmd = !!e.target.closest?.(".cmd");
+    if (jump && inCmd && !ui.cmd && act !== "command_line" && (k === "Esc" || act)) cmdInput.blur();
+    if (k === "Esc" && jump && inCmd && !ui.cmd) return e.preventDefault();
     if (k === "Esc" && !ui.cmd && ui.showPreview) {
       e.preventDefault();
       output = null;
       ui.showPreview = false;
       return;
     }
+    // Pick mode: Esc cancels; Show all has a key of its own (`pick::SHOW_ALL_KEY`).
+    if (ui.cfg.pick && k === "Esc" && !ui.cmd) return void (e.preventDefault(), getCurrentWindow().close());
+    // Ctrl+PageDown opens the folder under the cursor, also when `--folder` makes Enter choose it.
+    if (ui.cfg.pick && k === "Ctrl+PageDown" && !act && item()?.is_dir) return void (e.preventDefault(), openItem(tab(), undefined, true));
+    if (ui.cfg.pick?.filter.length && !act && k.toLowerCase() === ui.cfg.pick_key.toLowerCase()) return void (e.preventDefault(), (ui.pickAll = !ui.pickAll));
     if (!act && e.altKey && !e.ctrlKey && /^Key[A-Z]$|^Digit/.test(e.code)) {
       ui.quick = k.split("+").pop().toLowerCase();
       return quickJump(e);
@@ -833,6 +865,7 @@
       if (k === "Enter") runCmdline();
       else if (k === "Esc") ui.cmd = "";
       else return cmdInput.focus();
+      if (jump) cmdInput.blur();
       return e.preventDefault();
     }
     // Thumbnails: arrows move in two dimensions.
@@ -846,15 +879,33 @@
       e.preventDefault();
       if (k === "Left") return actions.parent();
       const it = item();
-      return it?.is_dir && it.name !== ".." && openItem(tab());
+      return it?.is_dir && it.name !== ".." && openItem(tab(), undefined, true);
     }
     if (act) {
       e.preventDefault();
       if (act === "action_menu") menuKeyAt = Date.now();
+      invoke("action_ran", { action: act, viaMenu: false, canShow: false }).catch(() => {});
       actions[act]?.();
+    } else if (plain && jump && !inCmd) {
+      ui.quick = e.key;
+      quickJump(e);
     } else if (plain) {
       cmdInput.focus(); // the character lands in the command line
     }
+  }
+
+  /** A line for Show keys as they arrive: the key as the web view reports it, as Coxswain reads
+   *  it, and the action it runs. Esc twice closes. */
+  function keySeen(e, k) {
+    e.preventDefault();
+    const m = ui.modal;
+    if (k === "Esc" && m.esc) return void (ui.modal = null);
+    m.esc = k === "Esc";
+    const mods = ["ctrlKey", "altKey", "shiftKey", "metaKey"].filter((x) => e[x]).map((x) => x.slice(0, -3)).join("+");
+    const act = k && ui.cfg.keymap[k];
+    // Written as F1 writes keys: Alt+U.
+    const read = k ? `${k.replace(/\+([a-z])$/, (_, c) => "+" + c.toUpperCase())} → ${act ? ui.cfg.actions[act][0] : t("keytest.unbound")}` : t("keytest.unread");
+    m.lines = [...m.lines, `key "${e.key}" code ${e.code}${mods ? " " + mods : ""} → ${read}`].slice(-12);
   }
 
   function quickJump(e) {
@@ -868,7 +919,7 @@
   const fkeys = $derived.by(() => {
     if (!ui.cfg) return [];
     return Array.from({ length: 10 }, (_, i) => {
-      const act = ui.cfg.keymap[`F${i + 1}`];
+      const act = fkeyAction(ui.cfg.keymap[`F${i + 1}`], ui.cfg.pick, ui.cfg.pick_refused);
       return { n: i + 1, act, label: act ? ui.cfg.actions[act][0] : "" };
     });
   });
@@ -902,9 +953,10 @@
       {/if}
     </div>
 
+    {#if ui.cfg.pick}<PickBar />{/if}
     <label class="cmdline">
       <span class="prompt">{#if ui.quick !== null}{t("quick_search", { query: ui.quick })}{:else}<bdi dir="ltr">{tab().dir}</bdi> ❯{/if}</span>
-      <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
+      <input class="cmd" dir="auto" bind:this={cmdInput} bind:value={ui.cmd} spellcheck="false" autocomplete="off" placeholder={ui.cfg.settings.typing === "find" && ui.cfg.actions.command_line?.[1] ? t("tui.command_line_key", { key: ui.cfg.actions.command_line?.[1] ?? "" }) : t("app.cmd_placeholder")} aria-label={t("app.cmd_line")} />
       {#if ui.searchable}
         {@const s = ui.searchable}
         <!-- Make PDF searchable under way: which one, for how long, what OCRmyPDF said last. -->
@@ -915,8 +967,8 @@
         {@const j = ui.job}
         <!-- A file operation under way: the item it is on, a bar of how far, and Stop (Esc stops too while it has the focus). -->
         <span class="job">
-          <span class="status">{t(j.all > 1 ? "status.busy_of" : "status.busy", { what: j.name, n: j.at + 1, all: j.all })}{j.stopping ? ` · ${t("searchable.stopping")}` : ""}</span>
-          <progress max={Math.max(j.all, 1)} value={j.at} aria-label={t("status.busy", { what: j.name })}></progress>
+          <span class="status">{t(j.all > 1 ? "status.busy_of" : "status.busy", { what: j.name, n: j.at + 1, all: j.all })}{j.bytes ? ` · ${j.bytes}` : ""}{j.stopping ? ` · ${t("searchable.stopping")}` : ""}</span>
+          <progress max={Math.max(j.all, 1)} value={j.at + (j.part ?? 0)} aria-label={t("status.busy", { what: j.name })}></progress>
           <button class="update" title={t("searchable.stop_key", { key: "Esc" })} disabled={j.stopping} onclick={stopJob}>{t("searchable.stop")}</button>
         </span>
       {/if}

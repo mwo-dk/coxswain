@@ -5,6 +5,8 @@
 //! the terminal app's. Here too: reading and writing the values, where `--settings=<name>`
 //! opens, the search level, the status lines of search, and what can leave the machine.
 
+use std::path::{Path, PathBuf};
+
 use serde::Serialize;
 use serde_json::Value;
 
@@ -242,6 +244,7 @@ pub const OPTIONS: &[Opt] = &[
     opt("show_hidden", &["show_hidden"], Behaviour, &[]),
     opt("confirm_delete", &["confirm_delete"], Behaviour, &[]),
     opt("right_click", &["right_click"], Behaviour, &[]),
+    opt("typing", &["typing"], Behaviour, &[]),
     opt("hints", &["hints"], Behaviour, &[]),
     opt("folder_sizes", &["folder_sizes"], Behaviour, &[Cpu]),
     opt("disk_images", &["archive", "disk_images"], Behaviour, &[]),
@@ -306,7 +309,7 @@ pub const GROUPS: &[Group] = &[
     group(Looks, "looks_both", None, &["language", "glyphs"]),
     group(Looks, "looks_tui", Some("settings.theme_tui"), &["tui_theme"]),
     group(Looks, "looks_gui", Some("settings.theme_gui"), &["theme", "font", "mono_font", "icon_font", "font_size", "line_height"]),
-    group(Behaviour, "panels", Some("settings.group.panels"), &["show_hidden", "confirm_delete", "right_click", "hints", "folder_sizes", "disk_images", "repos_order"]),
+    group(Behaviour, "panels", Some("settings.group.panels"), &["show_hidden", "confirm_delete", "right_click", "typing", "hints", "folder_sizes", "disk_images", "repos_order"]),
     group(Behaviour, "git", Some("settings.group.git"), &["git_last_commit", "git_tool", "git_prefer_git"]),
     group(Behaviour, "programs", Some("settings.group.programs"), &["editor", "viewer", "terminal", "bom_viewer", "provenance_viewer"]),
     group(Privacy, "updates", None, &["check_updates"]),
@@ -355,9 +358,9 @@ pub fn search(query: &str) -> Vec<&'static Opt> {
 
 /// The value of every option, by name, as config.toml holds it now (an unset optional one as
 /// an empty text).
-pub fn values(cfg: &Config) -> serde_json::Map<String, Value> {
+pub fn values(cfg: &Config, gui: bool) -> serde_json::Map<String, Value> {
     let all = serde_json::to_value(cfg).unwrap_or_default();
-    OPTIONS
+    let mut map: serde_json::Map<String, Value> = OPTIONS
         .iter()
         .map(|o| {
             let v = o
@@ -375,7 +378,11 @@ pub fn values(cfg: &Config) -> serde_json::Map<String, Value> {
                 },
             )
         })
-        .collect()
+        .collect();
+    // The two that differ by app, as the app that asks has them.
+    map.insert("right_click".into(), if cfg.right_click_menu(gui) { "menu" } else { "mark" }.into());
+    map.insert("typing".into(), if cfg.type_to_jump(gui) { "find" } else { "command" }.into());
+    map
 }
 
 /// `text` (a config.toml) with the options in `changes` set, its comments and layout kept.
@@ -459,7 +466,7 @@ pub fn open_at(section: &str) -> (Area, Option<&'static str>) {
 
 /// Groups that Settings opens at by name, in both apps, with their area (1.x's names of
 /// sections, `meaning` and `ask`, open Overview).
-const PLACES: [(&str, Area); 4] = [("models", Search), ("disk", Privacy), ("preview_tools", Previews), ("chess_engines", Games)];
+const PLACES: [(&str, Area); 5] = [("models", Search), ("disk", Privacy), ("disk_yours", Privacy), ("preview_tools", Previews), ("chess_engines", Games)];
 
 /// Every name `open_at` knows, with where it opens: for the desktop app, which opens Settings
 /// at sections given by notices too.
@@ -571,6 +578,8 @@ pub enum Part {
     Ask,
     /// Apache Tika, for other formats: only while it is turned on.
     Tika,
+    /// calibre, for e-books: only while e-books are searched.
+    Ebooks,
     /// Transcripts with Whisper: only while it is turned on.
     Whisper,
 }
@@ -595,6 +604,9 @@ pub enum Step {
     Pause,
     Resume,
     StopTranscribing,
+    /// A download that failed: try it now, or show the runtime's own error.
+    RetryNow,
+    Details,
 }
 
 impl Step {
@@ -609,6 +621,8 @@ impl Step {
             Step::Pause => "settings.step.pause",
             Step::Resume => "settings.step.resume",
             Step::StopTranscribing => "settings.step.stop_transcribing",
+            Step::RetryNow => "settings.step.retry_now",
+            Step::Details => "settings.step.details",
         })
     }
 }
@@ -630,6 +644,8 @@ pub struct Line {
     pub poor: Option<crate::setup::Poor>,
     /// Work under way: files done of all, for a progress bar.
     pub bar: Option<(usize, usize)>,
+    /// The runtime's own error, which *Details* shows.
+    pub details: Option<String>,
 }
 
 /// A progress bar of `width` cells for the terminal: `done` of `total`, filled from the left.
@@ -743,6 +759,7 @@ pub fn status(
     st: &Status,
     helper: bool,
     poor: &[crate::setup::Poor],
+    images: &std::collections::BTreeMap<String, String>,
 ) -> Vec<Line> {
     let line = |part, key: &str, text: String| Line {
         part,
@@ -754,6 +771,7 @@ pub fn status(
         also: None,
         poor: None,
         bar: None,
+        details: None,
     };
     let mut names = line(
         Part::Names,
@@ -864,28 +882,15 @@ pub fn status(
     }
     let mut lines = vec![names, text, meaning, ask];
     if s.tika && s.text {
-        use crate::extract::tika::State;
-        let image = crate::images::short(&crate::config::PreviewConfig::default().images["tika"]).to_string();
-        let mut tika = line(Part::Tika, "settings.status.tika", t!("settings.status.not_running"));
-        match st.tika.as_ref().filter(|_| helper) {
-            None => {}
-            Some(State::Ready) => tika.text = t!("settings.status.tika_ready"),
-            Some(State::Pulling(progress)) => {
-                tika.text = t!("settings.status.tika_pulling", "image" => image);
-                tika.note = (!progress.is_empty()).then(|| progress.clone());
-            }
-            Some(State::NoRuntime) => {
-                tika.text = t!("settings.status.off");
-                tika.note = Some(t!("settings.status.tika_no_runtime"));
-                tika.bad = true;
-            }
-            Some(State::Failed(why)) => {
-                tika.text = t!("settings.status.off");
-                tika.note = Some(t!("settings.status.failed", "why" => why));
-                tika.bad = true;
-            }
-        }
-        lines.push(tika);
+        let image = crate::images::short(&images["tika"]).to_string();
+        let tika = line(Part::Tika, "settings.status.tika", t!("settings.status.not_running"));
+        lines.push(pull_line(tika, st.tika.as_ref().filter(|_| helper), "Tika", &image, "settings.status.tika_ready"));
+    }
+    // calibre, while e-books are searched: the helper says when.
+    if let Some(state) = st.ebooks.as_ref().filter(|_| helper) {
+        let image = crate::images::short(&images["calibre"]).to_string();
+        let calibre = line(Part::Ebooks, "settings.status.ebooks", t!("settings.status.not_running"));
+        lines.push(pull_line(calibre, Some(state), "calibre", &image, "settings.status.ebooks_ready"));
     }
     if s.whisper && s.text {
         use crate::transcribe::State;
@@ -915,13 +920,19 @@ pub fn status(
                     w.bar = Some((*done as usize, *total as usize));
                 }
                 State::Pulling(progress) => {
-                    let image = crate::images::short(&crate::config::PreviewConfig::default().images["whisper"]).to_string();
+                    let image = crate::images::short(&images["whisper"]).to_string();
                     w.note = Some(format!("{} {progress}", t!("settings.status.tika_pulling", "image" => image)).trim().to_string());
                 }
                 State::Off(why) => {
                     w.note = Some(t!("settings.status.failed", "why" => why));
                     w.bad = true;
                 }
+            }
+            // The image could not be pulled: why and when it is tried again, with Retry now.
+            if let Some(p) = ts.pull.as_ref().filter(|p| matches!(p, crate::images::pulls::State::Waiting { .. } | crate::images::pulls::State::Unpulled { .. })) {
+                let image = crate::images::short(&images["whisper"]).to_string();
+                let l = pull_line(w.clone(), Some(p), "Whisper", &image, "");
+                (w.note, w.step, w.also, w.details, w.bad) = (l.note, l.step, l.also, l.details, l.bad);
             }
             if ts.waiting > 0 {
                 match w.step {
@@ -934,6 +945,48 @@ pub fn status(
         lines.push(w);
     }
     lines
+}
+
+/// The line of a tool that runs from a pulled image (Tika, calibre): ready, downloading, off
+/// with the reason, or waiting to be tried again, with *Retry now* and the runtime's own error
+/// under *Details*.
+fn pull_line(mut l: Line, state: Option<&crate::images::pulls::State>, name: &str, image: &str, ready: &str) -> Line {
+    use crate::images::pulls::State;
+    match state {
+        None => {}
+        Some(State::Ready) => l.text = t!(ready),
+        Some(State::Pulling(progress)) => {
+            l.text = t!("settings.status.tika_pulling", "image" => image);
+            l.note = (!progress.is_empty()).then(|| progress.clone());
+        }
+        Some(State::NoRuntime) => {
+            l.text = t!("settings.status.off");
+            l.note = Some(t!("settings.status.tika_no_runtime"));
+            l.bad = true;
+        }
+        Some(State::Waiting { fault, at, .. }) => {
+            l.text = t!("settings.status.tika_waiting");
+            l.note = Some(t!("settings.status.pull_again", "name" => name, "fault" => fault.text(), "time" => crate::i18n::time(*at)));
+        }
+        Some(State::Unpulled { fault, .. }) => {
+            l.text = t!("settings.status.off");
+            l.note = Some(t!("settings.status.pull_unpulled", "name" => name, "fault" => fault.text()));
+            l.bad = true;
+        }
+        Some(State::Failed(why)) => {
+            l.text = t!("settings.status.off");
+            l.note = Some(t!("settings.status.failed", "why" => why));
+            l.bad = true;
+        }
+    }
+    if matches!(state, Some(State::Waiting { .. } | State::Unpulled { .. })) {
+        l.step = Some(Step::RetryNow);
+    }
+    if let Some(details) = state.and_then(State::details) {
+        l.also = Some(Step::Details);
+        l.details = Some(details.to_string());
+    }
+    l
 }
 
 // ---------------------------------------------------------------- privacy
@@ -1029,9 +1082,47 @@ pub(crate) fn registry(image: &str) -> &str {
     }
 }
 
+/// What an Add box under *Finding files → Folders* adds, in both apps: the folder typed, a
+/// relative one taken from the panel's folder, or from the nearest real folder above it when
+/// the panel is inside an archive or another view (the home folder when none is); nothing when
+/// the box is empty.
+pub fn folder_to_add(panel: &Path, input: &str) -> Option<PathBuf> {
+    let input = input.trim();
+    if input.is_empty() {
+        return None;
+    }
+    let home = crate::dirs::home_dir().unwrap_or_default();
+    let base = panel.ancestors().find(|p| p.is_dir()).unwrap_or(&home);
+    let p = crate::fs::resolve(base, input);
+    Some(crate::fs::canonical(&p).unwrap_or(p))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A folder typed in an Add box is taken from the panel's folder, or from the real folder
+    /// the archive the panel is in sits in; an empty box adds nothing, not the panel's folder.
+    #[test]
+    fn a_folder_added_is_never_inside_an_archive() {
+        let d = crate::fs::Scratch::named("settings-add-folder");
+        std::fs::create_dir_all(d.join("docs")).unwrap();
+        std::fs::write(d.join("a.zip"), b"PK").unwrap();
+        let real = crate::fs::canonical(&d).unwrap();
+        assert_eq!(folder_to_add(&d.join("a.zip/inner"), ""), None);
+        assert_eq!(folder_to_add(&d, "  "), None);
+        assert_eq!(folder_to_add(&d.join("a.zip/inner"), "docs"), Some(real.join("docs")));
+        assert_eq!(folder_to_add(&d, "docs"), Some(real.join("docs")));
+        assert_eq!(folder_to_add(&d.join("a.zip"), &real.join("docs").display().to_string()), Some(real.join("docs")));
+        // `.` is the panel's folder, or the one its archive sits in; `~` the home folder.
+        assert_eq!(folder_to_add(&d, "."), Some(real.clone()));
+        assert_eq!(folder_to_add(&d.join("a.zip/inner"), "."), Some(real.clone()));
+        let home = crate::dirs::home_dir().unwrap();
+        let home = crate::fs::canonical(&home).unwrap_or(home);
+        assert_eq!(folder_to_add(&d, "~"), Some(home.clone()));
+        // A panel with no real folder above it (a view of its own): relative to home.
+        assert_eq!(folder_to_add(Path::new("no-such-view/x"), "."), Some(home));
+    }
 
     #[test]
     fn settings_every_option_is_explained_in_every_language() {
@@ -1077,7 +1168,7 @@ mod tests {
     #[test]
     fn settings_values_follow_the_description() {
         let cfg = Config::default();
-        let v = values(&cfg);
+        let v = values(&cfg, false);
         assert_eq!(v.len(), OPTIONS.len());
         // Each one is found where the description says, unset optional ones as empty text.
         assert_eq!(v["search_text"], Value::Bool(cfg.search.text));
@@ -1226,6 +1317,8 @@ mod tests {
         assert_eq!(open_at("previews"), (Previews, None));
         assert_eq!(open_at("check_updates"), (Privacy, Some("check_updates")));
         assert_eq!(open_at("disk"), (Privacy, Some("disk")));
+        // A kept sync folder's notice opens Disk use at the user's own files, not at its top.
+        assert_eq!(open_at("disk_yours"), (Privacy, Some("disk_yours")));
         // Chess moved from Previews to Games: its old names open there.
         assert_eq!(open_at("games"), (Games, None));
         assert_eq!(open_at("chess_engines"), (Games, Some("chess_engines")));
@@ -1260,6 +1353,7 @@ mod tests {
             error: Some("stalled".into()),
             clouds: vec![("OneDrive".into(), "/c".into())],
             tika: None,
+            ebooks: None,
             transcripts: None,
             outdated: None,
             changes_left: 0,
@@ -1370,6 +1464,7 @@ mod tests {
             tools: vec![],
             clouds: vec![],
             tika: None,
+            ebooks: None,
             transcripts: None,
             outdated: None,
             changes_left: 0,
@@ -1377,7 +1472,7 @@ mod tests {
         };
         s.text = true;
         s.meaning = false;
-        let lines = status(&s, &st, true, &[]);
+        let lines = status(&s, &st, true, &[], &crate::preview_tools::default_images());
         assert_eq!(
             lines.iter().map(|l| l.step).collect::<Vec<_>>(),
             [
@@ -1400,7 +1495,7 @@ mod tests {
                 "12\u{202f}345\u{202f}678".into()
             )
         );
-        assert_eq!(status(&s, &st, false, &[])[1].step, Some(Step::Start));
+        assert_eq!(status(&s, &st, false, &[], &crate::preview_tools::default_images())[1].step, Some(Step::Start));
         s.meaning = true;
         s.meaning_engine = "ollama".into();
         s.ask_model = "qwen3:8b".into();
@@ -1408,7 +1503,7 @@ mod tests {
             meaning_error: Some("http://localhost:11434: Connection refused".into()),
             ..st
         };
-        let lines = status(&s, &st, true, &[]);
+        let lines = status(&s, &st, true, &[], &crate::preview_tools::default_images());
         assert!(
             lines[2].bad
                 && lines[2]
@@ -1426,7 +1521,7 @@ mod tests {
             meaning_pending: 245_762,
             ..st
         };
-        let lines = status(&s, &st, true, &[]);
+        let lines = status(&s, &st, true, &[], &crate::preview_tools::default_images());
         assert_eq!(lines[2].bar, Some((23_611, 269_373)));
         assert_eq!(bar(23_611, 269_373, 20), "█░░░░░░░░░░░░░░░░░░░");
         assert_eq!(
@@ -1444,7 +1539,7 @@ mod tests {
             meaning_changing: 1,
             ..st
         };
-        let lines = status(&s, &st, true, &[]);
+        let lines = status(&s, &st, true, &[], &crate::preview_tools::default_images());
         assert_eq!(lines[2].bar, None);
         assert_eq!(
             lines[2].note.as_deref(),
@@ -1461,7 +1556,7 @@ mod tests {
         let whisper = |state, waiting| {
             let ts = crate::transcribe::Status { waiting, state, ..Default::default() };
             let st = Status { transcripts: Some(ts), ..st.clone() };
-            let l = status(&s, &st, true, &[]).into_iter().find(|l| l.part == Part::Whisper).unwrap();
+            let l = status(&s, &st, true, &[], &crate::preview_tools::default_images()).into_iter().find(|l| l.part == Part::Whisper).unwrap();
             (l.step, l.also)
         };
         use crate::transcribe::State as T;

@@ -24,7 +24,7 @@ one anything and sends nothing anywhere.
 
 | To | Desktop app | Terminal app |
 |---|---|---|
-| See your clouds | The *Clouds* section of the [sidebar](sidebar.md) (**Ctrl+B** shows it) | **Alt+F1** (left panel) or **Alt+F2** (right panel): a list with *Type a path…* first, then *Cloud: OneDrive – Personal* and the others, then *Bin* |
+| See your clouds | The *Clouds* section of the [sidebar](sidebar.md) (**Ctrl+B** shows it) | **Alt+F1** (left panel) or **Alt+F2** (right panel): a list with *Type a path…* first, then the drives, then *Cloud: OneDrive – Personal* and the others, then *Bin* |
 | Go to one | Click it: the active tab of the active pane goes to its folder | Move to it and press **Enter**: that panel goes to its folder |
 | Fold the section away | Click *Clouds* | – |
 
@@ -53,7 +53,7 @@ sorted by name, in the language's alphabet ([Sorting](../panels/sorting.md)).
   entry for the folder the active tab is in is highlighted, as in the other sections. The list is
   read again with the drives, every 30 seconds while the window is in view, so a cloud you mount
   meanwhile shows up.
-- Terminal app: **Alt+F1** and **Alt+F2** open a list (the clouds, the [bin](../files/bin.md),
+- Terminal app: **Alt+F1** and **Alt+F2** open a list (the drives, the clouds, the [bin](../files/bin.md),
   a boot environment or jail on FreeBSD, the phone's folders in Termux). *Type a path…* at the
   top gives the *Go to folder* line. The list is read each time you
   open it. When the cloud folders do not answer within a moment (a mount whose server has gone),
@@ -67,11 +67,11 @@ keys are those of the sidebar (`toggle_sidebar`) and of going to a folder (`goto
 
 ## In the terminal app
 
-The terminal app has no sidebar: its clouds are under **Alt+F1** and **Alt+F2**, as NC's drive
-menu, with *Cloud:* before each name. Everything else is the same.
+The terminal app has no sidebar: its drives and clouds are under **Alt+F1** and **Alt+F2**, as NC's
+drive menu, with *Cloud:* before each cloud's name. Everything else is the same.
 
-![The terminal app in Classic blue with the Left panel list open over the panels: Type a path… highlighted at the top, then Cloud: Dropbox – Personal, Cloud: Nextcloud – demo@cloud.example.com and Bin: 2 items · 43.4 KB](../screenshots/tui-clouds.png)
-*Alt+F1 in the terminal app: the clouds under the line that types a path.*
+![The terminal app in Classic blue with the Left panel list open over the panels: Type a path… highlighted at the top, then System · 46.2 GB free, Cloud: Dropbox – Personal, Cloud: Nextcloud – demo@cloud.example.com and Bin: 2 items · 43.4 KB](../screenshots/tui-clouds.png)
+*Alt+F1 in the terminal app: the drives and clouds under the line that types a path.*
 
 ## Questions
 

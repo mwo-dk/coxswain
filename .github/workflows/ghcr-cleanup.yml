@@ -1,0 +1,79 @@
+name: GHCR cleanup
+
+# Deletes the superseded untagged versions of our own images, ghcr.io/mwo-dk/coxswain-*
+# (tools/ghcr-cleanup.py): never a tagged one, a digest pinned on master or in the last three
+# releases, what those hold (each processor's manifest, attestations, signatures), or the newest
+# five images. It lists every version as kept or to delete first, and a pin it cannot read stops
+# it before any deletion.
+#
+# Runs after each image workflow's push from master (workflow_call), weekly by itself after the
+# Saturday rebuilds, and by hand. Only master deletes, and then only:
+# - by hand, with dry_run unticked;
+# - scheduled or after a push, when the repository variable GHCR_CLEANUP_DELETE is `true`, set
+#   once a dry run's list has been checked. Until then those runs are dry too.
+# A pull request that changes the cleanup runs its tests and a dry run.
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: The package to clean, as coxswain-stockfish
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: List what would be deleted, delete nothing
+        type: boolean
+        default: true
+      package:
+        description: One package (as coxswain-duckdb); empty for every one master pins
+        type: string
+        default: ""
+  schedule:
+    - cron: "43 4 * * 6" # Saturdays, 04:43 UTC: after the images' 03:37-03:57 rebuilds
+  pull_request:
+    paths:
+      - .github/workflows/ghcr-cleanup.yml
+      - tools/ghcr-cleanup.py
+      - tools/test_ghcr_cleanup.py
+      - tools/images-pin.py
+
+permissions:
+  contents: read
+
+jobs:
+  clean:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: ghcr-cleanup-${{ inputs.package || 'all' }}-${{ github.ref }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest tools/test_ghcr_cleanup.py
+      - name: Clean up, or list what it would delete
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT: ${{ github.event_name }}
+          WORKFLOW: ${{ github.workflow }}
+          REF: ${{ github.ref }}
+          DRY_RUN: ${{ format('{0}', inputs.dry_run) }}
+          ALLOW: ${{ vars.GHCR_CLEANUP_DELETE }}
+          PACKAGE: ${{ inputs.package }}
+        run: |
+          mode=--dry-run
+          if [ "$REF" = refs/heads/master ] && [ "$EVENT" != pull_request ]; then
+            # Started by hand here (a called run carries its caller's event and name).
+            if [ "$EVENT" = workflow_dispatch ] && [ "$WORKFLOW" = "GHCR cleanup" ]; then
+              if [ "$DRY_RUN" = false ]; then mode=--delete; fi
+            elif [ "$ALLOW" = true ]; then
+              mode=--delete
+            fi
+          fi
+          echo "Mode: $mode"
+          python3 tools/ghcr-cleanup.py "$mode" ${PACKAGE:+"$PACKAGE"}

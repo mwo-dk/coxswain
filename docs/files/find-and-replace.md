@@ -100,12 +100,13 @@ to write: **Alt+R** says *Find and replace works on folders on a disk, not here.
   folder's own handle as well, and keeps the file's hidden attribute and its creation date.
 - **Only the files previewed, as previewed.** The preview goes through the folders by their
   handles, never through a link (on Windows never through a junction or mount point either), and notes each file it read and each folder on the way to one:
-  which file it is and when its entry last changed, and for a file its content. The writing goes
-  the same way, only into those folders, and writes a file only while it is still exactly that
-  file with that content. A file saved by another program, moved, swapped or put there
-  meanwhile, or a folder renamed or swapped in, is left as it is: *Not the same file any more:
-  left as it is.* Anything that changes a folder after the preview (a file made or removed in
-  it) leaves everything below that folder as it is: preview again.
+  which file it is and where, and for a file its content. The writing goes the same way, only
+  into those folders, and writes a file only while it is still that file at that place with that
+  content. A file saved by another program, moved, swapped or put there meanwhile, or a folder
+  renamed or swapped in, is left as it is: *Not the same file any more: left as it is.* So is a
+  file made read-only since the preview. When its entry last changed (its ctime) does not count:
+  FreeBSD's UFS moves it by itself, up to seconds after a file is saved, which would leave a
+  quick second replace undone.
   Folders on another disk or mount are not gone into: *On another disk or mount: not gone into.*
 - Each file is written whole or not at all; the files are done one after the other.
 
@@ -119,7 +120,7 @@ moved) is left as it is, with a line saying why; the others go back. Like every 
 for the app run. The copies of a run that has ended go at the next start of either app or the
 search helper; until then [Disk use](../reference/disk-use.md#the-rows) lists them as
 *coxswain-replace-…/* under *Your own files, kept aside by Coxswain*, whose **Remove** takes only
-those of runs that have ended.
+those of runs that have ended, at once (before 2.36.0, only once they were ten minutes old).
 
 ## In the terminal app
 
@@ -158,8 +159,9 @@ again since is left as it is, and the list says so.
 #### Why was a file not changed?
 
 It is in *Left out* with its reason: binary, over 16 MB, read-only, a link, only in the cloud, or
-in an encoding that has no letter for the new text. A file that changed after the preview, or one
-in a folder that changed (a file made or removed in it), is left as it is too: preview again.
+in an encoding that has no letter for the new text. A file that changed after the preview (saved,
+moved, swapped or made read-only), or one in a folder renamed or swapped since, is left as it is
+too: preview again.
 
 #### Does it change my line endings or the file's encoding?
 

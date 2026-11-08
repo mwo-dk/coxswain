@@ -492,6 +492,21 @@ impl std::io::Seek for Metered {
     }
 }
 
+/// The time a reader's limit (`Text::until`) is measured in. A test sets `CLOCK` on its own
+/// thread to stand still, and moves it itself: its proof then counts no real time.
+pub(crate) fn now() -> std::time::Instant {
+    #[cfg(test)]
+    if let Some(t) = CLOCK.get() {
+        return t;
+    }
+    std::time::Instant::now()
+}
+
+#[cfg(test)]
+thread_local! {
+    pub(crate) static CLOCK: std::cell::Cell<Option<std::time::Instant>> = const { std::cell::Cell::new(None) };
+}
+
 /// Text as a reader makes it: kept, as far as the reader keeps it (`MAX_TEXT`), or handed on
 /// to a sink a few lines at a time and never held whole (`Text::to`), for the passages of a
 /// whole document (`whole_lines`). A reader stops when its text is `MAX_TEXT` long: `len` is
@@ -543,7 +558,7 @@ impl<'a> Text<'a> {
     pub fn late(&mut self) -> bool {
         self.late |= self
             .until
-            .is_some_and(|u| std::time::Instant::now() >= u + self.waited);
+            .is_some_and(|u| now() >= u + self.waited);
         self.late
     }
 
@@ -589,9 +604,9 @@ impl<'a> Text<'a> {
             && let Some(at) = text.rfind('\n')
         {
             let at = self.held.len() - text.len() + at;
-            let began = std::time::Instant::now();
+            let began = now();
             sink(&self.held[..=at]);
-            self.waited += began.elapsed();
+            self.waited += now() - began;
             self.held.drain(..=at);
         }
     }

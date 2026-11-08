@@ -166,6 +166,20 @@ overview alone answers.
 The words are recognised in the app's languages. A question they miss gets the closest excerpts
 alone, as before.
 
+**A player in a game database.** A games database is thousands of near-alike move passages, so
+the closest of them say little about a player. When a question names a player of a game file
+in the folders Find reads (a PGN file, a SCID or ChessBase database over 4 MB, whose games
+table is kept: [Finding games](../previews/chess.md#finding-games)), Ask is first given, from
+that table, a summary of the player whose name holds most of the question's words: how many
+games and of which years, the results as White and as Black, the openings and the opponents met
+most, the wins over the highest rated and a few games, each with its number (*game 3898508:
+Aronian, Levon – Carlsen, Magnus · 41st Olympiad Open 2014 · …*). It takes up to a quarter of
+the room, one source per database; **Enter** on the source (desktop: a click on its number in
+the answer) opens the database. *Who is Levon Aronian and
+what do we have about him?* is answered from his games in Lumbra's Gigabase, all 12 million of
+them looked through, not from the eight passages nearest the question. Nothing is sent
+anywhere: it is read on this machine, as the rest.
+
 ## What you see
 
 - **Not set up yet**, the *Ask* row says what is missing: *Ask your files a question · needs
@@ -413,6 +427,13 @@ or in invisible characters. Coxswain makes such words weaker, not powerless:
 A file that says the opposite of another can still win: the model weighs what the sources say,
 and a plain sentence in a file looks like any other. When an answer sounds wrong, look at its
 sources.
+
+#### Can Ask answer about a chess player in my games databases?
+
+Yes, from the games tables of the game files Find reads ([A player in a game
+database](#how-much-it-reads)): *who is Levon Aronian?* gets his games' count, years, results by
+colour, openings, opponents and best wins as a source, and the answer cites the database.
+Words of three letters or more count; the player whose name holds most of them is taken.
 
 #### Why does a source say "and 3 similar files"?
 

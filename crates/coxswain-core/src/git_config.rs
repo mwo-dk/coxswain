@@ -67,7 +67,11 @@ pub fn command(dir: &Path) -> std::process::Command {
 
 /// The config as git uses it in `dir`, by heading and key, each key's winner first.
 pub fn read(dir: &Path) -> Result<Vec<Entry>, String> {
-    let out = command(dir).output().map_err(|e| e.to_string())?;
+    // A FIFO or a device the repository names would hold this read for ever.
+    if !crate::git::readable(dir) {
+        return Err(crate::t!("gitconfig.failed"));
+    }
+    let out = crate::git::output(command(dir)).ok_or_else(|| crate::t!("gitconfig.failed"))?;
     if !out.status.success() {
         let said = String::from_utf8_lossy(&out.stderr).trim().to_string();
         return Err(if said.is_empty() {
@@ -83,11 +87,9 @@ pub fn read(dir: &Path) -> Result<Vec<Entry>, String> {
 /// The name of the repository `dir` is in (its work tree's folder), for the view's title.
 pub fn repo_name(dir: &Path) -> Option<String> {
     let dir = dir.ancestors().find(|a| a.is_dir())?;
-    let out = crate::git::command_with(dir, &[])
-        .args(["rev-parse", "--show-toplevel"])
-        .output()
-        .ok()
-        .filter(|o| o.status.success())?;
+    let mut c = crate::git::command_with(dir, &[]);
+    c.args(["rev-parse", "--show-toplevel"]);
+    let out = crate::git::output(c).filter(|o| o.status.success())?;
     let top = String::from_utf8_lossy(&out.stdout).trim().to_string();
     Some(Path::new(&top).file_name()?.to_string_lossy().into_owned())
 }

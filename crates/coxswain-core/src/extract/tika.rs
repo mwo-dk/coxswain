@@ -23,6 +23,7 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
+use crate::t;
 
 /// Formats only Tika reads here: OneNote, XPS and OpenXPS, compiled HTML help, Outlook data
 /// files, MHTML web archives, Hangul word processor files, Access databases.
@@ -58,19 +59,7 @@ const REFUSED_WEIGHS: u32 = 10;
 /// each) is not started again for every one; the files of that minute are left unread.
 const MOST_STARTS: usize = 3;
 
-/// What Settings and the status lines say of Tika.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum State {
-    /// The image is downloading: the runtime's last progress line.
-    Pulling(String),
-    /// The image is there: files are read.
-    Ready,
-    /// Neither podman nor docker is installed (or `[preview] container` is off).
-    NoRuntime,
-    /// The image could not be pulled, or the server would not start: why.
-    Failed(String),
-}
+use crate::images::pulls::State;
 
 /// Tika as the settings set it.
 struct Tika {
@@ -138,6 +127,9 @@ pub fn state() -> Option<State> {
     if let Some(line) = crate::images::pulling().get(&t.image) {
         return Some(State::Pulling(line.clone()));
     }
+    if let Some(failed) = crate::images::pulls::failure(&t.image) {
+        return Some(failed);
+    }
     if let Some(why) = FAILED.lock().unwrap().clone() {
         return Some(State::Failed(why));
     }
@@ -150,23 +142,27 @@ pub fn state() -> Option<State> {
 
 /// When the helper starts: with Tika on and its image not pulled yet, pull it in the
 /// background (turning the option on, under its size and cost, is the click that asks for
-/// it), then `pulled` to read the files it can now read. Nothing when Tika is off.
+/// it), then `pulled` to read the files it can now read. Nothing when Tika is off. A pull that
+/// fails is tried again by itself (`images::pulls::until_there`), and an image pulled another way (by
+/// hand) is noticed within a minute.
 pub fn prepare(pulled: impl FnOnce() + Send + 'static) {
     let Some(Ok(t)) = tika() else { return };
     if crate::tools::image_size(&t.rt, &t.image).is_some() {
         PULLED.store(true, Ordering::Relaxed);
         return;
     }
-    std::thread::spawn(move || match crate::images::pull(&t.rt, &t.image) {
-        Ok(()) => {
-            PULLED.store(true, Ordering::Relaxed);
-            used(&t.image);
-            pulled();
-        }
-        Err(e) => {
-            crate::helper::note(format_args!("Apache Tika: {e}"));
-            *FAILED.lock().unwrap() = Some(e);
-        }
+    std::thread::spawn(move || {
+        crate::images::pulls::until_there(
+            &t.image,
+            "Apache Tika",
+            || crate::images::pull(&t.rt, &t.image),
+            || crate::tools::image_size(&t.rt, &t.image).is_some(),
+            || crate::images::pulls::reachable(&t.image),
+            crate::images::pulls::rest,
+        );
+        PULLED.store(true, Ordering::Relaxed);
+        used(&t.image);
+        pulled();
     });
 }
 

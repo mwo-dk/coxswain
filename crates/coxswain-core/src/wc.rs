@@ -151,7 +151,7 @@ fn svn_db(db: &Path) -> Option<rusqlite::Connection> {
     use rusqlite::config::DbConfig;
     // `immutable`: SQLite takes no lock and opens no `-wal`, `-shm` or `-journal` beside it,
     // which a hostile working copy could make pipes or links.
-    let conn = rusqlite::Connection::open_with_flags(
+    let mut conn = rusqlite::Connection::open_with_flags(
         format!("{}?immutable=1&mode=ro", file_uri(db)?),
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
             | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX

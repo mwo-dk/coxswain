@@ -172,9 +172,14 @@ pub fn lasts(dir: &Path) -> io::Result<Lasts> {
         .collect())
 }
 
-/// git's message, or its complaint as the error.
-fn said(mut c: std::process::Command) -> io::Result<String> {
-    let o = c.output()?;
+/// The longest a switch may take: a checkout of a big tree on a slow disk takes minutes, and
+/// one ended halfway leaves a half-changed work tree, so this only stops one git waits on for
+/// ever (a FIFO `git::readable` does not look for).
+pub(crate) const SWITCH_LIMIT: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+
+/// git's message, or its complaint as the error; ended past `SWITCH_LIMIT`.
+fn said(c: std::process::Command) -> io::Result<String> {
+    let o = crate::git::output_within(c, SWITCH_LIMIT)?;
     let text = |b: &[u8]| String::from_utf8_lossy(b).trim().to_string();
     if !o.status.success() {
         let why = text(&o.stderr);
@@ -197,10 +202,13 @@ fn said(mut c: std::process::Command) -> io::Result<String> {
 /// own config: a repository from elsewhere could have it run a program or send the user's login
 /// through a proxy while it writes the files of `target` (`lfs_risk`), so that is refused too.
 fn writes_files_safely(dir: &Path, target: &str) -> io::Result<()> {
-    if !crate::git::repo_filters(dir).is_empty() {
-        return Err(io::Error::other(crate::t!("branches.has_filters")));
+    // Also a repository that is not `git::readable`.
+    match crate::git::repo_filters(dir) {
+        None => return Err(io::Error::other(crate::t!("gitconfig.failed"))),
+        Some(k) if !k.is_empty() => return Err(io::Error::other(crate::t!("branches.has_filters"))),
+        Some(_) => {}
     }
-    match lfs_risk(dir, target) {
+    match lfs_risk(dir, target)? {
         Some(key) => Err(io::Error::other(crate::t!("branches.lfs_risk", "key" => key))),
         None => Ok(()),
     }
@@ -211,13 +219,17 @@ fn writes_files_safely(dir: &Path, target: &str) -> io::Result<()> {
 /// which `core.hooksPath` does not stop), or where it puts the work tree somewhere else
 /// (`core.worktree`), so a checkout would write outside the folder the app shows.
 fn changes_refs_safely(base: &Path) -> io::Result<()> {
+    if !crate::git::readable(base) {
+        return Err(io::Error::other(crate::t!("gitconfig.failed")));
+    }
     let mut c = crate::tools::command("git");
     c.arg("-C")
         .arg(base)
         .args(["config", "--show-scope", "--name-only", "--get-regexp", r"^hook\."])
-        .env("GIT_CONFIG_COUNT", "0")
-        .stdin(std::process::Stdio::null());
-    let out = c.output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default();
+        .env("GIT_CONFIG_COUNT", "0");
+    // Not known is refused: no match exits 1, so only a git that did not end counts.
+    let out = crate::git::output(c).ok_or_else(|| io::Error::other(crate::t!("gitconfig.failed")))?;
+    let out = String::from_utf8_lossy(&out.stdout);
     if let Some(key) = out.lines().find_map(|l| {
         let (scope, key) = l.split_once('\t')?;
         matches!(scope, "local" | "worktree").then(|| key.to_string())
@@ -248,25 +260,28 @@ thread_local! {
 /// (each a program), the ssh or askpass program, a credential helper that is a command (`!…` or
 /// a path), a proxy, certificate or address override; in the `.lfsconfig` of the work tree or
 /// of `target`, an LFS server that is not https.
-fn lfs_risk(dir: &Path, target: &str) -> Option<String> {
-    let config = |args: &[&str]| -> String {
+/// An error when git could not say (it ended past its limit, or did not start).
+fn lfs_risk(dir: &Path, target: &str) -> io::Result<Option<String>> {
+    let config = |args: &[&str]| -> io::Result<String> {
         let mut c = crate::tools::command("git");
         c.arg("-C").arg(dir).arg("config").args(args).env("GIT_CONFIG_COUNT", "0").stdin(std::process::Stdio::null());
         #[cfg(test)]
         if let Some(g) = TEST_GLOBAL.with(|g| g.borrow().clone()) {
             c.env("GIT_CONFIG_GLOBAL", g).env("GIT_CONFIG_NOSYSTEM", "1");
         }
-        c.output().map(|o| String::from_utf8_lossy(&o.stdout).into_owned()).unwrap_or_default()
+        // No match exits 1: only what it printed counts.
+        let o = crate::git::output(c).ok_or_else(|| io::Error::other(crate::t!("gitconfig.failed")))?;
+        Ok(String::from_utf8_lossy(&o.stdout).into_owned())
     };
     // Without git-lfs as a filter, nothing of it runs.
-    if config(&["--get-regexp", r"^filter\.lfs\.(smudge|process)$"]).trim().is_empty() {
-        return None;
+    if config(&["--get-regexp", r"^filter\.lfs\.(smudge|process)$"])?.trim().is_empty() {
+        return Ok(None);
     }
     let own = config(&[
         "--show-scope",
         "--get-regexp",
         r"^(lfs\.customtransfer\..*|lfs\.standalonetransferagent|lfs\.extension\..*|core\.(sshcommand|askpass)|credential\.(.*\.)?helper|remote\..*\.proxy|http\.(.*\.)?(proxy.*|ssl.*|curloptresolve|pinnedpubkey))$",
-    ]);
+    ])?;
     let found = own.lines().find_map(|l| {
         let (scope, rest) = l.split_once('\t')?;
         let (key, value) = rest.split_once(' ').unwrap_or((rest, ""));
@@ -275,7 +290,7 @@ fn lfs_risk(dir: &Path, target: &str) -> Option<String> {
         (matches!(scope, "local" | "worktree") && !named_helper).then(|| key.to_string())
     });
     if found.is_some() {
-        return found;
+        return Ok(found);
     }
     let lfs_url = r"^(lfs\.(.*\.)?url|remote\..*\.lfsurl)$";
     let mut sources = vec![];
@@ -285,12 +300,15 @@ fn lfs_risk(dir: &Path, target: &str) -> Option<String> {
     if !target.starts_with('-') {
         sources.push(format!("--blob={target}:.lfsconfig"));
     }
-    sources.iter().find_map(|src| {
-        config(&[src, "--get-regexp", lfs_url])
+    for src in &sources {
+        if config(&[src, "--get-regexp", lfs_url])?
             .lines()
-            .find(|l| l.split_once(' ').is_some_and(|(_, url)| !url.trim().starts_with("https://")))
-            .map(|_| "lfs.url (.lfsconfig)".to_string())
-    })
+            .any(|l| l.split_once(' ').is_some_and(|(_, url)| !url.trim().starts_with("https://")))
+        {
+            return Ok(Some("lfs.url (.lfsconfig)".to_string()));
+        }
+    }
+    Ok(None)
 }
 
 /// The folder git runs in for `dir`: the folder a list of branches is of, or `dir` itself.
@@ -667,12 +685,12 @@ mod tests {
         // A plain http LFS server in the branch's .lfsconfig is refused; https is not.
         g(&["config", "--unset", "lfs.customtransfer.evil.path"]);
         g(&["config", "--unset", "lfs.standalonetransferagent"]);
-        assert_eq!(lfs_risk(&d, "assets"), None);
+        assert_eq!(lfs_risk(&d, "assets").unwrap(), None);
         // A credential helper by name is git's own; one that is a command is not.
         g(&["config", "credential.helper", "store"]);
-        assert_eq!(lfs_risk(&d, "assets"), None);
+        assert_eq!(lfs_risk(&d, "assets").unwrap(), None);
         g(&["config", "credential.helper", "!touch pwned"]);
-        assert_eq!(lfs_risk(&d, "assets").as_deref(), Some("credential.helper"));
+        assert_eq!(lfs_risk(&d, "assets").unwrap().as_deref(), Some("credential.helper"));
         g(&["config", "--unset", "credential.helper"]);
         g(&["switch", "-q", "assets"]);
         std::fs::write(d.join(".lfsconfig"), "[lfs]\n\turl = http://192.0.2.1/lfs\n").unwrap();
@@ -681,17 +699,17 @@ mod tests {
         assert_eq!(switch(&list, "assets").unwrap_err().to_string(), crate::t!("branches.lfs_risk", "key" => "lfs.url (.lfsconfig)"));
         // In the work tree too.
         std::fs::write(d.join(".lfsconfig"), "[lfs]\n\turl = git@192.0.2.1:lfs\n").unwrap();
-        assert!(lfs_risk(&d, "main").is_some());
+        assert!(lfs_risk(&d, "main").unwrap().is_some());
         std::fs::remove_file(d.join(".lfsconfig")).unwrap();
         g(&["switch", "-q", "assets"]);
         std::fs::write(d.join(".lfsconfig"), "[lfs]\n\turl = https://example.org/lfs\n").unwrap();
         commit("https");
         g(&["switch", "-q", "main"]);
-        assert_eq!(lfs_risk(&d, "assets"), None);
+        assert_eq!(lfs_risk(&d, "assets").unwrap(), None);
         // Without git-lfs as a filter, nothing of it runs: nothing to refuse.
         std::fs::write(&global, "").unwrap();
         g(&["config", "lfs.standalonetransferagent", "evil"]);
-        assert_eq!(lfs_risk(&d, "assets"), None);
+        assert_eq!(lfs_risk(&d, "assets").unwrap(), None);
         TEST_GLOBAL.with(|g| *g.borrow_mut() = None);
         let _ = std::fs::remove_dir_all(&home);
         let _ = std::fs::remove_dir_all(&d);

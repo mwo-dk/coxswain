@@ -52,7 +52,7 @@ pub const LIMIT: std::time::Duration = std::time::Duration::from_millis(2500);
 fn within(path: &Path, rows: usize, limit: std::time::Duration) -> Result<Vec<Table>, String> {
     use rusqlite::types::ValueRef;
     use rusqlite::{Connection, OpenFlags};
-    let db = Connection::open_with_flags(
+    let mut db = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )
@@ -81,7 +81,7 @@ fn within(path: &Path, rows: usize, limit: std::time::Duration) -> Result<Vec<Ta
             continue;
         };
         t.sample
-            .push(q.column_names().iter().map(|c| cell(c)).collect());
+            .push(q.column_names().map(cell).collect());
         let n = q.column_count();
         let Ok(mut it) = q.query([]) else { continue };
         while let Ok(Some(row)) = it.next() {
@@ -183,16 +183,7 @@ pub fn of(path: &Path, rows: usize) -> Result<Vec<Table>, String> {
     }
 }
 
-/// Whether F3 shows this file as tables.
-pub fn is_tables(path: &Path) -> bool {
-    let ext = path
-        .extension()
-        .map(|e| e.to_string_lossy().to_lowercase())
-        .unwrap_or_default();
-    ["db", "sqlite", "sqlite3", "db3", "parquet", "pq", "dbf"].contains(&ext.as_str())
-}
-
-/// The format of a file `is_tables` names, for the viewer's title.
+/// The format of a file shown as tables (`viewers` kinds `sqlite` and `parquet`), for the viewer's title.
 pub fn format(path: &Path) -> &'static str {
     let ext = path
         .extension()
@@ -288,13 +279,7 @@ pub fn as_text(path: &Path) -> Result<String, String> {
 /// `path` as text in a file of the cache, for the pager: F3.
 pub fn text_copy(path: &Path) -> Result<PathBuf, String> {
     let text = as_text(path)?;
-    let to = crate::archive::peek_folder()
-        .map_err(|e| e.to_string())?
-        .join(format!(
-            "{}.txt",
-            path.file_name().unwrap_or_default().to_string_lossy()
-        ));
-    std::fs::write(&to, text).map_err(|e| e.to_string())?;
+    let to = crate::archive::peek_write(path, &format!("{}.txt", path.file_name().unwrap_or_default().to_string_lossy()), text.as_bytes()).map_err(|e| e.to_string())?;
     Ok(to)
 }
 
@@ -333,7 +318,8 @@ mod tests {
             text.contains("id │ name │ pic") && text.contains("Ada"),
             "{text}"
         );
-        assert!(is_tables(&p) && !is_tables(Path::new("a.txt")));
+        assert_eq!(crate::viewers::detect(&p), "sqlite");
+        assert_eq!(crate::viewers::kind_of("a.txt", false), "text");
         std::fs::remove_file(p).unwrap();
     }
 

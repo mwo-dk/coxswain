@@ -198,10 +198,7 @@ impl Viewer {
     }
 
     pub fn key(&mut self, key: Key, action: Option<Action>) -> Outcome {
-        let ch = match key.code {
-            KeyCode::Char(c) if !key.ctrl && !key.alt => Some(if key.shift { c.to_ascii_uppercase() } else { c }),
-            _ => None,
-        };
+        let ch = crate::typed(&key);
         let ctrl = |c: char| key.ctrl && !key.alt && key.code == KeyCode::Char(c);
         if let Some(asking) = self.asking.take() {
             match (asking, ch) {

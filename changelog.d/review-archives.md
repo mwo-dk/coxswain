@@ -1,1 +1,0 @@
-| **A file only in the cloud is not downloaded when the cursor comes to it.** Enter's label for a `.tar` or `.bin` kept online only is told by the name alone, until you ask for the file. | [Clouds](organise/clouds.md#how-to-use-it) |

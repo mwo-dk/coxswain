@@ -41,7 +41,7 @@ or Podman need not run.
    panel. **Ctrl+E** on the image unpacks its whole merged file system into a folder of its own.
 
 For an OCI layout folder, go into the folder (it holds `oci-layout`, `index.json` and `blobs`)
-and press **Enter** on `index.json`. The first few times the cursor is on one, the status line
+and press **Enter** on `index.json`, on the disk or inside an archive. On the disk, the first few times the cursor is on one, the status line
 says *An OCI image layout: Enter on index.json opens the image like a folder, read-only*.
 
 | | Desktop app | Terminal app |
@@ -88,8 +88,11 @@ does:
 - A symbolic link shows as what it leads to inside the image: a link to a file as that file,
   a link to a folder (`/bin -> usr/bin`) as a folder with the same contents. An absolute target
   starts at the image's top, and `..` never leads above it. Links to nothing, round in circles
-  (more than 40 steps) or to a folder they are in are left out.
-- A hard link is the file it names, when that file comes before it in the image.
+  (more than 40 steps) or to a folder they are in are left out. A folder's size counts a link
+  as nothing, as `du` does: alpine's `bin/`, where most programs are links to `busybox`, is about
+  busybox's size, not busybox's size once per link; the link itself still shows its file's size.
+- A hard link is the file it names, when that file comes before it in the image; like a
+  symbolic link it adds nothing to its folder's size.
 - Devices and pipes are left out.
 
 Each layer may be plain, gzip or zstd: Coxswain tells by its first bytes.
@@ -159,7 +162,9 @@ An image that changed (another size or date) is read again, and what was kept of
 is not used. Kept lists, trees and places count together: 256 at most, the oldest go first;
 *Settings → Disk use* clears them with the copies to look at
 ([Where things are kept](../reference/where-things-are-kept.md)). A tree whose names alone are
-more than 64 MB is not kept: that image is read again each run.
+more than 64 MB is not kept: that image is read again each run. Trees kept before 2.36.0 are
+made again once, each the first time its image is opened, so their folder sizes count links as
+above.
 
 ## In search
 
@@ -211,7 +216,9 @@ an ordinary tar.
 
 Go into the folder and press **Enter** on its `index.json`: the image opens like a folder, its
 tag in the panel's title. **Ctrl+E** on `index.json` unpacks it into a folder named after the
-layout folder.
+layout folder. A layout folder inside an archive opens the same way: **Enter** on its
+`index.json` copies the folder to the cache once (up to 512 MB, as an archive inside an
+archive) and opens the image from there; a larger one says to copy it out with **F5** first.
 
 #### Does it read Docker's or Podman's own image store?
 

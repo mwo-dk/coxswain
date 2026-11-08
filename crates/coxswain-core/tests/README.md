@@ -38,3 +38,26 @@ cd gui && COXSWAIN_REAL_FILES=1 node --test src/real-files.test.js
 `NWC-2026-02-pgn.cbv` is ChessBase's backup of a PGN database: the archive holds a `.pgn` file,
 no `.cbh`. No real archive of several databases was found (ChessBase's *Backup database* makes
 one archive per database).
+
+## Long documents, by meaning
+
+`long_meaning.rs` reads long documents kept whole (*Long files: Everything*) with the built-in
+model: Word and OpenDocument texts of 60,000 to 700,000 words (one over the 4 MB kept of most
+files, so read line by line again) and, where LibreOffice is installed, PDFs of about 100, 160
+and 260 pages made from them. Each file must be done with as many vectors as it has passages, every fact
+written into a file must be in one of its stored passages, and the facts must find their file
+by meaning. It prints the first pass's time and the memory held. A second part reads a Word
+text whose reader runs out of its 20 seconds: kept in part, not read again at the next scan,
+read once more a day later (the test moves its time back a day).
+
+```sh
+COXSWAIN_LONG_MEANING=1 cargo test --release -p coxswain-core --test long_meaning -- --nocapture
+COXSWAIN_LONG_MEANING=part cargo test --release -p coxswain-core --test long_meaning -- --nocapture
+```
+
+The model (about 470 MB) is downloaded into a home of its own under `target/tmp/long-meaning`,
+never the user's cache. The first takes about 45 minutes on the built-in model's two threads.
+On a fast machine the reader gets through the tags in time: the second part then says it was
+skipped. To try it there, slow the test process while it reads them, as the hand test for 2.36
+did: once the store holds about 5,800 staged passages (`SELECT count(*) FROM chunks WHERE file <
+0` in `slow.db`), stop and continue the process by its PID, 0.9 s stopped in every second.

@@ -7,9 +7,9 @@ panels and their keys, ask how far Find should look, let you choose how it looks
 can leave the machine. Every step can be skipped. Each choice is written to `config.toml` at once,
 as in Settings, so closing the guide halfway keeps what you chose.
 
-![The desktop app's first-run guide at step 1, Two panels · 1 of 4: a picture of two folders side by side, the keys Tab, Enter, F5, F6, Alt+F7, F9 and F1, and Skip and Next](../screenshots/guide-panels.png)
+![The desktop app's first-run guide at step 1, Two panels · 1 of 4: a picture of two folders side by side, the keys Tab, Enter, F5, F6, Alt+F7, Alt+U, F9 and F1, the Typing letters choice (Jump to a name), and Skip and Next](../screenshots/guide-panels.png)
 
-![The terminal app's first-run guide, Two panels · 1 of 4, full screen in Classic blue: the keys and what they do, and the key line ↑↓ choose · Space change · Enter next · Backspace back · Esc skip](../screenshots/guide-panels-tui.png)
+![The terminal app's first-run guide, Two panels · 1 of 4, full screen in Classic blue: the keys and what they do, the row Typing letters: Go to the command line (Norton Commander), and the key line ↑↓ choose · Space change · Enter next · Backspace back · Esc skip](../screenshots/guide-panels-tui.png)
 
 ## Contents
 
@@ -35,7 +35,7 @@ what you asked for comes first. **F1** opens it then ([Opening it again](#openin
 
 | Step | Title | What it shows | What you can do |
 |---|---|---|---|
-| 1 | *Two panels* | Two folders side by side; the lit one is active, and what you copy or move goes to the other one. The keys to know first, as your `[keys]` set them: **Tab** other panel, **Enter** open, **F5** copy, **F6** move, **Ctrl+F** Find, **F9** commands, **F1** help. Under them: *Shift+F10 / Menu: what you can do with what is under the cursor. A right-click marks; Settings → Behaviour can make it open that menu.* ([The action menu](action-menu.md)) and *F1 → Features lists every feature with its keys and answers to the common questions.* ([Features and questions](features.md)) | Read, then go on |
+| 1 | *Two panels* | Two folders side by side; the lit one is active, and what you copy or move goes to the other one. The keys to know first, as your `[keys]` set them: **Tab** other panel, **Enter** open, **F5** copy, **F6** move, **Ctrl+F** Find, **F9** commands, **F1** help. Under them: *Shift+F10 / Menu: what you can do with what is under the cursor. A right-click opens that menu or marks; Settings → Behaviour chooses which.* ([The action menu](action-menu.md)) and *F1 → Features lists every feature with its keys and answers to the common questions.* ([Features and questions](features.md)) | Read, then choose *Typing letters*: *Jump to a name* or *Go to the command line* ([Quick search](quick-search.md#typing-letters-or-the-command-line)) |
 | 2 | *Finding files* | How far Find looks: the four search levels of [Search settings](../search/settings.md): *Names only*, *Names and text* (the default), *+ meaning*, *+ Ask*, each with what it costs | Choose a level. *+ meaning* and *+ Ask* need a model: when none is chosen yet, the [setup guide](../search/setup.md) opens, and when it closes you are back at this step |
 | 3 | *Looks* | Four themes (Cyber, Classic blue, Tokyo Night, Light), the language, and the icons | Choose a theme and a language; the screen changes at once. Icons: see below. More themes, fonts and sizes are in Settings → Looks |
 | 4 | *Privacy* | "Nothing leaves this machine unless you turn it on." The update check (at start and then once a day, to GitHub: `api.github.com`, or the file of the channel your copy came from) and the list of what can leave the machine with the settings as they are now | Switch the update check off or on; *Done* closes the guide |

@@ -99,6 +99,8 @@ enum Request {
     Transcribe {
         paths: Vec<PathBuf>,
     },
+    /// Pull again at once every image that waits to be pulled again.
+    RetryPulls,
     /// Pause transcribing, or go on; `stop`: let every file waiting go.
     TranscribePause {
         pause: bool,
@@ -230,7 +232,10 @@ pub struct Status {
     pub clouds: Vec<(String, PathBuf)>,
     /// Apache Tika, when `[search] tika` is on: pulling its image, ready, or why not.
     #[serde(default)]
-    pub tika: Option<crate::extract::tika::State>,
+    pub tika: Option<crate::images::pulls::State>,
+    /// calibre for the search, when e-books and text search are on and it runs in a container.
+    #[serde(default)]
+    pub ebooks: Option<crate::images::pulls::State>,
     /// Transcripts, when `[search] whisper` is on: how many wait, are done, how far.
     #[serde(default)]
     pub transcripts: Option<crate::transcribe::Status>,
@@ -253,10 +258,15 @@ pub fn folder() -> Option<PathBuf> {
 
 /// Whether a helper runs now: it holds `index.lock` for as long as it does.
 pub fn runs() -> bool {
-    let Some(lock) = folder().and_then(|d| std::fs::File::open(d.join("index.lock")).ok()) else {
+    folder().is_some_and(|d| runs_in(&d))
+}
+
+fn runs_in(dir: &Path) -> bool {
+    let Ok(lock) = std::fs::File::open(dir.join("index.lock")) else {
         return false;
     };
-    matches!(lock.try_lock(), Err(std::fs::TryLockError::WouldBlock))
+    // Got: let go at once, by `Held`, so no program started meanwhile keeps it (#802).
+    matches!(crate::fs::Held::try_lock(lock), Err(std::fs::TryLockError::WouldBlock))
 }
 
 /// Where a helper's errors go: `helper.log` beside its address.
@@ -340,6 +350,7 @@ fn write_private(path: &Path, text: &str) -> io::Result<()> {
 /// helper already runs.
 pub fn serve() -> io::Result<()> {
     SERVING.store(true, Ordering::Relaxed);
+    PROGRAM.get_or_init(|| std::env::current_exe().ok().and_then(|p| Some((program(&p)?, p))));
     // Not one that grows without end, when a helper fails again and again.
     keep_log_small();
     // Known as alive to the other runs' sweeps; what runs that ended left goes.
@@ -354,7 +365,44 @@ pub fn serve() -> io::Result<()> {
         note(format_args!("helper stops: {e}"));
     }
     crate::spill::at_exit();
+    // Not a success, so launchd (`SuccessfulExit` false) and systemd (`on-failure`) start the
+    // new program in its place.
+    if REPLACED.load(Ordering::Relaxed) {
+        std::process::exit(75);
+    }
     served
+}
+
+/// The helper's own program when it started, and where: an update that replaces it (a new
+/// app bundle, a package) is noticed, and the helper leaves by itself before the system stops
+/// it (macOS kills a program whose signed file changed under it, and says it crashed).
+static PROGRAM: OnceLock<Option<(Program, PathBuf)>> = OnceLock::new();
+/// The helper left because its program was replaced.
+static REPLACED: AtomicBool = AtomicBool::new(false);
+
+/// What tells one program file from the next at the same path.
+#[derive(Debug, PartialEq)]
+struct Program {
+    len: u64,
+    modified: Option<std::time::SystemTime>,
+    /// Device and inode: a file put in its place is another one.
+    #[cfg(unix)]
+    id: (u64, u64),
+}
+
+fn program(path: &Path) -> Option<Program> {
+    let m = std::fs::metadata(path).ok()?;
+    Some(Program {
+        len: m.len(),
+        modified: m.modified().ok(),
+        #[cfg(unix)]
+        id: (std::os::unix::fs::MetadataExt::dev(&m), std::os::unix::fs::MetadataExt::ino(&m)),
+    })
+}
+
+/// Whether the program at `path` is no longer `was`: changed, replaced or gone.
+fn replaced(was: &Program, path: &Path) -> bool {
+    program(path).as_ref() != Some(was)
 }
 
 fn serve_here() -> io::Result<()> {
@@ -522,16 +570,25 @@ fn serve_in(
             }
         });
     }
+    let mut turns = 0u32;
     while !quit.load(Ordering::SeqCst)
         && (clients.load(Ordering::SeqCst) > 0 || last.lock().unwrap().elapsed() < linger)
     {
         std::thread::sleep(linger.min(Duration::from_millis(200)));
+        turns = turns.wrapping_add(1);
+        // About every 5 seconds: an update replaced the program it runs.
+        if turns % 25 == 0 && PROGRAM.get().and_then(Option::as_ref).is_some_and(|(was, at)| replaced(was, at)) {
+            REPLACED.store(true, Ordering::SeqCst);
+            break;
+        }
     }
     stop.store(true, Ordering::SeqCst);
     let _ = std::fs::remove_file(addr);
     note(format_args!(
         "helper leaves: {}",
-        if quit.load(Ordering::SeqCst) {
+        if REPLACED.load(Ordering::SeqCst) {
+            "an update replaced its program; the new one takes over"
+        } else if quit.load(Ordering::SeqCst) {
             "an app asked it to, for new settings or its own version"
         } else {
             "no app asked for a while"
@@ -560,6 +617,11 @@ fn greet(ours: Ours, version: &str, protocol: u32) -> Greet {
     } else {
         Greet::Refuse
     }
+}
+
+/// Whether version `a` comes before `b`.
+pub(crate) fn older(a: &str, b: &str) -> bool {
+    newer(b, a)
 }
 
 /// Whether version `a` comes after `b`: 2.10.0 after 2.9.1.
@@ -650,6 +712,8 @@ fn answer(
     let mut out = stream.try_clone()?;
     let mut from = BufReader::new(stream);
     let mut said_hello = false;
+    // The app's version: a reply it could not read is sent in the form it knows.
+    let mut app_version = String::new();
     let mut line = String::new();
     loop {
         line.clear();
@@ -666,6 +730,7 @@ fn answer(
                     return Ok(());
                 }
                 said_hello = true;
+                app_version.clone_from(&version);
                 // An app keeps its line open for as long as it runs.
                 out.set_read_timeout(None)?;
                 match greet(ours, &version, protocol) {
@@ -780,6 +845,10 @@ fn answer(
                 quit.store(true, Ordering::SeqCst);
                 Reply::Done
             }
+            Request::RetryPulls => {
+                crate::images::pulls::retry_now();
+                Reply::Done
+            }
             Request::Unload => {
                 crate::chat::unload();
                 Reply::Done
@@ -843,7 +912,8 @@ fn answer(
                     roots,
                     tools,
                     clouds: store.map(Store::clouds).unwrap_or_default(),
-                    tika: store.and(crate::extract::tika::state()),
+                    tika: store.and(crate::extract::tika::state()).map(|s| s.for_app(&app_version, "Tika")),
+                    ebooks: store.and(crate::ebook::state()).map(|s| s.for_app(&app_version, "calibre")),
                     transcripts: store.and_then(crate::transcribe::status),
                     outdated: None,
                     changes_left: store.map_or(0, |s| s.changes_left.load(Ordering::Relaxed)),
@@ -1104,6 +1174,12 @@ impl Client {
             Some(Reply::Transcribing { files }) => Some(files),
             _ => None,
         }
+    }
+
+    /// *Retry now*: every image waiting to be pulled again is pulled at once.
+    pub fn retry_pulls(&self) {
+        self.ask(&Request::RetryPulls);
+        *self.status.lock().unwrap() = None;
     }
 
     /// Pause transcribing or go on; `stop` lets every file waiting go.
@@ -1426,6 +1502,17 @@ fn detached(exe: &Path) -> std::process::Command {
 
 #[cfg(test)]
 mod tests {
+    /// No helper runs: `runs` says so every time, also while other threads start programs,
+    /// which before `Held` kept the probe's lock for a moment (#802). A count, not a time.
+    #[cfg(unix)]
+    #[test]
+    fn no_helper_is_seen_while_programs_start() {
+        let d = crate::fs::Scratch::named("helper-runs-held");
+        std::fs::write(d.join("index.lock"), "").unwrap();
+        let seen = crate::fs::while_programs_start(|| (0..2000).filter(|_| super::runs_in(&d)).count());
+        assert_eq!(seen, 0);
+    }
+
     use super::*;
 
     /// A log past its most is emptied before the next line, not only at the helper's start.
@@ -1586,6 +1673,24 @@ mod tests {
         .unwrap();
         eprintln!("{answer}\n-- {pieces} pieces in {:.1?}", start.elapsed());
         assert!(answer.contains("40") && pieces > 3, "{answer}");
+    }
+
+    /// The program the helper runs, written again or put in its place by an update, or gone, is
+    /// noticed; the same file untouched is not.
+    #[test]
+    fn helper_notices_its_program_replaced() {
+        let d = crate::fs::Scratch::named("helper-program");
+        let exe = d.join("coxswain");
+        std::fs::write(&exe, "one").unwrap();
+        let was = program(&exe).unwrap();
+        assert!(!replaced(&was, &exe));
+        // An update writes the new program beside it and moves it into its place.
+        std::fs::write(d.join("new"), "two, longer").unwrap();
+        std::fs::rename(d.join("new"), &exe).unwrap();
+        assert!(replaced(&was, &exe));
+        let was = program(&exe).unwrap();
+        std::fs::remove_file(&exe).unwrap();
+        assert!(replaced(&was, &exe));
     }
 
     #[test]

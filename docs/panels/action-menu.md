@@ -27,8 +27,8 @@ it*.
 | **Shift+F10** | Yes | Yes |
 | The **Menu** key (beside the right Ctrl) | Yes | Only where the terminal passes the key on (kitty, foot, WezTerm with the kitty keyboard protocol); Shift+F10 works everywhere |
 | The **⋯** button at the end of the row under the mouse or the cursor (the corner of a thumbnail) | Yes | – |
-| **Ctrl+right-click** on a row | Yes | – |
-| Right-click on a row | When *Right-click* is set to *Opens the action menu* | The same |
+| Right-click on a row | Yes, by default (*Right-click* is *Opens the action menu*) | When *Right-click* is set to *Opens the action menu* |
+| **Ctrl+right-click** on a row | Yes, when *Right-click* is set to marking | – |
 | **F9**, *What can I do with this?* | Yes | Yes |
 
 The menu opens in the middle of the window. Its title says what it is about: *What to do with
@@ -60,7 +60,7 @@ then looking, files, archives, search, git and the panels; in each heading the m
 | A folder | Open, Path to command line, Folder notes, Copy, Move, Rename, Delete, New folder, Copy to clipboard, Properties, Colour tag, Pack into an archive, Make checksums, Find duplicates (**Ctrl+D**, desktop app), Space view (**Alt+U**) |
 | An archive (zip, tar, 7z …) | What a file has, and Extract archive (**Ctrl+E**); Open goes into it like a folder |
 | Several marked | Copy, Move, Delete, New folder, Copy to clipboard, Batch rename (**Ctrl+M**, desktop app), Colour tag, Pack into an archive, Make checksums, Scan for viruses; Extract archive when an archive is among them; Make PDF searchable when a PDF is among them; Convert video or audio and Convert or edit pictures when a video, a song or a picture is; Convert geodata when geodata is; Export 3D model when a model is; Export from KiCad when a schematic or board is; Convert e-book when an e-book is; Build PDF of AsciiDoc and Export draw.io diagram when such files are among them; Find duplicates when a folder is among them |
-| `..`, nothing marked | New folder, Folder notes, Find duplicates (in this folder), Space view (**Alt+U**, this folder), the git and ZFS entries for this folder, and under *Panels*: Other panel here (**Alt+O**), Swap panels (**Ctrl+U**), Panels on/off (**Ctrl+O**) |
+| `..`, nothing marked | New folder, Folder notes, Find duplicates (in this folder), Space view (**Alt+U**, this folder), the git and ZFS entries for this folder, and under *Panels*: Other panel here (**Alt+O**), Swap panels (**Ctrl+U**), Panels on/off (**Ctrl+O**); under *App* also [Show keys as they arrive](../customise/keys.md#which-keys-reach-coxswain) |
 | In a git repository | Also Git history (**Ctrl+G**) History of all branches (**Alt+A**) and Against upstream (**Alt+Y**) for the one entry or the folder, Git branches (**Alt+B**), Git worktrees (**Alt+W**), Git config (**Alt+C**) and Open in your git tool (**Alt+G**) |
 | In a git history | History of all branches (**Alt+A**): every branch's commits, or this branch's again; Against upstream (**Alt+Y**): the commits not pushed and not merged, or this branch's again |
 | In the list of branches | Open, Switch to branch (**Alt+S**), New branch here |
@@ -133,6 +133,13 @@ The rules:
 - **Never in the way**: no hint while you type a command, during quick search, while a dialog
   is open, or while the status line says something else (*Copied "report.pdf"*).
 - **Your keys**: the hint names the keys in force; a hint whose action you unbound is skipped.
+- **An action you only run from the menu**: after the third time you run an action from the
+  action menu or **F9** without ever pressing its key, the status line names the key and where to
+  change it (*Space view has the key Alt+U. Change it in Settings → Keys or under [keys] in
+  config.toml; F9 → Show keys as they arrive shows whether it reaches Coxswain*). It comes three
+  times at most, never for an action whose key you have used, and never for an action with no
+  key. A key that does nothing may never arrive:
+  [Which keys reach Coxswain](../customise/keys.md#which-keys-reach-coxswain).
 
 ### The hint in Find
 
@@ -149,7 +156,7 @@ turn them off: *Settings → Behaviour → Show hints*.
 
 | Setting (Settings → Behaviour) | `config.toml` | Default | Does |
 |---|---|---|---|
-| *Right-click* | `right_click = "mark"` or `"menu"` | `"mark"` | `mark`: a right-click marks the row, as in Norton Commander. `menu`: it puts the cursor on the row and opens the action menu, as in a file explorer. In the desktop app **Ctrl+right-click** does the other one |
+| *Right-click* | `right_click = "mark"` or `"menu"` | unset: `"menu"` in the desktop app, `"mark"` in the terminal app | `mark`: a right-click marks the row, as in Norton Commander. `menu`: it puts the cursor on the row and opens the action menu, as in a file explorer. In the desktop app **Ctrl+right-click** does the other one |
 | *Show hints* | `hints = true` | `true` | The hint on the status line |
 | *Show the hints again* (button, desktop app) | – | – | Every hint shows three times again; `coxswain --hints reset` does the same |
 
@@ -198,8 +205,9 @@ terminal passes on, or bind another key to `action_menu` in `[keys]`.
 
 #### Can right-click open the menu instead of marking?
 
-Yes: *Settings → Behaviour → Right-click → Opens the action menu*, or `right_click = "menu"` in
-`config.toml`. Both apps follow it. In the desktop app **Ctrl+right-click** then marks.
+In the desktop app it does by default, and **Ctrl+right-click** marks. In the terminal app: *Settings →
+Behaviour → Right-click → Opens the action menu*, or `right_click = "menu"` in `config.toml`. Both
+apps follow the setting once you have set it.
 
 #### Why is an action I expected missing from the menu?
 

@@ -31,10 +31,42 @@
   // So is one in a history: the copy is the file as it was at that commit.
   const inside = $derived((!!pane?.archive || !!pane?.history) && !!raw && !raw.is_dir && raw.name !== "..");
   const inHistory = $derived(!!pane?.history && inside);
+  /** Text and pictures inside an archive are read as they are unpacked, no copy made
+   *  (`archive::head`, through `read_text` and `asset:`); logs, JSON Lines and a text over what
+   *  `read_text` reads go to the log view, which pages through the entry as it is unpacked
+   *  (`archive::stream`); a file that cannot be read so (locked,
+   *  too large a picture, a game to put on its board) is listed here and gets its copy. PDFs,
+   *  songs, videos and fonts, which the web view draws itself, come the same way up to 64 MB
+   *  (`asset.rs`, `MAX_INSIDE`), a player's ranges from one unpacking. */
+  let copied = $state([]);
+  /** A PGN family file inside an archive: its games are read as it is unpacked
+   *  (`chess::games::streams`, no copy); ChessBase, SCID, positions, books and Go come from a copy. */
+  const chessInside = $derived(inside && !inHistory && /\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa)$/i.test(raw.name) && !copied.includes(raw.path));
+  const DIRECT = ["text", "markdown", "data", "image", "log", "jsonl"];
+  const DRAWN = ["pdf", "audio", "video", "font"];
+  const direct = $derived(inside && !inHistory && (DIRECT.includes(previewKind(raw)) || (DRAWN.includes(previewKind(raw)) && raw.size <= 64 * 1024 * 1024)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
+  /** `path` as the web view asks for it: from memory when it is read so. */
+  const src = (path) => convertFileSrc(path) + (direct ? "?inside" : "");
+  // Off the files read from memory: the last one unpacked (up to 64 MB) is let go.
+  $effect(() => {
+    if (!direct) invoke("inside_forget");
+  });
+  // A PDF's frame says nothing when its file cannot be served so (locked, say): asked first,
+  // and from a copy then. The answer stays unpacked in memory for the frame's own request.
+  $effect(() => {
+    const cur = raw;
+    if (!direct || previewKind(cur) !== "pdf") return;
+    fetch(convertFileSrc(cur.path) + "?inside", { method: "HEAD" }).then(
+      (r) => r.ok || needsCopy(cur.path),
+      () => needsCopy(cur.path),
+    );
+  });
+  /** `path` gets its copy after all. */
+  const needsCopy = (path) => !copied.includes(path) && (copied = [...copied.slice(-50), path]);
   let peeked = $state({ from: "", to: "", error: "" });
   $effect(() => {
     const cur = raw;
-    if (!inside || untrack(() => peeked.from === cur.path && !peeked.error)) return;
+    if (!inside || direct || chessInside || untrack(() => peeked.from === cur.path && !peeked.error)) return;
     peeked = { from: cur.path, to: "", error: "" };
     const timer = setTimeout(() => peek(cur.path), 150);
     return () => clearTimeout(timer);
@@ -46,7 +78,11 @@
     );
   }
   /** Asks for the password of the archive at `path`, then does `then` again. */
-  function unlock(path = peeked.from, then = () => peek(path)) {
+  function unlock(
+    path = peeked.from,
+    // A large PGN in a locked 7z is read as it unpacks once the password is known, not from a copy.
+    then = () => invoke("chess_streams", { path }).then((ok) => (ok ? ((copied = copied.filter((c) => c !== path)), (peeked = { from: "", to: "", error: "" })) : peek(path))),
+  ) {
     ui.modal = {
       kind: "input",
       feature: "archive_passwords",
@@ -68,14 +104,16 @@
   /** GeoJSON, KML, GPX and OpenSCAD models with Source chosen: their text instead of their map
    *  or model. */
   const geoSource = $derived(!!e && !e.is_dir && ui.previewSource === true && (isGeoText(e.name) || isScad(e.name)));
-  // A .h5 file holding a Keras model is drawn by Netron; any other HDF5 file is shown as before.
+  // What a file's bytes say where its name is not enough (`viewers::detect`): a .h5 holding a
+  // Keras model is drawn by Netron, a .dot that is a Word template goes to the Office preview.
+  // Inside an archive only once there is a copy: nothing is unpacked for this.
   $effect(() => {
     const cur = e;
-    if (!cur || cur.is_dir || !/\.h5$/i.test(cur.name) || sniffed.path === cur.path) return;
-    invoke("is_model", { path: cur.path }).then((yes) => yes && e?.path === cur.path && (sniffed = { path: cur.path, kind: "netron" }), () => {});
+    if (!cur || cur.is_dir || cur.online || !/\.(h5|dot)$/i.test(cur.name) || sniffed.path === cur.path || (inside && cur === raw)) return;
+    invoke("viewer_detect", { path: cur.path }).then((k) => e?.path === cur.path && k !== previewKind(cur) && (sniffed = { path: cur.path, kind: k }), () => {});
   });
   const kind = $derived(
-    output ? "output" : online ? "online" : inside && e === raw ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
+    output ? "output" : online ? "online" : inside && e === raw && !direct && !chessInside ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
   );
   /** A blob of a model store that holds weights (Ollama's, a Hugging Face one's): by the name the
    *  store gives it (`local_models::names`), as its own name says nothing. */
@@ -197,8 +235,22 @@
         }
         // A log is read a screen at a time, whatever its size.
         if (k === "log") return void (logPath = cur.path);
-        const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT });
+        const unpacked = direct;
+        const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT }).catch((err) => {
+          // Locked, or not to be read as it is unpacked: from a copy, as before.
+          if (unpacked) needsCopy(cur.path);
+          throw err;
+        });
         if (e?.path !== cur.path) return;
+        // A `.dot` that is no text is a Word template (`viewers::detect`): to Office, also when
+        // `viewer_detect` above did not say so (a cloud file downloaded only now).
+        if (bin && k === "graphviz") {
+          [truncated, binary] = [trunc, bin];
+          return void (sniffed = { path: cur.path, kind: "office" });
+        }
+        // Provenance and BOMs are read by readers that need a file: from a copy.
+        const special = !bin && /\.(json|jsonl|ndjson|xml)$/i.test(cur.name) && (looksLikeProvenance(s) || looksLikeBom(s));
+        if (unpacked && special) return void needsCopy(cur.path);
         // A DhtmlXQ xiangqi game (`chess::sniff`): on its board, unless the source is asked for.
         if (!bin && k === "text" && !src && looksLikeDhtml(cur.name, s)) {
           ui.book = cur.path;
@@ -227,7 +279,8 @@
             // Not parseable (or cut off at the size limit): show the source instead.
           }
         }
-        // JSON Lines, and a text larger than what is read here: in the log view, every line.
+        // JSON Lines, and a text larger than what is read here: in the log view, every line
+        // (inside an archive as it is unpacked).
         if (!bin && (k === "jsonl" || (k === "text" && trunc))) return void (logPath = cur.path);
         if (!bin && k === "calendar" && !src) return void (cards = { events: calendar(s) });
         if (!bin && k === "contacts" && !src) return void (cards = { people: contacts(s) });
@@ -270,7 +323,7 @@
       try {
         if (k === "docx") r = { html: await renderDocx(cur.path) };
         else if (k === "notebook") r = { html: await renderNotebook(cur.path) };
-        else if (k === "font") r = await loadFont(cur.path);
+        else if (k === "font") r = await loadFont(cur.path, direct).catch((err) => { if (direct) needsCopy(cur.path); throw err; });
         else if (k === "parquet") r = { parquet: await readParquet(cur.path) };
         else if (deck) r = { slides: await renderPptx(cur.path) };
         else if (k === "drawio") {
@@ -481,7 +534,7 @@
   $effect(() => {
     const cur = e;
     scanned = "";
-    if (kind !== "pdf" || !cur || cur.size > 15e6) return;
+    if (kind !== "pdf" || !cur || direct || cur.size > 15e6) return;
     const id = `${cur.path}\0${cur.size}\0${cur.modified}`;
     if (scans.has(id)) return void (scanned = scans.get(id) ? cur.path : "");
     const timer = setTimeout(async () => {
@@ -824,7 +877,7 @@
       {:else if kind === "bom" && !source}
         <BomView path={e.path} />
       {:else if kind === "chess"}
-        <ChessView path={e.path} />
+        <ChessView path={e.path} onfail={() => inside && needsCopy(raw.path)} />
       {:else if kind === "netron"}
         <!-- The model's facts first, then its graph. -->
         {#if facts.length}<dl class="facts">{#each facts as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}</dl>{/if}
@@ -841,7 +894,7 @@
       {:else if tree !== undefined}
         <div class="tree">{@render node(null, tree, 0)}</div>
       {:else if logPath && logPath === e.path && !diffing}
-        <LogView path={logPath} />
+        <LogView path={logPath} onfail={() => inside && needsCopy(logPath)} />
       {:else if cards?.events}
         <ul class="cards">
           {#each cards.events as ev, i (i)}
@@ -993,7 +1046,7 @@
         {/if}
         <div class="drawio" use:drawioView={rich.drawio}></div>
       {:else if kind === "image"}
-        <div class="media checker"><img src={convertFileSrc(e.path)} alt={e.name} /></div>
+        <div class="media checker"><img src={src(e.path)} alt={e.name} onerror={() => direct && needsCopy(e.path)} /></div>
       {:else if kind === "picture"}
         {#if pic?.error}
           <p class="more">{pic.error}</p>
@@ -1033,15 +1086,15 @@
         <div class="media">
           <!-- svelte-ignore a11y_media_has_caption -->
           <!-- A codec the web view lacks: a frame of it instead, with MP4 offered (`media`). -->
-          <video src={convertFileSrc(e.path)} controls preload="metadata" poster={still?.path === e.path ? convertFileSrc(still.file) : undefined} onerror={() => (sniffed = { path: e.path, kind: "video_other" })}></video>
+          <video src={src(e.path)} controls preload="metadata" poster={still?.path === e.path ? convertFileSrc(still.file) : undefined} onerror={() => (direct ? needsCopy(e.path) : (sniffed = { path: e.path, kind: "video_other" }))}></video>
         </div>
       {:else if kind === "audio"}
         {#if still?.path === e.path}<div class="media wave"><img src={convertFileSrc(still.file)} alt={t("media.waveform")} /></div>{/if}
-        <div class="media"><audio src={convertFileSrc(e.path)} controls preload="metadata" onerror={() => (sniffed = { path: e.path, kind: "audio_other" })}></audio></div>
+        <div class="media"><audio src={src(e.path)} controls preload="metadata" onerror={() => (direct ? needsCopy(e.path) : (sniffed = { path: e.path, kind: "audio_other" }))}></audio></div>
       {:else if kind === "pdf"}
         <!-- Make PDF searchable: offered on every PDF, said why on one without text (a scan). -->
-        <p class="more">{#if scanned === e.path}{t("preview.scanned")} {/if}<button class="render" onclick={() => makeSearchable([e.path])}>{t("action.searchable_pdf")}</button> <kbd>{ui.cfg.actions.searchable_pdf?.[1] ?? ""}</kbd></p>
-        <iframe class="pdf" src={convertFileSrc(e.path) + "#zoom=page-width"} title={e.name}></iframe>
+        {#if !direct}<p class="more">{#if scanned === e.path}{t("preview.scanned")} {/if}<button class="render" onclick={() => makeSearchable([e.path])}>{t("action.searchable_pdf")}</button> <kbd>{ui.cfg.actions.searchable_pdf?.[1] ?? ""}</kbd></p>{/if}
+        <iframe class="pdf" src={src(e.path) + "#zoom=page-width"} title={e.name}></iframe>
       {:else if kind === "disk_image"}
         {#if disk?.error}
           <p class="more">{disk.error}</p>
@@ -1652,11 +1705,16 @@
     color: var(--cursor-fg);
     border-color: transparent;
   }
-  .engines button:disabled {
+  .engines button:disabled,
+  .render:disabled {
     opacity: 0.45;
     cursor: default;
   }
   .render {
+    /* the app's own size and the accent's weight, like .primary (looks.css), even inside a .more
+       line: dark text on the accent smeared at 0.85em */
+    font-size: var(--font-size, 13px);
+    font-weight: var(--accent-weight);
     background: var(--accent-bg);
     color: var(--accent-fg);
     border-color: transparent;

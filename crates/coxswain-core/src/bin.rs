@@ -28,11 +28,22 @@ pub fn path() -> Option<PathBuf> {
     crate::dirs::home_dir().map(|h| h.join(MARKER))
 }
 
-/// Whether `dir` is the bin's path (and not a real folder of that name).
+/// Whether `dir` is the bin's path (and not a real folder of that name), however the home is
+/// spelled: through a link to it, too.
 pub fn is_bin(dir: &Path) -> bool {
     dir.file_name().is_some_and(|n| n == MARKER)
-        && path().is_some_and(|p| p == dir)
         && fs::symlink_metadata(dir).is_err()
+        && path().is_some_and(|p| p == dir || same_folder(p.parent(), dir.parent()))
+}
+
+fn same_folder(a: Option<&Path>, b: Option<&Path>) -> bool {
+    let real = |p: Option<&Path>| p.and_then(|p| fs::canonicalize(p).ok());
+    real(a).is_some_and(|a| real(b).is_some_and(|b| a == b))
+}
+
+/// A real folder named `@bin` in the home: it hides the bin, which the panels then cannot show.
+pub fn shadowed() -> Option<PathBuf> {
+    path().filter(|p| fs::symlink_metadata(p).is_ok())
 }
 
 /// Whether `path` is the bin's path or under it: nothing is put there, as a real `@bin` folder
@@ -140,6 +151,7 @@ pub fn find(query: &str, max: usize) -> crate::find::Group {
             snippet: Some(i.origin.display().to_string()).filter(|s| !s.is_empty()),
             path: i.path,
             similar: None,
+            game: None,
         })
         .collect();
     let total = hits.len();
@@ -313,8 +325,110 @@ fn failed(path: &Path, e: impl std::fmt::Display) -> String {
 
 /// The freedesktop.org bin: Linux, the BSDs, illumos, Termux.
 #[cfg_attr(any(windows, target_os = "macos", target_os = "ios"), allow(dead_code))]
-mod fd {
+pub(crate) mod fd {
     use super::*;
+
+    #[cfg(test)]
+    thread_local! {
+        /// A test's other program: runs where one could act in the middle of an operation.
+        pub(crate) static MIDWAY: std::cell::RefCell<Option<Box<dyn FnMut()>>> =
+            const { std::cell::RefCell::new(None) };
+        /// A test's disk without hard links (Termux, where Android refuses them; FAT).
+        pub(crate) static NO_LINK: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+
+    pub(crate) fn midway() {
+        #[cfg(test)]
+        MIDWAY.with_borrow_mut(|f| {
+            if let Some(f) = f {
+                f()
+            }
+        });
+    }
+
+    /// The lock file in a bin that a put, a restore, a delete for good or an Empty holds.
+    pub const LOCK: &str = ".coxswain-lock";
+
+    /// Held while this program restores, deletes for good or empties `bins`, so no other
+    /// Coxswain takes an item away between this one's look at it and its removal, after which
+    /// the item's name may hold a file put in since, and no Coxswain's put copies an item in
+    /// meanwhile. Let go when dropped or when the program dies. A bin where no lock file can be
+    /// made goes unlocked. When another Coxswain holds it: `bin.busy`, at once (the terminal
+    /// app runs these on its UI thread).
+    pub fn hold(bins: &[Bin]) -> io::Result<Vec<Held>> {
+        lock_all(bins, false)
+    }
+
+    /// `hold`, waiting while another Coxswain holds it, until Stop (`stop::check`'s error): for
+    /// a put and an undo, which run as jobs. A put may copy into a bin (from another disk), and
+    /// a copy half made is listed: an Empty then would delete it, and the put the original.
+    pub fn wait(bins: &[Bin]) -> io::Result<Vec<Held>> {
+        lock_all(bins, true)
+    }
+
+    pub use crate::fs::Held;
+
+    fn lock_all(bins: &[Bin], wait: bool) -> io::Result<Vec<Held>> {
+        let mut held = vec![];
+        for b in bins.iter().filter(|b| real(b)) {
+            let mut o = fs::OpenOptions::new();
+            o.write(true).create(true).truncate(false);
+            #[cfg(unix)]
+            std::os::unix::fs::OpenOptionsExt::custom_flags(&mut o, libc::O_NOFOLLOW);
+            let Ok(f) = o.open(b.dir.join(LOCK)) else {
+                continue;
+            };
+            loop {
+                match f.try_lock() {
+                    Ok(()) => {
+                        held.push(Held(f));
+                        break;
+                    }
+                    Err(fs::TryLockError::WouldBlock) if wait => {
+                        crate::stop::check()?;
+                        std::thread::sleep(std::time::Duration::from_millis(50));
+                    }
+                    Err(fs::TryLockError::WouldBlock) => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::WouldBlock,
+                            crate::t!("bin.busy"),
+                        ));
+                    }
+                    Err(_) => break,
+                }
+            }
+        }
+        Ok(held)
+    }
+
+    fn busy(e: io::Error) -> Done {
+        Done {
+            failed: vec![e.to_string()],
+            ..Done::default()
+        }
+    }
+
+    /// The item in `files/` at `path` has no info file: none, or an empty one (a put that died
+    /// before writing it). One that does not parse is someone's item still: never a stray.
+    fn unlisted(path: &Path) -> bool {
+        fs::symlink_metadata(info_of(path)).map_or(true, |m| m.len() == 0)
+    }
+
+    /// Its device, inode and change time: a file freed and another made since may get the
+    /// same inode number.
+    pub(crate) type Id = (u64, u64, i64, i64);
+
+    /// What tells one file from another that took its name since.
+    pub(crate) fn id(path: &Path) -> Option<Id> {
+        let m = fs::symlink_metadata(path).ok()?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            Some((m.dev(), m.ino(), m.ctime(), m.ctime_nsec()))
+        }
+        #[cfg(not(unix))]
+        Some((0, m.len(), 0, 0))
+    }
 
     /// A bin folder and the top of the disk it is on, which the paths in its info files are
     /// relative to (`None`: the home bin, whose paths are whole).
@@ -345,6 +459,30 @@ mod fd {
             };
             Bin { dir, top }
         }
+    }
+
+    /// The bins a put of `path` may go to, sorted as `bins` is: the home one and its own disk's
+    /// (the top of the folders on its device). Never another mount's, which may hang (a dead
+    /// network share).
+    #[cfg(unix)]
+    pub fn bins_for(path: &Path) -> Vec<Bin> {
+        use std::os::unix::fs::MetadataExt;
+        let mut dirs: Vec<PathBuf> = crate::dirs::data_dir()
+            .map(|d| d.join("Trash"))
+            .into_iter()
+            .collect();
+        if let (Ok(m), Ok(abs)) = (fs::symlink_metadata(path), std::path::absolute(path)) {
+            let top = abs
+                .ancestors()
+                .skip(1)
+                .take_while(|a| fs::metadata(a).is_ok_and(|a| a.dev() == m.dev()))
+                .last()
+                .map(Path::to_path_buf);
+            dirs.extend(disk_bins(top.into_iter()));
+        }
+        dirs.sort();
+        dirs.dedup();
+        dirs.into_iter().map(Bin::at).collect()
     }
 
     /// The bins of this machine: the home one, then each disk's.
@@ -443,38 +581,38 @@ mod fd {
             };
             for e in rd.flatten() {
                 let file = e.file_name().to_string_lossy().into_owned();
-                // `.`, `..` or nothing would name `files` or the bin itself.
-                let Some(name) = file
-                    .strip_suffix(".trashinfo")
-                    .filter(|n| !["", ".", ".."].contains(n))
-                else {
-                    continue;
-                };
-                let path = b.dir.join("files").join(name);
-                if fs::symlink_metadata(&path).is_err() {
-                    continue;
+                if let Some(name) = file.strip_suffix(".trashinfo") {
+                    out.extend(item(b, name));
                 }
-                let Some((origin, deleted)) = fs::read_to_string(e.path())
-                    .ok()
-                    .and_then(|t| parse(&t, b.top.as_deref()))
-                else {
-                    continue;
-                };
-                let (is_dir, is_symlink, size) = sized(&path, deleted);
-                out.push(Item {
-                    name: origin
-                        .file_name()
-                        .map_or_else(|| name.to_string(), |n| n.to_string_lossy().into_owned()),
-                    path,
-                    origin,
-                    deleted,
-                    is_dir,
-                    is_symlink,
-                    size,
-                });
             }
         }
         out
+    }
+
+    /// The item `name` of bin `b`: its info file, read, and its item in `files/`.
+    fn item(b: &Bin, name: &str) -> Option<Item> {
+        // `.`, `..` or nothing would name `files` or the bin itself.
+        if ["", ".", ".."].contains(&name) {
+            return None;
+        }
+        let path = b.dir.join("files").join(name);
+        fs::symlink_metadata(&path).ok()?;
+        // Read whole even when not UTF-8 (an older program's raw `Path=`): listed, so
+        // counted and seen before an Empty.
+        let text = fs::read(b.dir.join("info").join(format!("{name}.trashinfo"))).ok()?;
+        let (origin, deleted) = parse(&String::from_utf8_lossy(&text), b.top.as_deref())?;
+        let (is_dir, is_symlink, size) = sized(&path, deleted);
+        Some(Item {
+            name: origin
+                .file_name()
+                .map_or_else(|| name.to_string(), |n| n.to_string_lossy().into_owned()),
+            path,
+            origin,
+            deleted,
+            is_dir,
+            is_symlink,
+            size,
+        })
     }
 
     /// An info file's `Path` (whole: joined to `top` when relative) and `DeletionDate` (the
@@ -534,9 +672,26 @@ mod fd {
         let b = bins
             .iter()
             .find(|b| path.parent() == Some(b.dir.join("files").as_path()) && real(b))?;
-        list_in(std::slice::from_ref(b))
-            .into_iter()
-            .find(|i| i.path == path)
+        // That item alone: listing the whole bin for each one made Empty and a restore of
+        // many items quadratic.
+        item(b, path.file_name()?.to_str()?).filter(|i| i.path == path)
+    }
+
+    /// An item's file and its info file, as `id` tells them: looked at again before each removal,
+    /// as other programs (the desktop's own trash) take no lock of ours (#726).
+    type Ids = (Option<Id>, Option<Id>);
+
+    fn ids(path: &Path) -> Ids {
+        (id(path), id(&info_of(path)))
+    }
+
+    /// The info file of `path`, removed only while it is still `was`: another program may have
+    /// removed it and a put made a new one under the name since.
+    fn remove_info(path: &Path, was: Option<Id>) {
+        let i = info_of(path);
+        if id(&i) == was {
+            let _ = fs::remove_file(i);
+        }
     }
 
     fn info_of(path: &Path) -> PathBuf {
@@ -551,12 +706,17 @@ mod fd {
     }
 
     pub fn restore_in(bins: &[Bin], paths: &[PathBuf], free_name: bool) -> Done {
+        let _held = match hold(bins) {
+            Ok(h) => h,
+            Err(e) => return busy(e),
+        };
         let mut done = Done::default();
         for p in paths {
             let Some(item) = find(bins, p) else {
                 done.failed.push(failed(p, crate::t!("err.not_in_trash")));
                 continue;
             };
+            let was = ids(&item.path);
             let mut to = item.origin.clone();
             if fs::symlink_metadata(&to).is_ok() {
                 if !free_name {
@@ -565,13 +725,22 @@ mod fd {
                 }
                 to = free_in(to.parent().unwrap_or(Path::new("/")), &item.name);
             }
+            midway();
+            // Still the item found: another program may have taken it away, and a put another
+            // file under its name, since.
+            if id(&item.path) != was.0 {
+                done.failed.push(failed(p, crate::t!("err.not_in_trash")));
+                continue;
+            }
             let moved = to
                 .parent()
                 .map_or(Ok(()), fs::create_dir_all)
                 .and_then(|_| move_new(&item.path, &to));
             match moved {
-                Ok(()) => {
-                    let _ = fs::remove_file(info_of(&item.path));
+                Ok(ours) => {
+                    if ours {
+                        remove_info(&item.path, was.1);
+                    }
                     done.done += 1;
                 }
                 Err(e) => done.failed.push(failed(&to, e)),
@@ -581,12 +750,16 @@ mod fd {
     }
 
     /// `from` to `to`, never over what is there by then: a file by a hard link, which fails when
-    /// `to` exists, then its name in the bin taken away; a folder by a rename, which cannot
-    /// replace a file or a folder with something in it. Across disks (the home bin holds what
-    /// was moved in from another) or where no hard link is made (FAT), the move F6 does.
+    /// `to` exists, then its name in the bin taken away; where no hard link is made (Termux,
+    /// where Android refuses them; FAT), by a rename onto an empty file made at `to` with
+    /// `create_new`, which fails when `to` exists; a folder by a rename, which cannot replace a
+    /// file or a folder with something in it. Across disks (the home bin holds what was moved in
+    /// from another), the move F6 does. `false`: the file was moved, but its name in the bin was
+    /// taken away by another program meanwhile (or holds another's file now), so its info file
+    /// is that program's to remove.
     // ponytail: that move checks, then moves: a file made in that instant at `to` is replaced.
     // Windows restores through the shell, with the same check first.
-    pub fn move_new(from: &Path, to: &Path) -> io::Result<()> {
+    pub fn move_new(from: &Path, to: &Path) -> io::Result<bool> {
         let across = |e: &io::Error| {
             #[cfg(test)]
             if crate::fs::ACROSS.get() {
@@ -616,16 +789,54 @@ mod fd {
                     crate::t!("err.exists", "path" => to.display()),
                 ));
             }
-            simulated().and_then(|_| fs::rename(from, to))
+            simulated().and_then(|_| fs::rename(from, to)).map(|_| true)
         } else {
-            match simulated().and_then(|_| fs::hard_link(from, to)) {
-                Ok(()) => return fs::remove_file(from),
+            #[cfg(test)]
+            let link = |f: &Path, t: &Path| {
+                if NO_LINK.get() {
+                    Err(io::ErrorKind::PermissionDenied.into())
+                } else {
+                    fs::hard_link(f, t)
+                }
+            };
+            #[cfg(not(test))]
+            let link = fs::hard_link;
+            match simulated().and_then(|_| link(from, to)) {
+                // `from` still the file now at `to`, else another program's since (or gone): left.
+                Ok(()) if id(from) != id(to) => return Ok(false),
+                Ok(()) => {
+                    return match fs::remove_file(from) {
+                        Ok(()) => Ok(true),
+                        Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+                        Err(e) => Err(e),
+                    };
+                }
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        io::ErrorKind::PermissionDenied | io::ErrorKind::Unsupported
+                    ) =>
+                {
+                    // No hard link here (Termux, FAT, or Linux's fs.protected_hardlinks on a file
+                    // not ours): the empty file claims `to`, and the rename replaces only that.
+                    fs::OpenOptions::new()
+                        .write(true)
+                        .create_new(true)
+                        .open(to)?;
+                    fs::rename(from, to)
+                        .inspect_err(|_| {
+                            if fs::symlink_metadata(to).is_ok_and(|m| m.len() == 0) {
+                                let _ = fs::remove_file(to);
+                            }
+                        })
+                        .map(|_| true)
+                }
                 Err(e) => Err(e),
             }
         };
         match first {
             Err(e) if e.kind() != io::ErrorKind::AlreadyExists && across(&e) => {
-                crate::fs::rename(from, to).map(drop)
+                crate::fs::rename(from, to).map(|_| true)
             }
             r => r,
         }
@@ -640,45 +851,98 @@ mod fd {
     }
 
     pub fn delete_in(bins: &[Bin], paths: &[PathBuf]) -> Done {
+        let _held = match hold(bins) {
+            Ok(h) => h,
+            Err(e) => return busy(e),
+        };
+        let mut failed_ = vec![];
+        let found: Vec<(PathBuf, Ids)> = paths
+            .iter()
+            .filter_map(|p| match find(bins, p) {
+                Some(_) => Some((p.clone(), ids(p))),
+                None => {
+                    failed_.push(failed(p, crate::t!("err.not_in_trash")));
+                    None
+                }
+            })
+            .collect();
+        let mut done = delete_listed(&found);
+        done.failed.splice(0..0, failed_);
+        done
+    }
+
+    /// Each item as it was listed: its file, then its info file, each removed only while still
+    /// the one listed. One gone already (another program took it away) is done; another file
+    /// under its name since is not the user's to lose: left, and said.
+    fn delete_listed(items: &[(PathBuf, Ids)]) -> Done {
         let mut done = Done::default();
-        for p in paths {
-            if find(bins, p).is_none() {
-                done.failed.push(failed(p, crate::t!("err.not_in_trash")));
-                continue;
+        for (p, (file, info)) in items {
+            midway();
+            match id(p) {
+                None => {
+                    done.done += 1;
+                    continue;
+                }
+                now if now != *file => {
+                    done.failed.push(failed(p, crate::t!("err.not_in_trash")));
+                    continue;
+                }
+                _ => {}
             }
             // The item first: an info file left without it is no item.
             match remove(p) {
                 Ok(()) => {
-                    let _ = fs::remove_file(info_of(p));
+                    remove_info(p, *info);
                     done.done += 1;
                 }
+                Err(e) if e.kind() == io::ErrorKind::NotFound => done.done += 1,
                 Err(e) => done.failed.push(failed(p, e)),
             }
         }
         done
     }
 
+    /// What was listed, and the strays: an item with no info file, or an empty one (left by a
+    /// crash), then and still, and still the same file. Nothing put in while it runs
+    /// goes: a put, by a move or by a copy, writes its info file before the item is in `files/`,
+    /// and Coxswain's own put waits for the lock. Info files without their item stay, as one may
+    /// be such a put under way.
     pub fn empty_in(bins: &[Bin]) -> Done {
-        let all: Vec<PathBuf> = list_in(bins).into_iter().map(|i| i.path).collect();
-        let mut done = delete_in(bins, &all);
-        // What has no info file (left by a crash) goes too, and info files without their item.
+        let _held = match hold(bins) {
+            Ok(h) => h,
+            Err(e) => return busy(e),
+        };
+        let all: Vec<(PathBuf, Ids)> = list_in(bins)
+            .into_iter()
+            .map(|i| {
+                let was = ids(&i.path);
+                (i.path, was)
+            })
+            .collect();
+        let strays: Vec<(PathBuf, Option<Id>)> = bins
+            .iter()
+            .filter(|b| real(b))
+            .flat_map(|b| {
+                fs::read_dir(b.dir.join("files"))
+                    .into_iter()
+                    .flatten()
+                    .flatten()
+            })
+            .map(|e| e.path())
+            .filter(|p| unlisted(p))
+            .map(|p| {
+                let id = id(&p);
+                (p, id)
+            })
+            .collect();
+        let mut done = delete_listed(&all);
+        midway();
+        for (p, was) in strays {
+            if unlisted(&p) && id(&p) == was && remove(&p).is_ok() {
+                done.done += 1;
+            }
+        }
         for b in bins.iter().filter(|b| real(b)) {
-            for e in fs::read_dir(b.dir.join("files"))
-                .into_iter()
-                .flatten()
-                .flatten()
-            {
-                if remove(&e.path()).is_ok() {
-                    done.done += 1;
-                }
-            }
-            for e in fs::read_dir(b.dir.join("info"))
-                .into_iter()
-                .flatten()
-                .flatten()
-            {
-                let _ = fs::remove_file(e.path());
-            }
             let _ = fs::remove_file(b.dir.join("directorysizes"));
         }
         done
@@ -1057,6 +1321,22 @@ mod tests {
         assert_eq!(parse("[Trash Info]\n", None), None);
     }
 
+    /// A program another thread starts holds a copy of every handle until it runs (fork, then
+    /// exec); the lock is let go all the same, so the next restore does not find the bin busy
+    /// (#797). `try_clone` is that copy: the same open file, which the lock belongs to.
+    #[cfg(unix)]
+    #[test]
+    fn bin_lock_is_let_go_while_a_started_program_holds_a_copy() {
+        let d = crate::fs::Scratch::named("bin-held-copy");
+        let bins = [bin(&d, &[])];
+        let held = hold(&bins).unwrap();
+        assert_eq!(held.len(), 1);
+        let copy = held[0].0.try_clone().unwrap();
+        drop(held);
+        assert!(hold(&bins).is_ok());
+        drop(copy);
+    }
+
     #[test]
     fn bin_restores_and_asks_when_the_place_is_taken() {
         let d = crate::fs::Scratch::named("bin-restore");
@@ -1146,6 +1426,227 @@ mod tests {
             0
         );
         assert!(outside.exists());
+    }
+
+    /// Empty takes what it listed and what had no info file then, never a file put in while
+    /// it ran (#720).
+    #[test]
+    fn bin_empty_keeps_what_is_put_in_meanwhile() {
+        let d = crate::fs::Scratch::named("bin-empty-meanwhile");
+        let b = bin(&d, &[("a.txt", "/x/a.txt", "2026-10-01T12:00:00")]);
+        fs::write(b.dir.join("files/stray"), "").unwrap();
+        let bins = [b.clone()];
+        let dir = b.dir.clone();
+        let mut calls = 0;
+        MIDWAY.set(Some(Box::new(move || {
+            // After a.txt went (the second call): another program's put, the info file, then
+            // the file.
+            calls += 1;
+            if calls != 2 {
+                return;
+            }
+            fs::write(
+                dir.join("info/a.txt.trashinfo"),
+                "[Trash Info]\nPath=/y/a.txt\nDeletionDate=2026-10-02T12:00:00\n",
+            )
+            .unwrap();
+            fs::write(dir.join("files/a.txt"), "new").unwrap();
+        })));
+        let r = empty_in(&bins);
+        MIDWAY.set(None);
+        assert_eq!(r.done, 2, "a.txt as listed, and the stray");
+        assert!(!b.dir.join("files/stray").exists());
+        let l = list_in(&bins);
+        assert_eq!(l.len(), 1);
+        assert_eq!(l[0].origin, Path::new("/y/a.txt"));
+        assert_eq!(fs::read_to_string(&l[0].path).unwrap(), "new");
+    }
+
+    /// Another program takes no lock of ours (the desktop's own trash): it empties an item and
+    /// puts another file under its name between Coxswain's look at the item and its removal.
+    /// The new file is left, with its info file; one simply gone is done (#726).
+    #[cfg(unix)]
+    #[test]
+    fn bin_leaves_what_another_program_put_under_an_items_name() {
+        let d = crate::fs::Scratch::named("bin-outside");
+        let other = |dir: PathBuf, put: bool| -> Box<dyn FnMut()> {
+            let mut once = true;
+            let mut kept = vec![];
+            Box::new(move || {
+                if std::mem::take(&mut once) {
+                    // Held open, so the new file cannot get its inode number.
+                    kept.push(fs::File::open(dir.join("files/a.txt")).unwrap());
+                    fs::remove_file(dir.join("files/a.txt")).unwrap();
+                    if put {
+                        fs::remove_file(dir.join("info/a.txt.trashinfo")).unwrap();
+                        fs::write(
+                            dir.join("info/a.txt.trashinfo"),
+                            "[Trash Info]\nPath=/y/a.txt\nDeletionDate=2026-10-02T12:00:00\n",
+                        )
+                        .unwrap();
+                        fs::write(dir.join("files/a.txt"), "new").unwrap();
+                    }
+                }
+            })
+        };
+        let new_one_stays = |b: &Bin| {
+            let l = list_in(std::slice::from_ref(b));
+            assert_eq!(l.len(), 1);
+            assert_eq!(l[0].origin, Path::new("/y/a.txt"));
+            assert_eq!(fs::read_to_string(&l[0].path).unwrap(), "new");
+        };
+        let not_in_bin = |r: &Done| r.failed.len() == 1 && r.done == 0;
+        for op in 0..3 {
+            let at = d.join(format!("{op}"));
+            let origin = at.join("home/a.txt");
+            let b = bin(&at, &[("a.txt", &origin.to_string_lossy(), "2026-10-01T12:00:00")]);
+            let bins = [b.clone()];
+            let a = b.dir.join("files/a.txt");
+            MIDWAY.set(Some(other(b.dir.clone(), true)));
+            let r = match op {
+                0 => delete_in(&bins, std::slice::from_ref(&a)),
+                1 => empty_in(&bins),
+                _ => restore_in(&bins, std::slice::from_ref(&a), true),
+            };
+            MIDWAY.set(None);
+            assert!(not_in_bin(&r), "{op}: {r:?}");
+            assert!(!origin.exists(), "{op}: the new file is not restored in its place");
+            new_one_stays(&b);
+        }
+        // Only gone (another program's delete, its info file next): done, and its info file
+        // is the other program's to remove.
+        let b = bin(&d.join("gone"), &[("a.txt", "/x/a.txt", "2026-10-01T12:00:00")]);
+        MIDWAY.set(Some(other(b.dir.clone(), false)));
+        let r = delete_in(std::slice::from_ref(&b), &[b.dir.join("files/a.txt")]);
+        MIDWAY.set(None);
+        assert_eq!((r.done, r.failed.len()), (1, 0));
+        assert!(b.dir.join("info/a.txt.trashinfo").exists());
+    }
+
+    /// Empty looks at each item alone, not by listing the whole bin again for each: 8 times
+    /// the items cost about 8 times the work, not 64 (3400 items took minutes on a phone).
+    #[test]
+    fn bin_empty_is_linear() {
+        let d = crate::fs::Scratch::named("bin-empty-linear");
+        let empty = |n: usize| {
+            let names: Vec<String> = (0..n).map(|i| format!("f{i}")).collect();
+            let items: Vec<(&str, &str, &str)> =
+                names.iter().map(|n| (n.as_str(), "/x/f", "2026-10-01T12:00:00")).collect();
+            let b = bin(&d, &items);
+            assert_eq!(empty_in(std::slice::from_ref(&b)).done, n);
+        };
+        crate::assert_costs_at_most(20, || empty(150), || empty(1200));
+    }
+
+    /// Between its look at an item and its removal, a delete for good or an Empty holds the
+    /// bin's lock, so another Coxswain cannot free the name for a new file to take (#720).
+    #[test]
+    fn bin_delete_and_empty_hold_the_bin() {
+        let d = crate::fs::Scratch::named("bin-held");
+        let b = bin(&d, &[("a.txt", "/x/a.txt", "2026-10-01T12:00:00")]);
+        let bins = [b.clone()];
+        let lock = b.dir.join(LOCK);
+        let seen = std::rc::Rc::new(std::cell::RefCell::new(vec![]));
+        let s = seen.clone();
+        MIDWAY.set(Some(Box::new(move || {
+            let other = fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(false)
+                .open(&lock)
+                .unwrap();
+            s.borrow_mut().push(matches!(
+                other.try_lock(),
+                Err(fs::TryLockError::WouldBlock)
+            ));
+        })));
+        delete_in(&bins, &[b.dir.join("files/a.txt")]);
+        empty_in(&bins);
+        MIDWAY.set(None);
+        assert_eq!(*seen.borrow(), [true, true]);
+    }
+
+    /// While another Coxswain holds the bin, restore, delete for good and Empty say so at once
+    /// and touch nothing: the terminal app runs them on its UI thread.
+    #[test]
+    fn bin_busy_says_so_and_waits_for_nothing() {
+        let d = crate::fs::Scratch::named("bin-busy");
+        let b = bin(&d, &[("a.txt", "/x/a.txt", "2026-10-01T12:00:00")]);
+        let bins = [b.clone()];
+        let other = hold(&bins).unwrap();
+        let a = b.dir.join("files/a.txt");
+        let busy = vec![crate::t!("bin.busy").to_string()];
+        assert_eq!(delete_in(&bins, std::slice::from_ref(&a)).failed, busy);
+        assert_eq!(
+            restore_in(&bins, std::slice::from_ref(&a), true).failed,
+            busy
+        );
+        assert_eq!(empty_in(&bins).failed, busy);
+        assert_eq!(list_in(&bins).len(), 1);
+        drop(other);
+        assert_eq!(empty_in(&bins).done, 1);
+    }
+
+    /// A stray (no info file, or an empty one) goes with Empty, but not a file that
+    /// took its name after the listing. Unix: the freedesktop.org bin's systems, where a file
+    /// is told by its inode.
+    #[cfg(unix)]
+    #[test]
+    fn bin_empty_takes_strays_it_saw_only() {
+        let d = crate::fs::Scratch::named("bin-strays");
+        let b = bin(&d, &[]);
+        let bins = [b.clone()];
+        fs::write(b.dir.join("files/broken"), "x").unwrap();
+        fs::write(b.dir.join("info/broken.trashinfo"), "").unwrap();
+        // An info file that does not parse is someone's: its item stays.
+        fs::write(b.dir.join("files/odd"), "x").unwrap();
+        fs::write(b.dir.join("info/odd.trashinfo"), "not an info file").unwrap();
+        fs::write(b.dir.join("files/swapped"), "old").unwrap();
+        let dir = b.dir.clone();
+        MIDWAY.set(Some(Box::new(move || {
+            // Another program's file takes the stray's name: made first, so a new file.
+            fs::write(dir.join("new"), "new").unwrap();
+            fs::rename(dir.join("new"), dir.join("files/swapped")).unwrap();
+        })));
+        let r = empty_in(&bins);
+        MIDWAY.set(None);
+        assert_eq!(r.done, 1);
+        assert!(!b.dir.join("files/broken").exists());
+        assert!(b.dir.join("files/odd").exists());
+        assert_eq!(
+            fs::read_to_string(b.dir.join("files/swapped")).unwrap(),
+            "new"
+        );
+    }
+
+    /// An info file whose `Path=` is not UTF-8 (an older program's) names an item all the same:
+    /// listed, so seen and counted before an Empty.
+    #[cfg(unix)]
+    #[test]
+    fn bin_lists_an_item_whose_info_is_not_utf8() {
+        let d = crate::fs::Scratch::named("bin-raw");
+        let b = bin(&d, &[]);
+        fs::write(b.dir.join("files/r.txt"), "x").unwrap();
+        fs::write(
+            b.dir.join("info/r.txt.trashinfo"),
+            b"[Trash Info]\nPath=/x/r\xff.txt\nDeletionDate=2026-10-01T12:00:00\n",
+        )
+        .unwrap();
+        let bins = [b.clone()];
+        let l = list_in(&bins);
+        assert_eq!(l.len(), 1);
+        assert_eq!(l[0].path, b.dir.join("files/r.txt"));
+    }
+
+    /// A put waiting for a busy bin hears Stop.
+    #[test]
+    fn bin_wait_hears_stop() {
+        let d = crate::fs::Scratch::named("bin-wait-stop");
+        let bins = [bin(&d, &[])];
+        let _other = hold(&bins).unwrap();
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let e = crate::stop::during(&stop, || wait(&bins)).unwrap_err();
+        assert!(crate::stop::is(&e), "{e}");
     }
 
     /// A bin whose `files` is a link to a folder outside it (a stick with
@@ -1341,6 +1842,22 @@ mod tests {
                 b.join(format!(".Trash/{uid}"))
             ]
         );
+    }
+
+    /// The home reached through a link to it is the same home: its `@bin` is the bin, and
+    /// nothing is put there.
+    #[cfg(unix)]
+    #[test]
+    fn bin_is_found_through_a_link_to_the_home() {
+        let d = crate::fs::Scratch::named("bin-link-home");
+        let home = crate::dirs::home_dir().unwrap();
+        let link = d.join("home");
+        std::os::unix::fs::symlink(&home, &link).unwrap();
+        let bin = link.join(MARKER);
+        assert!(is_bin(&bin) && inside(&bin.join("a.txt")));
+        assert!(!is_bin(&d.join(MARKER)) && !inside(&d.join("a.txt")));
+        assert!(crate::fs::mkdir(&bin.join("n")).is_err());
+        assert!(fs::symlink_metadata(&bin).is_err(), "no @bin made");
     }
 
     #[test]

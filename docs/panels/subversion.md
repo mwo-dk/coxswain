@@ -119,6 +119,9 @@ when you look:
   list gives the sizes, so a folder too large to drag is refused
   ([Drag and drop](../files/drag-and-drop.md)).
 - **Slow:** each step has 30 seconds; a copy out of a large folder runs `svn cat` once per file.
+  A revision takes three asks of the server (`svn log`, `svn info`, `svn list`). A desktop tab
+  left in a revision is read again at the next start: the window opens at once, and that pane
+  says *Working on r4…* until the server has answered.
 - **Large revisions:** a diff stops at 2 MB; its first line then says *Cut short: this commit
   changed more than Coxswain shows in one diff.*
 - **Only reads:** nothing is committed, switched or updated; the working copy is not touched.
@@ -163,6 +166,13 @@ says so.
 Yes: **Enter** on the revision in the history shows its folder as it was, read from the server
 you said yes to. **F3** shows a file, the desktop app's **Diff** what the revision changed in it,
 and **F5** copies it out.
+
+#### Why does a tab in a revision say Working on r4… when the desktop app starts?
+
+The tab was left in that revision, so its folder is asked of the server again. The rest of the
+window works meanwhile; the pane fills once `svn list` answers, within 30 seconds a step. When
+it takes long, time `svn list` on the same URL in a terminal: the wait is in `svn` or the
+network, and the pane shows it as it comes.
 
 #### How do I update the working copy?
 

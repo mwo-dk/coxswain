@@ -274,7 +274,9 @@ impl Settings {
             self.engines = play::listed(&app.cfg);
         }
         let rows = rows(app, self);
-        let start = at.and_then(|at| rows.iter().position(|r| r.id() == Some(at))).unwrap_or(0);
+        // With none of the user's own files kept, Disk use itself.
+        let place = |at: &str| rows.iter().position(|r| r.id() == Some(at));
+        let start = at.and_then(|at| place(at).or_else(|| (at == "disk_yours").then(|| place("disk")).flatten())).unwrap_or(0);
         self.cursor = (start..rows.len()).find(|&i| rows[i].selectable()).unwrap_or(0);
     }
 
@@ -295,7 +297,7 @@ impl Settings {
         std::thread::spawn(move || {
             let said = pull.map(|images| {
                 let rt = coxswain_core::tools::container_runtime(&cfg).map(|r| r.1);
-                let failed: Vec<String> = images.iter().filter_map(|i| rt.as_ref().ok_or_else(coxswain_core::tools::no_runtime).and_then(|rt| coxswain_core::images::pull(rt, i)).err()).collect();
+                let failed: Vec<String> = images.iter().filter_map(|i| rt.as_ref().ok_or_else(coxswain_core::tools::no_runtime).and_then(|rt| coxswain_core::images::pulls::retry_job(rt, i)).err()).collect();
                 if failed.is_empty() { t!("ptools.pulled", "images" => images.iter().map(|i| coxswain_core::images::short(i)).collect::<Vec<_>>().join(", ")) } else { failed.join(" ") }
             });
             tx.send((coxswain_core::preview_tools::rows(&cfg), said))
@@ -357,6 +359,22 @@ impl Settings {
 
 // ---------------------------------------------------------------- what an area holds
 
+/// What a job could not pull for this kind of file: why, and when the next job tries again.
+fn failed_pull(r: &coxswain_core::preview_tools::Row) -> Option<String> {
+    failed_state(r)?.job_line()
+}
+
+/// Whether Delete on this row shows the runtime's error: a pull failed, and no image is there to remove.
+fn details_on_delete(r: &coxswain_core::preview_tools::Row) -> bool {
+    r.images.iter().all(|i| i.pulled.is_none()) && failed_state(r).is_some_and(|f| f.details().is_some())
+}
+
+/// The failed pull itself, for its words and the runtime's own error (*Details*).
+fn failed_state(r: &coxswain_core::preview_tools::Row) -> Option<coxswain_core::images::pulls::State> {
+    let mut failed = coxswain_core::images::pulls::failures();
+    r.images.iter().filter(|i| i.pulled.is_none()).find_map(|i| failed.remove(&i.image))
+}
+
 /// The versions not read yet, else this one.
 fn news(st: &coxswain_core::state::AppState) -> Vec<coxswain_core::notices::Change> {
     let unread = coxswain_core::notices::unread(st);
@@ -364,9 +382,9 @@ fn news(st: &coxswain_core::state::AppState) -> Vec<coxswain_core::notices::Chan
     changes.into_iter().take(5).collect()
 }
 
-/// What a version brought, without its links.
+/// What a version brought, without its links, on one line (its short preview here).
 fn plain(c: &coxswain_core::notices::Change) -> String {
-    c.parts.iter().map(|(t, _)| t.as_str()).collect()
+    c.parts.iter().map(|(t, _)| t.as_str()).collect::<String>().replace("\n\n", " ")
 }
 
 /// The start of `text` that fits in `h` lines of `w`, cut at a word and ended with "…", and
@@ -396,7 +414,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
     let mut v = vec![];
     match s.area {
         Area::Overview => {
-            let lines = cs::status(&cfg.search, &app.index.status(), app.index.shared(), &[]);
+            let lines = cs::status(&cfg.search, &app.index.status(), app.index.shared(), &[], &cfg.preview.images);
             let search = std::iter::once(level_name()).chain(lines.iter().skip(1).map(|l| format!("{}: {}", l.label, l.text))).collect::<Vec<_>>().join(" · ");
             v.push(Row::Go(Area::Search, search));
             v.push(Row::Go(Area::Previews, choice_label("preview_prefer", &cfg.preview.prefer)));
@@ -412,7 +430,7 @@ pub fn rows(app: &App, s: &Settings) -> Vec<Row> {
         }
         Area::Search => {
             let poor = coxswain_core::setup::poor(&cfg.search, false);
-            v.extend(cs::status(&cfg.search, &app.index.status(), app.index.shared(), &poor).into_iter().map(Row::Status));
+            v.extend(cs::status(&cfg.search, &app.index.status(), app.index.shared(), &poor, &cfg.preview.images).into_iter().map(Row::Status));
             v.push(Row::Head(t!("settings.level"), "level"));
             v.extend(Level::ALL.into_iter().map(Row::Level));
             v.push(Row::SetUp);
@@ -540,6 +558,11 @@ fn groups(v: &mut Vec<Row>, s: &Settings, area: Area, poor: &[coxswain_core::set
                 v.push(Row::Translate);
             }
         }
+        // Where the analysed positions are kept, and how many.
+        if g.id == "review" {
+            let dir = coxswain_core::chess::memory::dir().map(|d| d.display().to_string()).unwrap_or_default();
+            v.push(Row::Info(t!("chess.memory"), dir, t!("chess.memory_hint", "most" => coxswain_core::chess::memory::KEPT)));
+        }
         if matches!(g.id, "ask" | "meaning") {
             v.extend(poor.iter().filter(|p| p.ask == (g.id == "ask")).cloned().map(Row::Poor));
         }
@@ -605,6 +628,7 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
         "image_updates" => pairs(&[("off", "settings.image_updates_off"), ("weekly", "settings.image_updates_weekly"), ("monthly", "settings.image_updates_monthly")]),
         "glyphs" => pairs(&[("nerd", "settings.glyphs_nerd"), ("ascii", "settings.glyphs_ascii")]),
         "right_click" => pairs(&[("mark", "settings.right_click_mark"), ("menu", "settings.right_click_menu")]),
+        "typing" => pairs(&[("find", "settings.typing_find"), ("command", "settings.typing_command")]),
         "repos_order" => pairs(&[("name", "settings.repos_order_name"), ("used", "settings.repos_order_used")]),
         "long_files" => pairs(&[("sample", "settings.long_files.sample"), ("everything", "settings.long_files.everything")]),
         "chess_notation" => pairs(&[("figurines", "settings.chess_figurines"), ("letters", "settings.chess_letters")]),
@@ -789,7 +813,7 @@ impl App {
         let esc = key.code == KeyCode::Esc;
         s.said = None;
         let rows = rows(self, &s);
-        let values = cs::values(&self.cfg);
+        let values = cs::values(&self.cfg, false);
         let opt = match rows.get(s.cursor) {
             Some(Row::Opt(o)) => Some(*o),
             _ => None,
@@ -816,11 +840,14 @@ impl App {
                 }
                 (_, Some('/')) => s.mode = Mode::Find { query: String::new(), at: 0 },
                 (KeyCode::Delete, _) => match rows.get(s.cursor) {
+                    // A failed pull has nothing to remove: Delete shows the runtime's error.
+                    Some(Row::PreviewTool(r)) if details_on_delete(r) => s.said = failed_state(r).and_then(|f| f.details().map(|d| (d.split_whitespace().collect::<Vec<_>>().join(" "), true))),
                     Some(Row::PreviewTool(r)) => self.tool_remove(&mut s, r),
                     Some(Row::EngineOpt(o)) => return self.engine_option(s, &o.option.name.clone(), None),
                     Some(Row::Model(e)) => return self.model_delete(s, &e.id.clone()),
                     Some(Row::Disk(i)) if i.bytes > 0 && i.clear => s.mode = Mode::ConfirmClear(i.id.clone()),
                     Some(Row::Status(l)) if l.also == Some(Step::StopTranscribing) => self.index.transcribe_pause(false, true),
+                    Some(Row::Status(l)) if l.also == Some(Step::Details) => s.said = l.details.as_ref().map(|d| (d.split_whitespace().collect::<Vec<_>>().join(" "), true)),
                     Some(Row::Server(server)) => {
                         let mut st = coxswain_core::state::AppState::load();
                         st.history_servers.retain(|x| x != server);
@@ -994,9 +1021,7 @@ impl App {
                         let item = if WORDS.contains(&o.name) {
                             new.trim().to_string()
                         } else {
-                            let base = self.panel().dir.clone();
-                            let dir = coxswain_core::fs::resolve(&base, new.trim());
-                            coxswain_core::fs::canonical(&dir).unwrap_or(dir).display().to_string()
+                            cs::folder_to_add(&self.panel().dir, &new).map(|d| d.display().to_string()).unwrap_or_default()
                         };
                         if !item.is_empty() && !items.contains(&item) {
                             items.push(item);
@@ -1173,6 +1198,7 @@ impl App {
                 Some(Step::Pause) => self.index.transcribe_pause(true, false),
                 Some(Step::Resume) => self.index.transcribe_pause(false, false),
                 Some(Step::StopTranscribing) => self.index.transcribe_pause(false, true),
+                Some(Step::RetryNow) => self.index.retry_pulls(),
                 Some(Step::SetUp) => self.setup_guide(),
                 Some(Step::TryIt) if s.trial_rx.is_none() => {
                     let (tx, rx) = mpsc::channel();
@@ -1749,7 +1775,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let right = Rect { x: inner.x + aw as u16 + 2, y: inner.y, width: inner.width.saturating_sub(aw as u16 + 2), height: body_h };
     let w = right.width as usize;
     let cfg = &app.cfg;
-    let values = cs::values(cfg);
+    let values = cs::values(cfg, false);
     let level = cs::level(&cfg.search);
     let mut cursor_at: Option<Position> = None;
 
@@ -1881,7 +1907,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                     let pulling = coxswain_core::images::pulling();
                     let uses = match r.images.iter().find_map(|i| pulling.get(&i.image)) {
                         Some(line) => format!("{} {line}", t!("common.loading")),
-                        None => r.uses.clone(),
+                        None => failed_pull(r).unwrap_or_else(|| r.uses.clone()),
                     };
                     lines.extend(pair(&format!(" {} {}", if r.missing { "✗" } else { "✓" }, r.title), &if choice.is_empty() { uses } else { format!("{uses} · {choice}") }, if r.missing && !here { red } else { st }));
                 }
@@ -1977,6 +2003,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(_))) => (t!("disk.keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Server(_))) => (t!("settings.history_server_keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if !r.container) => (t!("ptools.keys_tui_no_image"), dim),
+        (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if details_on_delete(r)) => (t!("ptools.keys_tui_retry"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => (t!("ptools.keys_tui"), dim),
         (None, _) => (t!("tui.settings.keys"), dim),
     };
@@ -2108,6 +2135,21 @@ mod tests {
         typed(&mut app, "footclient -D {dir}");
         key(&mut app, KeyCode::Enter);
         assert_eq!(app.cfg.terminal.as_deref(), Some("footclient -D {dir}"));
+    }
+
+    /// A kept sync folder's notice opens Disk use with the cursor on the user's own files, or on
+    /// Disk use itself when none are kept.
+    #[test]
+    fn disk_yours_opens_at_the_users_own_files() {
+        let d = crate::test_dir("panels");
+        let app = app(&d);
+        let s = Settings::open(&app, "disk_yours");
+        assert_eq!(s.area, Area::Privacy);
+        let rows = rows(&app, &s);
+        match rows.iter().position(|r| r.id() == Some("disk_yours")) {
+            Some(head) => assert!(s.cursor > head && matches!(&rows[s.cursor], Row::Disk(i) if i.kind == coxswain_core::disk::Kind::Yours)),
+            None => assert_eq!(s.cursor, Settings::open(&app, "disk").cursor),
+        }
     }
 
     /// Preview tools: a row per kind once read; Enter takes the next choice and writes it.

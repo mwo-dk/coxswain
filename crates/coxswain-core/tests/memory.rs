@@ -1231,10 +1231,13 @@ fn memory_case() {
             Ok((entries, _)) => format!("{} entries", entries.len()),
             Err(e) => format!("error: {e}"),
         },
-        Do::Folder(inner) => match archive::listing(&case.input, inner) {
+        // As a panel lists it (`fs::list_lean`): names, no paths.
+        Do::Folder(inner) => match coxswain_core::fs::list_lean(&case.input.join(inner), true) {
             Ok((entries, _)) => {
                 let n = entries.len();
                 let first = t.elapsed().as_secs_f64();
+                // What the listing holds while it is shown.
+                let held = (status("VmRSS:") - base).max(0.0);
                 drop(entries);
                 let again = Instant::now();
                 let top = archive::listing(&case.input, "").map_or(0, |(e, _)| e.len());
@@ -1247,7 +1250,7 @@ fn memory_case() {
                     libc::malloc_trim(0);
                 }
                 let kept = (status("VmRSS:") - base).max(0.0);
-                format!("{n} entries ({first:.2} s; top {top} and back {back} in {again:.2} s), {kept:.0} MB kept after")
+                format!("{n} entries ({first:.2} s; top {top} and back {back} in {again:.2} s), {held:.0} MB while listed, {kept:.0} MB kept after")
             }
             Err(e) => format!("error: {e}"),
         },

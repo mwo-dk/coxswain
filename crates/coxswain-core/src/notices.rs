@@ -101,7 +101,7 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         } else {
             t!("notice.sync_kept", "n" => n, "size" => size, "path" => l.path().display(), "undo" => undo)
         };
-        all.push(Notice::new(l.id(), text, (!l.binned).then_some("disk")));
+        all.push(Notice::new(l.id(), text, (!l.binned).then_some("disk_yours")));
     }
     // Search has stalled: why, before anything else. Dismissed, it comes back with another why.
     if let Some(why) = &status.error {
@@ -183,6 +183,16 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             None,
         ));
     }
+    // 2.36: the desktop app's defaults changed for whoever never set them: said once.
+    // Not on a first run: someone who never knew the old defaults has nothing to be told.
+    let earlier = !state.seen_version.is_empty() || state.guide_seen;
+    if !terminal && earlier && cfg.right_click.is_empty() {
+        all.push(Notice::new("right-click-menu", t!("notice.right_click_menu", "mark" => cfg.keys_shown(crate::config::Action::Mark)), Some("right_click")));
+    }
+    if !terminal && earlier && cfg.typing.is_empty() {
+        let key = cfg.key_for(crate::config::Action::CommandLine).unwrap_or("F9");
+        all.push(Notice::new("typing-jumps", t!("notice.typing_jumps", "key" => key), Some("typing")));
+    }
     // A repository was opened: its history is a key away.
     if !state.recent_repos.is_empty() {
         let key = cfg.key_for(crate::config::Action::History).unwrap_or("F9");
@@ -225,6 +235,10 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     if crate::bin::LIMITED.load(std::sync::atomic::Ordering::Relaxed) {
         let text = if crate::tools::flatpak().is_some() { t!("notice.bin_flatpak") } else { t!("notice.bin_mac") };
         all.push(Notice::new("bin-limited", text, None));
+    }
+    // A real folder named @bin in the home (another program made it): it hides the bin. Once.
+    if let Some(p) = crate::bin::shadowed() {
+        all.push(Notice::new("bin-shadowed", t!("notice.bin_shadowed", "path" => p.display()), None));
     }
     // A Mercurial repository was opened and hg is not installed.
     if crate::vcs::HG_MISSING.load(std::sync::atomic::Ordering::Relaxed) {
@@ -381,7 +395,7 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     // Apache Tika is turned on, but there is no podman or docker to run it in. Once.
     if cfg.search.tika
         && cfg.search.text
-        && status.tika == Some(crate::extract::tika::State::NoRuntime)
+        && status.tika == Some(crate::images::pulls::State::NoRuntime)
     {
         all.push(Notice::new("tika-runtime", t!("notice.tika_no_runtime"), Some("search_tika")));
     }
@@ -495,15 +509,23 @@ fn changelog(readme: &str, base: &str) -> Vec<Change> {
 }
 
 /// Markdown made plain: emphasis and code marks go, `[label](target)` becomes a link, a page
-/// of the docs one on GitHub.
+/// of the docs one on GitHub. Each change of a version (a bold lead after the previous one's
+/// link) starts a paragraph of its own. A `[` that opens no link (`[%eval]`) stays text.
 fn parts(text: &str, base: &str) -> Vec<(String, Option<String>)> {
     let plain = |s: &str| s.replace(['*', '`'], "");
+    let text = text.replace(") **", ")\n\n**");
     let mut out = vec![];
-    let mut rest = text;
-    while let Some(open) = rest.find('[') {
-        let Some((label, after)) = rest[open + 1..].split_once("](") else {
+    let mut rest = text.as_str();
+    let mut from = 0;
+    while let Some(open) = rest[from..].find('[').map(|i| from + i) {
+        let Some(close) = rest[open + 1..].find(['[', ']']).map(|i| open + 1 + i) else {
             break;
         };
+        let Some(after) = rest[close..].strip_prefix("](") else {
+            from = close; // `[` with no link: text
+            continue;
+        };
+        let label = &rest[open + 1..close];
         let Some((target, tail)) = after.split_once(')') else {
             break;
         };
@@ -517,6 +539,7 @@ fn parts(text: &str, base: &str) -> Vec<(String, Option<String>)> {
         };
         out.push((plain(label), Some(url)));
         rest = tail;
+        from = 0;
     }
     out.push((plain(rest), None));
     out.retain(|(t, _)| !t.is_empty());
@@ -563,6 +586,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_bracket_that_opens_no_link_stays_text_and_each_change_is_a_paragraph() {
+        let got = parts(
+            "**One.** A `[%eval]` shows. [Chess](chess.md) **Two.** More [x] [Bin](files/bin.md)",
+            "docs/",
+        );
+        let links: Vec<_> = got.iter().filter(|(_, u)| u.is_some()).map(|(t, _)| t.as_str()).collect();
+        assert_eq!(links, ["Chess", "Bin"]);
+        assert_eq!(got[0].0, "One. A [%eval] shows. ");
+        assert_eq!(got[2].0, "\n\nTwo. More [x] ");
+    }
+
+    #[test]
     fn notices_come_one_at_a_time_and_stay_away_once_dismissed() {
         let cfg = Config::default();
         let mut status = Status {
@@ -588,6 +623,7 @@ mod tests {
             error: None,
             clouds: vec![],
             tika: None,
+            ebooks: None,
             transcripts: None,
             outdated: None,
             changes_left: 0,
@@ -600,6 +636,12 @@ mod tests {
         dismiss(&mut state, "bin-limited");
         // Nor whether the home folder is on ZFS (it is on illumos and many FreeBSD machines).
         dismiss(&mut state, "zfs");
+        // The desktop app's changed defaults are told to whoever never set them.
+        let earlier = AppState { guide_seen: true, ..state.clone() };
+        assert!(all(&cfg, &status, &earlier, false).iter().any(|n| n.id == "right-click-menu") && !all(&cfg, &status, &earlier, true).iter().any(|n| n.id == "right-click-menu"));
+        assert!(!all(&cfg, &status, &state, false).iter().any(|n| n.id == "right-click-menu"), "a first run is told nothing about old defaults");
+        dismiss(&mut state, "right-click-menu");
+        dismiss(&mut state, "typing-jumps");
         // On a Mac: the folder prompts explained, once.
         let first = next(&cfg, &status, &state, false).map(|n| n.id);
         assert_eq!(

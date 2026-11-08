@@ -90,7 +90,7 @@ fn put_in(trash: &Path, path: &Path, same: fn(&Path, &Path) -> bool) -> io::Resu
     unreachable!("some name is free")
 }
 
-/// Put back what `put` moved in under `name` to `path`, where it was: renamed back, never over
+/// Put back what `put` moved in under `name` to `path`, where it was: moved back, never over
 /// what is there now. The name, not the date, says which: two trashings of one path within a
 /// second have the same date.
 pub fn restore(name: &str, path: &Path) -> io::Result<()> {
@@ -101,17 +101,18 @@ pub fn restore(name: &str, path: &Path) -> io::Result<()> {
 fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
     let path = std::path::absolute(path)?;
     let info = trash.join("info").join(format!("{name}.trashinfo"));
-    let body = fs::read_to_string(&info)
-        .map_err(|_| io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_trash")))?;
+    let file = trash.join("files").join(name);
+    let not_in = || io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_trash"));
+    // Before the read: what is read is then this info file, or a newer one that fails below.
+    let was = (crate::bin::fd::id(&file), crate::bin::fd::id(&info));
+    let body = fs::read_to_string(&info).map_err(|_| not_in())?;
     // Still the one this path put there, not another under a name freed and taken since.
     if !body
         .lines()
         .any(|l| l.strip_prefix("Path=") == Some(encode(&path).as_str()))
+        || crate::bin::fd::id(&info) != was.1
     {
-        return Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            crate::t!("err.not_in_trash"),
-        ));
+        return Err(not_in());
     }
     if fs::symlink_metadata(&path).is_ok() {
         return Err(io::Error::new(
@@ -119,8 +120,18 @@ fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
             crate::t!("err.exists", "path" => path.display()),
         ));
     }
-    fs::rename(trash.join("files").join(name), &path)?;
-    let _ = fs::remove_file(info);
+    crate::bin::fd::midway();
+    // Still the item read: another program may have taken it away and a put another file
+    // under its name since.
+    if crate::bin::fd::id(&file) != was.0 {
+        return Err(not_in());
+    }
+    // Never over a file made at `path` since the look above.
+    let ours = crate::bin::fd::move_new(&file, &path)?;
+    // Still the one read: another program may have taken it away and a put made a new one.
+    if ours && crate::bin::fd::id(&info) == was.1 {
+        let _ = fs::remove_file(info);
+    }
     Ok(())
 }
 
@@ -219,6 +230,36 @@ mod tests {
         restore_in(&trash, &old, &f).unwrap();
         assert_eq!(fs::read_to_string(&f).unwrap(), "old");
         assert_eq!(fs::read_dir(trash.join("info")).unwrap().count(), 0);
+    }
+
+    /// A file saved at the place between restore's look and its move stays (#721), with hard
+    /// links and without (Termux).
+    #[test]
+    fn restore_never_replaces_a_file_made_meanwhile() {
+        use crate::bin::fd::{MIDWAY, NO_LINK};
+        for no_link in [false, true] {
+            let d = tmp(&format!("meanwhile-{no_link}"));
+            let trash = d.join("Trash");
+            let f = d.join("report.txt");
+            fs::write(&f, "binned").unwrap();
+            let n = put_in(&trash, &f, same_fs).unwrap();
+            NO_LINK.set(no_link);
+            let saved = f.clone();
+            MIDWAY.set(Some(Box::new(move || fs::write(&saved, "saved").unwrap())));
+            let r = restore_in(&trash, &n, &f);
+            MIDWAY.set(None);
+            assert_eq!(r.unwrap_err().kind(), io::ErrorKind::AlreadyExists);
+            assert_eq!(fs::read_to_string(&f).unwrap(), "saved");
+            assert_eq!(
+                fs::read_to_string(trash.join("files").join(&n)).unwrap(),
+                "binned"
+            );
+            fs::remove_file(&f).unwrap();
+            restore_in(&trash, &n, &f).unwrap();
+            NO_LINK.set(false);
+            assert_eq!(fs::read_to_string(&f).unwrap(), "binned");
+            assert!(!trash.join("files").join(&n).exists());
+        }
     }
 
     #[test]

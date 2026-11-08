@@ -3,10 +3,14 @@
 # Sorting and hidden files
 
 Sort a panel by name, extension, time or size with **Ctrl+F3** to **Ctrl+F6**, or by
-clicking a column header in the desktop app. **Alt+.** shows or hides hidden files.
+clicking a column header. **Alt+.** shows or hides hidden files.
 
 ![The desktop app's details view of ~/projects: the Name header carries the sort arrow, folders come before files](../screenshots/gui-folder-sizes.png)
 *Sorted by name: the arrow next to* Name *marks the column and the direction.*
+
+![The terminal app after a click on the Size header: Size ▼ in the left panel's header, files and folders in order of size](../screenshots/tui-sort-size.png)
+![The terminal app after a second click on Size: the header reads Size ▲ and the order is reversed](../screenshots/tui-sort-reversed.png)
+*Terminal app: a click on* Size *sorts by it, a second click reverses it.*
 
 ## Contents
 
@@ -29,8 +33,9 @@ clicking a column header in the desktop app. **Alt+.** shows or hides hidden fil
 Press the same key again to reverse the order. Another key starts that order the normal way
 round.
 
-In the desktop app's details view, click a header instead: **Name**, **Type** (extension),
-**Size** or **Modified**. A second click reverses. *Files* and *Created* do not sort.
+Click a header instead: **Name**, **Type** (extension; desktop app only), **Size** or
+**Modified**. A second click reverses. *Files* and *Created* do not sort. The keys stay, in
+both apps.
 
 The rules, whatever the order:
 
@@ -50,8 +55,9 @@ The rules, whatever the order:
 
 ## What you see
 
-- Terminal app: a letter at the bottom right of the panel's border: `n` name, `x`
-  extension, `t` time, `s` size; upper case (`N`, `X`, `T`, `S`) when reversed.
+- Terminal app: an arrow next to the header that sorts, `▼` for the normal order and `▲` when
+  reversed; and a letter at the bottom right of the panel's border: `n` name, `x` extension,
+  `t` time, `s` size; upper case (`N`, `X`, `T`, `S`) when reversed.
 - Desktop app: an arrow next to the header that sorts, pointing down for the normal order and
   up when reversed.
 
@@ -78,8 +84,9 @@ hidden files shown or not.
 
 ## In the terminal app
 
-The same keys, rules and hidden-file switch. There are no headers to click, so the letter at
-the bottom right is the only sign of the order. Each panel has its own order, and every start
+The same keys, rules and hidden-file switch. Click **Name**, **Size** or **Modified** in the
+header to sort by it, again to reverse; the terminal has no *Type* column, so **Ctrl+F4** is
+its only way to sort by extension. Each panel has its own order, and every start
 begins with name order. In the desktop app every tab has its own order, and it is kept in the
 session ([What the apps remember](session.md)).
 

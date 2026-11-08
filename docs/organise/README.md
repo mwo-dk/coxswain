@@ -6,7 +6,7 @@ Four ways to keep your bearings in the desktop app: colour tags on files, notes 
 named groups of favourite folders, and the sidebar that holds the favourites next to your
 places, drives, clouds, the bin and recent git repositories. None of them change your files. They live in
 Coxswain's own state file, `state.json` ([Where things are kept](../reference/where-things-are-kept.md)).
-The terminal app has none of them but the clouds, which it lists under **Alt+F1** and **Alt+F2**:
+The terminal app has none of them but the drives and clouds, which it lists under **Alt+F1** and **Alt+F2**:
 the others' keys there say which app has them.
 
 ![The desktop app with the sidebar at the left: Places with Home, Drives with System and its free space, Clouds with Dropbox – Personal and Nextcloud, the Bin with 2 items, a favourites group named WORK with rocket, website and Documents, and Git repositories with website pinned, then paper, rocket and vision. In the panels, a grey tag dot after src, a red one after TODO.txt, a yellow one after budget.xlsx and a red one after launch-report.pdf](../screenshots/gui-details.png)

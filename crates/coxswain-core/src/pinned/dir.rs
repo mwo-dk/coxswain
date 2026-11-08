@@ -276,8 +276,9 @@ impl Dir {
         if e.raw_os_error() == Some(libc::EEXIST) {
             return Err(other(t!("sync.taken")));
         }
-        // No hard links here (FAT, some network file systems): renamed in, while the name is free.
-        if !e.raw_os_error().is_some_and(|n| [libc::EPERM, libc::ENOTSUP, libc::EOPNOTSUPP, libc::EMLINK, libc::ENOSYS].contains(&n)) {
+        // No hard links here (FAT, some network file systems; Android refuses them with EACCES):
+        // renamed in, while the name is free.
+        if !e.raw_os_error().is_some_and(|n| [libc::EPERM, libc::EACCES, libc::ENOTSUP, libc::EOPNOTSUPP, libc::EMLINK, libc::ENOSYS].contains(&n)) {
             return Err(e);
         }
         rename_new(dir, tmp, dir, name)

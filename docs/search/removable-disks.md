@@ -11,9 +11,9 @@ wherever the disk is mounted next, without being read afresh.
 ## How to use it
 
 1. Plug the disk in and open a folder on it in the active panel.
-2. *Settings → Finding files → Details → Folders → Folders read*: press **Add** with the field empty (or type
+2. *Settings → Finding files → Details → Folders → Folders read*: type `.` and press **Add** (or type
    the path, `/media/me/BACKUP1/papers`). In the terminal app: **F12** → *Finding files* →
-   *Folders* → *Folders read*, **Enter**, and type the path on the *+ Add* line.
+   *Folders* → *Folders read*, **Enter**, and type `.` or the path on the *+ Add* line.
 3. Add your home folder too, if the list was empty: listing folders replaces the default.
 
 From then on:

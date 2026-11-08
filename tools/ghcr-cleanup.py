@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""Delete the superseded untagged versions of our own container images on ghcr.io.
+
+Each weekly rebuild of `ghcr.io/mwo-dk/coxswain-*` that changes leaves the build it replaced in
+GHCR untagged. This deletes those, keeping:
+
+- every tagged version;
+- every digest pinned on this checkout (`master`) and by every release tag of the last three
+  minor versions (all their patch releases), read through `tools/images-pin.py`, so older
+  installs can still pull what they pin;
+- every version younger than 90 days (a push under way, whose per-processor manifests arrive
+  before their index, and late rebuilds among them);
+- the newest five images older than that;
+- everything a kept version holds or that refers to it: an index's per-processor manifests and
+  attestations, and signatures or attestations whose `subject` is a kept version.
+
+It lists every version as kept (and why) or to delete before deleting anything. A pin source,
+the version list or a manifest it cannot read stops it before any deletion.
+
+    python3 tools/ghcr-cleanup.py                      # every coxswain-* image pinned here: dry run
+    python3 tools/ghcr-cleanup.py coxswain-duckdb      # one image: dry run
+    python3 tools/ghcr-cleanup.py --delete [package]   # delete (needs gh with packages: write)
+
+`--dry-run` is the default and may be given. Run it from the repository's top folder.
+"""
+
+import importlib.util
+import datetime
+import json
+import os
+import re
+import subprocess
+import sys
+
+REGISTRY = "ghcr.io/mwo-dk/"
+NEWEST = 5
+MINORS = 3
+DAYS = 90
+
+_spec = importlib.util.spec_from_file_location("images_pin", os.path.join(os.path.dirname(__file__), "images-pin.py"))
+images_pin = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(images_pin)
+
+
+def git(*args):
+    return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
+
+
+def newest(tags, minors=MINORS):
+    """The release tags (vX.Y.Z, no pre-releases) of the last `minors` minor versions, oldest first."""
+    found = sorted((tuple(map(int, m.groups())), t) for t in tags if (m := re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", t)))
+    keep = sorted({v[:2] for v, _ in found})[-minors:]
+    return [t for v, t in found if v[:2] in keep]
+
+
+def release_tags():
+    """Every release tag of the last MINORS minor versions, fetched so their files can be read."""
+    tags = newest(re.findall(r"refs/tags/(\S+)$", git("ls-remote", "--tags", "--refs", "origin", "v*"), re.M))
+    if len({t.rsplit(".", 1)[0] for t in tags}) < MINORS:
+        raise RuntimeError(f"found release tags of fewer than {MINORS} minor versions: {tags}")
+    shallow = git("rev-parse", "--is-shallow-repository").strip() == "true"
+    for t in tags:
+        git("fetch", "--quiet", "--no-tags", *(["--depth=1"] if shallow else []), "origin", f"+refs/tags/{t}:refs/tags/{t}")
+    return tags
+
+
+def gh_api(*args):
+    return subprocess.run(["gh", "api", *args], check=True, capture_output=True, text=True).stdout
+
+
+def created(v):
+    return datetime.datetime.fromisoformat(v["created_at"].replace("Z", "+00:00"))
+
+
+def select(versions, manifests, pinned, now, newest=NEWEST, days=DAYS):
+    """Split the versions into kept {id: reason} and a list to delete.
+
+    versions: [{"id", "name" (the digest), "created_at", "tags"}]; manifests: {digest: manifest};
+    pinned: a set of digests; now: an aware datetime. A pure function: the tests call it.
+    """
+    by_digest = {v["name"]: v for v in versions}
+    held = {d: [m["digest"] for m in man.get("manifests", [])] for d, man in manifests.items()}
+    children = {c for cs in held.values() for c in cs}
+    keep = {}
+    young = now - datetime.timedelta(days=days)
+    for v in versions:
+        if v["tags"]:
+            keep[v["name"]] = "tagged " + ",".join(v["tags"])
+        elif v["name"] in pinned:
+            keep[v["name"]] = "pinned"
+        elif created(v) > young:
+            keep[v["name"]] = f"younger than {days} days"
+    # Images: not held by an index, no signature or attestation of another version, and older
+    # than the floor (a young one is kept anyway and does not count toward the five).
+    roots = [
+        v
+        for v in versions
+        if v["name"] not in children and not manifests[v["name"]].get("subject") and created(v) <= young
+    ]
+    roots.sort(key=lambda v: v["created_at"], reverse=True)
+    for v in roots[:newest]:
+        keep.setdefault(v["name"], "newest")
+    # What a kept version holds, and what points at one (a signature, an attestation): kept too.
+    grew = True
+    while grew:
+        grew = False
+        for d, man in manifests.items():
+            if d in keep:
+                for c in held.get(d, []):
+                    if c not in keep:
+                        keep[c], grew = f"held by {d[:19]}", True
+            elif (man.get("subject") or {}).get("digest") in keep:
+                keep[d], grew = f"refers to {man['subject']['digest'][:19]}", True
+    kept = {by_digest[d]["id"]: why for d, why in keep.items() if d in by_digest}
+    delete = [v for v in versions if v["id"] not in kept and not v["tags"]]
+    return kept, delete
+
+
+def clean(package, pinned, delete_now):
+    image = REGISTRY + package
+    path = f"/users/{REGISTRY.split('/')[1]}/packages/container/{package}/versions"
+    versions = [json.loads(line) for line in gh_api("--paginate", "--jq", ".[]", path).splitlines()]
+    versions = [
+        {"id": v["id"], "name": v["name"], "created_at": v["created_at"], "tags": v["metadata"]["container"]["tags"]}
+        for v in versions
+    ]
+    manifests = {v["name"]: images_pin.manifest(image, v["name"]) for v in versions}
+    kept, delete = select(versions, manifests, pinned, datetime.datetime.now(datetime.timezone.utc))
+    print(f"## {package}: {len(versions)} versions, {len(kept)} kept, {len(delete)} to delete")
+    for v in sorted(versions, key=lambda v: v["created_at"], reverse=True):
+        what = f"keep ({kept[v['id']]})" if v["id"] in kept else "DELETE"
+        print(f"{v['created_at']}  {v['name']}  {what}")
+    if delete_now:
+        for v in delete:
+            try:
+                gh_api("-X", "DELETE", f"{path}/{v['id']}")
+            except subprocess.CalledProcessError as e:
+                if "404" not in e.stderr:  # deleted already, by a run beside this one
+                    raise
+            print(f"deleted {v['name']}")
+    return len(delete)
+
+
+def main():
+    args = sys.argv[1:]
+    delete_now = "--delete" in args
+    packages = [a for a in args if not a.startswith("--")]
+    # Every pin source first: any one unreadable and nothing is deleted.
+    sources = ["HEAD", *release_tags()]
+    pinned, head = {}, set()
+    for ref in sources:
+        for name, _tag, d in images_pin.pins(ref):
+            if name.startswith(REGISTRY):
+                pinned.setdefault(name[len(REGISTRY) :], set()).add(d)
+                if ref == "HEAD":
+                    head.add(name[len(REGISTRY) :])
+    print(f"Pins read from {', '.join(sources)}")
+    for p in packages or sorted(head):
+        if p not in head:
+            raise RuntimeError(f"{p} has no pin on this checkout: refusing to clean it")
+    for p in packages or sorted(head):
+        clean(p, pinned[p], delete_now)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

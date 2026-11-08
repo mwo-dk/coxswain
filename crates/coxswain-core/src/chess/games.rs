@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom};
+use std::io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -108,7 +108,7 @@ pub const MAX_GAME: u32 = 16 << 20;
 /// `format`: whose moves they are, chess's (`Pgn`), draughts' or xiangqi's. `full`: the moves
 /// counted to the end of each game (`Head::plies`); else past its first moves only where its
 /// comments start and end is looked at, to know where the next game starts. `keep`: each game's
-/// bytes kept in `Head::text` (PGN, PDN and xiangqi), its moves not looked at.
+/// bytes kept in `Head::text` (PGN, PDN and xiangqi), its moves not looked at unless `full`.
 pub(crate) fn scan(r: impl BufRead, stop: &AtomicBool, format: super::Format, full: bool, keep: bool, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
     let mut r = Lexer::new(r);
     if matches!(format, super::Format::Kif | super::Format::Csa) {
@@ -171,7 +171,7 @@ pub(crate) fn scan(r: impl BufRead, stop: &AtomicBool, format: super::Format, fu
             has_tags = true;
         } else if !trimmed.is_empty() && (trimmed[0] != b'%' || in_brace) {
             has_moves = true;
-            moves(&text(&line), &mut head, &mut in_brace, &mut depth, full, keep);
+            moves(&text(&line), &mut head, &mut in_brace, &mut depth, full, keep && !full);
         }
     }
 }
@@ -376,31 +376,69 @@ pub(crate) fn is_dhtml(path: &Path) -> bool {
         return false;
     }
     let mut head = [0u8; 64];
+    if in_archive(path) {
+        return crate::archive::head(path, 64).is_ok_and(|(b, _)| crate::xiangqi::is_dhtml(&b));
+    }
     crate::fs::open_regular(path).and_then(|mut f| read_full(&mut f, &mut head)).is_ok_and(|n| crate::xiangqi::is_dhtml(&head[..n]))
+}
+
+/// Whether `path` is a file inside an archive (not on the disk): its games are read as it is
+/// unpacked (`entry_file`), nothing copied. ChessBase and SCID databases, which are read in
+/// pieces from several files, and opening books are not: those are read from a copy.
+pub fn in_archive(path: &Path) -> bool {
+    !path.exists() && crate::archive::split(path).is_some()
+}
+
+/// Whether the games of `path` can be read from inside its archive without a copy: a PGN family
+/// file by its name (also packed), and a DhtmlXQ game by its first bytes.
+pub fn streams(path: &Path) -> bool {
+    streams_with(path, Limits::default().keep)
+}
+
+/// `streams`, a plain PGN over `keep` bytes being the one kept in the table (`Limits::keep`).
+fn streams_with(path: &Path, keep: u64) -> bool {
+    if !in_archive(path) || super::scid::is_scid(path) || super::cbh::is_cbh(path) {
+        return false;
+    }
+    // A locked 7z's large plain PGN is read as it unpacks once its password is given (`from_archive`).
+    let keeps = || pack(path) == Pack::None && kind(path) == super::Format::Pgn && crate::archive::entry_size(path).is_ok_and(|s| s > keep);
+    if !(crate::archive::streamable(path) || (keeps() && crate::archive::streamable_known(path))) {
+        return false;
+    }
+    matches!(super::format(path), Some(super::Format::Pgn | super::Format::Pdn | super::Format::Pbn | super::Format::Kif | super::Format::Csa)) || is_dhtml(path)
+}
+
+/// The file at `path` to read from its start: on the disk, or inside an archive as it is
+/// unpacked.
+fn open_any(path: &Path) -> io::Result<Box<dyn Read + Send>> {
+    if in_archive(path) { Ok(Box::new(crate::entry_file::EntryReader::open(path)?)) } else { Ok(Box::new(File::open(path)?)) }
 }
 
 /// What one file may cost: a file of endless tiny games, or a small packed file that unpacks
 /// to terabytes, stops here, with the games read so far and a note saying so.
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {
-    /// Games in the table (48 bytes each).
+    /// Games in the table (52 bytes each, on the disk).
     pub games: usize,
-    /// Bytes of the names kept (players, events, openings), with what keeping each costs.
+    /// Bytes of memory the names met (players, events, openings) take while the file is
+    /// read: 32 a name.
     pub names: usize,
     /// Bytes a packed file is unpacked to, at most.
     pub unpacked: u64,
+    /// A plain PGN file inside an archive over this size keeps its games' text in the table.
+    pub keep: u64,
 }
 
 impl Default for Limits {
     fn default() -> Self {
-        Limits { games: 10_000_000, names: 256 << 20, unpacked: 64 << 30 }
+        Limits { games: 1 << 30, names: 256 << 20, unpacked: 64 << 30, keep: crate::archive::PEEK_MAX }
     }
 }
 
 /// The file's text, unpacked as it is read (up to `unpacked` bytes); `read` counts the file's
 /// own bytes.
 pub(crate) fn reader(path: &Path, read: Arc<AtomicU64>, unpacked: u64) -> io::Result<Box<dyn Read + Send>> {
-    let f = BufReader::new(Counted { inner: File::open(path)?, read });
+    let f = BufReader::new(Counted { inner: open_any(path)?, read });
     Ok(match pack(path) {
         Pack::None => Box::new(f),
         Pack::Gz => Box::new(flate2::read::MultiGzDecoder::new(f).take(unpacked)),
@@ -444,7 +482,8 @@ fn archived_pgn(path: &Path) -> Option<PathBuf> {
 /// The games of a SCID database (`scid`), from its index as it streams by: a game's place in
 /// the index is its `offset`. `read` counts the index bytes read, for the progress.
 fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut each: impl FnMut(&Head) -> bool) -> io::Result<()> {
-    base.entries(|n, e| {
+    let mut last = 0u32;
+    let res = base.entries(|n, e| {
         let mut head = Head { offset: n as u64, len: 0, tags: Default::default(), plies: e.plies, sans: vec![], text: vec![], format: super::Format::Pgn };
         head.tags[WHITE] = base.white(e).to_string();
         head.tags[BLACK] = base.black(e).to_string();
@@ -458,9 +497,15 @@ fn scan_scid(base: &super::scid::Base, stop: &AtomicBool, read: &AtomicU64, mut 
                 head.tags[i] = elo.to_string();
             }
         }
-        read.fetch_add(47, Ordering::Relaxed);
+        // Deleted games, skipped, count as read too.
+        last = n + 1;
+        read.store(last as u64 * base.entry_len(), Ordering::Relaxed);
         each(&head) && !stop.load(Ordering::Relaxed)
-    })
+    });
+    if !stop.load(Ordering::Relaxed) && last > 0 {
+        read.store(base.count as u64 * base.entry_len(), Ordering::Relaxed);
+    }
+    res
 }
 
 /// The games of a ChessBase database (`cbh`), as the pass over a PGN file sees them: a game's
@@ -528,37 +573,19 @@ pub fn kind(path: &Path) -> super::Format {
     if xiangqi { super::Format::Xiangqi } else { super::Format::Pgn }
 }
 
-/// One game in the table: 48 bytes, so a million games take 48 MB.
-#[derive(Clone, Copy)]
-struct Rec {
-    offset: u64,
-    len: u32,
-    white: u32,
-    black: u32,
-    event: u32,
-    /// The opening's name, interned; `u32::MAX` for none.
-    opening: u32,
-    /// yyyymmdd, unknown parts 0.
-    date: u32,
-    white_elo: u16,
-    black_elo: u16,
-    /// 'A'..'E' as 1..5 times 100 plus the number, 0 for none.
-    eco: u16,
-    plies: u16,
-    /// 1 White won, 2 Black won, 3 a draw, 0 anything else.
-    result: u8,
-    /// The result as written, interned: draughts writes `2-0`.
-    result_name: u32,
-}
+use super::table::{Rec, Table};
 
 #[derive(Default)]
 struct Shared {
-    recs: Vec<Rec>,
-    strings: Vec<Box<str>>,
+    /// Rows in the table, readable.
+    count: u32,
+    /// Names in the table: the names' order is worked out again when more came.
+    names: u32,
     done: bool,
     /// Stopped at `Limits`: the table has the games read until then.
     capped: bool,
     error: Option<String>,
+    kept: bool,
 }
 
 fn result_code(r: &str) -> u8 {
@@ -610,20 +637,46 @@ fn eco_text(e: u16) -> String {
 struct Source {
     path: PathBuf,
     open: Option<(Box<dyn Read + Send>, u64)>,
+    /// A packed file's restart points (`tar_index`), once read.
+    points: Option<Vec<crate::tar_index::Point>>,
+    /// A file inside an archive: read at a place as it is unpacked.
+    entry: Option<crate::entry_file::EntryFile>,
+    /// How the file is packed, told once (a DhtmlXQ game is told by reading its start).
+    pack: Pack,
 }
 
 impl Source {
     fn read(&mut self, offset: u64, len: u32) -> io::Result<Vec<u8>> {
         let mut buf = vec![0; len.min(MAX_GAME) as usize];
-        if pack(&self.path) == Pack::None {
+        if self.pack == Pack::None {
+            if let Some(e) = &self.entry {
+                let n = e.read_at(&mut buf, offset)?;
+                buf.truncate(n);
+                return Ok(buf);
+            }
             let mut f = File::open(&self.path)?;
             f.seek(SeekFrom::Start(offset))?;
             let n = read_full(&mut f, &mut buf)?;
             buf.truncate(n);
             return Ok(buf);
         }
-        // ponytail: a packed file is unpacked from its start for a game before the last one
-        // read; seek points every few MB would make going back cheap, if it is ever slow.
+        // The place nearest before the game the first pass kept (`tar_index`: a gzip every few
+        // MB, a zstd at each frame), read once: unpacked from there, not from the start.
+        // None yet while the first pass reads: looked for again until there are some.
+        if self.points.as_ref().is_none_or(|p| p.is_empty()) {
+            self.points = Some(crate::tar_index::points_of(&self.path).unwrap_or_default());
+        }
+        let points = self.points.as_deref().unwrap_or_default();
+        if self.open.as_ref().is_none_or(|(_, at)| *at > offset || offset - *at > 4 << 20)
+            && let Some(p) = points.iter().rev().find(|p| p.out <= offset && p.out > 0)
+        {
+            let mut r = crate::tar_index::from_point(&self.path, pack(&self.path) == Pack::Gz, p)?;
+            let skip = offset - p.out;
+            io::copy(&mut (&mut r).take(skip), &mut io::sink())?;
+            let n = read_full(&mut r, &mut buf)?;
+            buf.truncate(n);
+            return Ok(buf);
+        }
         if self.open.as_ref().is_none_or(|(_, at)| *at > offset) {
             self.open = Some((reader(&self.path, Arc::default(), Limits::default().unpacked)?, 0));
         }
@@ -658,6 +711,8 @@ pub struct Progress {
     /// Stopped at a limit (`Limits`): only the first `games` games are in the table.
     pub capped: bool,
     pub error: Option<String>,
+    /// The table kept from before was taken (`table`): the file was not read again.
+    pub kept: bool,
 }
 
 /// What the table shows: which games, in what order.
@@ -729,20 +784,26 @@ pub struct Row {
     pub moves: u32,
 }
 
-/// The games of one PGN file.
+/// The games of one PGN file, in a table on the disk (`table`): a file of any number of games
+/// takes the same memory, and opened again unchanged it is not read again.
 pub struct Library {
     pub path: PathBuf,
     /// `Pgn`, or `Pdn` for draughts.
     pub format: super::Format,
     shared: Arc<Mutex<Shared>>,
+    table: Arc<Table>,
     read: Arc<AtomicU64>,
     size: u64,
     stop: Arc<AtomicBool>,
     source: Mutex<Source>,
     /// A SCID database's names and files, when the file is one (`scid`).
     scid: Option<Arc<super::scid::Base>>,
+    /// A PGN read out of an archive: each game's text is kept in the table's folder (`GAMES`).
+    archived: bool,
     /// A ChessBase archive's unpacked files, kept while this reads them (`cbv::hold`).
     _held: Option<super::cbv::Held>,
+    /// The names' order (`Table::ranks`), with how many names there were then.
+    ranks: Mutex<Option<(u32, Arc<Vec<u32>>)>>,
 }
 
 impl Drop for Library {
@@ -752,132 +813,228 @@ impl Drop for Library {
 }
 
 impl Library {
-    /// Starts reading the file's games, on a thread of its own.
+    /// Starts reading the file's games, on a thread of its own; a table kept from before, of
+    /// the file as it is, is taken as it is.
     pub fn open(path: &Path) -> io::Result<Library> {
         Library::open_with(path, Limits::default())
     }
 
     /// `open`, with limits of its own.
     pub fn open_with(path: &Path, limits: Limits) -> io::Result<Library> {
-        let size = std::fs::metadata(path)?.len();
+        let inside = in_archive(path);
+        let size = if inside { crate::archive::entry_size(path)? } else { std::fs::metadata(path)?.len() };
+        if inside && !streams_with(path, limits.keep) {
+            return Err(io::Error::new(io::ErrorKind::Unsupported, path.display().to_string()));
+        }
         let read = Arc::new(AtomicU64::new(0));
         let shared = Arc::new(Mutex::new(Shared::default()));
         let stop = Arc::new(AtomicBool::new(false));
-        let source = Mutex::new(Source { path: path.to_path_buf(), open: None });
-        if super::scid::is_scid(path) {
-            let base = Arc::new(super::scid::Base::open(path)?);
-            let (sh, st, b, rd) = (shared.clone(), stop.clone(), base.clone(), read.clone());
-            std::thread::Builder::new()
-                .name("chess-games".into())
-                .spawn(move || index(|each| scan_scid(&b, &st, &rd, each), &sh, super::Format::Pgn, limits, || false))?;
-            return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: Some(base), _held: None });
+        // A plain file inside an archive is read at a place by `entry`; a packed one, or a DhtmlXQ
+        // game (read as the PGN it is turned into), from an unpacker (`Source::read`).
+        let packing = pack(path);
+        // A plain PGN over `PEEK_MAX` inside an archive: its games' text is kept in the table, as a
+        // solid archive cannot give a game from its middle (`from_archive`).
+        let streamed = inside && packing == Pack::None && kind(path) == super::Format::Pgn && size > limits.keep;
+        let entry = if inside && packing == Pack::None && !streamed { Some(crate::entry_file::EntryFile::open(path)?) } else { None };
+        let source = Mutex::new(Source { path: path.to_path_buf(), open: None, points: None, entry, pack: packing });
+        let scid = if super::scid::is_scid(path) { Some(Arc::new(super::scid::Base::open(path)?)) } else { None };
+        let cbh = super::cbh::is_cbh(path);
+        let format = if scid.is_some() || cbh { super::Format::Pgn } else { kind(path) };
+        let extra = if streamed { format!("{limits:?} {GAMES_FORM}") } else { format!("{limits:?}") };
+        let (mut table, mut kept) = Table::open(path, &extra)?;
+        // A table of a PGN out of an archive whose games' text is gone is read anew.
+        if streamed && kept.is_some() && !table.dir().join(GAMES).exists() {
+            let dir = table.dir().to_path_buf();
+            drop(table);
+            crate::spill::gone(&dir);
+            (table, kept) = Table::open(path, &extra)?;
         }
-        if super::cbh::is_cbh(path) {
+        let table = Arc::new(table);
+        let _held = (cbh && super::cbv::is_cbv(path)).then(|| super::cbv::hold(path));
+        let lib = |shared, size| Library { path: path.to_path_buf(), format, shared, table: table.clone(), read: read.clone(), size, stop: stop.clone(), source, scid: scid.clone(), archived: streamed, _held, ranks: Mutex::new(None) };
+        if let Some(done) = kept {
+            {
+                let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
+                (s.count, s.done, s.capped, s.kept) = (done.games, true, done.capped, true);
+            }
+            read.store(size, Ordering::Relaxed);
+            return Ok(lib(shared, size));
+        }
+        let (sh, st, rd, t) = (shared.clone(), stop.clone(), read.clone(), table.clone());
+        let thread = std::thread::Builder::new().name("chess-games".into());
+        if let Some(base) = &scid {
+            let b = base.clone();
+            thread.spawn(move || index(|each| scan_scid(&b, &st, &rd, each), &sh, &t, &st, super::Format::Pgn, limits, || false))?;
+            return Ok(lib(shared, size));
+        }
+        if cbh {
             // An archive is unpacked first, then read: its bar has both (`scan_cbh`).
             let size = if super::cbv::is_cbv(path) { size.saturating_mul(2) } else { size };
-            let (sh, st, rd, p) = (shared.clone(), stop.clone(), read.clone(), path.to_path_buf());
-            std::thread::Builder::new()
-                .name("chess-games".into())
-                .spawn(move || index(|each| scan_cbh(&p, &st, &rd, size, true, each), &sh, super::Format::Pgn, limits, || false))?;
-            let _held = super::cbv::is_cbv(path).then(|| super::cbv::hold(path));
-            return Ok(Library { path: path.to_path_buf(), format: super::Format::Pgn, shared, read, size, stop, source, scid: None, _held });
+            let p = path.to_path_buf();
+            thread.spawn(move || index(|each| scan_cbh(&p, &st, &rd, size, true, each), &sh, &t, &st, super::Format::Pgn, limits, || false))?;
+            return Ok(lib(shared, size));
         }
-        let r = reader(path, read.clone(), limits.unpacked)?;
-        // What the packed file unpacked to: at the limit, the rest of it was left.
-        let unpacked = Arc::new(AtomicU64::new(0));
-        let packed = pack(path) != Pack::None;
-        let r: Box<dyn Read + Send> = Box::new(Counted { inner: r, read: unpacked.clone() });
-        let (sh, st) = (shared.clone(), stop.clone());
-        let format = kind(path);
-        std::thread::Builder::new().name("chess-games".into()).spawn(move || {
-            index(|each| scan(BufReader::with_capacity(1 << 16, r), &st, format, true, false, each), &sh, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked)
+        if streamed {
+            let (dir, cut, p) = (table.dir().to_path_buf(), rd.clone(), path.to_path_buf());
+            thread.spawn(move || index(|each| from_archive(&p, &dir, &st, &rd, limits.unpacked, each), &sh, &t, &st, format, limits, || cut.load(Ordering::Relaxed) >= limits.unpacked))?;
+            return Ok(lib(shared, size));
+        }
+        let r = if matches!(packing, Pack::Gz | Pack::Zst) && !inside { None } else { Some(reader(path, read.clone(), limits.unpacked)?) };
+        if r.is_none() {
+            File::open(path)?;
+        }
+        let p = path.to_path_buf();
+        thread.spawn(move || {
+            // A gzip or zstd is unpacked here, noting the places it can be unpacked from
+            // again (`tar_index`), so a game far into it is read without unpacking all before.
+            let points = crate::tar_index::Points::default();
+            let r: Box<dyn Read> = match r {
+                Some(r) => r,
+                None => match File::open(&p) {
+                    Ok(f) => {
+                        let f = BufReader::new(Counted { inner: f, read: rd });
+                        if packing == Pack::Gz {
+                            Box::new(crate::tar_index::Gz::new(f, Some(points.clone())).take(limits.unpacked))
+                        } else {
+                            Box::new(crate::tar_index::Zst::new(f, Some(points.clone())).take(limits.unpacked))
+                        }
+                    }
+                    Err(e) => {
+                        let mut s = sh.lock().unwrap_or_else(|e| e.into_inner());
+                        (s.done, s.error) = (true, Some(e.to_string()));
+                        return;
+                    }
+                },
+            };
+            // What the packed file unpacked to: at the limit, the rest of it was left.
+            let unpacked = Arc::new(AtomicU64::new(0));
+            let r = Counted { inner: r, read: unpacked.clone() };
+            let packed = packing != Pack::None;
+            index(|each| scan(BufReader::with_capacity(1 << 16, r), &st, format, true, false, each), &sh, &t, &st, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked);
+            if !st.load(Ordering::Relaxed) {
+                crate::tar_index::save_points(&p, &points.borrow());
+            }
         })?;
-        Ok(Library { path: path.to_path_buf(), format, shared, read, size, stop, source, scid: None, _held: None })
+        Ok(lib(shared, size))
     }
 
     pub fn progress(&self) -> Progress {
         let s = self.shared.lock().unwrap_or_else(|e| e.into_inner());
-        Progress { games: s.recs.len(), done: s.done, capped: s.capped, read: self.read.load(Ordering::Relaxed).min(self.size), size: self.size, error: s.error.clone() }
+        Progress { games: s.count as usize, done: s.done, capped: s.capped, read: self.read.load(Ordering::Relaxed).min(self.size), size: self.size, error: s.error.clone(), kept: s.kept }
     }
 
-    /// The games that `q` lets through, in its order: their indices (from 0).
-    pub fn query(&self, q: &Query) -> Vec<u32> {
+    fn count(&self) -> (u32, u32) {
         let s = self.shared.lock().unwrap_or_else(|e| e.into_inner());
+        (s.count, s.names)
+    }
+
+    /// The names' order, worked out once for as many names as there are.
+    fn ranks(&self, names: u32) -> Arc<Vec<u32>> {
+        let mut r = self.ranks.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some((n, ranks)) = r.as_ref()
+            && *n == names
+        {
+            return ranks.clone();
+        }
+        let ranks = Arc::new(self.table.ranks());
+        *r = Some((names, ranks.clone()));
+        ranks
+    }
+
+    /// The games that `q` lets through, in its order: their indices (from 0). The table is read
+    /// through once from the disk; what stays in memory is 4 bytes a game let through (8 while
+    /// they are sorted) and a byte a name.
+    pub fn query(&self, q: &Query) -> Vec<u32> {
+        let (count, names) = self.count();
+        let all = Query { sort: q.sort, desc: q.desc, ..Query::default() };
+        if *q == all && q.sort == Sort::Number {
+            // Every game in the file's order, as while the table fills: nothing to read.
+            let ids = 0..count;
+            return if q.desc { ids.rev().collect() } else { ids.collect() };
+        }
         let player = q.player.trim().to_lowercase();
         let opening = q.opening.trim().to_lowercase();
-        // The interned names that match, looked at once each rather than per game.
-        let names = |needle: &str| -> Vec<bool> {
-            if needle.is_empty() {
-                return vec![];
-            }
-            s.strings.iter().map(|n| n.to_lowercase().contains(needle)).collect()
-        };
-        let players = names(&player);
-        let openings = names(&opening);
+        // The names that match, looked at once each rather than per game.
+        let players = if player.is_empty() { vec![] } else { self.table.matching(&player) };
+        let openings = if opening.is_empty() { vec![] } else { self.table.matching(&opening) };
         let result = result_code(q.result.trim());
         let hit = |ids: &Vec<bool>, i: u32| ids.get(i as usize).copied().unwrap_or(false);
-        let mut ids: Vec<u32> = (0..s.recs.len() as u32)
-            .filter(|&i| {
-                let r = &s.recs[i as usize];
-                (player.is_empty() || hit(&players, r.white) || hit(&players, r.black))
-                    && (opening.is_empty()
-                        || hit(&openings, r.opening)
-                        || eco_text(r.eco).to_lowercase().starts_with(&opening))
-                    && (q.result.trim().is_empty() || r.result == result)
-                    && q.from.is_none_or(|y| r.date / 10000 >= y as u32)
-                    && q.to.is_none_or(|y| r.date / 10000 <= y as u32 && r.date > 0)
-                    && q.elo.is_none_or(|e| r.white_elo.min(r.black_elo) >= e)
-            })
-            .collect();
-        // Names sort by their rank among all names, worked out once.
-        let rank = |s: &Shared| -> Vec<u32> {
-            let mut order: Vec<u32> = (0..s.strings.len() as u32).collect();
-            let keys = crate::collate::keys(&s.strings);
-            order.sort_by(|&a, &b| keys[a as usize].cmp(&keys[b as usize]));
-            let mut rank = vec![0; order.len()];
-            for (r, &i) in order.iter().enumerate() {
-                rank[i as usize] = r as u32;
-            }
-            rank
+        let pass = |r: &Rec| {
+            (player.is_empty() || hit(&players, r.white) || hit(&players, r.black))
+                && (opening.is_empty() || hit(&openings, r.opening) || eco_text(r.eco).to_lowercase().starts_with(&opening))
+                && (q.result.trim().is_empty() || r.result == result)
+                && q.from.is_none_or(|y| r.date / 10000 >= y as u32)
+                && q.to.is_none_or(|y| r.date / 10000 <= y as u32 && r.date > 0)
+                && q.elo.is_none_or(|e| r.white_elo.min(r.black_elo) >= e)
         };
-        type Key = Box<dyn Fn(&Rec) -> u64>;
-        let key: Option<Key> = match q.sort {
-            Sort::Number => None,
-            Sort::White | Sort::Black | Sort::Event | Sort::Opening => {
-                let rank = rank(&s);
-                let sort = q.sort;
-                Some(Box::new(move |r: &Rec| {
-                    let id = match sort {
-                        Sort::White => r.white,
-                        Sort::Black => r.black,
-                        Sort::Event => r.event,
-                        _ => r.opening,
-                    };
-                    // No name sorts last.
-                    rank.get(id as usize).map_or(u64::MAX, |&k| k as u64)
-                }))
+        let rank = matches!(q.sort, Sort::White | Sort::Black | Sort::Event | Sort::Opening).then(|| self.ranks(names));
+        // Every key fits in 32 bits: a name's rank (none last), an Elo, a date as yyyymmdd.
+        let key = |r: &Rec| -> u32 {
+            let name = |id: u32| rank.as_ref().and_then(|k| k.get(id as usize).copied()).unwrap_or(u32::MAX);
+            match q.sort {
+                Sort::Number => 0,
+                Sort::White => name(r.white),
+                Sort::Black => name(r.black),
+                Sort::Event => name(r.event),
+                Sort::Opening => name(r.opening),
+                Sort::WhiteElo => r.white_elo as u32,
+                Sort::BlackElo => r.black_elo as u32,
+                Sort::Result => r.result as u32,
+                Sort::Date => r.date,
+                Sort::Eco => r.eco as u32,
+                Sort::Moves => r.plies as u32,
             }
-            Sort::WhiteElo => Some(Box::new(|r: &Rec| r.white_elo as u64)),
-            Sort::BlackElo => Some(Box::new(|r: &Rec| r.black_elo as u64)),
-            Sort::Result => Some(Box::new(|r: &Rec| r.result as u64)),
-            Sort::Date => Some(Box::new(|r: &Rec| r.date as u64)),
-            Sort::Eco => Some(Box::new(|r: &Rec| r.eco as u64)),
-            Sort::Moves => Some(Box::new(|r: &Rec| r.plies as u64)),
         };
-        if let Some(key) = key {
-            ids.sort_by_key(|&i| key(&s.recs[i as usize]));
-        }
+        let mut ids: Vec<u32> = if q.sort == Sort::Number {
+            let mut ids = vec![];
+            let _ = self.table.each(count, |i, r| {
+                if pass(r) {
+                    ids.push(i);
+                }
+            });
+            ids
+        } else {
+            // The key above the game's number: sorted, equal keys stay in the file's order.
+            let mut keyed: Vec<u64> = vec![];
+            let _ = self.table.each(count, |i, r| {
+                if pass(r) {
+                    keyed.push((key(r) as u64) << 32 | i as u64);
+                }
+            });
+            keyed.sort_unstable();
+            keyed.into_iter().map(|k| k as u32).collect()
+        };
         if q.desc {
             ids.reverse();
         }
         ids
     }
 
+    /// Waits until the table is whole, or its reading failed or stopped, or this thread's
+    /// Stop (`stop::asked`: the search helper's scan stopping): false then.
+    pub fn wait(&self) -> bool {
+        while !self.progress().done {
+            if crate::stop::asked() {
+                return false;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        true
+    }
+
+    /// Game `i` in one line, as the search store keeps it (`Head::line`), from the table.
+    pub fn line(&self, i: u32) -> Option<String> {
+        Some(line_of(&self.table, &self.rec(i)?))
+    }
+
+    fn rec(&self, i: u32) -> Option<Rec> {
+        self.table.get(i, self.count().0)
+    }
+
     /// The game at index `i`, as the table shows it.
     pub fn row(&self, i: u32) -> Option<Row> {
-        let s = self.shared.lock().unwrap_or_else(|e| e.into_inner());
-        let r = s.recs.get(i as usize)?;
-        let name = |id: u32| s.strings.get(id as usize).map_or(String::new(), |n| n.to_string());
+        let r = self.rec(i)?;
+        let name = |id: u32| self.table.name(id);
         Some(Row {
             n: i + 1,
             white: name(r.white),
@@ -897,16 +1054,23 @@ impl Library {
 
     /// The text of the game at index `i`, read now.
     pub fn text(&self, i: u32) -> io::Result<String> {
-        let (offset, len) = {
-            let s = self.shared.lock().unwrap_or_else(|e| e.into_inner());
-            let r = s.recs.get(i as usize).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such game"))?;
-            (r.offset, r.len)
-        };
+        let r = self.rec(i).ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no such game"))?;
+        let (offset, len) = (r.offset, r.len);
         if let Some(base) = &self.scid {
             return base.pgn(offset as u32);
         }
+        if self.archived {
+            // `offset`: the block, `len`: the game's place in it.
+            let mut f = File::open(self.table.dir().join(GAMES))?;
+            f.seek(SeekFrom::Start(offset))?;
+            let mut n = [0u8; 4];
+            f.read_exact(&mut n)?;
+            let mut raw = vec![];
+            lzma_rust2::Lzma2Reader::new(f.take(u32::from_le_bytes(n) as u64), DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
+            return Ok(text(&game_in_block(&raw, len as usize).ok_or_else(|| io::Error::from(io::ErrorKind::UnexpectedEof))?).into_owned());
+        }
         if let Some(pgn) = archived_pgn(&self.path) {
-            return Ok(text(&Source { path: pgn, open: None }.read(offset, len)?).into_owned());
+            return Ok(text(&Source { pack: pack(&pgn), path: pgn, open: None, points: None, entry: None }.read(offset, len)?).into_owned());
         }
         if super::cbh::is_cbh(&self.path) {
             return super::cbh::pgn(&self.path, offset);
@@ -932,40 +1096,267 @@ impl Library {
     }
 }
 
-/// The pass over the games: their records, handed over in batches so the table fills.
-/// `cut`: the packed file was unpacked as far as the limits allow.
-fn index(feed: impl FnOnce(&mut dyn FnMut(&Head) -> bool) -> io::Result<()>, shared: &Mutex<Shared>, format: super::Format, limits: Limits, cut: impl Fn() -> bool) {
+/// The file in a table's folder with the text of the games read out of an archive, in blocks of
+/// about `BLOCK` bytes of text, each packed (LZMA2) on its own: a u32 of the packed size, then
+/// the packed block. A block unpacked: a u32 of its games, two u32 for each (the size of its
+/// tags, the size of its moves, the top bit set when its move numbers are kept as they are), then
+/// all the tags, then all the moves (`numbers_out`). Tags next to tags and moves next to moves
+/// pack smaller. A row's `offset` is its block's place and `len` its place in the block.
+const GAMES: &str = "games";
+/// The form of `GAMES`, in the table's `extra`: a table kept in another form is not taken (nor
+/// removed: an older version still reads its own), and the file is read again into a new one.
+const GAMES_FORM: &str = "games 2";
+/// A block is closed once its text is this long (a game is never split).
+const BLOCK: usize = 256 << 10;
+/// The dictionary of a block's LZMA2: twice the block, so a block is one run.
+const DICT: u32 = 2 * BLOCK as u32;
+/// The most a block unpacks to: a game of `MAX_GAME` after less than `BLOCK`, and the sizes.
+const BLOCK_MAX: u64 = MAX_GAME as u64 + 2 * BLOCK as u64;
+/// A game's moves size, with this set: its move numbers kept as they are (`numbers_out`).
+const KEPT_NUMBERS: u32 = 1 << 31;
+
+/// Where a game's tags end: after its leading lines that start with `[`, and the blank lines
+/// after them.
+fn tags_end(game: &[u8]) -> usize {
+    let mut at = 0;
+    let mut tags = true;
+    while at < game.len() {
+        let end = game[at..].iter().position(|&b| b == b'\n').map_or(game.len(), |p| at + p + 1);
+        let line = game[at..end].trim_ascii();
+        if line.is_empty() {
+            tags = false;
+        } else if !(tags && line[0] == b'[') {
+            break;
+        }
+        at = end;
+    }
+    at
+}
+
+/// A move number (`12.`) at `at` in `b`, not after a digit, without a leading zero and not
+/// followed by another `.`: its value and where it ends (after the `.`).
+fn number_at(b: &[u8], at: usize) -> Option<(u32, usize)> {
+    if (at > 0 && b[at - 1].is_ascii_digit()) || b.get(at) == Some(&b'0') {
+        return None;
+    }
+    let digits = b[at..].iter().take_while(|c| c.is_ascii_digit()).count();
+    let dot = at + digits;
+    if !(1..=6).contains(&digits) || b.get(dot) != Some(&b'.') || b.get(dot + 1) == Some(&b'.') {
+        return None;
+    }
+    Some((std::str::from_utf8(&b[at..dot]).ok()?.parse().ok()?, dot + 1))
+}
+
+/// The moves `b` with each move number that is one more than the one before it (any number met,
+/// `number_at`) written as one byte: 1 for `N. `, 2 for `N.` with no space after. Undone by
+/// `numbers_in`. False, and nothing written, when `b` has a byte 1 or 2 of its own.
+fn numbers_out(b: &[u8], out: &mut Vec<u8>) -> bool {
+    if b.iter().any(|&c| c == 1 || c == 2) {
+        return false;
+    }
+    let (mut last, mut at) = (0u32, 0);
+    while at < b.len() {
+        if let Some((n, end)) = number_at(b, at) {
+            let space = b.get(end) == Some(&b' ');
+            if n == last.wrapping_add(1) {
+                out.push(if space { 1 } else { 2 });
+                at = end + space as usize;
+            } else {
+                out.extend_from_slice(&b[at..end]);
+                at = end;
+            }
+            last = n;
+        } else {
+            out.push(b[at]);
+            at += 1;
+        }
+    }
+    true
+}
+
+/// The moves `numbers_out` wrote, as they were.
+fn numbers_in(b: &[u8], out: &mut Vec<u8>) {
+    let (mut last, mut at) = (0u32, 0);
+    while at < b.len() {
+        if b[at] == 1 || b[at] == 2 {
+            last = last.wrapping_add(1);
+            out.extend_from_slice(last.to_string().as_bytes());
+            out.extend_from_slice(if b[at] == 1 { b". " } else { b"." });
+            at += 1;
+        } else if let Some((n, end)) = number_at(b, at) {
+            out.extend_from_slice(&b[at..end]);
+            last = n;
+            at = end;
+        } else {
+            out.push(b[at]);
+            at += 1;
+        }
+    }
+}
+
+/// The text of the game at place `k` in an unpacked block; none when the block is cut short.
+fn game_in_block(raw: &[u8], k: usize) -> Option<Vec<u8>> {
+    let u32_at = |at: usize| raw.get(at..at + 4).map(|b| u32::from_le_bytes(b.try_into().expect("4 bytes")));
+    let count = u32_at(0)? as usize;
+    if k >= count {
+        return None;
+    }
+    let sizes = |i: usize| Some((u32_at(4 + 8 * i)? as usize, u32_at(8 + 8 * i)?));
+    // Checked: a damaged block on a 32-bit system must not wrap around.
+    let start = count.checked_mul(8)?.checked_add(4)?;
+    let (mut tags, mut moves) = (start, start);
+    for i in 0..count {
+        moves = moves.checked_add(sizes(i)?.0)?;
+    }
+    for i in 0..k {
+        let (t, m) = sizes(i)?;
+        tags = tags.checked_add(t)?;
+        moves = moves.checked_add((m & !KEPT_NUMBERS) as usize)?;
+    }
+    let (t, m) = sizes(k)?;
+    let mut game = raw.get(tags..tags.checked_add(t)?)?.to_vec();
+    let packed = raw.get(moves..moves.checked_add((m & !KEPT_NUMBERS) as usize)?)?;
+    if m & KEPT_NUMBERS != 0 {
+        game.extend_from_slice(packed);
+    } else {
+        numbers_in(packed, &mut game);
+    }
+    Some(game)
+}
+
+/// The games of a block being made: their sizes, tags and moves, and their rows, handed on once
+/// the block is on the disk (a row is never shown before its text can be read).
+struct Block {
+    side: io::BufWriter<File>,
+    at: u64,
+    sizes: Vec<u8>,
+    tags: Vec<u8>,
+    moves: Vec<u8>,
+    heads: Vec<Head>,
+}
+
+impl Block {
+    /// What the block holds so far, unpacked.
+    fn len(&self) -> usize {
+        self.sizes.len() + self.tags.len() + self.moves.len()
+    }
+
+    fn add(&mut self, h: &Head) {
+        let (tags, moves) = h.text.split_at(tags_end(&h.text));
+        self.tags.extend_from_slice(tags);
+        let before = self.moves.len();
+        let mut size = if numbers_out(moves, &mut self.moves) { 0 } else { KEPT_NUMBERS };
+        if size != 0 {
+            self.moves.extend_from_slice(moves);
+        }
+        size |= (self.moves.len() - before) as u32;
+        self.sizes.extend_from_slice(&(tags.len() as u32).to_le_bytes());
+        self.sizes.extend_from_slice(&size.to_le_bytes());
+        let place = self.heads.len() as u64;
+        self.heads.push(Head { offset: self.at, len: place, tags: h.tags.clone(), plies: h.plies, sans: h.sans.clone(), text: vec![], format: h.format });
+    }
+
+    /// The block is written and flushed, then its games are handed on; false when `each` said stop.
+    fn close(&mut self, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<bool> {
+        if self.heads.is_empty() {
+            return Ok(true);
+        }
+        let mut options = lzma_rust2::Lzma2Options::with_preset(3);
+        options.lzma_options.dict_size = DICT;
+        let mut z = lzma_rust2::Lzma2Writer::new(Vec::new(), options);
+        z.write_all(&(self.heads.len() as u32).to_le_bytes())?;
+        z.write_all(&self.sizes)?;
+        z.write_all(&self.tags)?;
+        z.write_all(&self.moves)?;
+        let packed = z.finish().map_err(io::Error::other)?;
+        self.side.write_all(&(packed.len() as u32).to_le_bytes())?;
+        self.side.write_all(&packed)?;
+        self.side.flush()?;
+        self.at += 4 + packed.len() as u64;
+        self.sizes.clear();
+        self.tags.clear();
+        self.moves.clear();
+        let mut more = true;
+        for h in self.heads.drain(..) {
+            more = more && each(&h);
+        }
+        Ok(more)
+    }
+}
+
+/// The games of the PGN file `path` inside an archive, read as it unpacks (`entry_file`): each
+/// game's text goes into `GAMES` in `dir` (a solid archive cannot be unpacked from the middle, so
+/// the table keeps what it needs to show a game), and the game is handed on with its place
+/// there. `unpacked` bytes at most are read.
+fn from_archive(path: &Path, dir: &Path, stop: &AtomicBool, read: &Arc<AtomicU64>, unpacked: u64, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<()> {
+    let mut block = Block { side: io::BufWriter::with_capacity(1 << 20, File::create(dir.join(GAMES))?), at: 0, sizes: vec![], tags: vec![], moves: vec![], heads: vec![] };
+    let mut failed = None;
+    let r = BufReader::new(Counted { inner: crate::entry_file::EntryReader::open_known(path)?, read: read.clone() }).take(unpacked);
+    scan(BufReader::with_capacity(1 << 16, r), stop, super::Format::Pgn, true, true, |h| {
+        block.add(h);
+        if block.len() < BLOCK {
+            return true;
+        }
+        match block.close(each) {
+            Ok(more) => more,
+            Err(e) => {
+                failed = Some(e);
+                false
+            }
+        }
+    })?;
+    if let Some(e) = failed {
+        return Err(e);
+    }
+    // The last block, unless the pass was stopped.
+    if !stop.load(Ordering::Relaxed) {
+        block.close(each)?;
+    }
+    block.side.get_ref().sync_all()
+}
+
+/// What a name costs in memory while the file is read: its entry in the lookup of the names
+/// met, by their hash (the names themselves go to the table on the disk).
+const NAME_COST: usize = 32;
+
+/// The pass over the games: their rows, handed to the table in batches so it fills as the file
+/// is read. `cut`: the packed file was unpacked as far as the limits allow. Stopped (`stop`),
+/// the table is left unfinished, and goes.
+#[allow(clippy::too_many_arguments)]
+fn index(feed: impl FnOnce(&mut dyn FnMut(&Head) -> bool) -> io::Result<()>, shared: &Mutex<Shared>, table: &Table, stop: &AtomicBool, format: super::Format, limits: Limits, cut: impl Fn() -> bool) {
+    use std::hash::BuildHasher;
     let chess = format == super::Format::Pgn;
-    // What the names cost so far: their bytes, twice (the list and the lookup), and the rest.
-    let mut names = 0usize;
     let (mut games, mut capped) = (0usize, false);
-    let mut ids: HashMap<Box<str>, u32> = HashMap::new();
-    let mut fresh: Vec<Box<str>> = vec![];
+    // Names by a 64-bit hash, seeded for this pass: two names alike in it (one in billions)
+    // would show as one.
+    let seed = std::collections::hash_map::RandomState::new();
+    let mut ids: HashMap<u64, u32> = HashMap::new();
+    let mut fresh: Vec<(u32, Box<str>)> = vec![];
     let mut batch: Vec<Rec> = vec![];
-    let mut base = 0u32;
-    let intern = |s: &str, ids: &mut HashMap<Box<str>, u32>, fresh: &mut Vec<Box<str>>, base: u32, names: &mut usize| -> u32 {
+    let mut failed: Option<io::Error> = None;
+    let intern = |s: &str, ids: &mut HashMap<u64, u32>, fresh: &mut Vec<(u32, Box<str>)>| -> u32 {
         let s = s.trim();
         if s.is_empty() || s == "?" {
             return u32::MAX;
         }
-        if let Some(&id) = ids.get(s) {
-            return id;
-        }
-        let id = base + fresh.len() as u32;
-        *names += 2 * s.len() + 64;
-        ids.insert(s.into(), id);
-        fresh.push(s.into());
-        id
+        let next = ids.len() as u32;
+        *ids.entry(seed.hash_one(s)).or_insert_with(|| {
+            fresh.push((next, s.into()));
+            next
+        })
     };
-    let flush = |batch: &mut Vec<Rec>, fresh: &mut Vec<Box<str>>, base: &mut u32| {
+    let flush = |batch: &mut Vec<Rec>, fresh: &mut Vec<(u32, Box<str>)>, names: u32| -> io::Result<()> {
+        table.append(batch, fresh)?;
         let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
-        *base += fresh.len() as u32;
-        s.strings.append(fresh);
-        s.recs.append(batch);
+        s.count += batch.len() as u32;
+        s.names = names;
+        batch.clear();
+        fresh.clear();
+        Ok(())
     };
     let mut last = std::time::Instant::now();
     let res = feed(&mut |h| {
-        if games >= limits.games || names >= limits.names {
+        if games >= limits.games || ids.len() * NAME_COST >= limits.names {
             capped = true;
             return false;
         }
@@ -974,36 +1365,328 @@ fn index(feed: impl FnOnce(&mut dyn FnMut(&Head) -> bool) -> io::Result<()>, sha
         let rec = Rec {
             offset: h.offset,
             len: h.len.min(MAX_GAME as u64) as u32,
-            white: intern(h.tag(WHITE), &mut ids, &mut fresh, base, &mut names),
-            black: intern(h.tag(BLACK), &mut ids, &mut fresh, base, &mut names),
-            event: intern(h.tag(EVENT), &mut ids, &mut fresh, base, &mut names),
-            opening: intern(&opening, &mut ids, &mut fresh, base, &mut names),
+            white: intern(h.tag(WHITE), &mut ids, &mut fresh),
+            black: intern(h.tag(BLACK), &mut ids, &mut fresh),
+            event: intern(h.tag(EVENT), &mut ids, &mut fresh),
+            site: intern(h.tag(SITE), &mut ids, &mut fresh),
+            opening: intern(&opening, &mut ids, &mut fresh),
             date: date_code(h.tag(DATE)),
             white_elo: h.tag(WHITE_ELO).parse().unwrap_or(0),
             black_elo: h.tag(BLACK_ELO).parse().unwrap_or(0),
             eco: eco_code(&eco),
             plies: h.plies.min(u16::MAX as u32) as u16,
             result: result_code(h.tag(RESULT)),
-            result_name: if chess { u32::MAX } else { intern(h.tag(RESULT), &mut ids, &mut fresh, base, &mut names) },
+            result_name: if chess { u32::MAX } else { intern(h.tag(RESULT), &mut ids, &mut fresh) },
         };
         batch.push(rec);
         if batch.len() >= 4096 && last.elapsed().as_millis() >= 200 {
-            flush(&mut batch, &mut fresh, &mut base);
+            if let Err(e) = flush(&mut batch, &mut fresh, ids.len() as u32) {
+                failed = Some(e);
+                return false;
+            }
             last = std::time::Instant::now();
         }
         true
     });
-    flush(&mut batch, &mut fresh, &mut base);
+    let res = res.and_then(|()| match failed {
+        Some(e) => Err(e),
+        None => flush(&mut batch, &mut fresh, ids.len() as u32),
+    });
+    let capped = capped || cut();
+    let res = res.and_then(|()| if stop.load(Ordering::Relaxed) { Ok(()) } else { table.finish(games as u32, capped) });
     let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
     s.done = true;
-    s.capped = capped || cut();
+    s.capped = capped;
     if let Err(e) = res {
         s.error = Some(e.to_string());
     }
 }
 
+/// A game in one line from its row: players, event, site, date, opening and result, as
+/// `Head::line` makes it from the tags.
+fn line_of(table: &Table, r: &Rec) -> String {
+    let name = |id: u32| table.name(id);
+    let opening = format!("{} {}", eco_text(r.eco), name(r.opening));
+    let parts = [
+        format!("{} – {}", name(r.white), name(r.black)),
+        name(r.event),
+        name(r.site),
+        date_text(r.date),
+        opening.trim().to_string(),
+        if r.result_name == u32::MAX { result_text(r.result).to_string() } else { name(r.result_name) },
+    ];
+    let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).filter(|s| !s.is_empty() && *s != "?" && *s != "*").collect();
+    parts.join(" · ")
+}
+
+/// The words of `line` that hold one of `words` (lower case), between `store::MARK`s.
+fn marked(line: &str, words: &[String]) -> String {
+    let (open, close) = crate::store::MARK;
+    let mut out = String::with_capacity(line.len() + 8);
+    let mut word = String::new();
+    let end = |word: &mut String, out: &mut String| {
+        let lower = word.to_lowercase();
+        if !word.is_empty() && words.iter().any(|w| lower.contains(w.as_str())) {
+            out.push(open);
+            out.push_str(word);
+            out.push(close);
+        } else {
+            out.push_str(word);
+        }
+        word.clear();
+    };
+    for c in line.chars() {
+        if c.is_alphanumeric() {
+            word.push(c);
+        } else {
+            end(&mut word, &mut out);
+            out.push(c);
+        }
+    }
+    end(&mut word, &mut out);
+    out
+}
+
+/// The games of the game files Find reads (`within`, by their path) that have every word of
+/// `query` in a player's name, the event, the site or the opening, or as their ECO code (or
+/// its start) or year: through each file's kept games table (`table::whole`), so a database of
+/// millions of games is looked through whole. For each file with any: its first `max` games
+/// as hits (each with its game), and how many it has in all.
+pub fn find(query: &str, within: &dyn Fn(&Path) -> bool, max: usize) -> Vec<(PathBuf, Vec<crate::index::Hit>, usize)> {
+    let words: Vec<String> = query.split_whitespace().map(|w| w.replace('"', "").to_lowercase()).filter(|w| !w.is_empty()).collect();
+    if words.is_empty() {
+        return vec![];
+    }
+    let mut out = vec![];
+    for (table, done) in super::table::whole(within) {
+        let names: Vec<Vec<bool>> = words.iter().map(|w| table.matching(w)).collect();
+        let has = |ids: &Vec<bool>, id: u32| ids.get(id as usize).copied().unwrap_or(false);
+        // A year as a number; an ECO code or its start (`b9`, `b90`) as the range of codes it
+        // names, as `Rec::eco` keeps them.
+        let year = |w: &str| (w.len() == 4).then(|| w.parse::<u32>().ok()).flatten();
+        let eco = |w: &str| -> Option<(u16, u16)> {
+            let b = w.as_bytes();
+            if !(2..=3).contains(&b.len()) || !(b'a'..=b'e').contains(&b[0]) || !b[1..].iter().all(u8::is_ascii_digit) {
+                return None;
+            }
+            let base = (b[0] - b'a' + 1) as u16 * 100;
+            let tens = (b[1] - b'0') as u16 * 10;
+            Some(if b.len() == 3 { (base + tens + (b[2] - b'0') as u16, base + tens + (b[2] - b'0') as u16) } else { (base + tens, base + tens + 9) })
+        };
+        type Wanted = (Option<u32>, Option<(u16, u16)>);
+        let wanted: Vec<Wanted> = words.iter().map(|w| (year(w), eco(w))).collect();
+        // A word no name has, and that is no year nor ECO code: no game here has it.
+        if names.iter().zip(&wanted).any(|(ids, (y, e))| !ids.contains(&true) && y.is_none() && e.is_none()) {
+            continue;
+        }
+        let (mut hits, mut n) = (vec![], 0usize);
+        let _ = table.each(done.games, |i, r| {
+            let every = names.iter().zip(&wanted).all(|(ids, (y, e))| {
+                [r.white, r.black, r.event, r.site, r.opening].iter().any(|&id| has(ids, id))
+                    || y.is_some_and(|y| r.date / 10000 == y)
+                    || e.is_some_and(|(lo, hi)| (lo..=hi).contains(&r.eco))
+            });
+            if every {
+                n += 1;
+                if hits.len() < max {
+                    hits.push(i);
+                }
+            }
+        });
+        if n == 0 {
+            continue;
+        }
+        let hits = hits
+            .into_iter()
+            .filter_map(|i| {
+                let line = line_of(&table, &table.get(i, done.games)?);
+                Some(crate::index::Hit { path: done.source.clone(), is_dir: false, snippet: Some(marked(&line, &words)), similar: None, game: Some(i) })
+            })
+            .collect();
+        out.push((done.source.clone(), hits, n));
+    }
+    out
+}
+
+/// What Ask is told about the players a question names, from the games tables of the game
+/// files `within` takes (`table::whole`): for each file, the player whose name holds most of
+/// the question's words (at least one, of three letters or more), with the games' count, their
+/// years, the results as White and as Black, the openings and opponents met most, the wins
+/// over the highest rated, and some games with their numbers. Each file's text up to `bytes`.
+pub fn ask_about(question: &str, within: &dyn Fn(&Path) -> bool, bytes: usize) -> Vec<(PathBuf, String)> {
+    use std::collections::HashMap;
+    let mut words: Vec<String> = question
+        .split(|c: char| !c.is_alphanumeric())
+        .map(str::to_lowercase)
+        .filter(|w| w.chars().count() >= 3 && !w.chars().all(|c| c.is_ascii_digit()))
+        .collect();
+    words.sort();
+    words.dedup();
+    if words.is_empty() || bytes == 0 {
+        return vec![];
+    }
+    // A word of a name as a whole word of it: "levon" in "Aronian, Levon", not "the" in
+    // "Matthews".
+    let whole_word = |name: &str, w: &str| name.to_lowercase().split(|c: char| !c.is_alphanumeric()).any(|p| p == w);
+    let (mut out, mut left) = (vec![], bytes);
+    for (table, done) in super::table::whole(within) {
+        // How many of the words each name holds as a whole word. A word inside very many names
+        // ("the", "who") names no one: left out, and the table is passed over at once when no
+        // word is left.
+        let mut hold: HashMap<u32, usize> = HashMap::new();
+        for w in &words {
+            let ids: Vec<u32> = table.matching(w).iter().enumerate().filter(|(_, m)| **m).map(|(id, _)| id as u32).collect();
+            if ids.len() > 500 {
+                continue;
+            }
+            for id in ids {
+                if whole_word(&table.name(id), w) {
+                    *hold.entry(id).or_default() += 1;
+                }
+            }
+        }
+        if hold.is_empty() {
+            continue;
+        }
+        // Players only: the names that stand as White or Black, with their games.
+        let mut games: HashMap<u32, u32> = HashMap::new();
+        let _ = table.each(done.games, |_, r| {
+            for id in [r.white, r.black] {
+                if hold.contains_key(&id) {
+                    *games.entry(id).or_default() += 1;
+                }
+            }
+        });
+        // The most words, then the most games.
+        let Some((&player, _)) = games.iter().max_by_key(|(id, n)| (hold.get(*id).copied().unwrap_or(0), **n, std::cmp::Reverse(**id))) else { continue };
+        let name = table.name(player);
+        #[derive(Default)]
+        struct Tally {
+            n: u32,
+            white: [u32; 3],
+            black: [u32; 3],
+            years: (u32, u32),
+            openings: HashMap<(u16, u32), u32>,
+            opponents: HashMap<u32, [u32; 3]>,
+            best: Vec<(u16, u32)>,
+            some: Vec<u32>,
+        }
+        let mut t = Tally { years: (u32::MAX, 0), ..Tally::default() };
+        let _ = table.each(done.games, |i, r| {
+            let white = r.white == player;
+            if !white && r.black != player {
+                return;
+            }
+            t.n += 1;
+            let y = r.date / 10000;
+            if y > 0 {
+                t.years = (t.years.0.min(y), t.years.1.max(y));
+            }
+            // 0 won, 1 drawn, 2 lost, from the player's side.
+            let res = match (r.result, white) {
+                (1, true) | (2, false) => Some(0),
+                (3, _) => Some(1),
+                (1, false) | (2, true) => Some(2),
+                _ => None,
+            };
+            let (opp, opp_elo) = if white { (r.black, r.black_elo) } else { (r.white, r.white_elo) };
+            if opp == player {
+                return;
+            }
+            if let Some(k) = res {
+                if white { t.white[k] += 1 } else { t.black[k] += 1 }
+                t.opponents.entry(opp).or_default()[k] += 1;
+                if k == 0 && opp_elo > 0 {
+                    t.best.push((opp_elo, i));
+                    if t.best.len() > 64 {
+                        t.best.sort_unstable_by(|a, b| b.cmp(a));
+                        t.best.truncate(8);
+                    }
+                }
+            } else {
+                t.opponents.entry(opp).or_default();
+            }
+            if r.eco > 0 || r.opening != u32::MAX {
+                *t.openings.entry((r.eco, r.opening)).or_default() += 1;
+            }
+            if t.some.len() < 5 {
+                t.some.push(i);
+            }
+        });
+        let line = |i: u32| table.get(i, done.games).map(|r| format!("game {}: {}", i + 1, line_of(&table, &r))).unwrap_or_default();
+        let score = |r: &[u32; 3]| format!("{} won, {} drawn, {} lost", r[0], r[1], r[2]);
+        let mut text = format!("Games of {name} in this database: {} (of {}).\n", t.n, done.games);
+        if t.years.1 > 0 {
+            text.push_str(&format!("Years: {} to {}.\n", t.years.0, t.years.1));
+        }
+        text.push_str(&format!("As White: {}. As Black: {}.\n", score(&t.white), score(&t.black)));
+        let mut openings: Vec<_> = t.openings.into_iter().collect();
+        openings.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+        let openings: Vec<String> = openings.iter().take(6).map(|((eco, o), n)| format!("{} {} ({n})", eco_text(*eco), table.name(*o)).trim().to_string()).collect();
+        if !openings.is_empty() {
+            text.push_str(&format!("Openings played most: {}.\n", openings.join("; ")));
+        }
+        let mut opponents: Vec<_> = t.opponents.into_iter().filter(|(id, _)| *id != u32::MAX).collect();
+        opponents.sort_by(|a, b| (b.1.iter().sum::<u32>()).cmp(&a.1.iter().sum::<u32>()).then(a.0.cmp(&b.0)));
+        let opponents: Vec<String> = opponents.iter().take(6).map(|(id, r)| format!("{} ({})", table.name(*id), score(r))).collect();
+        if !opponents.is_empty() {
+            text.push_str(&format!("Opponents met most: {}.\n", opponents.join("; ")));
+        }
+        t.best.sort_unstable_by(|a, b| b.cmp(a));
+        if !t.best.is_empty() {
+            text.push_str("Wins over the highest rated:\n");
+            for (_, i) in t.best.iter().take(5) {
+                text.push_str(&format!("- {}\n", line(*i)));
+            }
+        }
+        text.push_str("Some games:\n");
+        for i in &t.some {
+            text.push_str(&format!("- {}\n", line(*i)));
+        }
+        // Whole lines, all files' together within `bytes`.
+        if text.len() > left {
+            let mut end = left;
+            while !text.is_char_boundary(end) {
+                end -= 1;
+            }
+            end = text[..end].rfind('\n').map_or(end, |n| n + 1);
+            text.truncate(end);
+        }
+        left -= text.len();
+        if !text.is_empty() {
+            out.push((done.source.clone(), text));
+        }
+        if left == 0 {
+            break;
+        }
+    }
+    out
+}
+
 /// The search store's text of a PGN file: a line per game (`Head::line`), up to `max` bytes.
+/// A file larger than that is read through its games table, which is kept (`table`), so the
+/// file is read once for both, and Find looks through every game in it (`find`).
 pub fn search_text(path: &Path, max: usize) -> Option<String> {
+    if std::fs::metadata(path).is_ok_and(|m| m.len() > max as u64)
+        && let Ok(lib) = Library::open(path)
+    {
+        // Stopped meanwhile: no text; the caller sees its stop and keeps the file unread.
+        if !lib.wait() {
+            return None;
+        }
+        if lib.progress().error.is_none() {
+            let mut out = String::new();
+            for i in 0..lib.progress().games as u32 {
+                let Some(line) = lib.line(i) else { break };
+                if out.len() + line.len() + 1 > max {
+                    break;
+                }
+                out.push_str(&line);
+                out.push('\n');
+            }
+            return (!out.is_empty()).then_some(out);
+        }
+    }
     let mut out = String::new();
     scan_file(path, |h| {
         let line = h.line();
@@ -1247,6 +1930,95 @@ mod tests {
         (l, d)
     }
 
+    /// A large PGN in a locked 7z, read as it unpacks: the table stops with `LOCKED` until the
+    /// password is given, then the file is read again, whole.
+    #[test]
+    fn a_large_pgn_in_a_locked_7z_is_read_once_its_password_is_given() {
+        let d = tempdir::Dir::new();
+        std::fs::write(d.0.join("big.pgn"), TWO.repeat(50)).unwrap();
+        // Names locked too (the default of the writer), or only the contents.
+        let make = |name: &str, header: bool| {
+            let sz = d.0.join(name);
+            let mut w = sevenz_rust2::ArchiveWriter::create(&sz).unwrap();
+            w.set_encrypt_header(header);
+            w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from("hunter2")).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+            w.push_archive_entry(sevenz_rust2::ArchiveEntry::from_path(d.0.join("big.pgn"), "big.pgn".into()), Some(File::open(d.0.join("big.pgn")).unwrap())).unwrap();
+            w.finish().unwrap();
+            sz
+        };
+        for sz in [make("hidden.7z", true), make("shown.7z", false)] {
+        let pgn = sz.join("big.pgn");
+        let wait = |l: &Library| {
+            let limit = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(60));
+            while !l.progress().done {
+                assert!(std::time::Instant::now() < limit, "games never read");
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        let limits = Limits { keep: 0, ..Limits::default() };
+        // Names visible or not, the read stops locked; whichever step reports it.
+        let locked = |r: io::Result<Library>| match r {
+            Err(e) => e.to_string().contains(crate::archive::LOCKED),
+            Ok(l) => {
+                wait(&l);
+                l.progress().error.is_some_and(|e| e.contains(crate::archive::LOCKED))
+            }
+        };
+        assert!(locked(Library::open_with(&pgn, limits)));
+        // A wrong password reads no table: the pass ends in the error, whole or not.
+        crate::archive::remember(&sz, "wrong");
+        assert!(locked(Library::open_with(&pgn, limits)));
+        crate::archive::remember(&sz, "hunter2");
+        let l = Library::open_with(&pgn, limits).unwrap();
+        wait(&l);
+        assert_eq!((l.progress().games, l.progress().error), (100, None));
+        crate::archive::forget(&sz);
+        }
+    }
+
+    /// The games of a PGN file and of a DhtmlXQ game inside a zip are read as they are unpacked:
+    /// the table, a game at a place before the last one read, no copy on the disk.
+    #[test]
+    fn games_inside_an_archive_are_read_without_a_copy() {
+        let d = tempdir::Dir::new();
+        let src = d.0.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        // More than a block of the entry's stream: the games are read across blocks.
+        let n = 4000;
+        std::fs::write(src.join("many.pgn"), TWO.repeat(n)).unwrap();
+        let dhtml = "[DhtmlXQ]\n[DhtmlXQ_ver]www_vietcotuong_com[/DhtmlXQ_ver]\n[DhtmlXQ_red]Red[/DhtmlXQ_red]\n[DhtmlXQ_black]Black[/DhtmlXQ_black]\n[DhtmlXQ_binit]0919293949596979891777062646668600102030405060708012720323436383[/DhtmlXQ_binit]\n[DhtmlXQ_movelist]262563641927[/DhtmlXQ_movelist]\n";
+        std::fs::write(src.join("game.che"), dhtml).unwrap();
+        std::fs::write(src.join("notes.txt"), "just words\n").unwrap();
+        let zip = d.0.join("games.zip");
+        crate::archive::create(&zip, &[src.join("many.pgn"), src.join("game.che"), src.join("notes.txt")]).unwrap();
+        let copies = || crate::archive::peek_folder().ok().and_then(|f| std::fs::read_dir(f).ok()).map_or(0, |r| r.count());
+        let before = copies();
+        let (pgn, che) = (zip.join("many.pgn"), zip.join("game.che"));
+        assert!(streams(&pgn) && streams(&che) && !streams(&zip.join("notes.txt")));
+        let wait = |l: &Library| {
+            let limit = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(60));
+            while !l.progress().done {
+                assert!(std::time::Instant::now() < limit, "games never read");
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        let l = Library::open(&pgn).unwrap();
+        wait(&l);
+        let progress = l.progress();
+        assert_eq!((progress.games, progress.error), (2 * n, None));
+        // The last game first, then the first (a place before the last one read).
+        for i in [2 * n as u32 - 1, 0] {
+            assert_eq!(l.game(i).unwrap().tags.iter().find(|(k, _)| k == "Event").map(|(_, v)| v.as_str()), Some(if i % 2 == 0 { "Paris" } else { "London" }));
+        }
+        let x = Library::open(&che).unwrap();
+        wait(&x);
+        assert_eq!((x.format, x.progress().games), (crate::chess::Format::Xiangqi, 1));
+        assert!(x.game(0).unwrap().tags.iter().any(|(_, v)| v == "Red"));
+        // A file that is no game, and one in a disk image or locked, is not read so.
+        assert!(Library::open(&zip.join("notes.txt")).is_err());
+        assert_eq!(copies(), before, "no copy was made on the disk");
+    }
+
     mod tempdir {
         pub struct Dir(pub std::path::PathBuf);
         impl Dir {
@@ -1307,6 +2079,220 @@ mod tests {
         assert_eq!(q(Query { result: "0-1".into(), ..Query::default() }), Vec::<u32>::new());
     }
 
+    /// Opened again, unchanged, the table kept on the disk is taken: no game is read again, and
+    /// it shows, sorts and filters as before. Changed, the file is read anew.
+    #[test]
+    fn a_table_kept_on_the_disk() {
+        let (l, d) = lib(TWO.as_bytes(), "kept.pgn");
+        let p = d.0.join("kept.pgn");
+        assert!(!l.progress().kept);
+        let by_white = Query { sort: Sort::White, ..Query::default() };
+        let (rows, order) = ((0..2).map(|i| l.row(i).unwrap().white).collect::<Vec<_>>(), l.query(&by_white));
+        drop(l);
+        let again = Library::open(&p).unwrap();
+        let pr = again.progress();
+        assert!(pr.kept && pr.done && pr.games == 2, "{pr:?}");
+        assert_eq!(again.read.load(Ordering::Relaxed), pr.size, "the bar is full");
+        assert_eq!(((0..2).map(|i| again.row(i).unwrap().white).collect::<Vec<_>>(), again.query(&by_white)), (rows, order));
+        assert_eq!(again.query(&Query { player: "morphy".into(), ..Query::default() }), vec![0]);
+        assert!(again.text(1).unwrap().contains("Anderssen"));
+        drop(again);
+        std::fs::write(&p, &TWO[..TWO.find("\n\n[Event \"London").unwrap() + 1]).unwrap();
+        let changed = Library::open(&p).unwrap();
+        while !changed.progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!((changed.progress().kept, changed.progress().games), (false, 1));
+    }
+
+    /// A game file larger than the search store keeps is read through its games table, kept;
+    /// Find then looks through every game of it, each a hit with its game's number, its words
+    /// marked; a file Find does not read, or one changed since, is not looked through.
+    #[test]
+    fn every_game_of_a_big_file_found() {
+        let d = tempdir::Dir::new();
+        let p = d.0.join("big.pgn");
+        let mut text = String::new();
+        for i in 0..300 {
+            text.push_str(&format!("[White \"Player {i}\"]\n[Black \"Aronian, Levon\"]\n[Site \"Wijk{i}\"]\n[Date \"20{:02}.01.01\"]\n[Result \"0-1\"]\n\n1.d4 Nf6 0-1\n\n", i % 30));
+        }
+        std::fs::write(&p, &text).unwrap();
+        // Only the first games' lines fit; the table has them all.
+        let kept = search_text(&p, 200).unwrap();
+        assert!(kept.lines().count() < 5 && kept.starts_with("Player 0 – Aronian, Levon · Wijk0 · 2000.01.01"), "{kept}");
+        // Only this test's file: other tests' tables share the cache.
+        let me = std::path::absolute(&p).unwrap();
+        let all = |q: &Path| q == me;
+        let found = find("aronian wijk299", &all, 10);
+        assert_eq!(found.len(), 1);
+        let (path, hits, n) = &found[0];
+        assert_eq!((path, n, hits.len(), hits[0].game), (&std::path::absolute(&p).unwrap(), &1, 1, Some(299)));
+        let (o, c) = crate::store::MARK;
+        assert!(hits[0].snippet.as_deref().unwrap().contains(&format!("{o}Aronian{c}, Levon")), "{hits:?}");
+        // Many: the first few as hits, all counted; by year and ECO-less words too.
+        let found = find("Aronian 2005", &all, 3);
+        assert_eq!((found[0].1.len(), found[0].2, found[0].1[0].game), (3, 10, Some(5)));
+        assert!(find("aronian", &|_: &Path| false, 3).is_empty());
+        std::fs::write(&p, format!("{text}\n")).unwrap();
+        assert!(find("aronian", &all, 3).is_empty(), "changed since: not looked through");
+    }
+
+    /// The search helper stopping: a big file's text read through its table gives up at
+    /// once, with no text (its file stays unread), counted by the games read, not a clock.
+    #[test]
+    fn a_stop_ends_the_read_of_a_big_file() {
+        let d = tempdir::Dir::new();
+        let p = d.0.join("stopped.pgn");
+        let game = "[White \"A\"]\n[Black \"B\"]\n\n1.e4 e5 *\n\n";
+        std::fs::write(&p, game.repeat(200_000)).unwrap();
+        let stop = std::sync::Arc::new(AtomicBool::new(true));
+        assert_eq!(crate::stop::during(&stop, || search_text(&p, 100)), None);
+        // Not stopped: the same file gives its text.
+        assert!(search_text(&p, 100).is_some());
+    }
+
+    /// Ask is told about the player the question names, from the games table: games, years,
+    /// results by colour, openings, opponents, best wins, some games by number.
+    #[test]
+    fn ask_about_a_player() {
+        let d = tempdir::Dir::new();
+        let p = d.0.join("ask.pgn");
+        let mut text = String::new();
+        for i in 0..40 {
+            let (w, b, res) = if i % 2 == 0 { ("Aronian, Levon", format!("Rival {}", i % 3), "1-0") } else { ("Other, One", "Aronian, Levon".to_string(), "1/2-1/2") };
+            text.push_str(&format!("[White \"{w}\"]\n[Black \"{b}\"]\n[WhiteElo \"2700\"]\n[BlackElo \"{}\"]\n[Date \"{}.01.01\"]\n[Result \"{res}\"]\n\n1.e4 e5 2.Nf3 Nc6 3.Bb5 {res}\n\n", 2600 + i, 2000 + i % 10));
+        }
+        std::fs::write(&p, &text).unwrap();
+        let _ = search_text(&p, 100);
+        let me = std::path::absolute(&p).unwrap();
+        let only = |q: &Path| q == me;
+        let said = ask_about("who is Levon Aronian and what do we have about him?", &only, 4000);
+        assert_eq!(said.len(), 1);
+        let s = &said[0].1;
+        assert!(s.starts_with("Games of Aronian, Levon in this database: 40 (of 40)."), "{s}");
+        assert!(s.contains("Years: 2000 to 2009.") && s.contains("As White: 20 won, 0 drawn, 0 lost. As Black: 0 won, 20 drawn, 0 lost."), "{s}");
+        assert!(s.contains("C60 Ruy Lopez") && s.contains("Other, One (0 won, 20 drawn, 0 lost)"), "{s}");
+        assert!(s.contains("Wins over the highest rated:\n- game 39:"), "{s}");
+        assert!(ask_about("what about Kasparov?", &only, 4000).is_empty());
+        // No player named: no one is picked for a word inside a name ("the" in "Other").
+        assert!(ask_about("what are the most played openings?", &only, 4000).is_empty());
+        assert!(ask_about("Aronian", &only, 30)[0].1.len() <= 30);
+    }
+
+    /// A PGN inside a 7z is read as the archive unpacks, with no copy of it made: the table
+    /// has the games, and a game opens from the text the table kept of it, also when the table
+    /// is opened again (the archive then not read at all).
+    #[test]
+    fn a_pgn_read_out_of_an_archive() {
+        let d = tempdir::Dir::new();
+        let pgn = TWO.repeat(3000);
+        std::fs::write(d.0.join("games.pgn"), &pgn).unwrap();
+        let seven = d.0.join("big.7z");
+        crate::archive::create(&seven, &[d.0.join("games.pgn")]).unwrap();
+        std::fs::remove_file(d.0.join("games.pgn")).unwrap();
+        let p = seven.join("games.pgn");
+        let wait = |l: &Library| {
+            while !l.progress().done {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        let keep = Limits { keep: 0, ..Limits::default() };
+        let l = Library::open_with(&p, keep).unwrap();
+        wait(&l);
+        let pr = l.progress();
+        assert_eq!((pr.games, pr.error, pr.capped), (6000, None, false));
+        assert_eq!(pr.read, pgn.len() as u64, "the bar is full");
+        let r = l.row(5998).unwrap();
+        assert_eq!((r.white.as_str(), r.moves, r.eco.as_str()), ("Morphy, Paul", 4, "C41"));
+        assert_eq!(l.text(5999).unwrap(), TWO[TWO.find("[Event \"London").unwrap()..]);
+        assert!(l.text(0).unwrap().starts_with("[Event \"Paris\"]"));
+        assert_eq!(l.text(2501).unwrap(), TWO[TWO.find("[Event \"London").unwrap()..].to_string(), "a game in a later block");
+        assert_eq!(l.game(0).unwrap().main_line().len(), 7);
+        drop(l);
+        // A later run prunes the tables: the archive is there, so is the table.
+        crate::chess::table::prune_in(&crate::chess::table::folder().unwrap(), crate::chess::table::KEPT, crate::chess::table::MOST);
+        // Again, the archive unchanged: the table and the games' text are taken from the disk.
+        let again = Library::open_with(&p, keep).unwrap();
+        assert!(again.progress().kept && again.progress().games == 6000);
+        assert!(again.text(1).unwrap().contains("[not a tag]"));
+        drop(again);
+        // A table kept in the form before (2.36.0's, without `GAMES_FORM` in its key) is not
+        // taken, so the file is read again, nor removed, as that version still reads it.
+        let root = crate::chess::table::folder().unwrap();
+        let source = std::path::absolute(&p).unwrap();
+        let ours = std::fs::read_dir(&root)
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .find(|d| std::fs::read(d.join("done")).ok().and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok()).is_some_and(|v| v["source"].as_str() == source.to_str()))
+            .unwrap();
+        let old = ours.with_file_name(format!("{}-old-0", ours.file_name().unwrap().to_string_lossy().split('-').next().unwrap()));
+        std::fs::create_dir(&old).unwrap();
+        for f in ["rows", "names.db", GAMES] {
+            std::fs::copy(ours.join(f), old.join(f)).unwrap();
+        }
+        let done = std::fs::read_to_string(ours.join("done")).unwrap().replace(&format!(" {GAMES_FORM}"), "");
+        std::fs::write(old.join("done"), done).unwrap();
+        std::fs::remove_dir_all(&ours).unwrap();
+        let anew = Library::open_with(&p, keep).unwrap();
+        assert!(!anew.progress().kept, "read again");
+        wait(&anew);
+        assert_eq!(anew.text(5999).unwrap(), TWO[TWO.find("[Event \"London").unwrap()..]);
+        assert!(old.join("done").exists(), "the older table stays");
+    }
+
+    /// A game's moves lose their move numbers in the table and get them back as they were, also
+    /// numbers out of turn, black's `1...`, numbers without a space, in comments and variations,
+    /// and moves with a byte the packing uses.
+    #[test]
+    fn move_numbers_come_back_as_they_were() {
+        let cases: &[&[u8]] = &[
+            b"1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 1-0\n",
+            b"1.e4 e5 2.Nf3 {12. a comment} 2... Nc6 (2... d6 3. d4) 3.Bb5 *\r\n",
+            b"5. e4 e5 6. Nf3 07. Bc4 11. a3 12.\n13. h3 1234567. x 999999. 1000000. 0",
+            b"",
+            b"1.",
+            b"1. e4 \x01 2. d4",
+            b"[not a tag] 1. e4\n\n",
+            b"1.2. 3.4.",
+            b"1. 1. 2.",
+            b"12.3.",
+            b"999999. 1000000. 1000001.",
+            b"1.\r\n2.\r\n",
+            b"\xff1. e4\xff",
+        ];
+        for &moves in cases {
+            let mut packed = vec![];
+            if numbers_out(moves, &mut packed) {
+                let mut back = vec![];
+                numbers_in(&packed, &mut back);
+                assert_eq!(back, moves, "{}", String::from_utf8_lossy(moves));
+            } else {
+                assert!(packed.is_empty() && moves.contains(&1));
+            }
+        }
+        let mut packed = vec![];
+        assert!(numbers_out(cases[0], &mut packed));
+        assert_eq!(packed, b"\x01e4 e5 \x01Nf3 Nc6 \x01Bb5 a6 1-0\n");
+        // Each game of a block back as it was, tags and moves.
+        let d = tempdir::Dir::new();
+        let mut block = Block { side: io::BufWriter::new(File::create(d.0.join(GAMES)).unwrap()), at: 0, sizes: vec![], tags: vec![], moves: vec![], heads: vec![] };
+        let texts: Vec<Vec<u8>> = TWO.split_inclusive("1-0\n").map(|g| g.as_bytes().to_vec()).chain(cases.iter().map(|c| c.to_vec())).collect();
+        for t in &texts {
+            block.add(&Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], text: t.clone(), format: super::super::Format::Pgn });
+        }
+        assert!(block.close(&mut |_| true).unwrap());
+        drop(block);
+        let packed = std::fs::read(d.0.join(GAMES)).unwrap();
+        let mut raw = vec![];
+        lzma_rust2::Lzma2Reader::new(&packed[4..], DICT, None).read_to_end(&mut raw).unwrap();
+        for (k, t) in texts.iter().enumerate() {
+            assert_eq!(game_in_block(&raw, k).as_ref(), Some(t), "game {k}");
+        }
+        assert_eq!(game_in_block(&raw, texts.len()), None);
+        assert_eq!(game_in_block(&raw[..raw.len() - 1], texts.len() - 1), None, "a block cut short");
+    }
+
     #[test]
     fn packed_files_and_hits() {
         let mut gz = flate2::write::GzEncoder::new(vec![], flate2::Compression::fast());
@@ -1330,6 +2316,34 @@ mod tests {
         assert_eq!(game_of_hit(&p, &snippet), Some(1));
         let snippet = format!("…{o}Philidor{c} Defense · 1-0 Anderssen, Adolf");
         assert_eq!(game_of_hit(&p, &snippet), Some(0));
+    }
+
+    /// A game deep in a gzip or zstd file is unpacked from the nearest place the first pass
+    /// kept before it, not from the file's start: what is unpacked to no use is counted.
+    #[test]
+    fn a_game_deep_in_a_packed_file() {
+        let mut text = String::new();
+        for i in 0..40_000 {
+            text.push_str(&format!("[White \"W{i}\"]\n[Black \"B{}\"]\n\n1.e4 e5 2.Nf3 {{{}}} *\n\n", i % 7, "z".repeat(i % 300)));
+        }
+        let mut gz = flate2::write::GzEncoder::new(vec![], flate2::Compression::fast());
+        gz.write_all(text.as_bytes()).unwrap();
+        let mut zst = vec![];
+        ruzstd::encoding::compress(text.as_bytes(), &mut zst, ruzstd::encoding::CompressionLevel::Fastest);
+        for (name, bytes, kind) in [("deep.pgn.gz", gz.finish().unwrap(), crate::archive::Pack::Gz), ("deep.pgn.zst", zst, crate::archive::Pack::Zst)] {
+            let (l, d) = lib(&bytes, name);
+            let last = l.progress().games as u32 - 1;
+            assert_eq!(last, 39_999);
+            assert!(l.text(last).unwrap().contains("W39999"));
+            assert!(l.text(3).unwrap().contains("W3\""));
+            let at = l.rec(last).unwrap().offset;
+            match crate::tar_index::from(&d.0.join(name), kind, at).unwrap() {
+                // At most a few MB unpacked before the game, of the file's 8 MB.
+                Some((_, skip)) => assert!(skip <= 4 << 20 && at > 6 << 20, "{skip} of {at}"),
+                // A zstd of one frame has no place but its start.
+                None => assert_eq!(kind, crate::archive::Pack::Zst),
+            }
+        }
     }
 
     /// A packed file of a few MB can unpack to an endless line: what is kept stays small.
@@ -1374,7 +2388,7 @@ mod tests {
         let full = Limits::default();
         let p1 = wait(&Library::open_with(&p, Limits { games: 1000, ..full }).unwrap());
         assert_eq!((p1.games, p1.capped), (1000, true));
-        let p2 = wait(&Library::open_with(&p, Limits { names: 64 * 1024, ..full }).unwrap());
+        let p2 = wait(&Library::open_with(&p, Limits { names: 16 * 1024, ..full }).unwrap());
         assert!(p2.capped && p2.games < 1000, "{p2:?}");
         // Unpacked no further than allowed: about 20 bytes a game.
         let p3 = wait(&Library::open_with(&p, Limits { unpacked: 20_000, ..full }).unwrap());
@@ -1400,6 +2414,23 @@ mod tests {
         assert_eq!(l.row(0).unwrap().white, "Björn");
     }
 
+    /// What Ask is told of a player in a big file, and how long it takes:
+    /// `COXSWAIN_CHESS_BIG=/path/to/big.pgn cargo test --release -p coxswain-core ask_big --
+    /// --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn ask_big() {
+        let Ok(p) = std::env::var("COXSWAIN_CHESS_BIG") else { return };
+        let l = Library::open(Path::new(&p)).unwrap();
+        l.wait();
+        let t = std::time::Instant::now();
+        let said = ask_about("who is Levon Aronian and what info do we have about him", &|_: &Path| true, 6000);
+        println!("{:?}\n{}", t.elapsed(), said.first().map_or("", |s| s.1.as_str()));
+        let t = std::time::Instant::now();
+        let found = find("Aronian Carlsen 2014", &|_: &Path| true, 5);
+        println!("find {:?}: {:?}", t.elapsed(), found.iter().map(|f| f.2).collect::<Vec<_>>());
+    }
+
     /// A big file, timed: `COXSWAIN_CHESS_BIG=/path/to/million.pgn cargo test --release -p
     /// coxswain-core big_file -- --ignored --nocapture`.
     #[test]
@@ -1417,22 +2448,33 @@ mod tests {
         }
         let read = t.elapsed();
         let n = l.progress().games;
-        let rss = std::fs::read_to_string("/proc/self/status").unwrap_or_default().lines().find(|l| l.starts_with("VmRSS")).unwrap_or("").to_string();
-        let time = |q: Query| {
+        let mem = || {
+            let s = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
+            s.lines().filter(|l| l.starts_with("VmRSS") || l.starts_with("VmHWM")).map(|l| l.split_whitespace().collect::<Vec<_>>().join(" ")).collect::<Vec<_>>().join(", ")
+        };
+        let rss = mem();
+        let time = |l: &Library, q: Query| {
             let t = std::time::Instant::now();
             let ids = l.query(&q);
             (ids.len(), t.elapsed())
         };
         println!("{n} games: first rows after {first:?}, all read in {read:?}; {rss}");
-        println!("all: {:?}", time(Query::default()));
-        println!("player 'carlsen': {:?}", time(Query { player: "carlsen".into(), ..Query::default() }));
-        println!("opening 'gambit' + 1-0 + 1900-1950 + elo 2400: {:?}", time(Query { opening: "gambit".into(), result: "1-0".into(), from: Some(1900), to: Some(1950), elo: Some(2400), ..Query::default() }));
-        println!("sort by white: {:?}", time(Query { sort: Sort::White, ..Query::default() }));
-        println!("sort by date desc: {:?}", time(Query { sort: Sort::Date, desc: true, ..Query::default() }));
+        println!("all: {:?}", time(&l, Query::default()));
+        println!("player 'carlsen': {:?}", time(&l, Query { player: "carlsen".into(), ..Query::default() }));
+        println!("opening 'gambit' + 1-0 + 1900-1950 + elo 2400: {:?}", time(&l, Query { opening: "gambit".into(), result: "1-0".into(), from: Some(1900), to: Some(1950), elo: Some(2400), ..Query::default() }));
+        println!("sort by white: {:?}", time(&l, Query { sort: Sort::White, ..Query::default() }));
+        println!("sort by date desc: {:?}", time(&l, Query { sort: Sort::Date, desc: true, ..Query::default() }));
         for i in [0, n as u32 / 2, n as u32 - 1, 10].into_iter().filter(|&i| (i as usize) < n) {
             let t = std::time::Instant::now();
             let g = l.game(i).unwrap();
             println!("game {i}: {} moves, {} nodes, error {:?}, in {:?}", g.main_line().len(), g.nodes.len(), g.error, t.elapsed());
         }
+        println!("after the queries: {}", mem());
+        drop(l);
+        let t = std::time::Instant::now();
+        let l = Library::open(Path::new(&p)).unwrap();
+        let p = l.progress();
+        println!("opened again: {} games, kept {}, done {}, in {:?}; first row {:?}", p.games, p.kept, p.done, t.elapsed(), l.row(0).map(|r| r.white));
+        println!("sort by white again: {:?}; {}", time(&l, Query { sort: Sort::White, ..Query::default() }), mem());
     }
 }

@@ -861,6 +861,22 @@ open(f"{d}/the-rocket-garden.fb2", "w").write(f"""<?xml version="1.0" encoding="
 PY
 rm "$d/Documents/Books/cover.png"
 
+# For the previews with a button under them (convert-media, searchable-pdf, the d2 diagram):
+# a six-second AVI and a WMA (real ffmpeg output, a Mandelbrot zoom and a tone), a scanned page
+# (an image-only PDF, no text layer: Make PDF searchable) and a D2 diagram.
+if command -v ffmpeg >/dev/null; then
+  ffmpeg -v error -y -f lavfi -i "mandelbrot=size=1280x720:rate=25" -f lavfi -i "sine=frequency=440:sample_rate=44100" -t 6 \
+    -c:v mpeg4 -q:v 2 -c:a mp2 -ac 1 "$d/Videos/launch.avi" || true
+  ffmpeg -v error -y -f lavfi -i "sine=frequency=330:sample_rate=44100" -t 8 -c:a wmav2 "$d/Videos/countdown.wma" || true
+fi
+magick -size 1240x1754 xc:'#f4f1e8' -attenuate 0.6 +noise Gaussian -font "$(fc-match -f '%{file}' serif)" -fill '#222' -pointsize 30 \
+  -annotate +120+260 'The rocket left the pad at 09:14 in a light westerly wind.' \
+  -annotate +120+310 'The engine burned for ten seconds, as planned, and the fuel' \
+  -annotate +120+360 'valve held. Apogee was 312 m; the parachute opened at 290 m.' \
+  -annotate +120+460 'The wind check passed at 4 m/s. Next flight: a longer burn' \
+  -annotate +120+510 'with the new throttle.' -background '#f4f1e8' -rotate 0.6 -quality 92 "$d/Documents/scan.pdf"
+printf 'Tank -> Valve: fuel\nValve -> Engine: burn\n' > "$d/Documents/launch.d2"
+
 # Two cloud accounts the sidebar and the Left/Right panel lists find (docs/organise/clouds.md):
 # Dropbox's info.json and the Nextcloud client's settings, each naming a sync folder.
 mkdir -p "$d/.dropbox" "$d/Dropbox/Camera Uploads" "$d/.config/Nextcloud" "$d/Nextcloud/Receipts" "$d/Nextcloud/Shared"
@@ -875,3 +891,55 @@ cp "$d/Pictures/glow.jpg" "$d/.local/share/Trash/files/draft-poster.jpg"
 for f in old-notes.txt:Documents draft-poster.jpg:Pictures; do
   printf '[Trash Info]\nPath=/home/demo/%s/%s\nDeletionDate=%s\n' "${f#*:}" "${f%%:*}" "$(date -d '2 days ago' +%Y-%m-%dT%H:%M:%S)" > "$d/.local/share/Trash/info/${f%%:*}.trashinfo"
 done
+
+# Three more version controls for their panel lines (docs/panels/cvs.md, mercurial.md,
+# jujutsu.md), each only when its program is installed. The authors are Ada and Bob, never the
+# user who builds this.
+ago() { date -u -d "@$(( $(date +%s) - $1 * 3600 ))" "+${2:-%s}"; }
+# kite: a CVS working copy of a repository in ~/repos/cvsroot, src changed and notes.txt unknown.
+if command -v cvs >/dev/null; then
+  root="$d/repos/cvsroot" imp="$(mktemp -d)" && mkdir -p "$d/repos"
+  cvs -f -Q -d "$root" init
+  printf 'A diamond kite.\n' > "$imp/README.txt"; printf 'spar 80 cm\n' > "$imp/frame.txt"; printf 'line 30 m\n' > "$imp/line.txt"
+  (cd "$imp" && cvs -f -Q -d "$root" import -m "Start the kite" kite demo start)
+  rm -rf "$imp"
+  (cd "$d/projects" && cvs -f -Q -d "$root" checkout kite)
+  cd "$d/projects/kite" && sleep 1
+  printf 'spar 90 cm\n' > frame.txt; printf 'line 30 m, red sail\n' > line.txt
+  cvs -f -Q commit -m "Longer spar, red sail" >/dev/null
+  sleep 1
+  mkdir src && printf 'ash, 6 mm\n' > src/spar.txt && printf 'spar 95 cm\n' > frame.txt
+  cvs -f -Q add src && cvs -f -Q add src/spar.txt && cvs -f -Q commit -m "Spar a little longer" >/dev/null
+  sleep 1 && printf 'ash, 8 mm\n' > src/spar.txt
+  printf 'Try a longer tail.\n' > notes.txt
+  # As the sandbox sees it, and by Ada.
+  find . -path '*/CVS/Root' -exec sh -c 'echo /home/demo/repos/cvsroot > "$1"' _ {} \;
+  find "$root/kite" -name '*,v' -exec sed -i 's/author [^;]*;/author ada;/' {} +
+  rm -f "$root/CVSROOT/history"
+  cd "$d"
+fi
+# glider: Mercurial, bookmark main, src changed and NOTES.txt unknown.
+if command -v hg >/dev/null; then
+  h() { HGRCPATH='' HGPLAIN=1 hg --config ui.username="$1 <${1,,}@example.com>" "${@:2}"; }
+  mkdir -p "$d/projects/glider/src" "$d/projects/glider/docs" && cd "$d/projects/glider"
+  h Bob init -q && printf '# glider\n' > README.md && h Bob commit -q -A -m "Start the glider" -d "$(ago 400) 0"
+  printf 'span 12 m\n' > docs/wing.md && printf 'int span = 12;\n' > src/wing.c
+  h Ada commit -q -A -m "Add the wing" -d "$(ago 200) 0" && h Ada bookmark -q main
+  printf 'int span = 13;\n' > src/wing.c && printf 'Check the trim.\n' > NOTES.txt
+  cd "$d"
+fi
+# lander: Jujutsu without .git, bookmark main below the working-copy change, which adds a file
+# and changes one.
+if command -v jj >/dev/null; then
+  jc="$(mktemp)" && printf '[user]\nname = "Ada"\nemail = "ada@example.com"\n' > "$jc"
+  j() { JJ_CONFIG="$jc" JJ_OP_HOSTNAME=demo JJ_OP_USERNAME=demo JJ_TIMESTAMP="$(ago "$1" '%Y-%m-%dT%H:%M:%S+00:00')" jj "${@:2}"; }
+  mkdir -p "$d/projects/lander/src" "$d/projects/lander/docs" && cd "$d/projects/lander"
+  j 300 git init --no-colocate --quiet
+  printf '# lander\n' > README.md && printf 'fn main() {}\n' > src/main.rs
+  j 300 describe --quiet -m "Start the lander" && j 300 new --quiet
+  printf 'pub fn thrust() -> f64 { 1.0 }\n' > src/engine.rs && printf 'Descend at 2 m/s.\n' > docs/descent.md
+  j 100 describe --quiet -m "Add the engine and the descent notes" && j 100 bookmark set --quiet main -r @ && j 100 new --quiet
+  printf 'pub fn thrust() -> f64 { 0.8 }\n' > src/engine.rs && printf 'Softer at the end.\n' > docs/thrust.md
+  j 1 describe --quiet -m "Softer thrust"
+  rm -f "$jc" && cd "$d"
+fi

@@ -585,12 +585,13 @@ impl Store {
         self.reader_changed("readers", tag, ends)
     }
 
-    /// Files of a `kind` whose text was cut at `extract::MAX_TEXT` (no more than `margin` below
-    /// it) get their passages and vectors made again, once (under `key`, at `tag`; an older app
-    /// leaves a newer tag be): they are now made from the whole file. Their text stays.
+    /// Files whose text was cut at `extract::MAX_TEXT` (no more than `margin` below it) and of
+    /// a `kind` get their passages and vectors made again, once (under `key`, at `tag`; an
+    /// older app leaves a newer tag be): they are now made from the whole file. Their text
+    /// stays. `kind` is told whether the file's text is that long.
     /// Gone through `PART` files at a time, the store's lock let go between them: a search
     /// waits for one part, not for the whole store's text to be measured.
-    fn long_passages(&self, key: &str, tag: &str, margin: usize, kind: fn(&Path) -> bool) -> rusqlite::Result<()> {
+    fn long_passages(&self, key: &str, tag: &str, margin: usize, kind: fn(&Path, bool) -> bool) -> rusqlite::Result<()> {
         const PART: i64 = 2000;
         let before: String = self
             .db
@@ -610,11 +611,13 @@ impl Store {
                 .collect::<rusqlite::Result<_>>()?;
             let Some(last) = part.last().map(|p| p.0) else { break };
             after = last;
+            // `kind` may open the file: not while searches wait for the lock.
+            drop(db);
+            let redo: Vec<i64> = part.into_iter().filter(|(_, path, long)| kind(Path::new(path), *long)).map(|p| p.0).collect();
+            let mut db = self.db.lock().unwrap();
             let tx = db.transaction()?;
-            for (id, path, long) in part {
-                if long && kind(Path::new(&path)) {
-                    tx.execute("UPDATE files SET embedded = NULL WHERE id = ?1", [id])?;
-                }
+            for id in redo {
+                tx.execute("UPDATE files SET embedded = NULL WHERE id = ?1 AND embedded = 1", [id])?;
             }
             tx.commit()?;
         }
@@ -688,6 +691,50 @@ impl Store {
     /// text and vectors stay; the other PGN files are not read. Where the pass got to is kept
     /// under `key.after`, so a run that is stopped goes on from there, and a file on a disk
     /// that is not plugged in under `key.away`, looked at in a later scan that finds it, alone.
+    /// Game files larger than `extract::MAX_TEXT` that the store read before their games
+    /// tables were kept (`chess::table`, 2.36): each is read once more, to make its table, so
+    /// Find looks through all its games (`chess::games::find`). Nothing the store holds of them
+    /// changes: no text is read again, no vector made again. Until `until`, then on at the next
+    /// scan (a table made stays made); `stop` ends it between files and inside one. A file read
+    /// whole takes as long as it takes (the pass runs after the read, so
+    /// new files are indexed first). A stop mid-file starts that file again at the next scan. A
+    /// file in the cloud, on a disk not plugged in or left out is skipped for good: its table is made when it is next opened or changes.
+    fn games_tables_made(&self, key: &str, tag: &str, left_out: &dyn Fn(&str) -> bool, stop: &dyn Fn() -> bool, until: Instant) -> rusqlite::Result<()> {
+        if self.tag_reached(key, tag) {
+            return Ok(());
+        }
+        let paths: Vec<String> = self
+            .db
+            .lock()
+            .unwrap()
+            .prepare("SELECT path FROM files WHERE has_text = 1 AND inside IS NULL AND size > ?1")?
+            .query_map([crate::extract::MAX_TEXT as i64], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        for path in paths {
+            let p = Path::new(&path);
+            let games = matches!(crate::chess::format(p), Some(crate::chess::Format::Pgn | crate::chess::Format::Pdn | crate::chess::Format::Kif | crate::chess::Format::Csa | crate::chess::Format::Pbn));
+            if !games {
+                continue;
+            }
+            if left_out(&path) || crate::cloud::keep_out(p) || !p.is_file() {
+                continue;
+            }
+            if stop() || Instant::now() > until {
+                return Ok(());
+            }
+            // Its table, kept from before or made now; dropped while it is made, it stops.
+            if let Ok(lib) = crate::chess::Library::open(p) {
+                while !lib.progress().done {
+                    if stop() {
+                        return Ok(());
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+            }
+        }
+        self.set_tag(key, tag)
+    }
+
     fn pgn_positions_renumbered(&self, key: &str, tag: &str, stop: &dyn Fn() -> bool) -> rusqlite::Result<()> {
         if self.tag_reached(key, tag) {
             return Ok(());
@@ -2185,6 +2232,7 @@ impl Store {
                     is_dir: false,
                     snippet: Some(snippet),
                     similar: Some(s),
+                    game: None,
                 }
             })
             .collect()
@@ -2578,6 +2626,7 @@ impl Store {
                         is_dir: false,
                         snippet: Some(snippet),
                         similar: None,
+                        game: None,
                     })
                 },
             )?;
@@ -3102,8 +3151,9 @@ fn scan_for(
     store.reader_changed("readers.scid", "1", &[".si4"])?;
     // SCID 5 databases (2.34): read for the first time, as SCID 4's are; only `.si5` files.
     // At 2, a game's positions are numbered by its row (deleted games left out), so Find this
-    // position opens the right game: the `.si5` files are read once again.
-    store.reader_changed("readers.scid5", "2", &[".si5"])?;
+    // position opens the right game: the `.si5` files are read once again. At 3 (2.36), the
+    // deleted flag read from its own bit and names after a base's description kept: once more.
+    store.reader_changed("readers.scid5", "3", &[".si5"])?;
     // ChessBase databases (2.33): a line per game and their positions, as PGN files; read once.
     store.reader_changed("readers.cbh", "1", &[".cbh"])?;
     // ChessBase archives (2.34): read for the first time, as the database they hold. At 2
@@ -3140,19 +3190,19 @@ fn scan_for(
     store.large_unread("readers.large", "1", cfg.text_max_size)?;
     // Their passages and those of every text, code, CSV or log file with more text than is
     // kept are made from the whole file (2.33): only those files get their vectors again, once.
-    store.long_passages("passages.whole", "1", LONG_MARGIN, crate::extract::streams)?;
+    store.long_passages("passages.whole", "1", LONG_MARGIN, |p, long| long && crate::extract::streams(p))?;
     // So are those of Word, OpenDocument, workbook and presentation files with nearly as much
     // text as is kept, or more (2.33): only those get their vectors again, once.
-    store.long_passages("passages.documents", "1", DOCUMENT_MARGIN, crate::extract::whole_document)?;
+    store.long_passages("passages.documents", "1", DOCUMENT_MARGIN, |p, long| long && crate::extract::whole_document(p))?;
     // And those of `.xls` and `.xlsb` workbooks (2.34): only those with nearly as much text as
     // is kept, or more, get their vectors again, once.
-    store.long_passages("passages.workbooks", "1", DOCUMENT_MARGIN, |p| {
-        p.extension().is_some_and(|e| e.eq_ignore_ascii_case("xls") || e.eq_ignore_ascii_case("xlsb"))
+    store.long_passages("passages.workbooks", "1", DOCUMENT_MARGIN, |p, long| {
+        long && p.extension().is_some_and(|e| e.eq_ignore_ascii_case("xls") || e.eq_ignore_ascii_case("xlsb"))
     })?;
     // And those of books and web pages (2.34): only those with nearly as much text as is kept,
     // or more, get their vectors again, once.
-    store.long_passages("passages.books", "1", DOCUMENT_MARGIN, |p| {
-        p.extension().and_then(|e| e.to_str()).is_some_and(|e| ["epub", "html", "htm", "xhtml"].iter().any(|b| e.eq_ignore_ascii_case(b)))
+    store.long_passages("passages.books", "1", DOCUMENT_MARGIN, |p, long| {
+        long && p.extension().and_then(|e| e.to_str()).is_some_and(|e| ["epub", "html", "htm", "xhtml"].iter().any(|b| e.eq_ignore_ascii_case(b)))
     })?;
     // What is kept of long files, *Sample* or *Everything* (2.34): only the long files whose
     // folder's choice changed are read again, get their vectors again, or are cut back.
@@ -3161,6 +3211,10 @@ fn scan_for(
     // they are read and their passages made again, once.
     store.reader_dropped("readers.pdf", "1", &[".pdf"])?;
     store.reader_dropped("readers.word", "1", &[".docx", ".docm", ".dotx", ".odt", ".ott"])?;
+    // And those of Word and OpenDocument texts with less text than that but more than 16 MB of
+    // XML, where the reader for search by words stops (2.36, #746): only those get their
+    // vectors again, once, made from the whole file. Their text stays.
+    store.long_passages("passages.word-xml", "1", DOCUMENT_MARGIN, |p, long| !long && cut_at_xml(p))?;
     // Long Word and OpenDocument texts, books and web pages kept whole that coxswain 2.33.0
     // left with only their first passages (the model's time counted as reading time): only
     // those with fewer passages than their text has get their vectors again, once (2.35).
@@ -3222,6 +3276,12 @@ fn scan_for(
     *store.walked.lock().unwrap() = Some((roots, began));
     if read(store, cfg, stop)? {
         return Ok(false);
+    }
+    // After the read, so a multi-GB game file does not hold up the indexing of new files.
+    // Game files over 4 MB get their games table (2.36), so Find looks through every game: each
+    // read once; nothing in the store is read or made again.
+    if MAKE_GAMES_TABLES {
+        store.games_tables_made("tables.games", "1", &|p| left_out_file(p, cfg), &halt, Instant::now() + PDF_SLICE)?;
     }
     // Git in a repository left in the cloud would download it.
     let repos = if cfg.history {
@@ -3355,6 +3415,17 @@ fn long_text(path: &str, body: &str) -> bool {
     let p = Path::new(path);
     (body.len() + LONG_MARGIN >= crate::extract::MAX_TEXT && crate::extract::streams(p))
         || (body.len() + DOCUMENT_MARGIN >= crate::extract::MAX_TEXT && crate::extract::whole_document(p))
+        || cut_at_xml(p)
+}
+
+/// Whether the file at `path` is a Word or OpenDocument text whose text kept for words stopped
+/// at its reader's XML limit (`extract::word::past_xml`), with less text than that, tags taking
+/// the rest: its passages come from the whole file too (#746).
+fn cut_at_xml(p: &Path) -> bool {
+    let ext = p.extension().and_then(|e| e.to_str()).unwrap_or_default();
+    ["docx", "docm", "dotx", "odt", "ott"].iter().any(|k| ext.eq_ignore_ascii_case(k))
+        && !crate::cloud::keep_out(p)
+        && crate::extract::word::past_xml(p)
 }
 
 /// How a file kept whole got its vectors (`embed_streamed`).
@@ -3586,6 +3657,10 @@ const HELD_TEXT: usize = 64 << 20;
 const PDF_LOOKED_AT: u64 = 1 << 20;
 /// The most of one scan spent looking at them; the rest wait for the next.
 const PDF_SLICE: Duration = Duration::from_secs(60);
+/// The one-time pass that reads each game file over 4 MB already in the store once more, to
+/// make its games table (`games_tables_made`). The owner decided yes (3 Nov); false would leave
+/// those files' tables to be made when they next change or are opened.
+const MAKE_GAMES_TABLES: bool = true;
 
 /// How far below `extract::MAX_TEXT` a text may end and still be one that was cut.
 const LONG_MARGIN: usize = 64 << 10;
@@ -3865,6 +3940,29 @@ fn place(store: &Store, cfg: &SearchConfig) -> rusqlite::Result<(Vec<PathBuf>, V
     Ok((online, offline))
 }
 
+/// `read`, with `halt` as this thread's Stop (`stop::asked`) while it runs: a reader that waits
+/// long (a game file's games table being made, `chess::games::search_text`) gives up within a
+/// tenth of a second of a stop or a clear.
+fn read_stoppably<T>(halt: &(dyn Fn() -> bool + Sync), read: impl FnOnce() -> T) -> T {
+    let flag = std::sync::Arc::new(AtomicBool::new(false));
+    let over = AtomicBool::new(false);
+    std::thread::scope(|s| {
+        let watch = s.spawn(|| {
+            while !over.load(Ordering::Relaxed) {
+                if halt() {
+                    flag.store(true, Ordering::Relaxed);
+                }
+                std::thread::park_timeout(Duration::from_millis(50));
+            }
+        });
+        let out = crate::stop::during(&flag, read);
+        over.store(true, Ordering::Relaxed);
+        // Woken at once: the read is not made to wait out the watcher's nap.
+        watch.thread().unpark();
+        out
+    })
+}
+
 /// Read the text of the files waiting for it: those on disk, then those inside archives, one
 /// archive at a time and in one pass through it. `true` when stopped.
 fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Result<bool> {
@@ -3894,7 +3992,14 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
             .collect();
         let start = Instant::now();
         let (mut rows, mut held, mut whole) = (vec![], 0, vec![]);
+        let halt = || stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed);
+        let mut stopped = false;
         for (id, path, size) in &batch {
+            // Stopped: the files not read yet keep waiting, unread, for the next scan.
+            if halt() {
+                stopped = true;
+                break;
+            }
             let keep = rule.whole(Path::new(path));
             let cap = if keep { crate::extract::EVERYTHING_TEXT } else { crate::extract::MAX_TEXT };
             // A file that ran past a program's time limit (a LibreOffice that never ends) is
@@ -3905,7 +4010,17 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
                 store.transcript_of(*id)
             } else {
                 crate::tools::took_too_long();
-                let text = crate::extract::text_up_to(Path::new(path), *size, cfg.text_max_size, cap);
+                let read = || crate::extract::text_up_to(Path::new(path), *size, cfg.text_max_size, cap);
+                // Only a game file read through its games table (`chess::games::search_text`)
+                // waits long enough to need watching.
+                let games = *size > crate::extract::MAX_TEXT as u64 && crate::chess::format(Path::new(path)).is_some();
+                let text = if games { read_stoppably(&halt, read) } else { read() };
+                // Stopped inside it (a game file read for its games table): not read, not
+                // marked as without text.
+                if halt() {
+                    stopped = true;
+                    break;
+                }
                 if text.is_none() && crate::tools::took_too_long() {
                     store.mark_too_long(*id)?;
                     store.note_error(Some(path), NOTED[0].0);
@@ -3923,9 +4038,12 @@ fn read(store: &Store, cfg: &SearchConfig, stop: &AtomicBool) -> rusqlite::Resul
         }
         store.read(&rows)?;
         store.mark_whole(&whole)?;
+        if stopped {
+            store.pending.fetch_sub(n, Ordering::Relaxed);
+            return Ok(true);
+        }
         // PGN files the text reader read (not left out, not online-only, not empty): the
         // positions of their games too, game by game as the file is read.
-        let halt = || stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed);
         for ((id, path, _), (_, _, text)) in batch.iter().zip(&whole) {
             if *text && crate::chess::format(Path::new(path)) == Some(crate::chess::Format::Pgn) {
                 store.put_positions(*id, Path::new(path), &halt)?;
@@ -4002,7 +4120,12 @@ fn read_inside(
         .map(|(id, inner)| (inner.clone(), *id))
         .collect();
     let keep = |inner: &str| rule.whole(&inner.split('/').fold(archive.to_path_buf(), |p, part| p.join(part)));
-    let dir = crate::helper::folder().map(|d| d.join(format!("inside-{}", crate::spill::run())));
+    // A folder of its own for each archive read: two read at once (scans of two stores in one
+    // process) would otherwise unpack into one folder, take each other's same-named files and
+    // remove the folder under each other, leaving files read as having no text.
+    static READS: AtomicU64 = AtomicU64::new(0);
+    let n = READS.fetch_add(1, Ordering::Relaxed);
+    let dir = crate::helper::folder().map(|d| d.join(format!("inside-{}-{n}", crate::spill::run())));
     let made = dir.as_ref().filter(|d| std::fs::create_dir_all(d).is_ok());
     #[cfg(unix)]
     if let Some(dir) = made {
@@ -4123,12 +4246,14 @@ pub fn changes_notice(old: &SearchConfig, new: &SearchConfig) -> Option<String> 
         repos.iter().filter(|r| !changes_on(new, r) && changes_on(old, r)).collect(),
     );
     if !on.is_empty() {
+        let started = std::time::Instant::now();
         let (commits, bytes) = on.iter().fold((0, 0), |(c, b), r| {
             let (n, m) = crate::history::changes_cost(r, HISTORY_MAX);
             (c + n, b + m)
         });
-        // git shows some 20 MB of changes a second, and the store takes them in about as fast.
-        let secs = (bytes / (10 << 20)).max(1);
+        // Reading the changes and storing them took about twice as long as counting them, on
+        // this machine's own disks (7 repositories: 18.7 s to count, 36 s to read).
+        let secs = (started.elapsed().as_secs_f64() * 2.0).ceil().max(1.0) as u64;
         return Some(crate::t!("changes.cost", "repos" => on.len(), "commits" => crate::settings::count(commits), "size" => crate::settings::human(bytes * 2), "secs" => secs));
     }
     if !off.is_empty() {
@@ -6279,49 +6404,58 @@ mod tests {
         use std::io::{Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
+        // Each connection on a thread of its own, so one that stalls holds up no other; one that
+        // ends or fails before its request is whole is dropped unanswered. Once ended that way,
+        // the old loop read it again and again, and answered no request after it.
         std::thread::spawn(move || {
             for mut c in listener.incoming().flatten() {
-                let (mut got, mut buf) = (Vec::new(), [0u8; 65536]);
-                loop {
-                    let n = c.read(&mut buf).unwrap_or(0);
-                    got.extend_from_slice(&buf[..n]);
-                    let text = String::from_utf8_lossy(&got);
-                    let Some(h) = text.find("\r\n\r\n") else {
-                        continue;
-                    };
-                    let len: usize = text[..h]
-                        .lines()
-                        .find_map(|l| {
-                            l.to_ascii_lowercase()
-                                .strip_prefix("content-length:")?
-                                .trim()
-                                .parse()
-                                .ok()
-                        })
-                        .unwrap_or(0);
-                    if n == 0 || got.len() >= h + 4 + len {
-                        break;
+                std::thread::spawn(move || {
+                    let (mut got, mut buf) = (Vec::new(), [0u8; 65536]);
+                    loop {
+                        let n = match c.read(&mut buf) {
+                            Ok(0) => return,
+                            Ok(n) => n,
+                            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                            Err(_) => return,
+                        };
+                        got.extend_from_slice(&buf[..n]);
+                        let text = String::from_utf8_lossy(&got);
+                        let Some(h) = text.find("\r\n\r\n") else {
+                            continue;
+                        };
+                        let len: usize = text[..h]
+                            .lines()
+                            .find_map(|l| {
+                                l.to_ascii_lowercase()
+                                    .strip_prefix("content-length:")?
+                                    .trim()
+                                    .parse()
+                                    .ok()
+                            })
+                            .unwrap_or(0);
+                        if got.len() >= h + 4 + len {
+                            break;
+                        }
                     }
-                }
-                let text = String::from_utf8_lossy(&got);
-                let v: serde_json::Value =
-                    serde_json::from_str(text.split_once("\r\n\r\n").map_or("", |x| x.1))
-                        .unwrap_or_default();
-                let vectors: Vec<Vec<f32>> = v["input"].as_array().map_or(vec![], |a| {
-                    a.iter()
-                        .map(|t| {
-                            let mut v = vec![0.0f32; 26];
-                            for b in t
-                                .as_str()
-                                .unwrap_or("")
-                                .bytes()
-                                .filter(u8::is_ascii_alphabetic)
-                            {
-                                v[(b.to_ascii_lowercase() - b'a') as usize] += 1.0;
-                            }
-                            v
-                        })
-                        .collect()
+                    let text = String::from_utf8_lossy(&got);
+                    let v: serde_json::Value =
+                        serde_json::from_str(text.split_once("\r\n\r\n").map_or("", |x| x.1))
+                            .unwrap_or_default();
+                    let vectors: Vec<Vec<f32>> = v["input"].as_array().map_or(vec![], |a| {
+                        a.iter()
+                            .map(|t| {
+                                let mut v = vec![0.0f32; 26];
+                                for b in t
+                                    .as_str()
+                                    .unwrap_or("")
+                                    .bytes()
+                                    .filter(u8::is_ascii_alphabetic)
+                                {
+                                    v[(b.to_ascii_lowercase() - b'a') as usize] += 1.0;
+                                }
+                                v
+                            })
+                            .collect()
                 });
                 let openai = text
                     .lines()
@@ -6332,13 +6466,14 @@ mod tests {
                 if v["input"].as_array().is_some_and(|a| a.iter().any(|t| t.as_str().is_some_and(|t| t.contains("REFUSE ME")))) {
                     let reply = r#"{"error":"input refused"}"#;
                     let _ = write!(c, "HTTP/1.1 400 Bad Request\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reply}", reply.len());
-                    continue;
+                    return;
                 }
                 let _ = write!(
                     c,
                     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{reply}",
                     reply.len()
                 );
+                });
             }
         });
         url
@@ -7173,6 +7308,118 @@ mod tests {
         std::fs::remove_dir_all(d).unwrap();
     }
 
+    /// #746: a Word or OpenDocument text heavy with tags, with more XML than the reader for words
+    /// reads (16 MB) and far less text than is kept, gets its passages from the whole file, read
+    /// to its end; a store that made them from the cut text makes them again, once, for those
+    /// files alone: not a short one, not one long enough to be read whole already.
+    #[test]
+    fn a_document_of_tags_past_the_xml_limit_gets_passages_from_all_of_it() {
+        let d = std::env::temp_dir().join(format!("coxswain-word-xml-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        // Each word in a run of its own with its fonts and size, as Word writes pasted text.
+        // Long names in its tags, so that few words make the XML (and the test) no longer than it must be.
+        let font = "Calibri Light ".repeat(30);
+        let run = |i: usize| format!("<w:r><w:rPr><w:rFonts w:ascii=\"{font}\" w:hAnsi=\"Calibri\" w:cs=\"Calibri\"/><w:sz w:val=\"24\"/></w:rPr><w:t xml:space=\"preserve\">word{i} </w:t></w:r>");
+        let span = |i: usize| format!("<text:span text:style-name=\"T1\" text:class-names=\"{font}\">word{i} </text:span>");
+        let words = 36_000;
+        let paragraphs = |open: &str, close: &str, piece: &dyn Fn(usize) -> String| -> String {
+            let mut xml = String::new();
+            for p in 0..words / 10 {
+                xml += open;
+                (p * 10..p * 10 + 10).for_each(|i| xml += &piece(i));
+                xml += close;
+            }
+            xml + open + "the very last words" + close
+        };
+        let docx = d.join("tags.docx");
+        let xml = format!("<w:document xmlns:w=\"w\"><w:body>{}</w:body></w:document>", paragraphs("<w:p>", "</w:p>", &run).replace("the very last words", "<w:r><w:t>the very last words</w:t></w:r>"));
+        assert!(xml.len() as u64 > 16 << 20);
+        crate::extract::tests::zip_file(&docx, &[("word/document.xml", xml.as_bytes())]);
+        let odt = d.join("tags.odt");
+        let xml = format!("<office:document-content xmlns:office=\"o\" xmlns:text=\"t\"><office:body><office:text>{}</office:text></office:body></office:document-content>", paragraphs("<text:p>", "</text:p>", &span));
+        assert!(xml.len() as u64 > 16 << 20);
+        crate::extract::tests::zip_file(&odt, &[("content.xml", xml.as_bytes())]);
+        let small = d.join("small.docx");
+        crate::extract::tests::zip_file(&small, &[("word/document.xml", b"<w:document xmlns:w=\"w\"><w:body><w:p><w:r><w:t>short</w:t></w:r></w:p></w:body></w:document>")]);
+        let mut bodies = vec![];
+        for file in [&docx, &odt] {
+            let path = file.to_string_lossy().into_owned();
+            let body = crate::extract::text_of(file, std::fs::metadata(file).unwrap().len(), u64::MAX).unwrap();
+            // What is kept for words stops at the XML limit, far below the text kept of a file.
+            assert!(!body.contains("the very last words") && body.len() + DOCUMENT_MARGIN < crate::extract::MAX_TEXT, "{path}");
+            assert!(long_text(&path, &body), "{path}");
+            assert!(prepare(1, path.clone(), body.clone(), true).streamed, "{path}");
+            let mut last = String::new();
+            assert_eq!(whole_read(&path, &mut |l| last = l.to_string()), Some(true), "{path}");
+            assert!(last.contains("the very last words"), "{path}: {last}");
+            bodies.push((path, body));
+        }
+        let small_path = small.to_string_lossy().into_owned();
+        assert!(!long_text(&small_path, "short"));
+        // A store from before: these files' vectors were made from their cut text.
+        let store = Store::open(&d.join("search.db")).unwrap();
+        let long = "x".repeat(crate::extract::MAX_TEXT);
+        {
+            let db = store.db.lock().unwrap();
+            let rows = [(1, bodies[0].0.as_str(), bodies[0].1.as_str()), (2, bodies[1].0.as_str(), bodies[1].1.as_str()), (3, small_path.as_str(), "short"), (4, bodies[0].0.as_str(), long.as_str())];
+            for (id, path, body) in rows {
+                // The long one under another name, so the paths stay unique.
+                let path = if id == 4 { path.replace("tags", "long") } else { path.to_string() };
+                db.execute("INSERT INTO files(id, path, size, modified, has_text, embedded) VALUES (?1, ?2, 1, 0, 1, 1)", params![id, path]).unwrap();
+                db.execute("INSERT INTO text(rowid, body) VALUES (?1, ?2)", params![id, body]).unwrap();
+            }
+        }
+        std::fs::copy(&docx, d.join("long.docx")).unwrap();
+        let renewed = || -> Vec<i64> {
+            store.db.lock().unwrap().prepare("SELECT id FROM files WHERE embedded IS NULL ORDER BY id").unwrap().query_map([], |r| r.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap()
+        };
+        let pass = || store.long_passages("passages.word-xml", "1", DOCUMENT_MARGIN, |p, long| !long && cut_at_xml(p)).unwrap();
+        // A newer version's tag: left be.
+        store.set_tag("passages.word-xml", "2").unwrap();
+        pass();
+        assert!(renewed().is_empty());
+        store.db.lock().unwrap().execute("DELETE FROM meta WHERE key = 'passages.word-xml'", []).unwrap();
+        pass();
+        assert_eq!(renewed(), [1, 2], "the two texts of tags alone");
+        let text: i64 = store.db.lock().unwrap().query_row("SELECT count(*) FROM text", [], |r| r.get(0)).unwrap();
+        assert_eq!(text, 4, "their text stays");
+        // Once.
+        store.db.lock().unwrap().execute("UPDATE files SET embedded = 1", []).unwrap();
+        pass();
+        assert!(renewed().is_empty());
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A store made before the games tables (2.36) gets one for each game file over the text
+    /// limit, once: later scans do nothing. A file left out gets none.
+    #[test]
+    fn games_tables_are_made_once_for_a_store_made_before() {
+        let d = std::env::temp_dir().join(format!("coxswain-games-tables-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let game = "[White \"A\"]\n[Black \"B\"]\n[Result \"1-0\"]\n\n1.e4 e5 1-0\n\n";
+        let (big, out) = (d.join("big.pgn"), d.join("out.pgn"));
+        std::fs::write(&big, game.repeat(5)).unwrap();
+        std::fs::write(&out, game.repeat(7)).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        // Rows as a store of 2.35 holds them: the files read for text, sizes past the limit.
+        let size = crate::extract::MAX_TEXT as u64 + 1;
+        let file = |p: &Path| (p.to_string_lossy().into_owned(), size, 1, false);
+        store.apply(&[], &[file(&big), file(&out)], &[], false, None).unwrap();
+        store.db.lock().unwrap().execute("UPDATE files SET has_text = 1", []).unwrap();
+        let out_name = out.to_string_lossy().into_owned();
+        store.games_tables_made("tables.games", "1", &|p| p == out_name, &|| false, Instant::now() + Duration::from_secs(60)).unwrap();
+        assert!(store.tag_reached("tables.games", "1"));
+        let kept = |p: &Path| crate::chess::Library::open(p).map(|l| l.progress().kept).unwrap_or(false);
+        assert!(kept(&big), "its table was made by the pass");
+        assert!(!kept(&out), "a file left out got none (opening it now makes one)");
+        // Once: a second scan looks at no file.
+        store.games_tables_made("tables.games", "1", &|_| panic!("looked at a file again"), &|| false, Instant::now() + Duration::from_secs(60)).unwrap();
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
     /// #527: a PGN file whose positions the splitter before 2.34.0 numbered (an unclosed
     /// comment ran the games after it into one) gets its positions again, once, numbered as
     /// the table's rows; a PGN file whose numbers match keeps its rows, and no text is read.
@@ -7418,7 +7665,7 @@ mod tests {
             }
             tx.commit().unwrap();
         }
-        store.long_passages("passages.test", "1", LONG_MARGIN, crate::extract::streams).unwrap();
+        store.long_passages("passages.test", "1", LONG_MARGIN, |p, long| long && crate::extract::streams(p)).unwrap();
         let renewed: Vec<i64> = store.db.lock().unwrap().prepare("SELECT id FROM files WHERE embedded IS NULL").unwrap().query_map([], |r| r.get(0)).unwrap().collect::<rusqlite::Result<_>>().unwrap();
         assert_eq!(renewed, [2400], "the long log, past the first part; not the PDF");
         drop(store);

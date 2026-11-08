@@ -366,7 +366,7 @@ pub fn scan(cfg: &PreviewConfig, targets: &[PathBuf], stop: &AtomicBool, mut sai
     if crate::tools::image_size(&rt_path, &image).is_none() {
         // Stop ends the pull too: it runs on a scoped thread that watches `stop`.
         std::thread::scope(|scope| {
-            let puller = scope.spawn(|| crate::images::pull_until(&rt_path, &image, stop));
+            let puller = scope.spawn(|| crate::images::pulls::in_job(&rt_path, &image, stop));
             while !puller.is_finished() {
                 if let Some(line) = crate::images::pulling().get(image.as_str()) {
                     said(Said::Pulling(line));

@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { Paged, SPAN } from "./paged.svelte.js";
-import { invoke, size, basename, parent, applyTheme, isArchive, chessFormat, isDrawio, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, isGeo, isScad, CONVERTER, previewKind, isKicad, isSums, isFirstPart, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, size, basename, parent, applyTheme, isArchive, chessFormat, isDrawio, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, setViewerRules, isGeo, isScad, CONVERTER, previewKind, isKicad, isSums, isFirstPart, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t, tn } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -9,6 +9,9 @@ const tr = t;
 
 export const ui = $state({
   cfg: null,
+  /** Pick mode (`--pick`): the Show all switch, and with `--save` the name typed. */
+  pickAll: false,
+  pickName: "",
   panes: [],
   activePane: 0,
   dual: true,
@@ -682,7 +685,9 @@ export async function setPreviewTool(r, choice) {
  *  each with what it would use, the line that installs its program, and Settings at Preview
  *  tools. */
 export async function previewWith(e = item(tab())) {
-  const spec = e && !e.is_dir ? CONVERTER[previewKind(e)] : null;
+  // By the file's bytes too (`viewers::detect`): a Word .dot is Office's, not Graphviz's.
+  const kind = e && !e.is_dir ? await invoke("viewer_detect", { path: e.path }).catch(() => previewKind(e)) : null;
+  const spec = kind ? CONVERTER[kind] : null;
   if (!spec) return void (ui.status = t("ptools.none_here"));
   let r;
   try {
@@ -951,9 +956,10 @@ export function stopWork() {
  *  (`coxswain_core::export`): the question (what it writes, which program runs, the first pull
  *  and its size), then the run, the status line saying how far it is with a Stop button. The
  *  action again while it runs stops it. */
-export function makeExport(adoc, op = adoc ? "adoc_pdf" : "", paths = targets()) {
+export async function makeExport(adoc, op = adoc ? "adoc_pdf" : "", paths = null) {
   const action = adoc ? "adoc_pdf" : "drawio_export";
   if (ui.exporting) return stopExport();
+  paths ??= await targets();
   const files = paths.filter((p) => (adoc ? /\.(adoc|asciidoc)$/i.test(p) : isDrawio(basename(p))));
   if (!files.length) return void (ui.status = t(adoc ? "export.none_adoc" : "export.none_drawio"));
   const ask = async (op) => {
@@ -1014,7 +1020,8 @@ export function stopExport() {
 export async function scanViruses(tb = tab()) {
   if (ui.viruses) return stopViruses();
   if (subject(tb).place !== "disk") return void (ui.status = t("viruses.none"));
-  const paths = targets(tb).length ? targets(tb) : [tb.dir];
+  const chosen = await targets(tb);
+  const paths = chosen.length ? chosen : [tb.dir];
   let plan;
   try {
     plan = await invoke("viruses_plan", { paths });
@@ -1239,6 +1246,8 @@ export async function readWhenShown(t) {
   t.unread = false;
   const ok = await load(t);
   if (ok !== false) return;
+  // The pane says it is still reading while the folder above is tried, not the failure.
+  t.error = null;
   const up = parent(t.dir);
   const above = up ? await load(t, up, basename(t.dir)) : false;
   if (above === false) await load(t, ui.cfg.home);
@@ -1291,6 +1300,7 @@ export async function init() {
   setPictureEndings(ui.cfg.picture_endings);
   setMediaEndings(ui.cfg.media_endings);
   setGeoEndings(ui.cfg.geo_endings);
+  setViewerRules(ui.cfg.viewer_rules);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;
@@ -1302,19 +1312,24 @@ export async function init() {
   setTheme(ui.cfg.gui.theme);
   // Directories given on the command line win over the saved session.
   const fromArgs = ui.cfg.start;
-  ui.panes = (s.panes?.length === 2 ? s.panes : [{ tabs: [{ dir: fromArgs[0] }] }, { tabs: [{ dir: fromArgs[1] }] }]).map((p, i) => ({
+  // A picker starts in the folders it was given, not the tabs of the last session.
+  const keep = s.panes?.length === 2 && !ui.cfg.pick;
+  if (ui.cfg.pick) ui.pickName = ui.cfg.pick.save ?? "";
+  ui.panes = (keep ? s.panes : [{ tabs: [{ dir: fromArgs[0] }] }, { tabs: [{ dir: fromArgs[1] }] }]).map((p, i) => ({
     active: Math.min(p.active ?? 0, p.tabs.length - 1),
     tabs: p.tabs.map((x) => Object.assign(newTab(x.dir, x.view), { sort: x.sort ?? "name", reverse: !!x.reverse })),
   }));
   ui.activePane = s.activePane ?? 0;
   const t0 = tab(0);
-  if (s.panes && fromArgs[0] !== t0.dir && !ui.panes[0].tabs.some((t) => t.dir === fromArgs[0])) {
+  if (keep && fromArgs[0] !== t0.dir && !ui.panes[0].tabs.some((t) => t.dir === fromArgs[0])) {
     ui.panes[0].tabs.push(newTab(fromArgs[0]));
     ui.panes[0].active = ui.panes[0].tabs.length - 1;
   }
-  // The tabs in view are read now; the others when they are shown (`readWhenShown`).
+  // The tabs in view are read now, the others when they are shown (`readWhenShown`). Not
+  // waited for: the window draws at once, and a slow folder (a Subversion revision asks its
+  // server) fills its pane when it comes.
   for (const t of ui.panes.flatMap((p) => p.tabs)) t.unread = true;
-  await Promise.all(visibleTabs().map(readWhenShown));
+  for (const t of visibleTabs()) readWhenShown(t);
   invoke("places").then((p) => (ui.places = p));
   invoke("bsd_places").then((p) => (ui.bsdPlaces = p), () => {});
   // `coxswain-gui --duplicates <folders>` starts straight in a scan of those folders; with
@@ -1397,7 +1412,9 @@ export const ociIndex = (tb, e) => !!e && !e.is_dir && e.name === "index.json" &
 /** Enter / double-click (`enter::enter`): into anything that holds things (a folder, an archive,
  *  a disk or container image, a mailbox); games, positions and opening books in the games window,
  *  a file of one game on its board; any other file in its default application. */
-export async function openItem(tb, i = tb.cursor) {
+export async function openItem(tb, i = tb.cursor, really = false) {
+  // Pick mode: a double-click chooses (Enter comes through `pickItem` with the marks).
+  if (ui.cfg.pick && !really) return pickItem(tb, i, false);
   const e = tb.items.at(i);
   if (!e) return;
   if (e.is_dir) return cd(tb, e.path);
@@ -1414,6 +1431,56 @@ export async function openItem(tb, i = tb.cursor) {
   openFile(tb, e);
 }
 
+/** Pick mode: a file the filter does not take is dimmed, unless Show all is on
+ *  (`pick::Request::dims`). */
+export function pickDim(e) {
+  const f = ui.cfg.pick?.filter;
+  if (!f?.length || ui.pickAll || e.is_dir) return false;
+  const name = e.name.toLowerCase();
+  return !f.some((x) => name.endsWith("." + x));
+}
+
+/** Pick mode, Enter (`marks`: the marked entries count) or a double-click: the backend says
+ *  whether it is chosen (the app then ends), opened as usual, or why not. With `--save` a folder
+ *  opens and a file's name goes into the name field. */
+export async function pickItem(tb, i = tb.cursor, marks = true) {
+  const e = tb.items.at(i);
+  const marked = marks && tb.marks.count ? (await pick(tb, "marked")).map((m) => [m.path, m.is_dir]) : [];
+  if (!e && !marked.length) return;
+  const real = e && e.name !== "..";
+  if (!real && !marked.length) return openItem(tb, i, true);
+  // A double-click on a folder opens it, also when folders are asked for (Enter chooses it).
+  if (!marks && e.is_dir) return openItem(tb, i, true);
+  let goesIn = !!e?.is_dir;
+  if (real && !e.is_dir) {
+    const on = await invoke("enter_on", { path: e.path, isDir: false, inside: !!tb.archive }).catch(() => null);
+    goesIn = ["archive", "disk_image", "image", "mailbox"].includes(on?.enter);
+  }
+  if (ui.cfg.pick.save != null) {
+    if (goesIn) return openItem(tb, i, true);
+    if (real) ui.pickName = e.name;
+    return;
+  }
+  try {
+    const enter = await invoke("pick_choose", { marked, cursor: real ? [e.path, e.is_dir] : null, goesIn, showAll: ui.pickAll });
+    if (enter) openItem(tb, i, true);
+  } catch (err) {
+    ui.status = String(err);
+  }
+}
+
+/** Pick mode with `--save`: the name typed, in the active tab's folder; a file that is there is
+ *  replaced only after the question is said yes to. */
+export async function pickSave(replace = false) {
+  try {
+    const there = await invoke("pick_save", { dir: tab().dir, name: ui.pickName, replace });
+    if (there != null)
+      ui.modal = { kind: "confirm", title: t("pick.overwrite_title"), text: t("pick.overwrite_text", { name: there }), ok: t("pick.overwrite_yes"), run: () => pickSave(true), feature: "pick" };
+  } catch (err) {
+    ui.status = String(err);
+  }
+}
+
 /** Games, positions or an opening book (`on`: `enter_on`'s answer, asked when not given) open in
  *  the games window: Enter and Open games (Alt+K). Inside an archive a .bin is told by a copy's
  *  bytes. Whether they opened. */
@@ -1428,18 +1495,68 @@ export async function gamesOf(e, on, inside = !!tab().archive) {
   return true;
 }
 
-/** The games window on `path` (inside an archive: on a copy of it), as Open games does. */
+/** The games window on `path` (inside an archive: as it is unpacked, else on a copy of it), as Open games does. */
 export async function openGames(path, inside) {
   let file = path;
-  if (inside) {
+  // PGN family files and DhtmlXQ games are read as they are unpacked (`chess::games::streams`).
+  if (inside && !(await invoke("chess_streams", { path }).catch(() => false))) {
     try {
       file = await invoke("archive_peek", { path });
     } catch (err) {
-      return void (ui.status = String(err));
+      // A game database too large to look at here: unpacked beside the archive, asked first;
+      // one unpacked before opens there.
+      const offer = await invoke("archive_beside", { path }).catch(() => null);
+      if (!offer) return void (ui.status = String(err));
+      const [b, whole] = offer;
+      if (whole) return openGames(b.open, false);
+      ui.modal = {
+        kind: "confirm",
+        title: t("chess.beside_title"),
+        text: t("chess.beside_ask", { name: basename(path), size: size(b.bytes), folder: b.folder }),
+        ok: t("chess.beside_go"),
+        safe: true,
+        feature: "chess",
+        run: () => unpackBeside(b),
+      };
+      return;
     }
   }
   const f = chessFormat(basename(file));
   ui.modal = { kind: f === "sgf" ? "go" : "chess", path: file, feature: { pdn: "draughts", shogi: "shogi", pbn: "bridge" }[f] };
+}
+
+/** The files of `b` copied out of their archive into its folder beside it, as Copy does (its
+ *  status line, Stop, Undo), then the database opened there. */
+async function unpackBeside(b) {
+  const what = basename(b.open);
+  ui.status = t("status.busy", { what });
+  const ended = watchJob(ui.status);
+  let stopped = null;
+  try {
+    stopped = await invoke("archive_unpack_beside", { beside: b });
+  } catch (e) {
+    ui.status = "";
+    // A locked archive: its password, kept for this run, then again.
+    if (String(e).includes(LOCKED))
+      ui.modal = {
+        kind: "input",
+        feature: "archive_passwords",
+        secret: true,
+        title: t("archive.locked_title"),
+        label: t("archive.locked_label"),
+        value: "",
+        ok: t("verb.unlock"),
+        run: (password) => invoke("archive_password", { path: b.archive, password }).then(() => unpackBeside(b)),
+      };
+    else ui.modal = failure(t("chess.beside_failed", { name: what }), e);
+    return;
+  } finally {
+    ended();
+    refreshUndo();
+  }
+  if (typeof stopped === "string") return void (ui.status = stopped);
+  ui.status = t("status.copied", { what });
+  return openGames(b.open, false);
 }
 
 /** A file opened as it is: in its default application, or its place said. */

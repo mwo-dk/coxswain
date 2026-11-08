@@ -33,7 +33,7 @@ entry, the command line says what **Enter** does there: *Enter: Open games*.
 | A folder, or `..` | Goes into it | Goes into it |
 | An archive (`.zip`, `.tar.gz`, `.7z` and the others), a disk or container image, a mailbox | Opens it as a folder ([What Enter and F3 do](#what-enter-and-f3-do)) | Same |
 | Games, positions, an opening book | Opens them in the games window, a file of one game on its board | Opens them full screen, the same way |
-| A file inside an archive | Games and archives as above, from a copy; any other file: status line *photos.zip is an archive: F5 copies this file out of it* | Same |
+| A file inside an archive | Games (a PGN family file as it is unpacked, the others from a copy) and archives as above; any other file: status line *photos.zip is an archive: F5 copies this file out of it* | Same |
 | A program (a file with the executable bit on the BSDs, illumos, Linux and macOS; `.exe`, `.bat`, `.cmd`, `.ps1`, `.com` on Windows) | Opened like any other file, in its default application | Run in the terminal as `./name`, in the panel's folder, then `-- press Enter --` |
 | A list of checksums (`SHA256SUMS`, `SHA512SUMS`, `B3SUMS`, a `.sha256`, `.sha512` or `.b3` file) | Checks every file it names: OK, changed or missing ([Checksums](../files/checksums.md#checking-a-list)); **F3** shows its text | Same |
 | The first part of a split file (`name.001`) | Offers *Join parts* into `name`, checked against `name.sha256` ([Split and join](../files/split-and-join.md#joining-the-parts)) | Same |
@@ -46,19 +46,20 @@ The default application is the one your desktop picks: `xdg-open` on Linux, `ope
 ## What Enter and F3 do
 
 The same in both apps, on the disk, inside an archive and inside an archive inside another
-(eight deep). Inside an archive a file is opened from a copy Coxswain takes out of it into its
-cache folder; the archive is never changed.
+(eight deep). Inside an archive a text, a log, a picture and a PGN family file are read as the
+archive unpacks them; any other file is opened from a copy Coxswain takes out of it into its
+cache folder. The archive is never changed.
 
 | What | Enter (both apps) | F3 (terminal app) | Preview pane (desktop app, **Space** or **F3**) | The command line says |
 |---|---|---|---|---|
 | A folder | Goes into it | — | Its entries | — |
 | An archive: `.zip` (and `.jar`, `.apk`, `.whl`, `.nupkg`, `.vsix`), `.7z`, a 7z or zip in parts (`.7z.001`, `.zip.001`), `.tar`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tbz2`, `.tbz`, `.tar.xz`, `.txz`, `.tar.zst`, `.tzst`; a `.cbz` comic | Opens it like a folder ([Archives as folders](../files/archives.md)); one in parts read-only | Its bytes, in hex | Its list of entries | *Enter: Open archive* |
 | A disk image (`.iso`, `.dmg`, `.vhd`, `.vhdx`, `.vmdk`, `.qcow2`, `.vdi`, `.wim`, a raw `.img`), a `.chm` help file, a `.cbr` comic | With *Open disk images, CHM and CBR like folders* on and 7-Zip installed: opens it like a folder, read-only, inside an archive too ([Disk images](../files/disk-images.md)). Off: opened as any other file | Its bytes, in hex | Its facts, and its entries while that is on | *Enter: Open disk image* |
-| A container image: a `docker save` or `podman save` tar, an OCI archive tar, an OCI layout's `index.json` | Opens its layers merged, read-only ([Container images](../files/container-images.md)); a tar inside an archive too, an OCI layout folder only on the disk (inside an archive, copy the folder out first) | Its bytes, in hex | Its tags, platforms and layers | *Enter: Open container image* (*Enter: Open archive* inside an archive, where only the name is looked at) |
+| A container image: a `docker save` or `podman save` tar, an OCI archive tar, an OCI layout's `index.json` | Opens its layers merged, read-only ([Container images](../files/container-images.md)); a tar or an OCI layout folder inside an archive too | Its bytes, in hex | Its tags, platforms and layers | *Enter: Open container image* (inside an archive, where only the name is looked at, a plain `.tar` says *Enter: Open archive or container image*; an `index.json` there with `oci-layout` beside it says *Enter: Open container image*) |
 | A mailbox (`.mbox`) | Its messages as `.eml` files, read-only | Its text | Its text | *Enter: Open mailbox* |
 | Games: `.pgn`, `.pgn.gz`, `.pgn.zst` (chess or xiangqi), a SCID `.si4` or `.si5`, a ChessBase `.cbh` or `.cbv`, `.sgf`, `.pdn`, `.pbn`, `.kif`, `.kifu`, `.csa`, a DhtmlXQ xiangqi game | The games: their table, a file of one game on its board ([Chess games](../previews/chess.md), [Go](../previews/go.md), [Draughts](../previews/draughts.md), [Xiangqi](../previews/xiangqi.md), [Shogi](../previews/shogi.md), [Bridge](../previews/bridge.md)). Inside an archive a SCID or ChessBase database comes out with the files beside it | The same as **Enter** | The table of games | *Enter: Open games* |
 | Positions: `.epd`, `.fen` | Its positions on the board | The same | The same | *Enter: Open positions* |
-| A Polyglot opening book (a `.bin` file that is one, by its bytes) | The book's moves on the board | The same | The same | *Enter: Open opening book* (inside an archive nothing: **Enter** looks at a copy first) |
+| A Polyglot opening book (a `.bin` file that is one, by its bytes) | The book's moves on the board | The same | The same | *Enter: Open opening book* (inside an archive *Enter: Open opening book, if it is one*: **Enter** looks at a copy first) |
 | A list of checksums, the first part of a split file (`name.001`), a program | Checked; *Join parts* offered; run (terminal app) or handed to the desktop | Its text or bytes | Its preview | — |
 | Any other file | Opened in its default application; inside an archive the status line says to copy it out with **F5** | The viewer: its text, or its bytes in hex | Its preview | — |
 
@@ -66,9 +67,10 @@ cache folder; the archive is never changed.
 
 ![The desktop app inside chess-club.zip › Chess with the cursor on Classics.cbh: the status bar at the bottom reads Enter: Open games · Inside an archive: F5 copies files out to the other panel](../screenshots/opening-enter-gui.png)
 
-**Not read as archives:** `.rar` ([Why not RAR](../files/archives.md#why-not-rar); a `.cbr` comic opens through 7-Zip), `.cpio`, `.deb`, `.rpm`
-and `.cab`. **Enter** hands them to their application
-as any other file. **F3** shows their bytes.
+**Not read as archives:** `.rar` ([Why not RAR](../files/archives.md#why-not-rar); a `.cbr` comic opens through 7-Zip).
+**Enter** hands it to its application as any other file. **F3** shows its bytes. A `.cpio`,
+`.deb`, `.rpm` or `.cab` opens like a folder, read-only
+([cpio, .deb, .rpm and .cab](../files/archives.md#cpio-deb-rpm-and-cab)).
 
 **ZFS snapshots** are folders: **Enter** goes into a snapshot as into any folder
 ([ZFS snapshots](../files/zfs-snapshots.md)); on a file in one it shows what changed in it since.
@@ -135,8 +137,8 @@ open one in another program, use a user-menu entry, or `xdg-open photos.zip` on 
 
 A file inside an archive is not on disk, so no application can open it. Copy it out with **F5**
 ([Copy](../files/copy.md)), or look at it in the desktop app's preview pane (**F3**). Games, an
-archive inside the archive, a disk or container image there open with **Enter** all the same,
-from a copy ([What Enter and F3 do](#what-enter-and-f3-do)).
+archive inside the archive, a disk or container image there open with **Enter** all the same
+([What Enter and F3 do](#what-enter-and-f3-do)).
 
 #### Why does Enter on a .pgn open the games and not my chess program?
 
@@ -150,10 +152,11 @@ program, add a [user-menu](user-menu.md) entry (`command = "scid %s"`), or type
 **F3** shows the file itself, and a zip's bytes are what it is. **Enter** goes into it; the
 desktop app's preview pane lists its entries.
 
-#### Why does Enter on a .rar or .deb not go into it?
+#### Why does Enter on a .rar not go into it?
 
-Coxswain does not read those archives; **Enter** hands them to the application your desktop
-uses for them. A `.cbr` comic (a RAR) opens through 7-Zip while *Open disk images, CHM and CBR
+Coxswain does not read RAR archives; **Enter** hands them to the application your desktop
+uses for them. A `.deb` or `.rpm` does open like a folder: to install one, see
+[How do I install a .deb or .rpm now that Enter goes into it?](../files/archives.md#how-do-i-install-a-deb-or-rpm-now-that-enter-goes-into-it). A `.cbr` comic (a RAR) opens through 7-Zip while *Open disk images, CHM and CBR
 like folders* is on.
 
 #### Can Enter open several marked files at once?

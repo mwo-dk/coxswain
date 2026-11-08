@@ -304,7 +304,8 @@ fn is_desktop_exe(exe: &str) -> bool {
 /// Whether WinGet installed package `id`. The desktop app's setup.exe installs where a download
 /// would, so its folder does not tell; WinGet's tracking catalog does: `installed.db` in a folder
 /// per source under its local state (the Store's App Installer, or a WinGet without it), where
-/// it records each package it installs and drops it when it uninstalls it. Nothing is run.
+/// it records each package it installs. `winget uninstall` leaves the row (WinGet 1.29), so a
+/// later hand install still gets the WinGet hint; see #771. Nothing is run.
 fn winget_installed(id: &str) -> bool {
     let Some(local) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) else {
         return false;

@@ -358,6 +358,11 @@ pub fn date_time(secs: u64) -> String {
     local(secs, "%Y-%m-%d %H:%M")
 }
 
+/// `secs` (since 1970) as local time of day, `14:05`, in the language's digits.
+pub fn time(secs: u64) -> String {
+    local(secs, "%H:%M")
+}
+
 /// `secs` (since 1970) as local date, `2026-10-16`, in the language's digits.
 pub fn date(secs: u64) -> String {
     local(secs, "%Y-%m-%d")

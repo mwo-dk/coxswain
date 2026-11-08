@@ -86,6 +86,9 @@ pub struct Panel {
     /// Compare folders (Ctrl+F2): the compare, this panel's side in it, and whether only the
     /// differences are listed.
     pub cmp: Option<Cmp>,
+    /// The kept list of the archive the folder is in (`archive::hold`): a large one goes once
+    /// no panel shows a folder of it.
+    _hold: Option<coxswain_core::archive::Hold>,
 }
 
 #[derive(Clone)]
@@ -135,6 +138,7 @@ impl Panel {
             link: None,
             models: None,
             cmp: None,
+            _hold: None,
         };
         (p, file)
     }
@@ -146,7 +150,7 @@ impl Panel {
         // folder asked for was not is kept: a locked 7z asks for its password by it.
         let mut why = None;
         loop {
-            match bfs::list(&self.dir, show_hidden) {
+            match bfs::list_lean(&self.dir, show_hidden).map(|(v, _)| v) {
                 Ok(v) => {
                     (self.entries, self.link) = (v, None);
                     self.error = why;
@@ -170,19 +174,21 @@ impl Panel {
 
     /// Sort what was just listed, keep the marks still there and put the cursor on `keep`.
     fn fill(&mut self, keep: Option<String>) {
+        self._hold = coxswain_core::archive::hold(&self.dir);
         // Differences only: what is the same on both sides is left out.
         if let Some(c) = self.cmp.as_ref().filter(|c| c.diff_only) {
             use coxswain_core::compare::folders::State;
-            self.entries.retain(|e| e.is_parent() || c.f.state(c.side, &e.path) != Some(State::Same));
+            let dir = &self.dir;
+            self.entries.retain(|e| e.is_parent() || c.f.state(c.side, &e.path_in(dir)) != Some(State::Same));
         }
         bfs::sort_in(&self.dir, &mut self.entries, self.sort, self.reverse, &self.sizes);
         // Inside an archive a folder's size comes with the listing; there is nothing to measure.
         // A snapshot's is its own space.
         if coxswain_core::archive::split(&self.dir).is_some() || coxswain_core::zfs::split(&self.dir).is_some() {
-            self.sizes.extend(self.entries.iter().filter(|e| e.is_dir && !e.is_parent()).map(|e| (e.path.clone(), e.size)));
+            self.sizes.extend(self.entries.iter().filter(|e| e.is_dir && !e.is_parent()).map(|e| (e.path_in(&self.dir).into_owned(), e.size)));
         }
         if !self.marked.is_empty() {
-            let names: HashSet<&Path> = self.entries.iter().map(|e| e.path.as_path()).collect();
+            let names: HashSet<std::borrow::Cow<Path>> = self.entries.iter().map(|e| e.path_in(&self.dir)).collect();
             self.marked.retain(|p| names.contains(p.as_path()));
         }
         self.recount_marks();
@@ -207,10 +213,11 @@ impl Panel {
     fn toggle_mark(&mut self, i: usize) {
         let Some(e) = self.entries.get(i).filter(|e| !e.is_parent()) else { return };
         let bytes = self.bytes(e);
-        if self.marked.remove(&e.path) {
+        let path = e.path_in(&self.dir).into_owned();
+        if self.marked.remove(&path) {
             self.marked_bytes -= bytes;
         } else {
-            self.marked.insert(e.path.clone());
+            self.marked.insert(path);
             self.marked_bytes += bytes;
         }
     }
@@ -218,7 +225,7 @@ impl Panel {
     /// What an entry adds to the marked total: a folder its measured size (none until then),
     /// not its own entry's.
     fn bytes(&self, e: &Entry) -> u64 {
-        if e.is_dir { self.sizes.get(&e.path).copied().unwrap_or(0) } else { e.size }
+        if e.is_dir { self.sizes.get(&*e.path_in(&self.dir)).copied().unwrap_or(0) } else { e.size }
     }
 
     /// A folder measured: the marked total takes it in, and a sort by size soon after.
@@ -235,7 +242,7 @@ impl Panel {
     /// Mark every entry but `..`, as a file explorer's select all does.
     fn mark_all(&mut self) {
         for i in 0..self.entries.len() {
-            if !self.marked.contains(&self.entries[i].path) {
+            if !self.marked.contains(&*self.entries[i].path_in(&self.dir)) {
                 self.toggle_mark(i);
             }
         }
@@ -247,7 +254,7 @@ impl Panel {
     }
 
     fn recount_marks(&mut self) {
-        self.marked_bytes = self.entries.iter().filter(|e| self.marked.contains(&e.path)).map(|e| self.bytes(e)).sum();
+        self.marked_bytes = self.entries.iter().filter(|e| self.is_marked(e)).map(|e| self.bytes(e)).sum();
     }
 
     /// Show `dir`, not listed yet: returns the name to put the cursor on once it is.
@@ -269,13 +276,32 @@ impl Panel {
 
     fn select_name(&mut self, name: &str) {
         // A commit's or a branch's folder is named by its commit id, listed by its subject.
-        if let Some(i) = self.entries.iter().position(|e| e.name == name).or_else(|| self.entries.iter().position(|e| e.path.file_name().is_some_and(|n| n == name))) {
+        if let Some(i) = self.entries.iter().position(|e| e.name == name).or_else(|| self.entries.iter().position(|e| e.path_in(&self.dir).file_name().is_some_and(|n| n == name))) {
             self.cursor = i;
         }
     }
 
-    pub fn current(&self) -> Option<&Entry> {
-        self.entries.get(self.cursor)
+    /// The entry under the cursor, with its path (the listing holds most without, `list_lean`).
+    pub fn current(&self) -> Option<Entry> {
+        self.entries.get(self.cursor).map(|e| self.full(e))
+    }
+
+    /// An entry of this panel's listing with its path, as everything outside the listing takes it.
+    pub fn full(&self, e: &Entry) -> Entry {
+        let mut e = e.clone();
+        if let std::borrow::Cow::Owned(p) = e.path_in(&self.dir) {
+            e.path = p;
+        }
+        e
+    }
+
+    pub fn is_marked(&self, e: &Entry) -> bool {
+        !self.marked.is_empty() && self.marked.contains(&*e.path_in(&self.dir))
+    }
+
+    /// The marked entries, with their paths, in the listing's order.
+    pub fn marked_entries(&self) -> Vec<Entry> {
+        self.entries.iter().filter(|e| self.is_marked(e)).map(|e| self.full(e)).collect()
     }
 
     /// The repository whose git facts the info line shows for the entry under the cursor: on
@@ -294,7 +320,9 @@ impl Panel {
     fn subject(&self) -> coxswain_core::menu::Subject {
         use coxswain_core::menu::{Place, Subject};
         let cur = self.current().filter(|e| !e.is_parent());
-        let list: Vec<&Entry> = if self.marked.is_empty() { cur.into_iter().collect() } else { self.entries.iter().filter(|e| self.marked.contains(&e.path)).collect() };
+        let owned: Vec<Entry> = if self.marked.is_empty() { cur.iter().cloned().collect() } else { self.marked_entries() };
+        let list: Vec<&Entry> = owned.iter().collect();
+        let cur = cur.as_ref();
         let at = history::split(&self.dir);
         let inside = coxswain_core::archive::split(&self.dir);
         let place = if inside.as_ref().is_some_and(|(a, i)| coxswain_core::archive::read_only(a) || coxswain_core::archive::nested(a, i, true)) {
@@ -337,7 +365,7 @@ impl Panel {
         if self.marked.is_empty() {
             self.current().filter(|e| !e.is_parent()).map(|e| vec![e.path.clone()]).unwrap_or_default()
         } else {
-            self.entries.iter().filter(|e| self.marked.contains(&e.path)).map(|e| e.path.clone()).collect()
+            self.marked_entries().into_iter().map(|e| e.path).collect()
         }
     }
 
@@ -377,6 +405,8 @@ pub enum Prompt {
     Resize(Vec<PathBuf>),
     /// The size of the parts to split this file into (`split`).
     SplitSize(PathBuf),
+    /// Pick mode with `--save`: the name to save under, in the active panel's folder.
+    SaveAs,
 }
 
 impl Prompt {
@@ -392,6 +422,7 @@ impl Prompt {
             Prompt::Mkdir | Prompt::NewBranch(..) => "verb.create",
             Prompt::Flags(_) | Prompt::Clip(_) | Prompt::Resize(_) | Prompt::SplitSize(_) => "common.apply",
             Prompt::Goto(_) => "verb.go",
+            Prompt::SaveAs => "verb.save",
             Prompt::Mark(true) => "verb.mark",
             Prompt::Mark(false) => "verb.unmark",
         })
@@ -477,9 +508,17 @@ pub(crate) fn menu_visible(items: &[MenuItem], filter: &str) -> Vec<usize> {
 }
 
 pub enum Dialog {
+    /// Show keys as they arrive: a line per key event, newest last; `esc`: the last was Esc,
+    /// so another closes it.
+    Keys { lines: Vec<String>, esc: bool },
     Input { title: String, label: String, value: String, prompt: Prompt },
     /// Delete `paths`; `forever` skips the trash.
     Confirm { title: String, text: String, paths: Vec<PathBuf>, forever: bool },
+    /// Pick mode with `--save`: `path` is there; may the program that asked replace it?
+    Overwrite { title: String, text: String, path: PathBuf },
+    /// A game database too large to open inside its archive: unpack it beside the archive, and
+    /// open it there (`archive::beside`).
+    Beside { title: String, text: String, beside: Box<coxswain_core::archive::Beside> },
     /// Restore, delete for good or empty the bin: `paths` (none to empty it), asked first;
     /// `free_name`: a restore whose place is taken comes back beside it.
     Bin { title: String, text: String, op: coxswain_core::bin::Op, paths: Vec<PathBuf>, free_name: bool },
@@ -569,8 +608,11 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
             Prompt::Clip(_) => "convert_media",
             Prompt::Resize(_) => "edit_pictures",
             Prompt::SplitSize(_) => "split_and_join",
+            Prompt::SaveAs => "pick",
         },
         Dialog::Confirm { .. } => "delete",
+        Dialog::Overwrite { .. } => "pick",
+        Dialog::Beside { .. } => "chess",
         Dialog::Bin { .. } => "bin",
         Dialog::Searchable { .. } => "searchable_pdf",
         Dialog::Media { op, .. } => media_feature(op.program()),
@@ -597,6 +639,7 @@ fn feature_of(d: &Dialog) -> Option<&'static str> {
         Dialog::Settings(_) => "settings_window",
         Dialog::Guide(_) => "first_run",
         Dialog::Refused { .. } => "configuration",
+        Dialog::Keys { .. } => "change_keys",
         Dialog::Help { .. } | Dialog::Features { .. } | Dialog::Message { .. } => return None,
     })
 }
@@ -700,6 +743,8 @@ pub struct App {
     /// Find shows how to limit it to the panel's folder: the first few times it opens.
     pub find_hint: bool,
     pub quick: Option<String>,
+    /// The command line was opened on its key (typing jumps to names): letters go to it.
+    pub cmd_open: bool,
     pub show_hidden: bool,
     pub index: Arc<Client>,
     /// Panel rectangles from the last draw, for mouse hits.
@@ -757,6 +802,9 @@ pub struct App {
     ebook_plan: Option<mpsc::Receiver<ebook::EbookPlan>>,
     /// Checksums being made or checked, on their thread.
     work: Option<Work>,
+    /// What opens once the copy under way is whole: a game database unpacked beside its
+    /// archive (`unpack_beside`).
+    open_after: Option<PathBuf>,
     /// Fetch or Pull under way (`coxswain_core::remote`).
     remote: Option<RemoteRun>,
     /// *Transcribe speech*'s question being worked out on a thread (the lengths of the
@@ -802,6 +850,9 @@ pub struct App {
     /// summary when it is compared again after it.
     folders_lead: Option<String>,
     quit: bool,
+    /// Pick mode (`--pick`): what is asked for, and what was chosen (none: cancelled).
+    pub pick: Option<coxswain_core::pick::Request>,
+    picked: Option<Vec<PathBuf>>,
     /// Under the pack, copy or move dialog's field: that the disk may be short of room to write
     /// into an archive (`archive::short_of_room`). Cleared by each new input dialog.
     input_note: Option<String>,
@@ -820,15 +871,22 @@ struct Job {
     rx: mpsc::Receiver<JobMsg>,
     /// Esc on the progress line sets it (`undo::run`); an undo has none.
     stop: Option<Arc<std::sync::atomic::AtomicBool>>,
+    /// How far inside the item it is on, where that is known (an extract).
+    bytes: Arc<coxswain_core::undo::Bytes>,
 }
 
 impl Job {
-    /// The progress line: `line`, then that Esc stops it, or that it is stopping.
+    /// The progress line: `line`, how far in bytes where known, then that Esc stops it, or
+    /// that it is stopping.
     fn shown(&self) -> String {
-        match &self.stop {
-            Some(s) if s.load(std::sync::atomic::Ordering::Relaxed) => format!("{} · {}", self.line, t!("searchable.stopping")),
-            Some(_) => format!("{} · {}", self.line, t!("searchable.stop_key", "key" => "Esc")),
+        let line = match self.bytes.line() {
+            Some(b) => format!("{} · {b}", self.line),
             None => self.line.clone(),
+        };
+        match &self.stop {
+            Some(s) if s.load(std::sync::atomic::Ordering::Relaxed) => format!("{line} · {}", t!("searchable.stopping")),
+            Some(_) => format!("{line} · {}", t!("searchable.stop_key", "key" => "Esc")),
+            None => line,
         }
     }
 }
@@ -1075,6 +1133,7 @@ impl App {
             hint_stale: true,
             find_hint: false,
             quick: None,
+            cmd_open: false,
             show_hidden,
             index: index.clone(),
             areas: [Rect::default(); 2],
@@ -1108,6 +1167,7 @@ impl App {
             ebook: None,
             ebook_plan: None,
             work: None,
+            open_after: None,
             remote: None,
             transcribe_plan: None,
             export: None,
@@ -1131,6 +1191,8 @@ impl App {
             folders_said: false,
             folders_lead: None,
             quit: false,
+            pick: None,
+            picked: None,
             input_note: None,
             cfg,
         };
@@ -1248,9 +1310,9 @@ impl App {
         std::mem::replace(&mut self.measuring[side], stop.clone()).store(true, Ordering::Relaxed);
         let p = &self.panels[side];
         let (dir, tx, sizer) = (p.dir.clone(), self.sizes_tx.clone(), self.sizer.clone());
-        let folders: Vec<PathBuf> = p.entries.iter().filter(|e| e.is_dir && !e.is_parent() && !p.sizes.contains_key(&e.path)).map(|e| e.path.clone()).collect();
+        let folders: Vec<PathBuf> = p.entries.iter().filter(|e| e.is_dir && !e.is_parent()).map(|e| e.path_in(&p.dir).into_owned()).filter(|f| !p.sizes.contains_key(f)).collect();
         // The folder above, only when its size is already known: never walked from here.
-        let up = p.entries.iter().find(|e| e.is_parent()).map(|e| e.path.clone()).filter(|u| !p.sizes.contains_key(u));
+        let up = p.entries.iter().find(|e| e.is_parent()).map(|e| e.path_in(&p.dir).into_owned()).filter(|u| !p.sizes.contains_key(u));
         std::thread::spawn(move || {
             if let Some(up) = up
                 && let Some((bytes, _)) = sizer.known_only(&up)
@@ -1309,7 +1371,7 @@ impl App {
         std::thread::spawn(move || {
             #[cfg(test)]
             drop(hold.as_ref().map(|h| h.read()));
-            let r = bfs::list(&d, h);
+            let r = bfs::list_lean(&d, h).map(|(v, _)| v);
             let _ = tx.send((d, k, r));
         });
         if !virtual_dir {
@@ -1375,6 +1437,8 @@ impl App {
                     p.error = Some(e.to_string());
                     let why = p.error.clone();
                     if let Some(up) = p.dir.parent() {
+                        // A row names its file by the panel's folder: old rows must not meet the new one.
+                        p.entries.clear();
                         p.dir = up.to_path_buf();
                         self.load(side, None);
                     }
@@ -1402,8 +1466,35 @@ impl App {
     // ------------------------------------------------------------ input
 
     fn on_key(&mut self, ev: KeyEvent) {
+        if matches!(self.dialog, Some(Dialog::Keys { .. })) {
+            return self.key_seen(ev);
+        }
         if let Some(key) = to_key(ev) {
             self.key_typed(key);
+        }
+    }
+
+    /// Show keys as they arrive: `ev` as crossterm reports it, the key Coxswain reads in it and
+    /// the action that key runs; nothing runs. Esc twice closes.
+    fn key_seen(&mut self, ev: KeyEvent) {
+        let key = to_key(ev);
+        let mods: String = ev.modifiers.iter_names().map(|(n, _)| format!(" {n}")).collect();
+        let read = match key {
+            Some(k) => format!("{} → {}", config::written(&k.to_string()), self.keymap.get(&k).map_or_else(|| t!("keytest.unbound"), |&a| self.action_label(a))),
+            None => t!("keytest.unread"),
+        };
+        let line = format!("{:?}{mods} {:?} → {read}", ev.code, ev.kind);
+        let plain_esc = key.is_some_and(|k| k == Key::new(KeyCode::Esc, false, false, false));
+        let Some(Dialog::Keys { lines, esc }) = &mut self.dialog else { return };
+        if plain_esc && *esc {
+            self.dialog = None;
+            return;
+        }
+        *esc = plain_esc;
+        lines.push(line);
+        // As many as the dialog shows.
+        if lines.len() > 12 {
+            lines.remove(0);
         }
     }
 
@@ -1439,13 +1530,26 @@ impl App {
             }
         }
         let action = self.keymap.get(&key).copied();
+        // Pick mode with a filter: Alt+E is Show all (`pick::SHOW_ALL_KEY`; it would start a
+        // quick search otherwise).
+        if let Some(r) = self.pick.as_mut().filter(|r| !r.filter.is_empty() && key.alt && !key.ctrl && matches!(key.code, KeyCode::Char('e' | 'E')) && action.is_none()) {
+            r.show_all = !r.show_all;
+            return self.status = Some(t!(if r.show_all { "pick.showing_all" } else { "pick.showing_filtered" }));
+        }
         if let (KeyCode::Char(c), true, false, None) = (key.code, key.alt, key.ctrl, action) {
             self.quick = Some(c.to_string());
             return self.quick_jump();
         }
-        if let Some(what) = (!self.cmdline.is_empty()).then(|| line_key(key, plain_char)).flatten() {
+        // Esc on an empty command line that was opened on its key closes it.
+        if self.cmd_open && key.code == KeyCode::Esc && self.cmdline.is_empty() {
+            return self.cmd_open = false;
+        }
+        if let Some(what) = (self.cmd_open || !self.cmdline.is_empty()).then(|| line_key(key, plain_char)).flatten() {
             return match what {
-                LineKey::Run => self.run_cmdline(),
+                LineKey::Run => {
+                    self.cmd_open = false;
+                    self.run_cmdline()
+                }
                 LineKey::Erase => drop(self.cmdline.pop()),
                 LineKey::Clear => self.cmdline.clear(),
                 LineKey::Type(c) => self.cmdline.push(c),
@@ -1468,10 +1572,102 @@ impl App {
             r.stop.store(true, std::sync::atomic::Ordering::Relaxed);
             return self.status = Some(t!("media.stopping"));
         }
+        if self.pick.is_some() && self.pick_key(&key) {
+            return;
+        }
         match (action, plain_char) {
-            (Some(a), _) => self.act(a),
+            (Some(a), _) => {
+                self.cmd_open &= a == Action::CommandLine;
+                coxswain_core::menu::ran(a, false, false, &self.cfg);
+                self.act(a)
+            }
+            // Typing jumps to a name: the first letter starts a quick search.
+            (None, Some(c)) if self.cfg.type_to_jump(false) => {
+                self.quick = Some(c.to_string());
+                self.quick_jump()
+            }
             (None, Some(c)) => self.cmdline.push(c),
             _ => {}
+        }
+    }
+
+    /// Pick mode: Enter chooses (or opens a folder), Esc cancels, Ctrl+PageDown opens the folder
+    /// under the cursor. True when the key was one of them.
+    fn pick_key(&mut self, key: &Key) -> bool {
+        if self.pick.is_none() || self.cmd_open || !self.cmdline.is_empty() || key.alt || key.shift {
+            return false;
+        }
+        if key.code == KeyCode::Esc && !key.ctrl {
+            self.quit = true;
+            return true;
+        }
+        let Some(e) = self.panel().current() else { return false };
+        use coxswain_core::enter::{self, Enter, Place};
+        let place = if coxswain_core::archive::split(&self.panel().dir).is_some() { Place::Archive } else { Place::Disk };
+        let goes_in = e.is_parent() || matches!(enter::enter(&e.path, e.is_dir, place), Enter::Folder | Enter::Archive | Enter::DiskImage | Enter::Image | Enter::Mailbox);
+        match (key.code, key.ctrl) {
+            (KeyCode::PageDown, true) if goes_in => self.open(),
+            (KeyCode::Enter, false) if self.pick.as_ref().is_some_and(|r| r.save.is_some()) => self.pick_save_name(),
+            (KeyCode::Enter, false) => self.pick_choose(true),
+            _ => return false,
+        }
+        true
+    }
+
+    /// Pick mode: what Enter or a double-click does on the entry under the cursor.
+    fn pick_choose(&mut self, use_marks: bool) {
+        let Some(req) = self.pick.clone() else { return };
+        let Some(e) = self.panel().current() else { return };
+        use coxswain_core::enter::{self, Enter, Place};
+        let place = if coxswain_core::archive::split(&self.panel().dir).is_some() { Place::Archive } else { Place::Disk };
+        let goes_in = e.is_parent() || matches!(enter::enter(&e.path, e.is_dir, place), Enter::Folder | Enter::Archive | Enter::DiskImage | Enter::Image | Enter::Mailbox);
+        // A double-click means the row clicked, not the marks.
+        let marked: Vec<(PathBuf, bool)> = if use_marks { self.panel().marked_entries().into_iter().map(|e| (e.path, e.is_dir)).collect() } else { Vec::new() };
+        if e.is_parent() && marked.is_empty() {
+            return self.open();
+        }
+        // Saving: a double-click opens a folder, and on a file asks for the name, that one's.
+        if req.save.is_some() {
+            return if goes_in { self.open() } else { self.pick_save_name() };
+        }
+        let cursor = (!e.is_parent()).then(|| (e.path.clone(), e.is_dir));
+        match req.judge(&marked, cursor, goes_in) {
+            coxswain_core::pick::Verdict::Enter => self.open(),
+            coxswain_core::pick::Verdict::Refuse(why) => self.status = Some(t!(why)),
+            coxswain_core::pick::Verdict::Choose(paths) => match paths.iter().map(|p| coxswain_core::pick::on_disk(p)).collect() {
+                Ok(paths) => {
+                    self.picked = Some(paths);
+                    self.quit = true;
+                }
+                Err(err) => self.status = Some(err.to_string()),
+            },
+        }
+    }
+
+    /// Pick mode with `--save`: the name to save under, in the folder shown; the file under the
+    /// cursor's name to start from, or the one the program gave.
+    fn pick_save_name(&mut self) {
+        let Some(req) = &self.pick else { return };
+        let on_file = self.panel().current().filter(|e| !e.is_dir && !e.is_parent()).map(|e| e.name.clone());
+        let name = on_file.or_else(|| req.save.clone()).unwrap_or_default();
+        let folder = self.panel().dir.to_string_lossy().into_owned();
+        self.input(&t!("pick.save_title"), t!("pick.save_label", "folder" => folder), name, Prompt::SaveAs);
+    }
+
+    /// Pick mode with `--save`: `name` in the folder shown is chosen, after asking whether an
+    /// existing file may be replaced (`replace`: that was said yes to).
+    fn pick_save(&mut self, dir: &Path, name: &str, replace: bool) {
+        let Some(req) = &self.pick else { return };
+        match req.save_to(dir, name, replace) {
+            coxswain_core::pick::Save::Choose(path) => {
+                self.picked = Some(vec![path]);
+                self.quit = true;
+            }
+            coxswain_core::pick::Save::Ask(path) => {
+                let text = t!("pick.overwrite_text", "name" => ui::printable(&path.file_name().unwrap_or_default().to_string_lossy()));
+                self.dialog = Some(Dialog::Overwrite { title: t!("pick.overwrite_title"), text, path });
+            }
+            coxswain_core::pick::Save::Refuse(why) => self.status = Some(t!(why)),
         }
     }
 
@@ -1484,6 +1680,10 @@ impl App {
     }
 
     fn act(&mut self, a: Action) {
+        // A picker only chooses: nothing that changes files, runs a command or writes settings.
+        if self.pick.is_some() && coxswain_core::pick::changes_files(a) {
+            return self.status = Some(t!("pick.refused"));
+        }
         // Inside a disk image (a CHM, a CBR) nothing changes: said before any question is asked.
         if matches!(a, Action::Move | Action::Rename | Action::Delete | Action::DeleteForever | Action::NewFolder)
             && coxswain_core::archive::split(&self.panel().dir).is_some_and(|(i, _)| coxswain_core::archive::read_only(&i))
@@ -1552,10 +1752,11 @@ impl App {
             Action::Home => self.panel_mut().cursor = 0,
             Action::End => self.panel_mut().move_cursor(isize::MAX / 2),
             Action::SwitchPanel => self.active ^= 1,
+            Action::Open if self.pick.is_some() => self.pick_choose(true),
             Action::Open => self.open(),
             // Where `..` leads: out of a history's commits, back to the folder on disk.
             Action::Parent => {
-                let up = self.panel().entries.first().filter(|e| e.is_parent()).map(|e| e.path.clone());
+                let up = self.panel().entries.first().filter(|e| e.is_parent()).map(|e| e.path_in(&self.panel().dir).into_owned());
                 if let Some(p) = up.or_else(|| self.panel().dir.parent().map(Path::to_path_buf)) {
                     self.cd(self.active, p);
                 }
@@ -1666,9 +1867,9 @@ impl App {
             Action::GotoLeft | Action::GotoRight => {
                 let side = (a == Action::GotoRight) as usize;
                 let title = if side == 0 { t!("tui.left_panel") } else { t!("tui.right_panel") };
-                // The cloud accounts, on FreeBSD the boot environments and jails, in Termux the
-                // phone's folders: those to pick, as NC's drive list, under the line that types a
-                // path.
+                // The drives, the cloud accounts, on FreeBSD the boot environments and jails, in
+                // Termux the phone's folders: those to pick, as NC's drive list, under the line
+                // that types a path.
                 let places = coxswain_core::bsd::places();
                 let phone = coxswain_core::termux::storage();
                 // A hung cloud mount must not hang the app: the list comes without them.
@@ -1676,7 +1877,15 @@ impl App {
                     self.status = Some(t!("clouds.slow"));
                     vec![]
                 });
+                // The drives, as the desktop app's sidebar lists them: `C: Windows · 8.6 GB free`.
+                // A second at most: sysinfo's first look on Windows is slow, and a dead network
+                // drive must not hang the app.
+                let drives = coxswain_core::machine::drives_within(Duration::from_secs(1)).unwrap_or_else(|| {
+                    self.status = Some(t!("drives.slow"));
+                    vec![]
+                });
                 let mut items = vec![MenuItem { key: String::new(), label: t!("bsd.type_path"), run: MenuRun::Goto(side, None), group: None }];
+                items.extend(drives.into_iter().map(|d| MenuItem { key: String::new(), label: format!("{} · {}", d.label, t!("sidebar.free", "size" => coxswain_core::settings::human(d.free))), run: MenuRun::Goto(side, Some(d.mount)), group: None }));
                 items.extend(phone.into_iter().map(|(name, path)| MenuItem { key: String::new(), label: t!("termux.storage", "name" => name), run: MenuRun::Goto(side, Some(path)), group: None }));
                 items.extend(clouds.into_iter().map(|c| MenuItem { key: String::new(), label: t!("clouds.goto", "name" => c.name), run: MenuRun::Goto(side, c.path), group: None }));
                 // The system's bin, with what it holds; on a Mac without Full Disk Access, Finder.
@@ -1705,12 +1914,9 @@ impl App {
                     Action::SortTime => SortKey::Time,
                     _ => SortKey::Size,
                 };
-                let p = self.panel_mut();
-                // Picking the current key again reverses it.
-                p.reverse = p.sort == key && !p.reverse;
-                p.sort = key;
-                p.resort();
+                self.panel_mut().sort_by(key);
             }
+            Action::CommandLine => self.cmd_open = true,
             Action::CopyPath => {
                 if let Some(e) = self.panel().current().filter(|e| !e.is_parent()) {
                     // For the shell that runs the line: fish quotes otherwise.
@@ -1762,15 +1968,19 @@ impl App {
                             Err(err) => self.status = Some(err),
                         }
                     }
+                    // Which viewer: the core's table and, where a name is not enough, the bytes
+                    // (`viewers::detect`), as the desktop app's preview has it.
+                    let kind = if a == Action::View { coxswain_core::viewers::detect(&e) } else { "" };
                     // An e-book calibre reads, when e-books are on: its title, authors and text.
-                    if a == Action::View && coxswain_core::ebook::is_ebook(&e) {
+                    if kind == "ebook" {
                         if self.cfg.preview.ebooks {
                             return self.ebook_view(e);
                         }
                         // Off: shown as it is, and where to turn its text on.
                         self.status = Some(format!("{} ({})", t!("ebook.off"), t!("searchable.settings_key", "key" => self.key_label(Action::Settings))));
                     }
-                    // An old picture, a tracker module, an Outlook message: what it holds, as text.
+                    // An old picture, a tracker module, a model, a workbook, an Outlook message: what
+                    // it holds, as text. Also a local model known only by its bytes (a store's blob).
                     if a == Action::View
                         && let Some(r) = coxswain_core::facts::text_copy(&e)
                     {
@@ -1780,20 +1990,24 @@ impl App {
                         }
                     }
                     // A database, a dBase table or a Parquet file: its tables and first rows, as text.
-                    if a == Action::View && coxswain_core::tables::is_tables(&e) {
+                    if matches!(kind, "sqlite" | "parquet") {
                         match coxswain_core::tables::text_copy(&e) {
                             Ok(text) => return self.view_copy(&text, &e, coxswain_core::tables::format(&e).into()),
                             // Not a database after all: the pager shows it as it is.
                             Err(err) => self.status = Some(err),
                         }
                     }
-                    // Asked before the BOM: a statement may carry a CycloneDX predicate.
-                    if a == Action::View && self.cfg.provenance_viewer && coxswain_core::provenance::sniff(&e) {
+                    // A statement whose provenance does not open may still carry a CycloneDX BOM.
+                    let mut bom = kind == "bom";
+                    if kind == "provenance" && self.cfg.provenance_viewer {
                         let other = Some(self.panels[self.active ^ 1].dir.clone());
                         match provenance::Viewer::open(&e, other) {
                             Ok(v) => return self.dialog = Some(Dialog::Provenance(Box::new(v))),
-                            // Not readable as provenance after all: the pager shows it as it is.
-                            Err(err) => self.status = Some(err.to_string()),
+                            // Not readable as provenance after all: a BOM, or the pager shows it as it is.
+                            Err(err) => {
+                                self.status = Some(err.to_string());
+                                bom = coxswain_core::bom::sniff(&e);
+                            }
                         }
                     }
                     // A recording with its transcript: the transcript, as text.
@@ -1806,10 +2020,12 @@ impl App {
                             Err(err) => self.status = Some(err),
                         }
                     }
-                    if a == Action::View && coxswain_core::chess::sniff(&e).is_some() {
+                    if matches!(kind, "chess" | "go") {
                         return self.chess(&e, None);
                     }
-                    if a == Action::View && self.cfg.bom_viewer && coxswain_core::bom::sniff(&e) {
+                    // With provenance off, a statement that carries a CycloneDX predicate is a BOM.
+                    bom |= kind == "provenance" && !self.cfg.provenance_viewer && coxswain_core::bom::sniff(&e);
+                    if bom && self.cfg.bom_viewer {
                         match bom::Viewer::open(&e) {
                             Ok(v) => return self.dialog = Some(Dialog::Bom(Box::new(v))),
                             // Not readable as a BOM after all: the pager shows it as it is.
@@ -1870,7 +2086,7 @@ impl App {
                 self.input_note = note;
             }
             Action::Rename => {
-                let Some(e) = self.panel().current().filter(|e| !e.is_parent()).cloned() else { return };
+                let Some(e) = self.panel().current().filter(|e| !e.is_parent()) else { return };
                 let title = t!("dialog.rename", "what" => Self::describe(std::slice::from_ref(&e.path)));
                 // A newline or an escape in the name shows as its picture, and comes back as it was.
                 self.input(&title, t!("app.name_label"), coxswain_core::rename::shown(&e.name), Prompt::Rename(e.path));
@@ -1895,8 +2111,8 @@ impl App {
             }
             Action::UserMenu => {
                 let p = self.panel();
-                let file = p.current().filter(|e| !e.is_parent()).map(|e| e.path.as_path());
-                let mut items: Vec<MenuItem> = coxswain_core::user_menu::entries(&self.cfg, &p.dir, file)
+                let file = p.current().filter(|e| !e.is_parent()).map(|e| e.path);
+                let mut items: Vec<MenuItem> = coxswain_core::user_menu::entries(&self.cfg, &p.dir, file.as_deref())
                     .into_iter()
                     .map(|u| MenuItem { key: u.key.clone(), label: u.label.clone(), run: MenuRun::User(u), group: None })
                     .collect();
@@ -1909,7 +2125,7 @@ impl App {
             Action::Menu => {
                 let items = Action::ALL
                     .iter()
-                    .filter(|&&x| !x.gui_only() && !matches!(x, Action::Menu | Action::Up | Action::Down))
+                    .filter(|&&x| !x.gui_only() && !matches!(x, Action::Menu | Action::Up | Action::Down) && (x != Action::CommandLine || self.cfg.type_to_jump(false)))
                     .map(|&x| MenuItem { key: self.key_label(x).to_string(), label: self.action_label(x), run: MenuRun::Action(x), group: None })
                     .collect();
                 self.dialog = Some(Dialog::Menu { title: t!("menu.commands"), filter: String::new(), items, cursor: 0, direct: false, feature: "command_list" });
@@ -1919,6 +2135,7 @@ impl App {
             Action::Settings => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "")))),
             Action::DiskUse => self.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(self, "disk")))),
             Action::SuggestTranslation => self.status = Some(Self::suggest_translation()),
+            Action::KeyTest => self.dialog = Some(Dialog::Keys { lines: vec![], esc: false }),
             Action::DiskImages => {
                 let Some(path) = Config::path() else { return self.status = Some(t!("err.no_config_folder")) };
                 let on = serde_json::json!({ "disk_images": true });
@@ -1933,8 +2150,9 @@ impl App {
                     return;
                 }
                 let (side, on) = (self.active, std::mem::replace(&mut self.cfg.folder_sizes, true));
-                for e in self.panels[side].entries.iter().filter(|e| e.is_dir) {
-                    self.sizer.forget(&e.path);
+                let p = &self.panels[side];
+                for e in p.entries.iter().filter(|e| e.is_dir) {
+                    self.sizer.forget(&e.path_in(&p.dir));
                 }
                 self.panels[side].sizes.clear();
                 self.measure(side);
@@ -1947,7 +2165,7 @@ impl App {
     /// The actions that fit the marked entries (or the one under the cursor), under their
     /// headings, each with its key: Enter runs one, Esc closes.
     fn action_menu(&mut self) {
-        let s = coxswain_core::menu::Subject { whisper: self.cfg.search.whisper, ..self.panel().subject() };
+        let s = coxswain_core::menu::Subject { whisper: self.cfg.search.whisper, jump: self.cfg.type_to_jump(false), ..self.panel().subject() };
         let mut items = vec![];
         for (g, acts) in coxswain_core::menu::actions(&s, false) {
             let group = g.label();
@@ -1990,8 +2208,34 @@ impl App {
         }
     }
 
-    /// F3 on a file inside an archive: a copy of it in the viewer, or its password asked for.
+    /// F3 on a file inside an archive: in the viewer, no copy made. A log, JSON Lines or a text
+    /// over 16 MB is paged through as it is unpacked (a locked one from a copy), the rest of the
+    /// text is held in memory (its first 16 MB); games, a viewer of one's own and a locked file
+    /// are read from a copy (its password asked for).
     fn peek(&mut self, path: PathBuf) {
+        use coxswain_core::enter;
+        // A PGN family file or a DhtmlXQ game: its games read as it is unpacked.
+        if (enter::view(&path, enter::Place::Archive) == enter::View::Games || enter::may_be_games(&path)) && coxswain_core::chess::games::streams(&path) {
+            return self.chess(&path, None);
+        }
+        if self.cfg.viewer.is_none() && enter::view(&path, enter::Place::Archive) == enter::View::Itself && !enter::may_be_games(&path) {
+            let labels = [self.key_label(Action::Edit), self.key_label(Action::View)];
+            let log = coxswain_core::logs::is_log_name(&path.file_name().unwrap_or_default().to_string_lossy());
+            // A log is paged at once; the rest reads its head first to see whether it is long.
+            if log && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
+                return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
+            }
+            if let Ok((bytes, more)) = coxswain_core::archive::head(&path, viewer::PLAIN_OVER) {
+            if more && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
+                return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
+            }
+            // A log that cannot be paged (locked, or no text) is read from a copy, as it was.
+            if !log {
+                let v = viewer::Viewer::bytes(&path, &bytes, more, labels);
+                return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
+            }
+        }
+        }
         match coxswain_core::archive::peek(&path) {
             // Games (a PGN file, a ChessBase or SCID database with the files beside it, a DhtmlXQ
             // xiangqi game): on their board, as outside (`enter::view`).
@@ -2000,12 +2244,14 @@ impl App {
             Err(e) if e.to_string().contains(coxswain_core::archive::LOCKED) => {
                 self.input(&t!("archive.locked_title"), t!("archive.locked_label"), String::new(), Prompt::Peek(path));
             }
+            // A game database too large to look at here: offered to be unpacked beside it.
+            Err(_) if coxswain_core::archive::beside(&path).is_some() => self.chess(&path, None),
             Err(e) => self.status = Some(e.to_string()),
         }
     }
 
     fn open(&mut self) {
-        let Some(e) = self.panel().current().cloned() else { return };
+        let Some(e) = self.panel().current() else { return };
         // Enter goes into anything that holds things, and opens games on their board (`enter`).
         use coxswain_core::enter::{self, Enter};
         let inside = coxswain_core::archive::split(&self.panel().dir);
@@ -2019,6 +2265,9 @@ impl App {
         }
         if let Some((archive, _)) = inside {
             // A `.bin` that may be an opening book: told by a copy's bytes.
+            if enter::may_be_games(&e.path) && coxswain_core::chess::games::streams(&e.path) {
+                return self.chess(&e.path, None);
+            }
             if enter::may_be_games(&e.path)
                 && let Ok(copy) = coxswain_core::archive::peek(&e.path)
                 && enter::view(&copy, enter::Place::Disk) == enter::View::Games
@@ -2126,7 +2375,7 @@ impl App {
 
     /// To the files of the package the file under the cursor belongs to (FreeBSD).
     fn package(&mut self) {
-        let Some(e) = self.panel().current().filter(|e| !e.is_dir).cloned() else { return self.status = Some(t!("pkg.not_here")) };
+        let Some(e) = self.panel().current().filter(|e| !e.is_dir) else { return self.status = Some(t!("pkg.not_here")) };
         if virtual_list(&self.panel().dir) || coxswain_core::archive::split(&self.panel().dir).is_some() {
             return self.status = Some(t!("pkg.not_here"));
         }
@@ -2138,7 +2387,7 @@ impl App {
 
     /// The user flags of the entry under the cursor, to change in a prompt (FreeBSD, macOS).
     fn flags(&mut self) {
-        let Some(e) = self.panel().current().filter(|e| !e.is_parent()).cloned() else { return };
+        let Some(e) = self.panel().current().filter(|e| !e.is_parent()) else { return };
         let f = coxswain_core::flags::read(&e.path).filter(|f| !f.user.is_empty());
         let Some(f) = f else { return self.status = Some(t!("flags.not_here")) };
         if !f.can_set {
@@ -2332,15 +2581,26 @@ impl App {
     /// A chess file full screen: a PGN file's games (at the game of a Find hit's snippet), an EPD or
     /// FEN file's positions.
     fn chess(&mut self, path: &Path, hit: Option<String>) {
-        // Inside an archive: from a copy, as F3 views any file there.
+        // Inside an archive: PGN family files and DhtmlXQ games as they are unpacked, the rest
+        // (ChessBase, SCID, an opening book, positions, Go) from a copy, as F3 views any file there.
         let copy;
-        let path = if !path.exists() && coxswain_core::archive::split(path).is_some() {
+        let path = if !path.exists() && coxswain_core::archive::split(path).is_some() && !coxswain_core::chess::games::streams(path) {
             match coxswain_core::archive::peek(path) {
                 Ok(c) => {
                     copy = c;
                     &copy
                 }
-                Err(e) => return self.status = Some(e.to_string()),
+                // A game database too large to look at here: unpacked beside the archive, asked
+                // first; one unpacked before is opened there.
+                Err(e) => match coxswain_core::archive::beside(path) {
+                    Some(b) if b.unpacked() => return self.chess(&b.open.clone(), hit),
+                    Some(b) => {
+                        let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                        let text = t!("chess.beside_ask", "name" => name, "size" => coxswain_core::settings::human(b.bytes), "folder" => b.folder.display());
+                        return self.dialog = Some(Dialog::Beside { title: t!("chess.beside_title"), text, beside: Box::new(b) });
+                    }
+                    None => return self.status = Some(e.to_string()),
+                },
             }
         } else {
             path
@@ -2544,6 +2804,24 @@ impl App {
             Ok(text) => Dialog::Searchable { title, text, pdfs },
             Err(e) => Dialog::Message { title, text: format!("{e}\n\n{}", t!("searchable.settings_key", "key" => self.key_label(Action::Settings))) },
         });
+    }
+
+    /// The files of `b` copied out of their archive into its folder, as **F5** copies them (the
+    /// job's line, Esc stops it, **Ctrl+Z** undoes it); then the database opens there.
+    fn unpack_beside(&mut self, b: coxswain_core::archive::Beside) {
+        if self.picker_refuses() {
+            return;
+        }
+        if let Err(e) = std::fs::create_dir_all(&b.folder) {
+            return self.status = Some(e.to_string());
+        }
+        let src = b.missing();
+        self.open_after = Some(b.open.clone());
+        self.transfer(Transfer::Copy, src, b.folder.clone(), None, None);
+        // Not started (another job runs): nothing opens after a later copy.
+        if self.job.is_none() {
+            self.open_after = None;
+        }
     }
 
     fn searchable_start(&mut self, pdfs: Vec<PathBuf>) {
@@ -2887,7 +3165,7 @@ impl App {
             w.stop.store(true, std::sync::atomic::Ordering::Relaxed);
             return self.status = Some(t!("media.stopping"));
         }
-        let Some(e) = self.panel().current().filter(|e| !e.is_dir && !e.is_parent()).cloned() else {
+        let Some(e) = self.panel().current().filter(|e| !e.is_dir && !e.is_parent()) else {
             return self.status = Some(t!("split.no_file"));
         };
         if self.panel().subject().place != coxswain_core::menu::Place::Disk {
@@ -3015,7 +3293,7 @@ impl App {
                 for p in self.panels.iter_mut().filter(|p| p.dir == dir) {
                     p.clear_marks();
                     for i in 0..p.entries.len() {
-                        if bad.contains(&p.entries[i].path) {
+                        if bad.contains(&*p.entries[i].path_in(&p.dir)) {
                             p.toggle_mark(i);
                         }
                     }
@@ -3194,7 +3472,19 @@ impl App {
     }
 
     /// `file` in the editor at `line`: config.toml at `[keys]` (Settings) or `[[user_menu]]` (F2).
+    /// Pick mode: whether to stop here, the status line saying a picker only chooses.
+    fn picker_refuses(&mut self) -> bool {
+        let yes = self.pick.is_some();
+        if yes {
+            self.status = Some(t!("pick.refused"));
+        }
+        yes
+    }
+
     pub fn edit_at(&mut self, file: &Path, line: usize) {
+        if self.picker_refuses() {
+            return;
+        }
         let Some(editor) = self.editor() else { return self.edit_here(file, Some(line), None) };
         if let Some(prog) = editor_missing(&editor) {
             return self.status = Some(t!("edit.not_found", "name" => prog));
@@ -3226,7 +3516,7 @@ impl App {
     /// the other panel's; the left panel's on the left.
     fn compare_files(&mut self) {
         let p = self.panel();
-        let marked: Vec<PathBuf> = p.entries.iter().filter(|e| !e.is_dir && p.marked.contains(&e.path)).map(|e| e.path.clone()).collect();
+        let marked: Vec<PathBuf> = p.marked_entries().into_iter().filter(|e| !e.is_dir).map(|e| e.path).collect();
         let pair = if marked.len() == 2 {
             Some((marked[0].clone(), marked[1].clone()))
         } else {
@@ -3277,9 +3567,9 @@ impl App {
                 let mut n = 0;
                 for side in 0..2 {
                     let p = &mut self.panels[side];
-                    let ahead: Vec<usize> = (0..p.entries.len()).filter(|&i| !p.entries[i].is_parent() && c.f.state(side, &p.entries[i].path).is_some_and(|s| s.ahead(side))).collect();
+                    let ahead: Vec<usize> = (0..p.entries.len()).filter(|&i| !p.entries[i].is_parent() && c.f.state(side, &p.entries[i].path_in(&p.dir)).is_some_and(|s| s.ahead(side))).collect();
                     for i in ahead {
-                        if !p.marked.contains(&p.entries[i].path) {
+                        if !p.marked.contains(&*p.entries[i].path_in(&p.dir)) {
                             p.toggle_mark(i);
                             n += 1;
                         }
@@ -3350,6 +3640,9 @@ impl App {
 
     /// `file` in the built-in editor, at `line` (from 1); `back` is shown again when it closes.
     fn edit_here(&mut self, file: &Path, line: Option<usize>, back: Option<Box<Dialog>>) {
+        if self.picker_refuses() {
+            return;
+        }
         match editor::Editor::open(file) {
             Ok(e) => {
                 let mut e = e.git_keys(self.key_label(Action::Blame), self.key_label(Action::LineHistory));
@@ -3409,6 +3702,9 @@ impl App {
 
     /// `prog` run on `file`, in the file's folder, with the panels hidden meanwhile.
     fn run_on(&mut self, prog: &str, file: &Path) {
+        if self.picker_refuses() {
+            return;
+        }
         let dir = file.parent().unwrap_or(Path::new(".")).to_path_buf();
         let mut line = Line::default();
         line.cmd = format!("{prog} {}", line.word(&file.to_string_lossy()));
@@ -3431,6 +3727,9 @@ impl App {
 
     fn run_cmdline(&mut self) {
         let cmd = std::mem::take(&mut self.cmdline);
+        if self.pick.is_some() {
+            return self.status = Some(t!("pick.refused"));
+        }
         let t = cmd.trim();
         // `cd` has to change our own directory, so it is built in.
         if t == "cd" || t.starts_with("cd ") {
@@ -3546,13 +3845,15 @@ impl App {
         let (items, to, pw) = (src.clone(), dst.clone(), password.clone());
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let flag = stop.clone();
+        let bytes = Arc::new(coxswain_core::undo::Bytes::default());
+        let counted = bytes.clone();
         std::thread::spawn(move || {
-            let r = coxswain_core::undo::run(job_op(op), &items, &to, pw.as_deref(), &flag, |i| drop(tx.send(JobMsg::At(i))));
+            let r = coxswain_core::undo::run_counted(job_op(op), &items, &to, pw.as_deref(), &flag, &counted, |i| drop(tx.send(JobMsg::At(i))));
             let _ = tx.send(JobMsg::Done(r.failed, r.rec, r.stopped));
         });
         let line = t!("status.busy", "what" => Self::describe(&src));
         let select = select.map(|n| (self.active, n));
-        let job = Job { op, src, dst, password, select, line, rx, stop: Some(stop) };
+        let job = Job { op, src, dst, password, select, line, rx, stop: Some(stop), bytes };
         self.status = Some(job.shown());
         self.job = Some(job);
     }
@@ -3606,8 +3907,9 @@ impl App {
             }
             return;
         }
-        // A key clears the status line; while the job runs, it comes back.
-        if self.status.is_none() {
+        // A key clears the status line; while the job runs, it comes back, and how far in
+        // bytes moves on.
+        if self.status.is_none() || self.status.as_ref().is_some_and(|s| s.starts_with(&job.line)) {
             self.status = Some(job.shown());
         }
         let Some((failed, rec, stopped)) = done else { return };
@@ -3621,6 +3923,7 @@ impl App {
     /// `stopped`: Esc stopped it, and the line that says how far it got.
     fn finish(&mut self, job: Job, failed: Vec<(PathBuf, std::io::Error)>, rec: Option<Record>, stopped: Option<String>) {
         let Job { op, src, dst, password, select, .. } = job;
+        let was_stopped = stopped.is_some();
         // Again now it has ended: a folder measured while it ran would keep a size halfway.
         self.changed(&job_op(op).touches(&src, &dst));
         let what = Self::describe(&src);
@@ -3664,9 +3967,14 @@ impl App {
             Transfer::Mkdir => t!("error.create", "what" => src.first().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
             _ => coxswain_core::undo::failure_title(job_op(Some(op)), &what, src.len(), failed.len()),
         };
+        let whole = failed.is_empty() && !was_stopped;
         self.after_op(ok + &hint, fail, errors);
         if let Some((side, n)) = select {
             self.panels[side].select_name(&n);
+        }
+        // A game database unpacked beside its archive: opened there.
+        if let Some(open) = self.open_after.take().filter(|o| whole && op == Transfer::Copy && o.parent() == Some(dst.as_path())) {
+            self.chess(&open, None);
         }
     }
 
@@ -3690,12 +3998,15 @@ impl App {
         self.forget(&rec.touched());
         let line = t!("status.busy", "what" => rec.label());
         let (tx, rx) = mpsc::channel();
+        // Esc stops it, a wait for a bin another Coxswain is busy in too.
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let s = stop.clone();
         std::thread::spawn(move || {
-            let u = rec.undo(|i| drop(tx.send(JobMsg::At(i))));
+            let u = rec.undo_until(&s, |i| drop(tx.send(JobMsg::At(i))));
             let _ = tx.send(JobMsg::Undone(u));
         });
         self.status = Some(line.clone());
-        self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx, stop: None });
+        self.job = Some(Job { op: None, src: vec![], dst: PathBuf::new(), password: None, select: None, line, rx, stop: Some(stop), bytes: Arc::default() });
     }
 
     fn pack(&mut self, src: Vec<PathBuf>, to: PathBuf, password: Option<String>) {
@@ -3759,6 +4070,10 @@ impl App {
                 let r = coxswain_core::branches::create(&dir, &value, from.as_deref());
                 self.git_said(t!("error.new_branch", "name" => value.trim()), r);
             }
+            Prompt::SaveAs => {
+                let dir = self.panel().dir.clone();
+                self.pick_save(&dir, &value, false);
+            }
             Prompt::Mkdir if value.trim().is_empty() => {}
             Prompt::Mkdir => {
                 let d = resolve(&base, &value);
@@ -3802,9 +4117,9 @@ impl App {
                     let name: Vec<char> = e.name.to_lowercase().chars().collect();
                     if pats.iter().any(|g| index::glob(g, &name)) {
                         if sel {
-                            p.marked.insert(e.path.clone());
+                            p.marked.insert(e.path_in(&p.dir).into_owned());
                         } else {
-                            p.marked.remove(&e.path);
+                            p.marked.remove(&*e.path_in(&p.dir));
                         }
                     }
                 }
@@ -4000,6 +4315,14 @@ impl App {
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Bin { title, text, op, paths, free_name }),
             },
+            Dialog::Overwrite { title, text, path } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => {
+                    let (dir, name) = (path.parent().unwrap_or(Path::new("")).to_path_buf(), path.file_name().unwrap_or_default().to_string_lossy().into_owned());
+                    self.pick_save(&dir, &name, true);
+                }
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Overwrite { title, text, path }),
+            },
             Dialog::Confirm { title, text, paths, forever } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.delete(paths, forever),
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
@@ -4029,6 +4352,11 @@ impl App {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.export_start(op, files),
                 _ if esc || matches!(ch, Some('n' | 'N')) => {}
                 _ => self.dialog = Some(Dialog::Export { title, text, op, files }),
+            },
+            Dialog::Beside { title, text, beside } => match (key.code, ch) {
+                (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.unpack_beside(*beside),
+                _ if esc || matches!(ch, Some('n' | 'N')) => {}
+                _ => self.dialog = Some(Dialog::Beside { title, text, beside }),
             },
             Dialog::Searchable { title, text, pdfs } => match (key.code, ch) {
                 (KeyCode::Enter, _) | (_, Some('y' | 'Y')) => self.searchable_start(pdfs),
@@ -4144,9 +4472,14 @@ impl App {
                             if matches!(coxswain_core::chess::format(&hit.path), Some(coxswain_core::chess::Format::Pgn | coxswain_core::chess::Format::Sgf | coxswain_core::chess::Format::Pdn | coxswain_core::chess::Format::Kif | coxswain_core::chess::Format::Csa | coxswain_core::chess::Format::Pbn))
                                 && let Some(snippet) = hit.snippet.clone()
                             {
-                                let path = hit.path.clone();
+                                let (path, game) = (hit.path.clone(), hit.game);
                                 self.go_to_hit(&path);
-                                return self.chess(&path, Some(snippet));
+                                self.chess(&path, game.is_none().then_some(snippet));
+                                // A game of a database Find looked through game by game: by its number.
+                                if let (Some(n), Some(Dialog::Chess(v))) = (game, self.dialog.as_mut()) {
+                                    v.at_game(n);
+                                }
+                                return;
                             }
                             return self.go_to_hit(&hit.path.clone());
                         }
@@ -4255,7 +4588,15 @@ impl App {
                     _ => None,
                 };
                 match run.map(|i| &items[i].run) {
-                    Some(MenuRun::Action(a)) => self.act(*a),
+                    Some(r) if self.pick.is_some() && !matches!(r, MenuRun::Action(_) | MenuRun::Goto(..) | MenuRun::Say(_) | MenuRun::Bin(_)) => self.status = Some(t!("pick.refused")),
+                    Some(MenuRun::Action(a)) => {
+                        self.act(*a);
+                        // Run from F9 or the menu again and again, never by its key: the key is named.
+                        let named = coxswain_core::menu::ran(*a, true, self.status.is_none() && self.dialog.is_none(), &self.cfg);
+                        if self.status.is_none() {
+                            self.status = named;
+                        }
+                    }
                     Some(MenuRun::User(u)) => self.run_user(u),
                     Some(MenuRun::Script(path)) => self.run_script(&path.clone()),
                     Some(MenuRun::ScriptsFolder) => match coxswain_core::user_menu::scripts_folder() {
@@ -4332,6 +4673,8 @@ impl App {
                 _ => {}
             },
             Dialog::Message { .. } => {}
+            // Its keys come raw, before this (`key_seen`).
+            d @ Dialog::Keys { .. } => self.dialog = Some(d),
             Dialog::Refused { line, .. } if key.code == KeyCode::Enter => match Config::path() {
                 Some(path) => self.edit_at(&path, line),
                 None => self.status = Some(t!("err.no_config_folder")),
@@ -4360,12 +4703,29 @@ impl App {
             Dialog::View { mut v, back } => match v.key(key, action) {
                 viewer::Outcome::Stay => self.dialog = Some(Dialog::View { v, back }),
                 viewer::Outcome::Close => self.dialog = back.map(|b| *b),
+                // Shown from inside an archive, no copy: editing waits until it is copied out.
+                viewer::Outcome::Edit(file, _) if !file.exists() && coxswain_core::archive::split(&file).is_some() => {
+                    let archive = coxswain_core::archive::split(&file).map(|(a, _)| a).unwrap_or_default();
+                    // Said in the viewer, which covers the status line.
+                    v.say(t!("archive.copy_out_hint", "archive" => archive.file_name().unwrap_or_default().to_string_lossy()));
+                    self.dialog = Some(Dialog::View { v, back });
+                }
                 // Back to the BOM or provenance it was opened from, once the editor ends.
                 viewer::Outcome::Edit(file, a) => {
                     self.view_or_edit(a, &file);
                     match &mut self.dialog {
                         Some(Dialog::Edit { back: b, .. }) => *b = back,
                         _ => self.dialog = back.map(|b| *b),
+                    }
+                }
+                // Shown from inside an archive: the pager gets a copy.
+                viewer::Outcome::Pager(file) if !file.exists() && coxswain_core::archive::split(&file).is_some() => {
+                    match coxswain_core::archive::peek(&file) {
+                        Ok(copy) => self.run_on(&pager(), &copy),
+                        Err(e) => {
+                            self.status = Some(e.to_string());
+                            self.dialog = Some(Dialog::View { v, back });
+                        }
                     }
                 }
                 viewer::Outcome::Pager(file) => self.run_on(&pager(), &file),
@@ -4484,9 +4844,9 @@ impl App {
 
     fn run_user(&mut self, u: &config::UserCommand) {
         let p = self.panel();
-        let file = p.current().filter(|e| !e.is_parent()).map(|e| e.path.as_path());
-        let marked: Vec<PathBuf> = p.entries.iter().filter(|e| p.marked.contains(&e.path)).map(|e| e.path.clone()).collect();
-        let line = u.expand(&p.dir, file, &marked);
+        let file = p.current().filter(|e| !e.is_parent()).map(|e| e.path);
+        let marked: Vec<PathBuf> = p.marked_entries().into_iter().map(|e| e.path).collect();
+        let line = u.expand(&p.dir, file.as_deref(), &marked);
         self.run = Some(Run::Shell { line, typed: false, dir: p.dir.clone(), wait: u.wait });
     }
 
@@ -4494,9 +4854,9 @@ impl App {
     /// as full paths; the output stays until a key is pressed.
     fn run_script(&mut self, script: &Path) {
         let p = self.panel();
-        let file = p.current().filter(|e| !e.is_parent()).map(|e| e.path.as_path());
-        let marked: Vec<PathBuf> = p.entries.iter().filter(|e| p.marked.contains(&e.path)).map(|e| e.path.clone()).collect();
-        match coxswain_core::user_menu::script_line(script, file, &marked) {
+        let file = p.current().filter(|e| !e.is_parent()).map(|e| e.path);
+        let marked: Vec<PathBuf> = p.marked_entries().into_iter().map(|e| e.path).collect();
+        match coxswain_core::user_menu::script_line(script, file.as_deref(), &marked) {
             Ok(line) => self.run = Some(Run::Shell { line, typed: false, dir: p.dir.clone(), wait: true }),
             Err(e) => self.status = Some(e),
         }
@@ -4505,6 +4865,9 @@ impl App {
     /// Text the terminal pasted (bracketed paste): into the editor as it is; anywhere else
     /// as the keys it was typed with before, a line break as Enter.
     fn on_paste(&mut self, text: &str) {
+        if self.pick.is_some() {
+            return;
+        }
         if let Some(Dialog::Edit { e, .. }) = &mut self.dialog {
             return e.paste(text);
         }
@@ -4573,6 +4936,15 @@ impl App {
         // above the separator and the info line.
         let p = &self.panels[side];
         let i = m.row.checked_sub(area.y + 2).map(usize::from).filter(|&r| r < p.page).map(|r| p.offset + r).filter(|&i| i < p.entries.len());
+        if m.kind == MouseEventKind::Down(MouseButton::Left) && m.row == area.y + 1 {
+            self.active = side;
+            self.last_click = None;
+            let w = usize::from(area.width.saturating_sub(2));
+            if let Some(key) = m.column.checked_sub(area.x + 1).and_then(|x| ui::header_key(w, usize::from(x)).filter(|_| area.height >= 6)) {
+                self.panels[side].sort_by(key);
+            }
+            return;
+        }
         match m.kind {
             MouseEventKind::ScrollUp => self.panels[side].move_cursor(-3),
             MouseEventKind::ScrollDown => self.panels[side].move_cursor(3),
@@ -4584,7 +4956,11 @@ impl App {
                     self.last_click = Some((Instant::now(), m.column, m.row));
                     if double {
                         self.last_click = None;
-                        self.open();
+                        if self.pick.is_some() {
+                            self.pick_choose(false);
+                        } else {
+                            self.open();
+                        }
                     }
                 }
             }
@@ -4593,7 +4969,7 @@ impl App {
             MouseEventKind::Down(MouseButton::Right) => {
                 self.active = side;
                 let Some(i) = i else { return };
-                if self.cfg.right_click != "menu" {
+                if !self.cfg.right_click_menu(false) {
                     return self.panels[side].toggle_mark(i);
                 }
                 self.panels[side].cursor = i;
@@ -4666,7 +5042,7 @@ impl App {
         }
         use coxswain_core::enter;
         let place = if coxswain_core::archive::split(&self.panel().dir).is_some() { enter::Place::Archive } else { enter::Place::Disk };
-        let label = enter::label(enter::enter(&e.path, e.is_dir, place));
+        let label = enter::key_line(&e.path, e.is_dir, place);
         self.enter_on = Some((e.path.clone(), label));
     }
 
@@ -4795,6 +5171,16 @@ impl App {
         }
         if let Some(Dialog::Chess(v)) = &mut self.dialog {
             v.poll();
+        }
+        // A large PGN in a locked archive, read as it unpacks: its password asked for, then read again.
+        if let Some(Dialog::Chess(v)) = &self.dialog
+            && v.locked()
+        {
+            let path = v.path.clone();
+            self.dialog = None;
+            let wrong = coxswain_core::archive::split(&path).is_some_and(|(a, _)| coxswain_core::archive::has_password(&a));
+            let label = t!(if wrong { "archive.locked_again" } else { "archive.locked_label" });
+            self.input(&t!("archive.locked_title"), label, String::new(), Prompt::Peek(path));
         }
         if let Some(Dialog::Go(v)) = &mut self.dialog {
             v.poll();
@@ -5068,6 +5454,10 @@ fn main_loop(term: &mut DefaultTerminal, app: &mut App) -> std::io::Result<()> {
 }
 
 const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cursor on it
+  --pick[=FILE] [--folder] [--multiple] [--save NAME] [--filter EXT,EXT] [--start DIR] [--title TEXT]
+                  let another program choose files or folders, or a name to save under: the
+                  paths go to FILE or to standard output, one per line; exit 0 when chosen,
+                  1 when cancelled
   --settings[=AREA|OPTION]  start with Settings open (in the app: F12): search, previews,
                   games, looks, behaviour, keys, privacy, or an option such as show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
@@ -5334,6 +5724,7 @@ const OPTIONS: &[(&str, &[&str])] = &[
     ("--models", &["delete"]),
     ("--disk", &["clear"]),
     ("--settings", &[]),
+    ("--pick", &[]),
 ];
 
 /// The edits that turn `a` into `b`.
@@ -5499,6 +5890,17 @@ fn disk(rest: &[String]) {
     }
 }
 
+/// Pick mode: when standard output is not a terminal (`x=$(coxswain --pick)`), the terminal
+/// itself (`/dev/tty`, `CONOUT$`) becomes standard output for the panels, and the stream the
+/// paths are written to is the original one. Fails when there is no terminal to ask in.
+fn take_terminal() -> std::io::Result<Box<dyn std::io::Write>> {
+    if std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+        return Ok(Box::new(std::io::stdout()));
+    }
+    let tty = std::fs::OpenOptions::new().read(true).write(true).open(if cfg!(windows) { "CONOUT$" } else { "/dev/tty" })?;
+    Ok(Box::new(coxswain_core::pick::take_stdout(tty)?))
+}
+
 /// The program, under both its names (`coxswain` and `cox`).
 pub fn main() {
     coxswain_core::sizes::deep_stacks();
@@ -5508,6 +5910,35 @@ pub fn main() {
     if open_settings.is_some() {
         args.remove(0);
     }
+    // `--pick[=FILE] [--folder] [--multiple] [--filter EXT,…] [--start DIR] [--title TEXT]`.
+    let pick = args.first().and_then(|a| a.strip_prefix("--pick")).filter(|r| r.is_empty() || r.starts_with('=')).map(|r| r.trim_start_matches('=').to_string());
+    let pick = pick.map(|out| {
+        let rest = args.split_off(1);
+        args.clear();
+        coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&Config::load().map(|c| c.language).unwrap_or_default()));
+        let req = coxswain_core::pick::Request::parse(Some(out.as_str()), &rest).and_then(|r| {
+            let bad_start = r.start.as_ref().filter(|s| !s.is_dir());
+            match bad_start {
+                Some(s) => Err(t!("cli.no_folder", "path" => s.display())),
+                None => Ok(r),
+            }
+        });
+        req.unwrap_or_else(|e| {
+            eprintln!("coxswain: {e}");
+            std::process::exit(2)
+        })
+    });
+    // The panels are drawn on the terminal, standard output stays for the paths (as fzf does).
+    let mut pick_out = pick.as_ref().map(|r| {
+        take_terminal().unwrap_or_else(|e| {
+            // With a file to write to, a missing terminal is not fatal here (the app draws on stdout).
+            if r.out.is_none() {
+                eprintln!("coxswain: {}", t!("pick.no_terminal", "error" => e));
+                std::process::exit(2)
+            }
+            Box::new(std::io::stdout())
+        })
+    });
     // An option or a folder that is not known is said, and nothing starts.
     if args.first().map(String::as_str) != Some(helper::ARG) {
         coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&Config::load().map(|c| c.language).unwrap_or_default()));
@@ -5565,18 +5996,24 @@ pub fn main() {
         let d = args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());
         coxswain_core::fs::canonical(&d).unwrap_or(d)
     };
-    let mut app = App::new(cfg, dir(0), dir(1)).unwrap_or_else(|e| {
+    let start = pick.as_ref().and_then(|p| p.start.clone());
+    let (left, right) = start.map_or_else(|| (dir(0), dir(1)), |s| {
+        let d = coxswain_core::fs::canonical(&resolve(&cwd, &s.to_string_lossy())).unwrap_or(s);
+        (d.clone(), d)
+    });
+    let mut app = App::new(cfg, left, right).unwrap_or_else(|e| {
         eprintln!("coxswain: {e}");
         std::process::exit(2)
     });
     // A mistake in config.toml: said first, with the way to its line.
+    app.pick = pick;
     let refused = coxswain_core::notices::refused(&app.cfg);
     if let Some(line) = refused.first().and_then(|n| n.config_line) {
         let text = refused.into_iter().map(|n| n.text).collect::<Vec<_>>().join("\n");
         app.dialog = Some(Dialog::Refused { text, line });
     } else if let Some(section) = open_settings {
         app.dialog = Some(Dialog::Settings(Box::new(settings::Settings::open(&app, &section))));
-    } else if coxswain_core::state::AppState::load().guide_due() {
+    } else if app.pick.is_none() && coxswain_core::state::AppState::load().guide_due() {
         app.dialog = Some(Dialog::Guide(Box::default()));
     }
     let mut term = ratatui::init();
@@ -5598,6 +6035,14 @@ pub fn main() {
     coxswain_core::spill::at_exit();
     if let Err(e) = res {
         eprintln!("coxswain: {e}");
+    }
+    // Pick mode: the paths chosen are written and the exit code is 0; cancelled, 1.
+    if let (Some(req), Some(out)) = (&app.pick, pick_out.as_mut()) {
+        let Some(paths) = &app.picked else { std::process::exit(1) };
+        if let Err(e) = req.write(paths, out) {
+            eprintln!("coxswain: {e}");
+            std::process::exit(2);
+        }
     }
 }
 
@@ -5665,6 +6110,49 @@ mod tests {
         assert_eq!(typed(&k('x', false, false)), Some('x'));
     }
 
+    /// A picker only chooses: deleting, a command on the line and a menu's user command are refused.
+    #[test]
+    fn a_picker_refuses_what_changes_files() {
+        let d = crate::test_dir("pick-refuses");
+        std::fs::write(d.join("keep.txt"), "x").unwrap();
+        let mut app = App::new(Config::default(), d.clone(), d.clone()).unwrap();
+        app.pick = Some(coxswain_core::pick::Request::default());
+        for a in [Action::Delete, Action::DeleteForever, Action::Move, Action::Rename, Action::NewFolder, Action::Edit] {
+            app.status = None;
+            app.act(a);
+            assert_eq!(app.status, Some(t!("pick.refused")), "{a:?}");
+            assert!(app.dialog.is_none(), "{a:?}");
+        }
+        app.cmdline = "touch made".into();
+        app.run_cmdline();
+        assert!(d.join("keep.txt").exists() && !d.join("made").exists() && app.run.is_none());
+    }
+
+    /// `--save`: Enter asks for the name; a file that is there is chosen only after a yes, and
+    /// nothing is written to it. Alt+E lifts the filter.
+    #[test]
+    fn a_picker_asks_before_a_save_replaces_a_file() {
+        let d = crate::test_dir("pick-save");
+        std::fs::write(d.join("old.pgn"), "x").unwrap();
+        let mut app = App::new(Config::default(), d.clone(), d.clone()).unwrap();
+        app.pick = Some(coxswain_core::pick::Request { save: Some("old.pgn".into()), filter: vec!["pgn".into()], ..Default::default() });
+        let enter = Key::new(KeyCode::Enter, false, false, false);
+        app.key_typed(enter);
+        assert!(matches!(&app.dialog, Some(Dialog::Input { value, prompt: Prompt::SaveAs, .. }) if value == "old.pgn"));
+        app.key_typed(enter);
+        assert!(matches!(app.dialog, Some(Dialog::Overwrite { .. })) && app.picked.is_none() && !app.quit);
+        app.key_typed(Key::new(KeyCode::Esc, false, false, false));
+        assert!(app.dialog.is_none() && app.picked.is_none() && !app.quit, "No keeps the file and the picker");
+        app.key_typed(enter);
+        app.key_typed(enter);
+        app.key_typed(Key::new(KeyCode::Char('y'), false, false, false));
+        assert_eq!(app.picked, Some(vec![d.join("old.pgn")]));
+        assert!(app.quit);
+        assert_eq!(std::fs::read_to_string(d.join("old.pgn")).unwrap(), "x");
+        app.key_typed(Key::new(KeyCode::Char('e'), false, true, false));
+        assert!(app.pick.as_ref().is_some_and(|r| r.show_all) && app.quick.is_none(), "{:?}", app.status);
+    }
+
     /// An option or a value not known, or a folder not there, is said, never taken for a folder.
     #[test]
     fn unknown_options_and_folders_are_said() {
@@ -5692,7 +6180,7 @@ mod tests {
         }
         let p = Panel::new(d.join("b.txt"), false);
         assert_eq!(p.dir, d);
-        assert_eq!(p.current().map(|e| e.name.as_str()), Some("b.txt"));
+        assert_eq!(p.current().map(|e| e.name).as_deref(), Some("b.txt"));
         assert_eq!(Panel::new(d.clone(), false).dir, d);
         std::fs::remove_dir_all(d).unwrap();
     }
@@ -5931,7 +6419,7 @@ mod tests {
         let k = |c: KeyCode, ctrl: bool| Key::new(c, ctrl, false, false);
         // F3 on a hit: the built-in viewer, and Find again after it.
         let mut found = Found::default();
-        found.names.hits = vec![coxswain_core::index::Hit { path: d.join("a.txt"), is_dir: false, snippet: None, similar: None }];
+        found.names.hits = vec![coxswain_core::index::Hit { path: d.join("a.txt"), is_dir: false, snippet: None, similar: None, game: None }];
         found.names.total = 1;
         let cursor = app.find_rows("a", Kind::All, &found).iter().position(|r| matches!(r, Row::Hit { .. })).unwrap();
         app.dialog = Some(Dialog::Search { query: "a".into(), chip: Kind::All, here: false, found, cursor, offset: 0, show: Show::List });
@@ -5988,7 +6476,7 @@ mod tests {
         let mut app = app(d.clone(), d.clone());
         app.quick = Some("한국".into());
         app.quick_jump();
-        assert_eq!(app.panel().current().map(|e| e.name.as_str()), Some(name.as_str()));
+        assert_eq!(app.panel().current().map(|e| e.name).as_deref(), Some(name.as_str()));
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -6052,6 +6540,25 @@ mod tests {
         let _ = std::fs::remove_dir_all(d);
     }
 
+    /// Show keys as they arrive lists a key with what it runs, runs nothing, and closes on a
+    /// second Esc only.
+    #[test]
+    fn keys_are_shown_as_they_arrive_and_run_nothing() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-keys-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("other")).unwrap();
+        let mut app = app(d.clone(), d.join("other"));
+        app.act(Action::KeyTest);
+        app.on_key(KeyEvent::new(CK::Char('u'), KeyModifiers::ALT));
+        app.on_key(KeyEvent::new(CK::Esc, KeyModifiers::NONE));
+        let Some(Dialog::Keys { lines, .. }) = &app.dialog else { panic!("Space view ran: {:?}", app.status) };
+        assert!(lines[0].contains("ALT") && lines[0].contains(&format!("Alt+U → {}", Action::SpaceView.label())), "{lines:?}");
+        assert_eq!(lines.len(), 2, "Esc is listed too");
+        app.on_key(KeyEvent::new(CK::Esc, KeyModifiers::NONE));
+        assert!(app.dialog.is_none(), "the second Esc closes it");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
     #[test]
     fn the_action_menu_renames_what_is_under_the_cursor() {
         let d = std::env::temp_dir().join(format!("coxswain-test-menu-{}", std::process::id()));
@@ -6082,7 +6589,7 @@ mod tests {
             app.poll_job();
         }
         assert_eq!(std::fs::read_to_string(d.join("b.txt")).unwrap(), "a");
-        assert_eq!(app.panel().current().map(|e| e.name.as_str()), Some("b.txt"), "the cursor on the new name");
+        assert_eq!(app.panel().current().map(|e| e.name).as_deref(), Some("b.txt"), "the cursor on the new name");
         // The hint fits the file, and Esc closes the menu without running anything.
         assert!(app.panel().subject().files == 1);
         app.act(Action::ActionMenu);
@@ -6107,7 +6614,7 @@ mod tests {
             app.follow_disk();
         }
         assert!(app.panels[0].entries.iter().any(|e| e.name == "b.txt"), "read again");
-        assert_eq!(app.panel().current().map(|e| e.name.as_str()), Some("a.txt"), "the cursor stays");
+        assert_eq!(app.panel().current().map(|e| e.name).as_deref(), Some("a.txt"), "the cursor stays");
         let _ = std::fs::remove_dir_all(d);
     }
 
@@ -6221,7 +6728,7 @@ mod tests {
         let d = crate::test_dir("panels");
         let mut app = app(d.clone(), d.clone());
         let (_tx, rx) = mpsc::channel();
-        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx, stop: None });
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx, stop: None, bytes: Arc::default() });
         app.act(Action::Quit);
         assert!(app.quit && app.job.is_some(), "the first waits");
         assert!(app.status.as_deref().is_some_and(|s| s.contains("F10")), "{:?}", app.status);
@@ -6254,7 +6761,7 @@ mod tests {
         let (tx, rx) = mpsc::channel();
         tx.send(JobMsg::At(0)).unwrap();
         drop(tx);
-        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx, stop: None });
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d, password: None, select: None, line: "busy".into(), rx, stop: None, bytes: Arc::default() });
         app.poll_job();
         assert!(app.job.is_none());
         assert!(matches!(app.dialog, Some(Dialog::Message { .. })), "and says so");
@@ -6268,7 +6775,7 @@ mod tests {
         let mut app = app(d.clone(), d.clone());
         let (tx, rx) = mpsc::channel();
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d.clone(), password: None, select: None, line: "busy".into(), rx, stop: Some(stop.clone()) });
+        app.job = Some(Job { op: Some(Transfer::Copy), src: vec![d.join("a.txt")], dst: d.clone(), password: None, select: None, line: "busy".into(), rx, stop: Some(stop.clone()), bytes: Arc::default() });
         assert!(app.job.as_ref().unwrap().shown().contains("Esc"), "the line says Esc stops it");
         app.key_typed(Key::new(KeyCode::Esc, false, false, false));
         assert!(stop.load(std::sync::atomic::Ordering::Relaxed), "stopped");
@@ -6526,8 +7033,9 @@ mod perf {
             term.draw(|f| ui::draw(f, &mut app)).unwrap();
         }
         println!("Down + frame: {:.2} ms", ms(t) / 100.0);
-        for e in app.panels[0].entries.iter().skip(1) {
-            app.panels[0].marked.insert(e.path.clone());
+        let p = &mut app.panels[0];
+        for e in p.entries.iter().skip(1) {
+            p.marked.insert(e.path_in(&p.dir).into_owned());
         }
         let t = Instant::now();
         for _ in 0..100 {
@@ -6560,6 +7068,34 @@ mod panel_tests {
         let _ = std::fs::remove_dir_all(&d);
     }
 
+    /// With typing set to jump, a letter starts a quick search and the command line is on its own key.
+    #[test]
+    fn typing_letters_jumps_and_the_command_line_has_its_key() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-typing-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        for n in ["alpha", "beta"] {
+            std::fs::write(d.join(n), "x").unwrap();
+        }
+        let cfg = Config { typing: "find".into(), ..Config::default() };
+        let mut app = App::new(cfg, d.clone(), d.clone()).unwrap();
+        let ch = |app: &mut App, c: char| app.key_typed(Key::new(KeyCode::Char(c), false, false, false));
+        ch(&mut app, 'b');
+        assert!(app.cmdline.is_empty() && app.quick.as_deref() == Some("b"));
+        assert_eq!(app.panel().entries[app.panel().cursor].name, "beta");
+        app.key_typed(Key::new(KeyCode::Esc, false, false, false));
+        app.key_typed(Key::new(KeyCode::Char('k'), true, false, false));
+        assert!(app.cmd_open);
+        ch(&mut app, 'l');
+        ch(&mut app, 's');
+        assert_eq!(app.cmdline, "ls");
+        // The default of the terminal app: letters go to the command line.
+        let mut app = App::new(Config::default(), d.clone(), d.clone()).unwrap();
+        ch(&mut app, 'l');
+        assert_eq!(app.cmdline, "l");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
     /// Find's rows are rebuilt every frame: a cursor past the last one (rows gone under it)
     /// goes back onto one, it never stops the app.
     #[test]
@@ -6569,7 +7105,7 @@ mod panel_tests {
         let cfg = Config { check_updates: false, ..Config::default() };
         let index = crate::test_index(&cfg);
         let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
-        let hit = |n: &str| coxswain_core::index::Hit { path: d.join(n), is_dir: false, snippet: None, similar: None };
+        let hit = |n: &str| coxswain_core::index::Hit { path: d.join(n), is_dir: false, snippet: None, similar: None, game: None };
         let mut found = Found::default();
         found.names.hits = vec![hit("a.txt"), hit("b.txt")];
         found.names.total = 2;
@@ -6631,7 +7167,7 @@ mod panel_tests {
         app.panels[0].resort_due = Some(Instant::now() - Duration::from_secs(1));
         app.tick(&mut state);
         assert_eq!(names(&app), ["..", "small", "big", "mid", "f.txt"]);
-        assert_eq!(app.panels[0].current().map(|e| e.name.as_str()), Some("big"), "the cursor stays on its folder");
+        assert_eq!(app.panels[0].current().map(|e| e.name).as_deref(), Some("big"), "the cursor stays on its folder");
         assert_eq!(app.panels[0].marked_bytes, 5 << 30);
         // Windows keeps the folder while the app watches it: let it go first, and leave a
         // folder still held (the temporary folder's own) rather than fail.
@@ -6657,7 +7193,7 @@ mod panel_tests {
         p.cursor = 3;
         p.sort = SortKey::Size;
         p.resort();
-        assert_eq!(p.current().map(|e| e.name.as_str()), Some("c.txt"));
+        assert_eq!(p.current().map(|e| e.name).as_deref(), Some("c.txt"));
         assert_eq!(p.cursor, 1);
         assert_eq!(p.marked_bytes, 300);
         p.load(false);

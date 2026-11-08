@@ -37,8 +37,8 @@ the title also said before 1.41.0, is now the first footer line of
    starts there.
 3. Under *For you*, click **Show me** on a tip to go to the Settings area that does it, or
    **Dismiss** to not see it again. Both take it off the list for good.
-4. Read the versions below. Click a page name in them to open that page of these docs on GitHub,
-   in your browser.
+4. Read the versions below, each change of a version in a paragraph of its own. Click a page name
+   in them to open that page of these docs on GitHub, in your browser.
 5. **Esc** or **Close** closes Settings.
 
 **What's new, in the terminal app:** after an upgrade the status line says once
@@ -57,6 +57,11 @@ out, in the built-in viewer with long lines wrapped, and **Esc** there goes back
 | Act on a tip | **Show me**: opens the right Settings area | Run the command it names |
 | Dismiss a tip | **Dismiss** (tooltip *Not shown again*) | Nothing to do: shown once, it counts as seen |
 | A problem with search | Click it in the status line: it opens the Settings area; **×** dismisses it | Shown once in the status line |
+
+Two notices say once that a default changed in the desktop app, for a setting you never set:
+*Right-click now opens the action menu* and *Typing letters now jumps to the first name that starts
+with them* (with the key of the command line). Each has **Show me**, which opens the setting, and
+**Dismiss**.
 
 ## What you see
 
@@ -102,6 +107,7 @@ sight: the count on the button drops, and the *new* marks go next time.
 | *Found OneDrive, Dropbox: files that are only online are found by name only, so nothing is downloaded. Change in Settings* | The helper found files only in the cloud, and `cloud` is not `"all"`. Terminal app: *… cloud = "all" in config.toml reads them* | *Settings → Finding files* ([Cloud files](../search/cloud-files.md)) |
 | *To look inside it, install 7-Zip: pkg install 7-zip* (the line for this system; without one, *… install 7-Zip from 7-zip.org and put it on PATH.*) | *Open disk images, CHM and CBR like folders* is on and no 7-Zip (`7zz` or `7z`) is installed. The desktop app adds **Copy** | *Settings → Behaviour* ([Disk images](../files/disk-images.md#what-it-needs)) |
 | *Install tesseract to search the words in scans, screenshots and pictures: sudo apt install tesseract-ocr* (the line for this system; without one, the text ends at *pictures*) | Text search is on and the helper found no tesseract. The desktop app adds **Copy** for the line; Coxswain never runs it | *Settings → Finding files* ([Installing what is missing](../search/scans.md#installing-what-is-missing)) |
+| *A folder sync that has ended set aside 214 files (1.2 MB) it replaced or deleted, and the bin cannot take them here, so they are still in …* | A [folder sync](../files/compare-folders.md#where-did-my-replaced-files-go) cut short left its *.coxswain-sync-…* folder where the bin cannot take it (Windows, a disk without a bin); once per folder | *Settings → Privacy and updates → Disk use*, scrolled to *Your own files, kept aside by Coxswain* (`disk_yours`) |
 | *Read other formats with Apache Tika is on, but neither podman nor docker is installed: install one to read OneNote, XPS, CHM and Outlook files.* | `[search] tika` is on and neither podman nor docker is installed (or `[preview] container = "off"`) | *Settings → Finding files* ([Other formats with Apache Tika](../search/tika.md)) |
 | *Transcribe speech is on, but cannot run here: …* with why (no whisper.cpp and no podman or docker, a download that failed) | `[search] whisper` is on and the helper cannot transcribe | *Settings → Finding files* ([Transcripts of speech](../search/transcripts.md)) |
 | *macOS: Coxswain lists the bin only with Full Disk Access (…); without it the bin opens in Finder. Files cannot be put back from Coxswain, only deleted for good.* | On a Mac, once the bin has been looked at (the sidebar reads it every 30 seconds) | Nothing: **Dismiss** only ([The bin](../files/bin.md#which-bin-on-each-system)) |

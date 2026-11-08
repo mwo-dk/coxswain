@@ -166,12 +166,12 @@ pub fn folders_diff_only(on: bool) {
 }
 
 /// With Differences only on, what is the same on both sides left out of a listing (`..` stays).
-pub fn hide_same(entries: &mut Vec<coxswain_core::fs::Entry>) {
+pub fn hide_same(dir: &std::path::Path, entries: &mut Vec<coxswain_core::fs::Entry>) {
     if !DIFF_ONLY.load(Ordering::Relaxed) {
         return;
     }
     let Some(f) = FOLDERS.lock().unwrap_or_else(|e| e.into_inner()).clone() else { return };
-    entries.retain(|e| e.is_parent() || (0..2).all(|side| f.state(side, &e.path) != Some(FileState::Same)));
+    entries.retain(|e| e.is_parent() || (0..2).all(|side| f.state(side, &e.path_in(dir)) != Some(FileState::Same)));
 }
 
 /// The entries of `dir` that side `side` has and the other lacks or has older or different

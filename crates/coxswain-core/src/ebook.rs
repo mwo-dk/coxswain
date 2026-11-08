@@ -255,7 +255,7 @@ fn make(how: &How, path: &Path, want: Want, out: &Path, stop: &AtomicBool, timeo
             if crate::tools::image_size(rt, image).is_none() {
                 // Stop ends the pull too: it runs on a scoped thread that watches `stop`.
                 std::thread::scope(|scope| {
-                    let puller = scope.spawn(|| crate::images::pull_until(rt, image, stop));
+                    let puller = scope.spawn(|| crate::images::pulls::in_job(rt, image, stop));
                     while !puller.is_finished() {
                         if let Some(line) = crate::images::pulling().get(image.as_str()) {
                             said(Said::Pulling(line));
@@ -560,14 +560,30 @@ pub fn prepare(pulled: impl FnOnce() + Send + 'static) {
         return;
     }
     let How::Container { path, image, .. } = how.clone() else { return };
-    std::thread::spawn(move || match crate::images::pull(&path, &image) {
-        Ok(()) => {
-            READY.store(true, Ordering::Relaxed);
-            used(&image);
-            pulled();
-        }
-        Err(e) => crate::helper::note(format_args!("calibre: {e}")),
+    std::thread::spawn(move || {
+        crate::images::pulls::until_there(
+            &image,
+            "calibre",
+            || crate::images::pull(&path, &image),
+            || crate::tools::image_size(&path, &image).is_some(),
+            || crate::images::pulls::reachable(&image),
+            crate::images::pulls::rest,
+        );
+        READY.store(true, Ordering::Relaxed);
+        used(&image);
+        pulled();
     });
+}
+
+/// How calibre stands for the search, for the status lines; None while e-books or text search
+/// are off, or calibre runs without a container.
+pub fn state() -> Option<crate::images::pulls::State> {
+    use crate::images::pulls::State;
+    let How::Container { image, .. } = searching()? else { return None };
+    if let Some(line) = crate::images::pulling().get(image.as_str()) {
+        return Some(State::Pulling(line.clone()));
+    }
+    Some(crate::images::pulls::failure(image).unwrap_or(if READY.load(Ordering::Relaxed) { State::Ready } else { State::Pulling(String::new()) }))
 }
 
 /// The endings the search reads with calibre now: none until it can run.

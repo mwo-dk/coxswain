@@ -11,10 +11,10 @@
   // is shown as text, never HTML.
   import { untrack } from "svelte";
   import { ui } from "./app.svelte.js";
-  import { invoke, basename, keysToBoard, browseKey, chessFormat, viewEnd } from "./lib.js";
+  import { invoke, LOCKED, basename, parent, keysToBoard, browseKey, chessFormat, viewEnd } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
 
-  let { path, full = false } = $props();
+  let { path, full = false, onfail = () => {} } = $props();
 
   // A .bin file comes here only when it is a Polyglot opening book (Preview, chess_is_book).
   // A games file known by its bytes, not its name (a DhtmlXQ xiangqi game): read as PGN.
@@ -183,16 +183,41 @@
       rows = r.rows;
       first = from;
       error = r.progress.error ?? "";
+      if (error.includes(LOCKED)) unlock(p);
       // A file of one game opens on its board, once it is read to its end (`enter`).
       if (lonePath !== p && r.progress.done) {
         lonePath = p;
         if (r.progress.games === 1 && !game && !ui.chessAt) openGame(0);
       }
     } catch (e) {
-      if (seq === rowsSeq) error = String(e);
+      if (seq === rowsSeq) {
+        error = String(e);
+        // Not to be read as it is unpacked (locked): the caller reads a copy instead.
+        onfail();
+      }
     }
   }
   let lonePath = null;
+  // A large PGN in a locked archive is read as it unpacks and the table stops with the archive's
+  // error: the password is asked for as it is for a preview, then the file is read again.
+  async function unlock(p) {
+    if (full || ui.modal) return;
+    const again = await invoke("archive_has_password", { path: p });
+    if (ui.modal) return;
+    ui.modal = {
+      kind: "input",
+      feature: "archive_passwords",
+      secret: true,
+      title: t("archive.locked_title"),
+      label: t(again ? "archive.locked_again" : "archive.locked_label"),
+      value: "",
+      ok: t("verb.unlock"),
+      run: (password) =>
+        invoke("archive_password", { path: p, password })
+          .then(() => invoke("chess_close", { path: p }))
+          .then(() => fetchRows()),
+    };
+  }
 
   // The table, again when the filter changes, and twice a second while the file is read.
   $effect(() => {
@@ -413,13 +438,21 @@
     const s = ++engineSeq;
     if (!analysis || !f || other) return void (engine = null);
     engine = { fen: f, thinking: true };
-    invoke("chess_analyse", { fen: f }).then(
-      (a) => {
-        // Options set for the engine that it did not take: said once a session.
-        if (a.note) said = a.note;
-        if (s === engineSeq) engine = { fen: f, a };
+    // Seen before: shown at once; the game review's while the engine looks deeper.
+    invoke("chess_remembered", { fen: f }).catch(() => null).then(
+      (known) => {
+        if (s !== engineSeq) return;
+        if (known) engine = { fen: f, a: known };
+        if (known && !known.review) return;
+        invoke("chess_analyse", { fen: f }).then(
+          (a) => {
+            // Options set for the engine that it did not take: said once a session.
+            if (a.note) said = a.note;
+            if (s === engineSeq) engine = { fen: f, a };
+          },
+          (e) => s === engineSeq && (engine = { fen: f, error: String(e) }),
+        );
       },
-      (e) => s === engineSeq && (engine = { fen: f, error: String(e) }),
     );
   });
 
@@ -477,14 +510,47 @@
   }
 
   /** The played line as a new PGN file next to this one: the game's moves to its base, then it. */
-  async function saveLine() {
+  function saveLine() {
     if (!played) return void (said = t("chess.line_none"));
     const sans = [];
     for (let n = played.base; n != null; n = nodes[n].parent) sans.unshift(nodes[n].san);
+    const sansAll = [...sans, ...played.moves.map((m) => m.san)];
+    save((at, folder, origin) => invoke("chess_save_line", { path, tags: game.game.tags, start: game.game.start, sans: sansAll, origin, at, folder }));
+  }
+
+  /** A game from inside an archive (chess_save_origin): its copy is in the cache, so a new PGN
+   * asks where it goes. The archive, its folder, and whether it can be written. */
+  let origin = $state(null);
+  /** Why the archive the game came from cannot be saved to (it is gone). */
+  let originErr = $state("");
+  let asking = $state(null);
+  $effect(() => {
+    const p = path;
+    origin = null;
+    originErr = "";
+    asking = null;
+    invoke("chess_save_origin", { path: p }).then(
+      (o) => p === path && (origin = o),
+      (e) => p === path && (originErr = String(e)),
+    );
+  });
+  // `asking`: the question of where a new PGN goes: how to save, the place chosen, the folder typed.
+  const archiveName = $derived(basename((asking?.origin ?? origin)?.archive ?? ""));
+  /** Saves with `write(at, folder)` now, or after asking where when the game is from an archive. */
+  function save(write) {
+    if (originErr) return void (said = originErr);
+    if (!origin) return void run(write, "beside");
+    // The archive shown in the question is the one passed back, not looked up again.
+    asking = { write, origin: $state.snapshot(origin), at: "beside", folder: parent(origin.archive) };
+  }
+  async function run(write, at, folder, o = null) {
     try {
-      said = await invoke("chess_save_line", { path, tags: game.game.tags, start: game.game.start, sans: [...sans, ...played.moves.map((m) => m.san)] });
+      said = await write(at, folder, o);
+      asking = null;
     } catch (e) {
+      // The question stays open for a folder that was refused.
       said = String(e);
+      if (at !== "folder") asking = null;
     }
   }
 
@@ -504,12 +570,9 @@
     const timer = setInterval(() => reviewAct("state"), 700);
     return () => clearInterval(timer);
   });
-  async function saveReview() {
-    try {
-      said = await invoke("chess_review_save", { path, index: game.index });
-    } catch (e) {
-      said = String(e);
-    }
+  function saveReview() {
+    const index = game.index;
+    save((at, folder, origin) => invoke("chess_review_save", { path, index, origin, at, folder }));
   }
   const CAP = 1000;
   const share = (v) => 1 / (1 + Math.exp(-Math.max(-CAP, Math.min(CAP, v)) / 250));
@@ -971,7 +1034,7 @@
           <p class="meta book-line">{#if book.moves.length}{t("chess.book", { name: book.name, moves: "" })}{#each book.moves.slice(0, 8) as m, k (m.uci)}{k ? " · " : ""}{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each} {m.share.toFixed(0)} %{/each}{:else}{t("chess.book_out", { name: book.name })}{/if}</p>
         {/if}
         {#if engine}
-          <p class="meta engine">{#if engine.thinking}{t("chess.engine_thinking")}{:else if engine.error}{engine.error}{:else}{t("chess.engine", { name: engine.a.engine, depth: engine.a.depth })}{#if engine.a.lines.length === 1} · {t("chess.engine_line_key")}{:else if engine.a.lines.length} · {t("chess.engine_lines_keys", { n: engine.a.lines.length })}{/if}{/if}</p>
+          <p class="meta engine">{#if engine.thinking}{t("chess.engine_thinking")}{:else if engine.error}{engine.error}{:else}{t("chess.engine", { name: engine.a.engine, depth: engine.a.depth })}{#if engine.a.review} · {t("chess.engine_from_review")}{/if}{#if engine.a.lines.length === 1} · {t("chess.engine_line_key")}{:else if engine.a.lines.length} · {t("chess.engine_lines_keys", { n: engine.a.lines.length })}{/if}{/if}</p>
           {#each engine.a?.lines ?? [] as l, k (k)}
             {@const on = browse?.k === k ? browse.at : 0}
             <p class="engine-line"><button class="mv line-no" class:here={on > 0} title={t("chess.engine_line_tip", { n: k + 1 })} onclick={() => browseLine(k)}>{k + 1}</button> <b class="eval">{l.eval}</b> {#each l.steps ?? [] as m, i (i)}<button class="mv" class:later={on ? i >= on : i > 0} class:here={on === i + 1} title={t("chess.engine_line_tip", { n: k + 1 })} onclick={() => browseLine(k, i + 1)}>{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button>{" "}{/each}</p>
@@ -1008,6 +1071,19 @@
           <div class="bar">
             <button title={t("chess.line_save_tip")} onclick={saveLine}>{t("chess.line_save")}</button>
             <button title={t("chess.line_clear_tip")} onclick={() => (played = null)}>{t("chess.line_clear")}</button>
+          </div>
+        {/if}
+        {#if asking}
+          <div class="save-ask" role="group" aria-label={t("chess.save_ask")}>
+            <p><b>{t("chess.save_ask")}</b></p>
+            <label><input type="radio" bind:group={asking.at} value="beside" /> {t("chess.save_ask_beside", { archive: archiveName })}</label>
+            <label><input type="radio" bind:group={asking.at} value="folder" /> {t("chess.save_ask_folder")}</label>
+            {#if asking.at === "folder"}<input type="text" aria-label={t("chess.save_ask_folder")} bind:value={asking.folder} />{/if}
+            {#if asking.origin.writable}<label><input type="radio" bind:group={asking.at} value="inside" /> {t("chess.save_ask_inside", { archive: archiveName })}</label>{/if}
+            <div class="bar">
+              <button onclick={() => run(asking.write, asking.at, asking.folder, asking.origin)}>{t("chess.save_ask_go")}</button>
+              <button onclick={() => (asking = null)}>{t("common.cancel")}</button>
+            </div>
           </div>
         {/if}
         {#if said}<p class="meta">{said}</p>{/if}
@@ -1119,6 +1195,11 @@
   .note {
     margin: 0;
     color: var(--git-conflict-fg, #e53935);
+  }
+  .save-ask {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
   .meta {
     margin: 0;

@@ -4,7 +4,9 @@
 
 A zip, tar or 7z archive opens like a folder, in both apps. Inside it the usual keys work:
 **F5** copies out, **F6** moves out or renames, **F7** makes a folder, **F8** takes things out,
-and **F5** from another panel copies into it. Copies between two archives work too.
+and **F5** from another panel copies into it. Copies between two archives work too. A cpio, a
+Debian or RPM package and a Windows cabinet open like folders too, read-only
+([cpio, .deb, .rpm and .cab](#cpio-deb-rpm-and-cab)).
 
 ![The desktop app's right pane inside ~/Downloads/website-0.3.0.tar.gz/website, tinted, the archive's name marked in the path bar and the archive badge at its right end; the left pane shows an ordinary folder](../screenshots/files-inside-archive.png)
 
@@ -40,9 +42,9 @@ and **F5** from another panel copies into it. Copies between two archives work t
 | **F6** | Moves out: copies out, then takes them out of the archive. With a new name, or a folder in the same archive, it **renames** or moves within the archive | Adds the files, then deletes the originals |
 | **F7** | Makes a folder inside the archive | |
 | **F8**, **Shift+F8** | **Takes out** of the archive, after a question: there is no trash inside an archive | |
-| **Enter** on a file | Games (a PGN, SCID or ChessBase database, SGF …) open in the games window from a copy; an archive inside opens like a folder; any other file: the status line says it must be copied out first ([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)) | |
+| **Enter** on a file | Games (a PGN, SCID or ChessBase database, SGF …) open in the games window (a PGN family file as it is unpacked, the others from a copy); an archive inside opens like a folder; any other file: the status line says it must be copied out first ([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)) | |
 | **Space** | The preview pane shows the file: a copy of it is made when the cursor rests on it | |
-| **F3** (terminal app) | Views the file: a copy of it goes to your viewer; a games file (PGN, SGF, PDN, KIF, CSA, PBN, EPD, FEN, a Polyglot book, a DhtmlXQ xiangqi game, a SCID or ChessBase database with the files beside it, a `.cbv`) opens in the games view, as outside the archive | |
+| **F3** (terminal app) | Views the file: a text, a log or a long file is read out of the archive into the built-in viewer, a copy of it goes to a `viewer` of your own; a games file (PGN, SGF, PDN, KIF, CSA, PBN, EPD, FEN, a Polyglot book, a DhtmlXQ xiangqi game, a SCID or ChessBase database with the files beside it, a `.cbv`) opens in the games view, as outside the archive | |
 | **Ctrl+E** on an archive | [Extracts](pack-and-extract.md) it into a new folder | |
 | **Alt+F5** | [Packs](pack-and-extract.md) files on disk into a new archive | |
 
@@ -71,7 +73,10 @@ program is needed.
 | Zip split into parts | `.zip.001`, with `.002`, `.003` … beside it (7-Zip's *Split to volumes*, or `split`) | yes: the parts read as one | no: read-only | as a zip |
 | Zip split into parts | `.zip`, with `.z01`, `.z02` … beside it (Info-ZIP's `zip -s`, WinZip) | yes: the parts read as one | no: read-only | as a zip |
 | RAR | `.rar` | no | no | ([why](#why-not-rar)) |
-| cpio, `.deb`, `.rpm`, `.cab` | | no: opened in their own program | no | |
+| cpio | `.cpio` (newc, odc and the old binary header), `.cpio.gz`, `.cpgz`, `.cpio.bz2`, `.cpio.xz`, `.cpio.zst`, `.cpio.lzma` | yes | no: read-only | none |
+| Debian package | `.deb`, `.udeb`: its members, `control.tar.*` and `data.tar.*` | yes | no: read-only | none |
+| RPM package | `.rpm`: its files, unpacked from gzip, bzip2, xz, zstd or lzma | yes | no: read-only | none |
+| Windows cabinet | `.cab` (stored, MSZIP, LZX or Quantum), a set of them read as one | yes | no: read-only | none |
 | A lone `.gz`, `.bz2`, `.xz`, `.zst` | | no: it holds one file, not a folder | no | |
 | Comic | `.cbz` (a zip of pictures) | yes; the desktop app's preview shows it page by page | yes | as a zip |
 | Mailbox | `.mbox`: one `.eml` file a message | yes | no: read-only | none |
@@ -185,12 +190,36 @@ through an installed 7-Zip instead, read-only, like a disk image
   that it is an archive inside an archive. Copy it out with **F5** to change it. The copies stay
   while the archive outside them does not change; past eight the oldest goes, and all go when the
   app ends.
-- **Files inside are previewed and viewed from a copy**, not opened or edited: **Enter** and
-  **F4** say on the status line that **F5** copies the file out, since changes to a copy would be
-  lost. The copy is made in the cache folder (`coxswain/peek/`, readable by you alone), one at
+- **Text and pictures inside are read as they are unpacked, with no copy on the disk**: the
+  desktop app's preview pane shows a text file's first 512 KB (*Showing the first 512 KB* under
+  it when there is more), and a picture, a PDF, a song, a video or a font up to 64 MB, straight
+  from the archive (a player's seeking too, from one unpacking), and **F3** in the
+  terminal app shows a file's first 16 MB in the viewer (*Showing the first 16 MB.* on its
+  status line when there is more), whatever the file's size.
+- **Logs, JSON Lines and long texts are paged through as they are unpacked**: a log or JSON
+  Lines file in either app, a text over 512 KB in the desktop app and a text over 16 MB in the
+  terminal app open in the log view (the terminal app's viewer) with every line, nothing
+  written to the disk and a few megabytes in memory. Going back to a line far above unpacks
+  again from a place kept before it in a tar, else from the file's start ([Logs](../previews/logs.md#logs-inside-an-archive)).
+- **Games are read as they are unpacked**: a PGN file (also packed), a draughts, shogi or bridge
+  file and a DhtmlXQ game open in the games window with no copy on the disk
+  ([Chess](../previews/chess.md)).
+- **Other files inside are previewed and viewed from a copy** (documents, spreadsheets,
+  notebooks, old picture formats, a PDF, song, video or font over 64 MB, a SCID or ChessBase
+  database, an EPD or FEN file, a Go file, an opening book, provenance and bills of materials,
+  a locked file once its password is given, every PDF, song, video and font in the
+  terminal app, whose readers and players need a file, and every file when you set a
+  `viewer` of your own in the terminal app), not opened or edited: **Enter** and **F4** say on
+  the status line that **F5** copies the file out, since changes to a copy would be lost. The
+  copy is made in the cache folder (`coxswain/peek/`, readable by you alone), one at
   a time, and removed when the next is made; copies left by an app that ended go after a day.
+  Each copy is in a folder named for the archive (its path, size, date and file identity) and
+  the file in it, so two archives that hold a file of the same name, size and date never share
+  what is kept of a copy (a ChessBase archive's games, a listing, a preview).
   Files over 256 MB are not copied just to be looked at, counted as they come out, not by the
-  size the archive claims: the preview says to copy them out.
+  size the archive claims: the preview says to copy them out. A game database over it is
+  offered to be unpacked beside the archive and opened there, asked first ([Chess
+  games](../previews/chess.md#what-happens-with-a-database-too-large-to-open-inside-its-archive)).
 - **Names that lead outside** (`../…`, an absolute path, on Windows a drive or a `\`) are not
   listed, so nothing you do in the archive acts outside it. They stay in the archive when it is
   written anew. A tar whose long-name record is over 64 KB is not opened.
@@ -221,7 +250,9 @@ through an installed 7-Zip instead, read-only, like a disk image
   opens only with all its parts, numbered without a gap*. **Enter** or **F3** on its first part
   says so on the status line, whole (in the terminal app over two rows at 80 columns), rather
   than showing its bytes. Inside another archive it opens too, its parts copied together into
-  the cache folder (the limits above count them together). Search finds it by its own name only.
+  the cache folder (the limits above count them together). Search finds one on the disk by its
+  own name only; one inside an archive it looks into with all its parts ([Search inside
+  archives](../search/archives.md#limits)).
 - **A zip split into parts** by Info-ZIP (`zip -s`) or WinZip (`games.z01`, `games.z02`, …,
   `games.zip`) opens from its **last** part, the `.zip`: **Enter** on `games.zip` shows what the
   whole archive holds, its parts read one after the other. The `.z01`, `.z02` … parts stay
@@ -232,6 +263,43 @@ through an installed 7-Zip instead, read-only, like a disk image
   zip64 (over 4 GB, or more than 65,535 files) is not read: join its parts first with
   `zip -s 0 games.zip --out whole.zip`. A zip cut into equal pieces by 7-Zip (`games.zip.001`)
   is not a split zip: join those with `cat` or `copy /b` first.
+- <a id="cpio-deb-rpm-and-cab"></a>**cpio, `.deb`, `.rpm` and `.cab`** open with **Enter** like
+  any archive, read-only: the badge (desktop app) and the panel title (terminal app) say
+  *Read-only*, and **F6**, **F7**, **F8** and copies into them say so on the status line. **F5**
+  and **Ctrl+E** copy out; **Space** and **F3** show a file inside as in any archive, and search
+  looks into them. Each is read from its start as it streams by, the format having no list of
+  its contents (a cabinet has one). What each shows:
+  - a **cpio** (`.cpio`): its files and folders, from the newc header (`070701`, what Linux's
+    initramfs and RPM write), the odc one (`070707`, POSIX `cpio -H odc`) or the old binary one
+    (`cpio -o` without `-c`, in either byte order). One packed with gzip, bzip2, xz, zstd or
+    lzma (`.cpio.gz`, `.cpgz` as macOS names it, `.cpio.bz2`, `.cpio.xz`, `.cpio.zst`,
+    `.cpio.lzma`) opens the same: the packing is found by the file's first bytes.
+  - a **Debian package** (`.deb`, `.udeb`): its three members, `debian-binary`,
+    `control.tar.xz` (or `.gz`, `.zst`) and `data.tar.xz`. **Enter** on `data.tar.xz` opens the
+    files the package installs, as an archive inside an archive (above).
+  - an **RPM package** (`.rpm`): the files it installs, `usr/bin/…`, read from its payload past
+    its lead and headers. The payload may be packed with gzip, bzip2, xz, zstd or plain lzma (RPMs
+    from before about 2010).
+  - a **Windows cabinet** (`.cab`): its files, stored or packed with MSZIP, LZX or Quantum
+    (what Windows setup disks of the 1990s used). A set spread over several cabinets
+    (`disk1.cab`, `disk2.cab` …) opens from any one of them as one list of all the files: the
+    others are found by the names the cabinets hold for each other, in the same folder (any
+    case), and a file that runs over from one into the next comes out whole. With a part
+    missing, the files that are whole in the others still show, and one that runs over into the
+    missing part says *This cabinet is part of a set: disk2.cab must be in the same folder*. A
+    cabinet is unpacked folder by folder, front to back: past 4 GB unpacked in all, it stops
+    with *This cabinet would unpack more than 4 GB to reach these files: copy out fewer at a
+    time*. Of two files by one name, the first is shown. A name in a cabinet that points
+    outside its folder (`..`, a path or a drive) is never followed.
+
+  Symbolic links, devices and hard links in a cpio or RPM are listed but not made when copying
+  out (a hard link's bytes come with the last of its names, which comes out as a file); a file
+  keeps its date and, on the BSDs, illumos, Linux and macOS, its executable bit. Names that
+  lead outside (`../…`) are not listed; a name over 4 KB, or a header that does not add up,
+  stops the reading with an error, and a cpio cut short shows what comes before the cut. Search
+  looks into an RPM, a packed cpio or a cabinet up to 256 MB, as into a compressed tar; a larger one it finds
+  by its own name only. Packages that were already in the search store when
+  you installed this version are looked into the next time they change.
 - **A part's facts above its bytes:** in the desktop app's preview, a file shown as a hex dump
   (a later part of a split archive, any other binary file with facts) has its facts above the
   dump, not under it, so *Part: …* is the first thing you read.
@@ -243,9 +311,13 @@ through an installed 7-Zip instead, read-only, like a disk image
 - **A 7z's list of contents** is read as it is unpacked, holding only each file's name, size
   and date: a 7z of 900,000 small files opens as a folder, and one of its files is shown or
   copied out, in about a second and 200 MB of memory, up to 4 million files. A folder of two
-  million files in one opens in about six seconds in the terminal app, and takes about 900 MB
-  while it is shown. The list of the archive last browsed is kept for the next look, about
-  60 bytes a file; a list of millions is the only one kept. A 7z whose names are locked with a
+  million files in one opens in about six seconds in the terminal app; while it is shown, its
+  listing and the archive's list take about 420 MB. A listing holds each entry's name, not its
+  whole path as well, in both apps and on disk too. The list of the archive last browsed is kept for the next look, about
+  60 bytes a file; a list of millions is the only one kept, and only while a panel (a tab in
+  the desktop app) shows a folder of that archive: once none does, its memory is given back,
+  and going in again reads the list again (not yet for an archive inside an archive, whose list stays kept). Sorting a folder of millions takes about each
+  name's sort key and 4 bytes more while it sorts. A 7z whose names are locked with a
   password, or one packed with something other than LZMA, LZMA2 or nothing (BCJ, PPMd, BZip2,
   …), and copying a folder of a 7z out, go through a library that reads the whole list into
   memory: there a list over 64 MB unpacked (about 900,000 files) is refused, with a message
@@ -294,9 +366,13 @@ panel title says `[archive]` instead of a tint and a badge, and there is no prev
 #### Can I look at a file inside an archive without unpacking it?
 
 Yes. Put the cursor on it with the preview pane open (**Space** in the desktop app), or press
-**F3** in the terminal app. Coxswain copies just that file out, into its cache folder, and shows
-the copy. Nothing next to the archive is written, and the copy goes when you look at the next
-file. A games file shows as outside the archive: its table of games, a game on its board
+**F3** in the terminal app. A text file or a picture is read straight out of the archive, into
+memory: the preview pane shows its first 512 KB (a picture, PDF, song, video or font up to
+64 MB, whole), the terminal app's
+viewer its first 16 MB, and nothing is written to the disk. A log, JSON Lines file or longer text
+is paged through the same way, all of it, in the log view; a PGN file's games likewise. Any other file is copied out, just
+that file, into Coxswain's cache folder, and the copy is shown; it goes when you look at the next
+file. Nothing next to the archive is written either way. A games file shows as outside the archive: its table of games, a game on its board
 ([Xiangqi games](../previews/xiangqi.md#using-it)).
 
 #### Why can I not edit a file inside an archive with F4?
@@ -357,6 +433,32 @@ back.
 
 Yes. Open one in each panel and press **F5**. The files pass through a work folder in Coxswain's
 cache (`scratch/`, removed when the copy ends) and are added to the other archive.
+
+#### Can I look inside a .deb or .rpm package without installing it?
+
+Yes: **Enter** on it. An RPM shows the files it installs (`usr/bin/…`); a `.deb` shows
+`debian-binary`, `control.tar.xz` and `data.tar.xz`, and **Enter** on `data.tar.xz` shows the
+files it installs. **F5** copies a file out, **Space** or **F3** shows it
+([cpio, .deb, .rpm and .cab](#cpio-deb-rpm-and-cab)).
+
+#### How do I install a .deb or .rpm now that Enter goes into it?
+
+**Enter** opens it like a folder, so hand it to your installer another way: a
+[user-menu](../commands/user-menu.md) entry such as `command = "xdg-open %f"`, or
+`sudo apt install ./name.deb` (`sudo dnf install ./name.rpm`) typed at Coxswain's
+[command line](../commands/command-line.md).
+
+#### Why can I not add files to a .deb, .rpm, .cpio or .cab?
+
+They are read-only: a package carries checksums and signatures that a changed file would
+break, and Coxswain does not write those formats. Copy the files out with **F5**, change them,
+and build the package with its own tools (`dpkg-deb`, `rpmbuild`, `makecab`).
+
+#### Why does a .cab say it cannot be read?
+
+It is one of a set and a part is missing (the message names it: put it in the same folder),
+packed in a way Coxswain does not read, or damaged. Coxswain reads cabinets that are stored or
+packed with MSZIP, LZX or Quantum, alone or in a set.
 
 #### Why does opening a .rar do something else?
 

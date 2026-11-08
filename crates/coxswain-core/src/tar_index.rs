@@ -1112,6 +1112,20 @@ fn kept_from(path: &Path, pack: crate::archive::Pack, at: u64) -> io::Result<Opt
     Ok(Some((r, at - p.out)))
 }
 
+/// The restart points kept of `path` as it is now (`save_points`), read once by a reader that
+/// goes to many places in it (a game file's games).
+pub(crate) fn points_of(path: &Path) -> Option<Vec<Point>> {
+    load_points(path)
+}
+
+/// `path` (a gzip or a zstd) unpacked from `p` on, one of `points_of`'s.
+pub(crate) fn from_point(path: &Path, gz: bool, p: &Point) -> io::Result<Box<dyn Read>> {
+    let mut f = File::open(path)?;
+    f.seek(SeekFrom::Start(p.file))?;
+    let src = io::BufReader::new(f);
+    Ok(if gz { Box::new(Gz::from(src, p)) } else { Box::new(Zst::from(src, p)) })
+}
+
 /// The unpacked tar `path` from a place at or before `at` on that is not its start, when
 /// there is one (an xz in blocks, a gzip or zstd listed whole before), and how many unpacked
 /// bytes of it come before `at`.
@@ -1121,6 +1135,72 @@ pub(crate) fn from(path: &Path, pack: crate::archive::Pack, at: u64) -> io::Resu
         crate::archive::Pack::Gz | crate::archive::Pack::Bz2 | crate::archive::Pack::Zst => kept_from(path, pack, at),
         _ => Ok(None),
     }
+}
+
+/// The file `name` of the tar `archive` from byte `offset` of its own on, and how many bytes
+/// were unpacked to get there: from a kept place before it (an xz in blocks, a gzip, bzip2 or
+/// zstd listed whole before), or by seeking in a plain tar. `None` when there is no such place
+/// (the caller unpacks the entry from its start). Two reads: the header, for where the data
+/// starts, and the data from the place before `offset`.
+pub(crate) fn entry_from(archive: &Path, pack: crate::archive::Pack, name: &str, offset: u64) -> io::Result<Option<(Box<dyn Read>, u64)>> {
+    let plain = pack == crate::archive::Pack::None;
+    // Where the entry's header starts (a compressed tar: kept in its list) and, for a plain
+    // tar, where its data does, found by seeking from header to header.
+    let (at, size, mut data) = if plain {
+        let (mut found, mut tar) = (None, tar::Archive::new(File::open(archive)?));
+        crate::archive::tar_named(tar.entries_with_seek()?, |n, _, e| {
+            if n == name && e.header().entry_type().is_file() {
+                found = Some((0, e.size(), Some(e.raw_file_position())));
+            }
+            Ok(found.is_none())
+        })?;
+        let Some(f) = found else { return Ok(None) };
+        f
+    } else {
+        let Some(l) = load(archive).and_then(|all| all.into_iter().find(|l| l.name == name && !l.dir)) else { return Ok(None) };
+        (l.at, l.size, None)
+    };
+    if offset == 0 || offset >= size {
+        return Ok(None);
+    }
+    // The tar unpacked from `from` on, and the bytes unpacked to reach it; `start` when no
+    // place is kept before (only for the header: the data is not then restarted at).
+    let open = |place: u64, start: bool| -> io::Result<Option<(Box<dyn Read>, u64)>> {
+        let found = if plain {
+            let mut f = File::open(archive)?;
+            f.seek(SeekFrom::Start(place))?;
+            Some((Box::new(io::BufReader::new(crate::stop::Reader(f))) as Box<dyn Read>, 0))
+        } else {
+            match (from(archive, pack, place)?, start) {
+                (None, true) => Some((crate::archive::tar_reader(archive, crate::archive::Kind::Tar(pack))?.into_inner(), place)),
+                (found, _) => found,
+            }
+        };
+        let Some((mut r, skip)) = found else { return Ok(None) };
+        if io::copy(&mut (&mut r).take(skip), &mut io::sink())? != skip {
+            return Err(io::ErrorKind::UnexpectedEof.into());
+        }
+        Ok(Some((r, skip)))
+    };
+    // No place kept before the wanted byte: nothing to restart from, so the header is not read
+    // either (that would unpack the tar up to it for nothing).
+    if !plain && from(archive, pack, at + offset)?.is_none() {
+        return Ok(None);
+    }
+    let mut head = 0;
+    if data.is_none() {
+        let Some((r, n)) = open(at, true)? else { return Ok(None) };
+        let mut tar = tar::Archive::new(r);
+        let mut entries = tar.entries()?;
+        let e = entries.next().ok_or(io::ErrorKind::UnexpectedEof)??;
+        // A sparse file or anything else whose bytes are not the listed ones: from the start.
+        if e.size() != size || !e.header().entry_type().is_file() {
+            return Ok(None);
+        }
+        (head, data) = (n, Some(at + e.raw_file_position()));
+    }
+    let Some((r, body)) = open(data.unwrap_or(0) + offset, false)? else { return Ok(None) };
+    Ok(Some((Box::new(r.take(size - offset)), head + body)))
 }
 
 #[cfg(test)]

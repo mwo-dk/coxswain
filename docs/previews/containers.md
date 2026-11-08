@@ -170,6 +170,11 @@ the image is not counted.
 
 ## Pulling and removing images
 
+- **The search helper's pulls try again by themselves.** The images of Apache Tika and of calibre
+  for e-book search are pulled in the background; one that fails for no network is tried again
+  after 5, 10, 20 and 40 minutes, then every hour, and at once when the network is back. The
+  line in *Settings → Finding files* has **Retry now** and **Details** (the runtime's own error).
+  The other images are pulled when you ask, and a failure stops that job with its error.
 - **The first run pulls the image,** and only after a click (calibre's also when you turn on
   [e-books](ebooks.md) with text search on). The engine button's note says so
   beforehand (*First run pulls docker.io/texlive/texlive:latest (about 2.8 GB)*, or *First run
@@ -226,6 +231,12 @@ day; texts and Settings show the name without the digest.
 - **A new version of Coxswain moves the pins.** Before a release, `tools/images-pin.py` asks
   each registry, anonymously, for the digest its tag has now, and writes the new ones into the
   code; the tests run on them.
+- **The builds older versions pin stay.** Coxswain's own images (`ghcr.io/mwo-dk/coxswain-*`)
+  are rebuilt every week. A build that a newer one replaced is deleted from GHCR once it is 90
+  days old, unless the current code or any release of the last three minor versions pins it
+  (coxswain X.Y.0 and all its patch releases count as one), or it is among the newest five
+  builds. So an older Coxswain can pull what it pins for at least 90 days after that build was made, and for as long as
+  its minor version is one of the last three.
 - **An update takes the new pin.** With *Keep images up to date* on, the next round pulls the
   new pin of each image whose old one Coxswain ran in, and removes the copy of the old one by
   its name. A pull that fails keeps the old copy for the next round. Without it, the next

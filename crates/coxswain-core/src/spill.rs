@@ -110,7 +110,7 @@ fn prune_in(dir: &Path, age: Duration, most: u64) {
 }
 
 /// A preview folder renamed out of the way, then removed.
-fn gone(path: &Path) {
+pub(crate) fn gone(path: &Path) {
     let name = path.file_name().unwrap_or_default().to_string_lossy();
     let aside = path.with_file_name(format!(".gone-{name}-{}", std::process::id()));
     if std::fs::rename(path, &aside).is_ok() {
@@ -298,19 +298,19 @@ fn sweep_staging_in(dir: &Path, wait: Duration) {
 // ponytail: a thread per folder named; a hung one stays blocked until the run ends. Lists name
 // a few folders each (where files were written), so that is a few threads at most.
 fn sweep_list(path: &Path, run: &str, end: std::time::Instant) {
-    let Ok(mut list) = std::fs::OpenOptions::new()
+    let Ok(list) = std::fs::OpenOptions::new()
         .read(true)
         .write(true)
         .open(path)
     else {
         return;
     };
-    if list.try_lock().is_err() {
+    let Ok(mut list) = crate::fs::Held::try_lock(list) else {
         return;
-    }
+    };
     // Read through the handle that holds the lock: Windows refuses any other.
     let mut text = String::new();
-    let _ = list.read_to_string(&mut text);
+    let _ = list.0.read_to_string(&mut text);
     let (done, all_done) = std::sync::mpsc::channel();
     let mut started = 0;
     for folder in text.lines().filter_map(folder_of) {
@@ -392,13 +392,18 @@ pub fn alive(run: &str) -> Option<bool> {
     if run == self::run() {
         return Some(true);
     }
-    let list = staging_dir()?.join(run);
+    held(&staging_dir()?.join(run))
+}
+
+/// Whether another holds the lock of the list at `list`; `None` when there is none. One got is
+/// let go at once, by `Held`, so no program started meanwhile keeps it (#802).
+fn held(list: &Path) -> Option<bool> {
     let f = std::fs::OpenOptions::new()
         .read(true)
         .write(true)
         .open(list)
         .ok()?;
-    Some(f.try_lock().is_err())
+    Some(crate::fs::Held::try_lock(f).is_err())
 }
 
 /// The run a run's folder is named by: `<run>`, `<run>-<n>`, `inside-<run>`,
@@ -562,6 +567,20 @@ mod tests {
     use super::*;
     use std::io::Seek;
 
+    /// A run's list found free is let go at once, also while other threads start programs: no
+    /// ended run is seen alive and no sweep is skipped for it (#802). The count is of probes,
+    /// not of time: before `Held`, about a third saw the list held.
+    #[cfg(unix)]
+    #[test]
+    fn a_free_list_stays_free_while_programs_start() {
+        let d = folder("held");
+        let list = d.join("list");
+        std::fs::write(&list, "").unwrap();
+        let held = crate::fs::while_programs_start(|| (0..2000).filter(|_| held(&list) != Some(false)).count());
+        assert_eq!(held, 0);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
     fn folder(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("coxswain-spill-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
@@ -705,10 +724,12 @@ mod tests {
         std::fs::create_dir(&lists).unwrap();
         // The hung one first, as a list read one after another would be stuck on it.
         std::fs::write(lists.join("4247"), format!("{}\n{}\n", line_of(&hung), line_of(&fine))).unwrap();
-        *HANG.lock().unwrap() = Some((hung.clone(), Duration::from_secs(60)));
+        // Hung for an hour: a sweep held back by it would take that long. The limit only
+        // guards against that, however slow the machine.
+        *HANG.lock().unwrap() = Some((hung.clone(), Duration::from_secs(3600)));
         let t = std::time::Instant::now();
         sweep_staging_in(&lists, Duration::from_secs(5));
-        assert!(t.elapsed() < Duration::from_secs(40), "{:?}", t.elapsed());
+        assert!(t.elapsed() < crate::test_limit(Duration::from_secs(40)), "{:?}", t.elapsed());
         assert!(!fine.join(".a.txt.coxswain-tmp-4247-1").exists());
         assert!(hung.join(".a.txt.coxswain-tmp-4247-1").exists());
         assert!(lists.join("4247").exists(), "kept for the next start");
@@ -716,7 +737,7 @@ mod tests {
         *HANG.lock().unwrap() = None;
         // The first sweep's list thread may still be letting go of the list's lock.
         let t = std::time::Instant::now();
-        while lists.join("4247").exists() && t.elapsed() < Duration::from_secs(30) {
+        while lists.join("4247").exists() && t.elapsed() < crate::test_limit(Duration::from_secs(30)) {
             sweep_staging_in(&lists, SWEEP_WAIT);
             std::thread::sleep(Duration::from_millis(50));
         }

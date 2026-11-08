@@ -4,7 +4,8 @@
 //! (`..`, absolute paths) are refused. Disk images open here too, read-only, when that option
 //! is on: `disk_image` lists them and copies out of them with an installed 7-Zip. So do a
 //! comic (`.cbz`, a zip of pictures) and a mailbox (`.mbox`, read-only: one `.eml` a message),
-//! which search does not look into as archives.
+//! which search does not look into as archives. A cpio, a Debian or RPM package and a cabinet
+//! are read, never written (`archive_ro`).
 
 use serde::Serialize;
 use std::fs::File;
@@ -23,7 +24,7 @@ pub struct ArchiveEntry {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum Kind {
+pub(crate) enum Kind {
     Zip,
     Tar(Pack),
     SevenZ,
@@ -33,6 +34,8 @@ enum Kind {
     Mbox,
     /// A container image, its layers merged (`container_image`): never written.
     Image,
+    /// A cpio, a Debian or RPM package, a cabinet (`archive_ro`): never written.
+    Ro(crate::archive_ro::Format),
 }
 
 /// How a tar is compressed.
@@ -68,6 +71,19 @@ const ENDINGS: &[(&str, Kind)] = &[
     (".nupkg", Kind::Zip),
     (".whl", Kind::Zip),
     (".vsix", Kind::Zip),
+    // Read, never written (`archive_ro`).
+    (".cpio", Kind::Ro(crate::archive_ro::Format::Cpio)),
+    // A cpio packed in gzip (`.cpgz` as macOS names it), bzip2, xz, zstd or lzma.
+    (".cpio.gz", Kind::Ro(crate::archive_ro::Format::CpioPacked)),
+    (".cpgz", Kind::Ro(crate::archive_ro::Format::CpioPacked)),
+    (".cpio.bz2", Kind::Ro(crate::archive_ro::Format::CpioPacked)),
+    (".cpio.xz", Kind::Ro(crate::archive_ro::Format::CpioPacked)),
+    (".cpio.zst", Kind::Ro(crate::archive_ro::Format::CpioPacked)),
+    (".cpio.lzma", Kind::Ro(crate::archive_ro::Format::CpioPacked)),
+    (".deb", Kind::Ro(crate::archive_ro::Format::Deb)),
+    (".udeb", Kind::Ro(crate::archive_ro::Format::Deb)),
+    (".rpm", Kind::Ro(crate::archive_ro::Format::Rpm)),
+    (".cab", Kind::Ro(crate::archive_ro::Format::Cab)),
 ];
 
 /// What opens like a folder but is no archive search looks into: a comic, a mailbox.
@@ -142,10 +158,15 @@ pub(crate) fn opens_inside_as(path: &Path) -> Option<crate::enter::Enter> {
     opens_inside(path).then(|| ending_kind(path).or_else(|| ends_in(path, OPEN_ONLY)).map_or(crate::enter::Enter::DiskImage, enter_of))
 }
 
+/// `path` is a plain tar by its name: inside an archive it may be a container image's.
+pub(crate) fn plain_tar(path: &Path) -> bool {
+    ending_kind(path) == Some(Kind::Tar(Pack::None))
+}
+
 fn enter_of(k: Kind) -> crate::enter::Enter {
     use crate::enter::Enter;
     match k {
-        Kind::Zip | Kind::Tar(_) | Kind::SevenZ => Enter::Archive,
+        Kind::Zip | Kind::Tar(_) | Kind::SevenZ | Kind::Ro(_) => Enter::Archive,
         Kind::Disk => Enter::DiskImage,
         Kind::Mbox => Enter::Mailbox,
         Kind::Image => Enter::Image,
@@ -155,7 +176,7 @@ fn enter_of(k: Kind) -> crate::enter::Enter {
 /// `archive` is opened like a folder read-only: a disk image, a mailbox, a container image, or
 /// an archive split into parts.
 pub fn read_only(archive: &Path) -> bool {
-    matches!(kind(archive), Some(Kind::Disk | Kind::Mbox | Kind::Image)) || in_parts(archive) || split_zip(archive)
+    matches!(kind(archive), Some(Kind::Disk | Kind::Mbox | Kind::Image | Kind::Ro(_))) || in_parts(archive) || split_zip(archive)
 }
 
 /// `name` is the first part of a 7z or zip split into parts by 7-Zip or `split` (`x.7z.001`,
@@ -509,7 +530,7 @@ fn not_archive(path: &Path) -> io::Error {
 }
 
 /// A tar, its compression undone as it is read.
-fn tar_reader(path: &Path, k: Kind) -> io::Result<tar::Archive<Box<dyn Read>>> {
+pub(crate) fn tar_reader(path: &Path, k: Kind) -> io::Result<tar::Archive<Box<dyn Read>>> {
     tar_reader_noting(path, k, None)
 }
 
@@ -743,6 +764,11 @@ pub fn remember(archive: &Path, password: &str) {
     uncache(archive);
 }
 
+/// Whether a password was given for `archive` in this run: one that still fails was wrong.
+pub fn has_password(archive: &Path) -> bool {
+    password_for(archive, None).is_some()
+}
+
 /// Forget the password given for `archive`.
 pub fn forget(archive: &Path) {
     PASSWORDS.lock().unwrap().retain(|(a, _)| a != archive);
@@ -765,7 +791,8 @@ fn password_for(archive: &Path, given: Option<&str>) -> Option<String> {
 /// time: browsing an archive lists it once per folder, and a compressed tar is read in full
 /// each time. A few, so the preview of another archive does not push out the one browsed.
 static LAST: std::sync::Mutex<Vec<Looked>> = std::sync::Mutex::new(Vec::new());
-type Looked = (PathBuf, Stamp, Arc<Items>);
+/// The archive, how it was, its entries, and the token its panels' holds share (`hold`).
+type Looked = (PathBuf, Stamp, Arc<Items>, Arc<()>);
 const LAST_KEPT: usize = 4;
 /// The most the lists kept take together (`Items::bytes`), the newest always kept.
 const LAST_BYTES: usize = if cfg!(test) { 4 << 20 } else { 128 << 20 };
@@ -781,6 +808,9 @@ fn stamp(path: &Path) -> io::Result<Stamp> {
     let mut others = zip_parts(&name, |p| Path::new(p).is_file());
     if in_parts(path) {
         others.extend((2..=999).map(|n| part_name(&name, n)).take_while(|p| Path::new(p).is_file()));
+    }
+    if matches!(ending_kind(path), Some(Kind::Ro(crate::archive_ro::Format::Cab))) {
+        others.extend(crate::archive_cab::other_parts(path).into_iter().map(|p| p.to_string_lossy().into_owned()));
     }
     for p in others {
         let m = std::fs::metadata(p)?;
@@ -1090,6 +1120,8 @@ pub(crate) fn extract_target(path: &Path, dest_dir: &Path) -> PathBuf {
 /// came out so far; the file it was on is removed.
 pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> io::Result<PathBuf> {
     let k = kind(path).ok_or_else(|| not_archive(path))?;
+    // Not known until this archive's total is: never the one before's.
+    crate::stop::expect(0);
     let to = extract_target(path, dest_dir);
     std::fs::create_dir_all(dest_dir)?;
     // Made here, never one that is there (a link to elsewhere included).
@@ -1107,7 +1139,14 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
     // which keeps them inside; its names are read first (from the last look, when it was
     // browsed), since the crate would read a crafted long-name record whole, however large:
     // `TAR_META` at most.
-    let r = if matches!(k, Kind::SevenZ | Kind::Zip | Kind::Disk | Kind::Mbox | Kind::Image) {
+    let r = if matches!(k, Kind::SevenZ | Kind::Zip | Kind::Disk | Kind::Mbox | Kind::Image | Kind::Ro(_)) {
+        // How far, by the bytes its files come out to (a solid 7z's one large file too). A disk
+        // image comes out through 7-Zip, uncounted.
+        if k != Kind::Disk
+            && let Ok(all) = items(path)
+        {
+            crate::stop::expect(all.iter().filter(|it| !it.dir).map(|it| it.size).sum());
+        }
         copy_out_with(
             path,
             "",
@@ -1117,7 +1156,11 @@ pub fn extract_locked(path: &Path, dest_dir: &Path, password: Option<&str>) -> i
         )
         .map(drop)
     } else {
-        items(path).and_then(|_| unpack_tar(tar_reader(path, k)?, &to))
+        // How far, by the packed bytes read of it: its names were read first.
+        items(path).and_then(|_| {
+            crate::stop::expect(std::fs::metadata(path)?.len());
+            unpack_tar(tar_reader(path, k)?, &to)
+        })
     };
     // A mailbox some messages of which could not come out keeps the others; what came out
     // before a Stop stays.
@@ -1280,16 +1323,45 @@ fn nested_cut(archive: &Path, inner: &str, into: bool) -> io::Result<Option<usiz
         .match_indices('/')
         .map(|(i, _)| i)
         .chain(into.then_some(inner.len()))
-        .filter(|&i| i > 0 && opens_inside(Path::new(&inner[..i])))
+        .filter(|&i| i > 0 && (opens_inside(Path::new(&inner[..i])) || layout_folder(&inner[..i]).is_some()))
         .collect();
     if ends.is_empty() {
         return Ok(None);
     }
     // Only now the listing: a path through no archive by name costs nothing.
     let all = items(archive)?;
-    Ok(ends
-        .into_iter()
-        .find(|&i| all.iter().any(|it| !it.dir && it.name == &inner[..i])))
+    Ok(ends.into_iter().find(|&i| {
+        let name = &inner[..i];
+        all.iter().any(|it| !it.dir && it.name == name) && (opens_inside(Path::new(name)) || layout_in(&all, name))
+    }))
+}
+
+/// The folder (`/`-separated, "" for the top) whose `index.json` `name` is, when it is one.
+fn layout_folder(name: &str) -> Option<&str> {
+    let dir = name.strip_suffix("index.json")?;
+    match dir.strip_suffix('/') {
+        Some(d) => Some(d),
+        None => dir.is_empty().then_some(""),
+    }
+}
+
+/// `name` in the archive listed as `all` is an OCI layout's `index.json`: an `oci-layout`
+/// file lies beside it. It opens as the image, from a copy of its folder.
+fn layout_in(all: &Items, name: &str) -> bool {
+    let Some(dir) = layout_folder(name) else { return false };
+    let marker = if dir.is_empty() { "oci-layout".to_string() } else { format!("{dir}/oci-layout") };
+    all.iter().any(|it| !it.dir && it.name == marker)
+}
+
+/// The file at `path` (a path through an archive) is an OCI layout's `index.json`: what Enter
+/// opens as the image there, as on the disk. Read from the listing, nothing unpacked.
+pub(crate) fn layout_inside(path: &Path) -> bool {
+    if path.file_name().is_none_or(|n| n != "index.json") {
+        return false;
+    }
+    let Some((archive, inner)) = split(path) else { return false };
+    let Ok((at, rest, _held)) = resolve(&archive, &inner, false) else { return false };
+    items(&at).is_ok_and(|all| layout_in(&all, &rest))
 }
 
 /// The archive file `inner` of `archive` is in, and its path inside that one: `archive` itself,
@@ -1391,17 +1463,24 @@ fn spilled(archive: &Path, name: &str) -> io::Result<Held> {
     made
 }
 
+/// `name`, and the other parts of the archive split into parts it opens from, as long as
+/// `exists` says each is there: a 7z's or zip's later ones (`x.7z.002` …), a zip's earlier
+/// ones (`x.z01` …). Just `name` for an archive in one piece.
+fn parts_of(name: &str, exists: impl Fn(&str) -> bool) -> Vec<String> {
+    let mut names = vec![name.to_string()];
+    if in_parts(Path::new(name)) {
+        names.extend((2..=999).map(|n| part_name(name, n)).take_while(|n| exists(n)));
+    }
+    names.extend(zip_parts(name, exists));
+    names
+}
+
 /// `spilled`'s copy, made: what the archive claims is looked at first.
 fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<Held> {
     let all = items(archive)?;
     let size_of = |n: &str| all.iter().find(|it| it.name == n && !it.dir).map(|it| it.size);
-    // A 7z split into parts is copied with all its parts there, next to each other.
-    let mut names = vec![name.to_string()];
-    if in_parts(Path::new(name)) {
-        names.extend((2..=999).map(|n| part_name(name, n)).take_while(|n| size_of(n).is_some()));
-    }
-    // A zip split into parts: its earlier parts (`x.z01` …) beside it too.
-    names.extend(zip_parts(name, |n| size_of(n).is_some()));
+    // An archive split into parts is copied with all its parts there, next to each other.
+    let names = parts_of(name, |n| size_of(n).is_some());
     // A zip or 7z (all its parts) stored as it is in a zip or a plain tar: read in place,
     // however large, never copied.
     let places = if matches!(ending_kind(Path::new(name)), Some(Kind::Zip | Kind::SevenZ)) {
@@ -1435,6 +1514,33 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<Held> {
         kept.push(Spilled { outer: archive.to_path_buf(), id, name: name.to_string(), copy: marker.clone(), size: 0 });
         held.push(marker.clone());
         return Ok(Held(vec![marker]));
+    }
+    // An OCI layout's `index.json`: its whole folder is copied, and the copy's `index.json`
+    // opens as the image.
+    if let Some(folder) = layout_folder(name).filter(|_| layout_in(&all, name)) {
+        let prefix = if folder.is_empty() { String::new() } else { format!("{folder}/") };
+        let claimed: u64 = all.iter().filter(|it| !it.dir && it.name.starts_with(&prefix)).map(|it| it.size).sum();
+        // Too large: the folder is what to copy out, not its index.json.
+        let shown = if folder.is_empty() { name } else { folder };
+        if claimed > NESTED_MAX {
+            return Err(too_large(shown));
+        }
+        let dir = run_folder("nested", false)?.join(NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed).to_string());
+        let _ = std::fs::remove_dir_all(&dir);
+        crate::fs::private_dir(&dir)?;
+        let base = dir.join(folder.rsplit('/').next().filter(|n| !n.is_empty()).unwrap_or("layout"));
+        // The whole archive (a layout at its top): into a folder made here, as a disk image's
+        // top expects one.
+        if folder.is_empty() {
+            crate::fs::private_dir(&base)?;
+        }
+        let how = Copy { limit: NESTED_MAX, ..Copy::default() };
+        if let Err(e) = copy_out_with(archive, folder, &base, password_for(archive, None).as_deref(), how) {
+            let _ = std::fs::remove_dir_all(&dir);
+            return Err(e);
+        }
+        let size = crate::fs::dir_size(&base).0;
+        return Ok(keep_spilled(archive, id, name, base.join("index.json"), size));
     }
     let claimed: u64 = names.iter().map(|n| size_of(n).unwrap_or(0)).sum();
     if claimed > NESTED_MAX {
@@ -1472,6 +1578,11 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<Held> {
             return Err(e);
         }
     };
+    Ok(keep_spilled(archive, id, name, copy, size))
+}
+
+/// The copy `copy` (of `size` bytes) of `name` inside `archive`, kept in `NESTED` and held.
+fn keep_spilled(archive: &Path, id: Identity, name: &str, copy: PathBuf, size: u64) -> Held {
     let mut kept = NESTED.lock().unwrap_or_else(|e| e.into_inner());
     let mut held = HELD.lock().unwrap_or_else(|e| e.into_inner());
     // The oldest not in use go; while all are, there are more for a while.
@@ -1487,7 +1598,7 @@ fn spill(archive: &Path, name: &str, id: Identity) -> io::Result<Held> {
         size,
     });
     held.push(copy.clone());
-    Ok(Held(vec![copy]))
+    Held(vec![copy])
 }
 
 /// Where the file `name` inside `archive` is stored as it is: the file its bytes are in, and
@@ -1532,6 +1643,10 @@ fn evict(kept: &mut Vec<Spilled>, i: usize) {
     forget(&gone.copy);
     if let Some(d) = gone.copy.parent() {
         let _ = std::fs::remove_dir_all(d);
+        // A layout's copy is a folder in the copy's own numbered folder: that goes too.
+        if layout_folder(&gone.name).is_some() && !opens_inside(Path::new(&gone.name)) {
+            let _ = d.parent().map(std::fs::remove_dir);
+        }
     }
     while let Some(j) = kept.iter().position(|k| k.outer == gone.copy) {
         evict(kept, j);
@@ -1578,6 +1693,8 @@ struct Item {
     dir: bool,
     modified: u64,
     locked: bool,
+    /// A link, shown as what it leads to: not counted again in its folder's size.
+    link: bool,
 }
 
 /// An archive's entries as they are kept: their names one after another in one string, the
@@ -1598,6 +1715,7 @@ struct Row {
     modified: u64,
     dir: bool,
     locked: bool,
+    link: bool,
 }
 
 /// An entry of `Items` as it is read: its name borrowed from them.
@@ -1608,6 +1726,7 @@ struct ItemRef<'a> {
     dir: bool,
     modified: u64,
     locked: bool,
+    link: bool,
 }
 
 impl ItemRef<'_> {
@@ -1618,6 +1737,7 @@ impl ItemRef<'_> {
             dir: self.dir,
             modified: self.modified,
             locked: self.locked,
+            link: self.link,
         }
     }
 }
@@ -1635,6 +1755,7 @@ impl Items {
             modified: it.modified,
             dir: it.dir,
             locked: it.locked,
+            link: it.link,
         });
     }
 
@@ -1653,6 +1774,7 @@ impl Items {
                 dir: r.dir,
                 modified: r.modified,
                 locked: r.locked,
+                link: r.link,
             }
         })
     }
@@ -1696,8 +1818,8 @@ fn cached(archive: &Path, stamp: Stamp) -> Option<Arc<Items>> {
     LAST.lock()
         .unwrap()
         .iter()
-        .find(|(p, s, _)| p == archive && *s == stamp)
-        .map(|(.., items)| items.clone())
+        .find(|(p, s, ..)| p == archive && *s == stamp)
+        .map(|(_, _, items, _)| items.clone())
 }
 
 /// Keep all the entries of `archive`, read when it was as `stamp` says, for the next look.
@@ -1710,11 +1832,43 @@ fn keep_items(archive: &Path, stamp: Stamp, items: Arc<Items>) {
 /// `keep_items` into `last`.
 fn kept_with(last: &mut Vec<Looked>, archive: &Path, stamp: Stamp, items: Arc<Items>) {
     last.retain(|(p, ..)| p != archive);
-    let mut bytes: usize = last.iter().map(|(.., i)| i.bytes()).sum::<usize>() + items.bytes();
+    let mut bytes: usize = last.iter().map(|(_, _, i, _)| i.bytes()).sum::<usize>() + items.bytes();
     while !last.is_empty() && (last.len() >= LAST_KEPT || bytes > LAST_BYTES) {
         bytes -= last.remove(0).2.bytes();
     }
-    last.push((archive.to_path_buf(), stamp, items));
+    last.push((archive.to_path_buf(), stamp, items, Arc::new(())));
+}
+
+/// A list kept past this many bytes is kept only while a panel shows a folder of its archive
+/// (`hold`): a list of millions is not kept beside the panel's own once the panel has left.
+const HELD_ONLY: usize = LAST_BYTES / LAST_KEPT;
+
+/// A panel's hold on the list kept of the archive it shows a folder of (`hold`). When the last
+/// hold on a list larger than `HELD_ONLY` goes, the list goes too, whoever still reads it
+/// meanwhile (a preview, a search: they keep their own `Arc<Items>` until done).
+pub struct Hold(Option<Arc<()>>);
+
+/// The hold on the kept list of the archive `dir` is inside of, when one is kept. Looks at no
+/// disk: `dir` is matched against the archives kept. shortcut: an archive inside an archive is
+/// kept by its copy's path and so not held (kept as before, by `kept_with`'s limits alone);
+/// hold it through `NESTED` if lists of millions inside archives inside archives matter.
+pub fn hold(dir: &Path) -> Option<Hold> {
+    let last = LAST.lock().unwrap_or_else(|e| e.into_inner());
+    last.iter().rev().find(|(p, ..)| dir.starts_with(p)).map(|(.., token)| Hold(Some(token.clone())))
+}
+
+impl Drop for Hold {
+    fn drop(&mut self) {
+        if let Some(mine) = self.0.take() {
+            let_go(&mut LAST.lock().unwrap_or_else(|e| e.into_inner()), mine);
+        }
+    }
+}
+
+/// `mine`, a hold's token, let go of: its list out of `last` too when it is large and no other
+/// hold has its token (only `last` and `mine` do: every hold is made under `last`'s lock).
+fn let_go(last: &mut Vec<Looked>, mine: Arc<()>) {
+    last.retain(|(_, _, i, t)| !(Arc::ptr_eq(t, &mine) && Arc::strong_count(t) == 2 && i.bytes() > HELD_ONLY));
 }
 
 fn read_items(archive: &Path) -> io::Result<Items> {
@@ -1746,6 +1900,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: e.dir,
                 modified: if e.modified == 0 { own } else { e.modified },
                 locked: false,
+                link: false,
             })
             .collect());
     }
@@ -1760,6 +1915,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: n.dir,
                 modified: n.modified,
                 locked: false,
+                link: n.linked,
             })
             .collect());
     }
@@ -1776,8 +1932,23 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: false,
                 modified: m.secs.max(0) as u64,
                 locked: false,
+                link: false,
             })
             .collect());
+    }
+    if let Kind::Ro(format) = k {
+        crate::archive_ro::each(open_raw(archive)?, archive, format, &|_| false, &mut |e, _| {
+            out.push(Item {
+                name: e.name.clone(),
+                size: e.size,
+                dir: e.dir,
+                modified: e.modified,
+                locked: false,
+                link: false,
+            });
+            Ok(out.seen < max)
+        })?;
+        return Ok(out);
     }
     if k == Kind::Zip {
         // Its directory gone through an entry at a time, never built whole (`zip_dir`).
@@ -1789,6 +1960,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: c.dir(),
                 modified: c.modified().map_or(0, unix),
                 locked: c.encrypted(),
+                link: false,
             });
             walked.seen < max
         }) {
@@ -1810,6 +1982,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: e.is_dir(),
                 modified: e.last_modified().map_or(0, unix),
                 locked: e.encrypted(),
+                link: false,
             });
         }
         return Ok(out);
@@ -1828,6 +2001,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                     dir: e.dir,
                     modified: e.modified,
                     locked: locked && e.has_stream(),
+                    link: false,
                 })
                 .collect());
         }
@@ -1842,6 +2016,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: f.is_directory,
                 modified,
                 locked: locked && f.has_stream,
+                link: false,
             });
         }
         return Ok(out);
@@ -1853,6 +2028,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
             dir: h.entry_type().is_dir(),
             modified: h.mtime().unwrap_or(0),
             locked: false,
+            link: false,
         });
         Ok(out.seen < max)
     };
@@ -1871,6 +2047,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 dir: l.dir,
                 modified: l.modified,
                 locked: false,
+                link: false,
             });
         }
     } else {
@@ -1912,11 +2089,12 @@ pub(crate) const SEARCH_ENTRIES: usize = 50_000;
 /// own name only, until they were opened once.
 pub(crate) const SEARCH_UNPACK: u64 = 256 << 20;
 /// The most a 7z's list of contents unpacks to for search to look into it: what it reads stays
-/// small in memory. A 7z split into parts is found by its own name only.
+/// small in memory. A 7z split into parts on the disk is found by its own name only; one inside
+/// an archive (`depth` over 0) is looked into with all its parts (`copied_for_search`).
 const SEARCH_SEVEN_HEADER: u64 = 16 << 20;
 
-fn search_skips_seven(archive: &Path) -> bool {
-    in_parts(archive)
+fn search_skips_seven(archive: &Path, depth: usize) -> bool {
+    (in_parts(archive) && depth == 0)
         || Joined::open(archive)
             .and_then(|mut f| seven_header_size(&mut f))
             .map_or(true, |h| h > SEARCH_SEVEN_HEADER)
@@ -1927,7 +2105,7 @@ pub(crate) const SEARCH_READ: u64 = 128 << 20;
 /// Whether getting at `archive`'s entries means unpacking all before them.
 fn streamed(archive: &Path) -> bool {
     matches!(kind(archive), Some(Kind::Tar(p)) if p != Pack::None)
-        || kind(archive) == Some(Kind::SevenZ)
+        || matches!(kind(archive), Some(Kind::SevenZ | Kind::Ro(crate::archive_ro::Format::CpioPacked | crate::archive_ro::Format::Rpm | crate::archive_ro::Format::Cab)))
 }
 
 /// A name inside an archive that can be a path through it: no `..`, nothing empty, and no
@@ -1960,10 +2138,10 @@ pub(crate) fn search_entries(archive: &Path, size: u64) -> Option<Vec<ArchiveEnt
 /// How deep search looks into archives inside archives, the outer one not counted.
 const SEARCH_DEPTH: usize = 3;
 
-/// Whether an entry named `name` is an archive search looks into when it is inside another.
+/// Whether an entry named `name` is an archive search looks into when it is inside another: the
+/// first part of one split into parts too, with its other parts (`parts_of`).
 fn nests(name: &str) -> bool {
-    let p = Path::new(name);
-    ending_kind(p).is_some() && !in_parts(p)
+    ending_kind(Path::new(name)).is_some()
 }
 
 /// `search_entries` of an archive `depth` archives deep. The archives inside it, up to
@@ -1975,7 +2153,11 @@ fn entries_at(archive: &Path, size: u64, depth: usize) -> Option<Vec<ArchiveEntr
     if crate::cloud::keep_out(archive) || waits_to_be_opened(archive, size) {
         return None;
     }
-    if k == Kind::SevenZ && search_skips_seven(archive) {
+    if k == Kind::SevenZ && search_skips_seven(archive, depth) {
+        return None;
+    }
+    // An RPM is unpacked whole to be listed: a large one is found by its own name.
+    if matches!(k, Kind::Ro(_)) && streamed(archive) && size > SEARCH_UNPACK {
         return None;
     }
     // Never a password given in this run: what search knows is what anyone sees.
@@ -1999,9 +2181,11 @@ fn entries_at(archive: &Path, size: u64, depth: usize) -> Option<Vec<ArchiveEntr
         let mut more = vec![];
         let room = SEARCH_ENTRIES - out.len().min(SEARCH_ENTRIES);
         let sizes: std::collections::HashMap<String, u64> = out.iter().filter(|e| inner.contains(&e.name)).map(|e| (e.name.clone(), e.size)).collect();
+        let all: std::collections::HashSet<&str> = out.iter().filter(|e| !e.is_dir).map(|e| e.name.as_str()).collect();
         let _ = search_read_at(archive, size, depth, &|n, _| inner.contains(n), &|_| false, &mut |names, from| {
             let name = names[0];
-            let _ = copied_for_search(archive, name, sizes.get(name).copied().unwrap_or(u64::MAX), from, &mut |copy, len| {
+            let parts = parts_of(name, |n| all.contains(n));
+            let _ = copied_for_search(archive, &parts, sizes.get(name).copied().unwrap_or(u64::MAX), from, &mut |copy, len| {
                 for e in entries_at(copy, len, depth + 1).unwrap_or_default() {
                     more.push(ArchiveEntry { name: format!("{name}/{}", e.name), ..e });
                 }
@@ -2014,16 +2198,28 @@ fn entries_at(archive: &Path, size: u64, depth: usize) -> Option<Vec<ArchiveEntr
     Some(out)
 }
 
-/// `name` (`size` bytes), an archive inside `archive`, for `f` to look into with its size: read
-/// in place when it is stored there as it is (`in_place`), whatever its size; else `from` is
-/// copied into a folder of its own in this run's own folder of the cache, no more than
-/// `SEARCH_UNPACK` bytes, and the copy goes after. `false` when it could not be looked into.
+/// `parts[0]` (`size` bytes), an archive inside `archive`, for `f` to look into with its size:
+/// read in place when it is stored there as it is (`in_place`), whatever its size; else `from`
+/// is copied into a folder of its own in this run's own folder of the cache, no more than
+/// `SEARCH_UNPACK` bytes, and the copy goes after. An archive split into parts (`parts_of`) is
+/// read with all its parts beside it, each in place or copied out (no more than `SEARCH_UNPACK`
+/// bytes for all), `from` not read. `false` when it could not be looked into.
 // ponytail: a packed archive inside one is copied to be looked into, even a tar that could be
 // read as it streams by; read tars in place if the copies show.
-fn copied_for_search(archive: &Path, name: &str, size: u64, from: &mut dyn Read, f: &mut dyn FnMut(&Path, u64)) -> bool {
+fn copied_for_search(archive: &Path, parts: &[String], size: u64, from: &mut dyn Read, f: &mut dyn FnMut(&Path, u64)) -> bool {
     static N: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-    let place = in_place(archive, name).ok().flatten().filter(|_| matches!(ending_kind(Path::new(name)), Some(Kind::Zip | Kind::SevenZ)));
-    if place.is_none() && size > SEARCH_UNPACK {
+    let name = parts[0].as_str();
+    // A first part without the others here (a set split across archives) cannot be read.
+    if in_parts(Path::new(name)) && parts.len() == 1 {
+        return false;
+    }
+    let zipped = matches!(ending_kind(Path::new(name)), Some(Kind::Zip | Kind::SevenZ));
+    let places: Option<Vec<_>> = if zipped {
+        parts.iter().map(|n| in_place(archive, n).ok().flatten()).collect()
+    } else {
+        None
+    };
+    if places.is_none() && parts.len() == 1 && size > SEARCH_UNPACK {
         return false;
     }
     let Ok(base) = run_folder("search-nested", false) else { return false };
@@ -2032,17 +2228,38 @@ fn copied_for_search(archive: &Path, name: &str, size: u64, from: &mut dyn Read,
     if crate::fs::private_dir(&dir).is_err() {
         return false;
     }
-    let copy = dir.join(name.rsplit('/').next().unwrap_or("archive"));
-    let ok = match place {
-        // Its name only, empty: its bytes are read where they are.
-        Some((file, start, len)) => {
-            let made = File::create_new(&copy).is_ok();
+    let copy_of = |n: &str| dir.join(n.rsplit('/').next().unwrap_or("archive"));
+    let copy = copy_of(name);
+    let ok = match places {
+        // Their names only, empty: their bytes are read where they are.
+        Some(places) => {
+            let markers: Vec<PathBuf> = parts.iter().map(|n| copy_of(n)).collect();
+            let made = markers.iter().all(|m| File::create_new(m).is_ok());
             if made {
-                WINDOWS.lock().unwrap_or_else(|e| e.into_inner()).push(Window { marker: copy.clone(), file, start, len });
+                let len = places.iter().map(|p| p.2).sum();
+                WINDOWS.lock().unwrap_or_else(|e| e.into_inner()).extend(
+                    markers.iter().zip(places).map(|(m, (file, start, len))| Window { marker: m.clone(), file, start, len }),
+                );
                 f(&copy, len);
-                WINDOWS.lock().unwrap_or_else(|e| e.into_inner()).retain(|w| w.marker != copy);
+                WINDOWS.lock().unwrap_or_else(|e| e.into_inner()).retain(|w| !markers.contains(&w.marker));
             }
             made
+        }
+        // Each part copied out of the archive, all of them within the limit; never out of a
+        // compressed tar or a 7z, which would be unpacked from its start again for each part.
+        None if parts.len() > 1 && streamed(archive) => false,
+        None if parts.len() > 1 => {
+            let mut left = SEARCH_UNPACK;
+            let made = parts.iter().try_for_each(|n| {
+                let to = copy_of(n);
+                copy_out_with(archive, n, &to, None, Copy { limit: left, ..Copy::default() })?;
+                left = left.saturating_sub(std::fs::metadata(&to)?.len());
+                Ok::<_, io::Error>(())
+            });
+            if made.is_ok() {
+                f(&copy, SEARCH_UNPACK - left);
+            }
+            made.is_ok()
         }
         None => {
             let made = File::create_new(&copy).and_then(|mut to| io::copy(&mut from.take(SEARCH_UNPACK + 1), &mut to));
@@ -2107,13 +2324,22 @@ fn search_read_at(
 ) -> io::Result<()> {
     // An archive inside picked: read in place or through a copy, its files named through it.
     let looked = |name: &str, _: u64| depth < SEARCH_DEPTH && nests(name) && inside(name);
+    // The archive's names, once, for the parts of an archive split into parts inside it.
+    let listed: std::cell::OnceCell<std::collections::HashSet<String>> = std::cell::OnceCell::new();
     let mut read = |names: &[&str], from: &mut dyn Read| -> bool {
         let name = names[0];
         if !(depth < SEARCH_DEPTH && nests(name) && inside(name)) {
             return read(names, from);
         }
         let mut go = true;
-        copied_for_search(archive, name, 0, from, &mut |copy, len| {
+        // Its other parts, when it is split into parts: by the archive's list, read only then.
+        let parts = if in_parts(Path::new(name)) || name.to_ascii_lowercase().ends_with(".zip") {
+            let all = listed.get_or_init(|| items(archive).map(|all| all.iter().filter(|it| !it.dir).map(|it| it.name.to_string()).collect()).unwrap_or_default());
+            parts_of(name, |n| all.contains(n))
+        } else {
+            vec![name.to_string()]
+        };
+        copied_for_search(archive, &parts, 0, from, &mut |copy, len| {
             let _ = search_read_at(
                 copy,
                 len,
@@ -2194,7 +2420,7 @@ fn search_read_at(
             }
         }
         Kind::SevenZ => {
-            if search_skips_seven(archive) {
+            if search_skips_seven(archive, depth) {
                 return Ok(());
             }
             let mut r = seven(archive, None)?;
@@ -2218,6 +2444,14 @@ fn search_read_at(
             .map_err(seven_error)?;
         }
         Kind::Disk | Kind::Mbox | Kind::Image => {}
+        Kind::Ro(format) => {
+            let mut seen = 0;
+            let pick = |e: &crate::archive_ro::Entry| e.file && sound(&e.name) && wanted(&e.name, e.size);
+            crate::archive_ro::each(open_raw(archive)?, archive, format, &pick, &mut |e, from| {
+                seen += 1;
+                Ok(seen <= SEARCH_ENTRIES && !(pick(e) && !read(&[&e.name], from)))
+            })?;
+        }
         Kind::Tar(_) => {
             let mut seen = 0;
             tar_named(tar_reader(archive, k)?.entries()?, |name, _, e| {
@@ -2277,12 +2511,19 @@ pub fn list_in(archive: &Path, inner: &str) -> io::Result<Vec<crate::fs::Entry>>
 /// `list_in`, and whether anything in that folder or below it is locked. A folder's size is
 /// that of the files in it.
 pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>, bool)> {
+    listing_at(archive, inner, None)
+}
+
+/// `listing`; with `lean`, the folder as the panel names it, each entry's path is left out
+/// (`fs::list_lean`) where it is that folder joined with the name.
+pub(crate) fn listing_at(archive: &Path, inner: &str, lean: Option<&Path>) -> io::Result<(Vec<crate::fs::Entry>, bool)> {
     let (real, inside, _held) = resolve(archive, inner, true)?;
     // Part by part, so the paths have the system's separator throughout, as the search's do.
     let at = inner
         .split('/')
         .filter(|p| !p.is_empty())
         .fold(archive.to_path_buf(), |p, part| p.join(part));
+    let lean = lean == Some(at.as_path());
     let prefix = if inside.is_empty() {
         String::new()
     } else {
@@ -2318,7 +2559,7 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
         };
         let i = *seen.entry(first).or_insert_with(|| {
             out.push(crate::fs::Entry {
-                path: at.join(first),
+                path: if lean { PathBuf::new() } else { at.join(first) },
                 hidden: first.starts_with('.'),
                 name: first.to_string(),
                 is_dir: deeper,
@@ -2336,7 +2577,10 @@ pub fn listing(archive: &Path, inner: &str) -> io::Result<(Vec<crate::fs::Entry>
         let e = &mut out[i];
         if deeper {
             e.is_dir = true;
-            e.size += it.size;
+            // A link shows as its target, which is counted where it is.
+            if !it.link {
+                e.size += it.size;
+            }
         } else if it.dir {
             e.modified = it.modified;
         } else {
@@ -2445,9 +2689,50 @@ pub(crate) fn too_large(name: &str) -> io::Error {
 /// it goes, and copies left by earlier runs go after a day. A locked file needs its password
 /// remembered: `LOCKED` without it.
 pub fn peek(path: &Path) -> io::Result<PathBuf> {
+    let copy = peek_copy(path)?;
+    let mut from = PEEKED_FROM.lock().unwrap_or_else(|e| e.into_inner());
+    from.retain(|(c, _)| *c != copy);
+    from.push((copy.clone(), path.to_path_buf()));
+    // The last few are enough: a view keeps its copy only until the next previews.
+    if from.len() > 32 {
+        from.remove(0);
+    }
+    Ok(copy)
+}
+
+/// Each copy `peek` made, and the path through the archive it came from.
+static PEEKED_FROM: std::sync::Mutex<Vec<(PathBuf, PathBuf)>> = std::sync::Mutex::new(Vec::new());
+
+/// The path through an archive that `copy` (made by `peek`) came from.
+pub fn peeked_from(copy: &Path) -> Option<PathBuf> {
+    let from = PEEKED_FROM.lock().unwrap_or_else(|e| e.into_inner());
+    from.iter().find(|(c, _)| c == copy).map(|(_, p)| p.clone())
+}
+
+/// A new file with `text` in the folder `folder` ("" for the top) of `archive`, under the first
+/// of `name(1)`, `name(2)` … that is free there: never over a file. The name it got.
+pub fn add_text(archive: &Path, folder: &str, name: &dyn Fn(u32) -> String, text: &str) -> io::Result<String> {
+    let have: std::collections::HashSet<String> = items(archive)?.iter().map(|it| it.name.to_string()).collect();
+    let at = |n: &str| if folder.is_empty() { n.to_string() } else { format!("{folder}/{n}") };
+    let n = (1..10_000).find(|&n| !have.contains(&at(&name(n)))).ok_or_else(|| io::Error::other("no free name"))?;
+    let (short, full) = (name(n), at(&name(n)));
+    if !one_name(&short) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, short));
+    }
+    let tmp = run_folder("save-pgn", false)?.join(&short);
+    std::fs::write(&tmp, text)?;
+    let done = add(archive, &[(full, tmp.clone())], password_for(archive, None).as_deref());
+    let _ = std::fs::remove_file(&tmp);
+    done.map(|()| short)
+}
+
+fn peek_copy(path: &Path) -> io::Result<PathBuf> {
     let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty()).ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.not_in_archive"))
     })?;
+    // Where it comes from: the path through the archive on the disk, as that archive is now (a
+    // copy of an archive inside it made again has another path, the same file).
+    let origin = (path.to_path_buf(), identity(&archive)?);
     let (archive, inner, _held) = resolve(&archive, &inner, false)?;
     let it = items(&archive)?
         .iter()
@@ -2483,9 +2768,11 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     }
     // One at a time: each starts in a fresh folder, which would take away the copy of one
     // still being looked at, and peeks piling up while the cursor moves each unpack.
-    static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
-    let folder = peek_folder()?;
+    let _one = PEEK_ONE.lock().unwrap_or_else(|e| e.into_inner());
+    // A folder for each file of each archive as it is now: what is kept by a copy's path, size
+    // and date (a ChessBase archive unpacked, a listing, a preview) is never taken for another
+    // archive's file of the same name, size and date.
+    let folder = peek_folder_of((&origin, it.size, it.modified))?;
     let to = folder.join(inner.rsplit('/').next().filter(|n| one_name(n)).unwrap_or("file"));
     // What comes out is counted too: a size the archive claims may be a lie.
     copy_out_with(
@@ -2555,6 +2842,124 @@ pub fn peek(path: &Path) -> io::Result<PathBuf> {
     Ok(to)
 }
 
+/// The file `path` inside an archive, found: the archive and the name inside it (as `resolve`
+/// makes them, with what holds a nested archive's copy) and its listing.
+fn entry_of(path: &Path) -> io::Result<(PathBuf, String, Item, Held)> {
+    let (archive, inner) = split(path).filter(|(_, i)| !i.is_empty()).ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.not_in_archive"))
+    })?;
+    let (archive, inner, held) = resolve(&archive, &inner, false)?;
+    let it = items(&archive)?.iter().find(|it| it.name == inner).map(ItemRef::owned).ok_or_else(|| {
+        io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_the_archive", "name" => inner))
+    })?;
+    if it.dir {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.is_folder", "name" => inner)));
+    }
+    Ok((archive, inner, it, held))
+}
+
+/// The size of the file `path` inside an archive, as the archive lists it.
+pub fn entry_size(path: &Path) -> io::Result<u64> {
+    entry_of(path).map(|(_, _, it, _)| it.size)
+}
+
+/// The first `max` bytes of the file `path` inside an archive, read as it is unpacked with
+/// nothing written to the disk (an archive inside it read in place, or through its copy as
+/// browsing does), and whether it has more: the preview's and the viewer's text and pictures.
+/// A locked one wants its password (`LOCKED`) unless it was given in this run.
+pub fn head(path: &Path, max: u64) -> io::Result<(Vec<u8>, bool)> {
+    let (archive, inner, it, _held) = entry_of(path)?;
+    // 7-Zip reads a disk image's file whole: a part of it is no head, so the caller copies it.
+    if kind(&archive) == Some(Kind::Disk) && it.size > max {
+        return Err(too_large(&inner));
+    }
+    // A locked zip entry is read to its end all the same, up to `PEEK_MAX`: ZipCrypto's check
+    // byte lets one wrong password in 256 through, and only the checksum at the end tells.
+    let got = std::cell::RefCell::new((Vec::new(), false));
+    let keep = |from: &mut dyn Read| -> io::Result<()> {
+        let (bytes, more) = &mut *got.borrow_mut();
+        bytes.clear();
+        let n = crate::stop::Reader(from.take(max.saturating_add(1))).read_to_end(bytes)?;
+        *more = n as u64 > max;
+        bytes.truncate(max as usize);
+        Ok(())
+    };
+    // Nothing lands anywhere: the sink keeps the bytes, so the path is never made.
+    let nowhere = Path::new("");
+    copy_out_with(&archive, &inner, nowhere, password_for(&archive, None).as_deref(), Copy { limit: max, head: Some(&keep), ..Copy::default() })?;
+    Ok(got.into_inner())
+}
+
+/// Whether `stream` reads the file `path` inside an archive: not a locked one, nor one in a
+/// disk image.
+pub fn streamable(path: &Path) -> bool {
+    entry_of(path).is_ok_and(|(archive, _, it, _)| !it.locked && kind(&archive) != Some(Kind::Disk))
+}
+
+/// `f` given the file `path` inside an archive as a reader, its bytes as they are unpacked and
+/// never written anywhere (a viewer that pages through a long entry: `logs`, the games). When
+/// `f` fails or stops reading early, so does the unpacking. A locked file is refused (its
+/// password is only proved by the checksum at the end, so a copy is read instead), and so is
+/// one in a disk image (7-Zip reads those whole).
+pub fn stream<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>) -> io::Result<T> {
+    stream_in(path, f, false)
+}
+
+/// Whether `stream_in` with `known` reads the file `path`: `streamable`, or a locked file of a 7z
+/// (without the password it fails with `LOCKED`, which the apps ask the password for).
+pub fn streamable_known(path: &Path) -> bool {
+    entry_of(path).is_ok_and(|(archive, _, it, _)| {
+        kind(&archive) != Some(Kind::Disk) && (!it.locked || kind(&archive) == Some(Kind::SevenZ))
+    })
+}
+
+/// `stream`, also for a locked file of a 7z whose password was given in this run when `known`.
+/// The password is only proved by the checksum at the end, so `f` must read to the end and treat
+/// a failure as no data (the games table does: a table that failed is never kept).
+pub fn stream_in<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>, known: bool) -> io::Result<T> {
+    let (archive, inner, it, _held) = entry_of(path)?;
+    let seven = known && kind(&archive) == Some(Kind::SevenZ);
+    if it.locked && seven && password_for(&archive, None).is_none() {
+        return Err(locked());
+    }
+    if (it.locked && !seven) || kind(&archive) == Some(Kind::Disk) {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, inner));
+    }
+    let (f, out) = (std::cell::RefCell::new(Some(f)), std::cell::RefCell::new(None));
+    let sink = |from: &mut dyn Read| -> io::Result<()> {
+        let f = f.borrow_mut().take().ok_or_else(|| io::Error::other("read twice"))?;
+        *out.borrow_mut() = Some(f(from)?);
+        Ok(())
+    };
+    copy_out_with(&archive, &inner, Path::new(""), password_for(&archive, None).as_deref(), Copy { head: Some(&sink), unchecked: known, ..Copy::default() })?;
+    out.into_inner().ok_or_else(|| io::Error::other("nothing read"))
+}
+
+/// `stream`, with the reader at byte `offset` of the file, and `f` told how many bytes were
+/// unpacked to get there. A tar is read from a kept place before `offset` (`tar_index::entry_from`)
+/// where there is one; any other archive unpacks the entry from its start up to `offset`
+/// (zip's deflate, 7-Zip's LZMA and the like keep no decoder state to restart from). `known`: as
+/// for `stream_in`.
+pub fn stream_at<T>(path: &Path, offset: u64, f: impl FnOnce(&mut dyn Read, u64) -> io::Result<T>, known: bool) -> io::Result<T> {
+    if offset > 0 {
+        let (archive, inner, it, _held) = entry_of(path)?;
+        if !it.locked
+            && let Some(Kind::Tar(pack)) = kind(&archive)
+            && let Some((mut r, unpacked)) = crate::tar_index::entry_from(&archive, pack, &inner, offset)?
+        {
+            return f(&mut r, unpacked);
+        }
+    }
+    stream_in(
+        path,
+        |r| {
+            let skipped = io::copy(&mut r.take(offset), &mut io::sink())?;
+            f(r, skipped)
+        },
+        known,
+    )
+}
+
 /// A name that is one file's in a folder: no `/` or `..`, and on Windows no `\\`, `:` (a drive
 /// or a stream) or device name, which are only characters elsewhere.
 fn one_name(n: &str) -> bool {
@@ -2564,6 +2969,33 @@ fn one_name(n: &str) -> bool {
             Path::new(n).components().collect::<Vec<_>>()[..],
             [std::path::Component::Normal(_)]
         )
+}
+
+/// A fresh folder of its own in `peek_folder` for what comes from `origin`: what is kept by a
+/// copy's path, size and date (a listing, a preview, a ChessBase archive unpacked) is never
+/// taken for a copy of something else of the same name, size and date (another commit's file,
+/// another snapshot's, another archive's).
+fn peek_folder_of(origin: impl std::hash::Hash) -> io::Result<PathBuf> {
+    use std::hash::Hasher;
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    origin.hash(&mut h);
+    let folder = peek_folder()?.join(format!("{:016x}", h.finish()));
+    crate::fs::private_dir(&folder)?;
+    Ok(folder)
+}
+
+/// One copy to look at made at a time: each starts in a fresh folder, which would take away
+/// one still being written.
+static PEEK_ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// `bytes`, from `origin`, written as a copy to look at named `name` (one name, else "file"),
+/// in a fresh folder of its own for the origin and the bytes (`peek_folder_of`): a history's
+/// file, a snapshot's diff, a report's text.
+pub(crate) fn peek_write(origin: impl std::hash::Hash, name: &str, bytes: &[u8]) -> io::Result<PathBuf> {
+    let _one = PEEK_ONE.lock().unwrap_or_else(|e| e.into_inner());
+    let to = peek_folder_of((origin, bytes))?.join(if one_name(name) { name } else { "file" });
+    std::fs::write(&to, bytes)?;
+    Ok(to)
 }
 
 /// A fresh folder for this run's copy to look at (also a history's, `history::peek`): the copy
@@ -2628,7 +3060,7 @@ fn copy_out_with(
     let (mut any, mut used) = (false, false);
     let r = copy_entries(archive, inner, to, password, how, &mut any, &mut used);
     // Stopped, what came out stays, unless it all must (a move).
-    if r.is_err() && !inner.is_empty() && (how.whole || !crate::stop::asked()) {
+    if r.is_err() && how.head.is_none() && !inner.is_empty() && (how.whole || !crate::stop::asked()) {
         let _ = if to.is_dir() {
             std::fs::remove_dir_all(to)
         } else {
@@ -2649,18 +3081,25 @@ fn copy_out_with(
 }
 
 /// How `copy_out_with` copies: `whole`, an entry below it that cannot come out is an error, not
-/// left behind; `limit`, the most bytes it writes in all.
+/// left behind; `limit`, the most bytes it writes in all; `head`, where one file's bytes go
+/// instead of the disk, nothing written (`head` keeps its first bytes, `stream` hands it on).
 #[derive(Clone, Copy)]
-struct Copy {
+struct Copy<'a> {
     whole: bool,
     limit: u64,
+    head: Option<&'a dyn Fn(&mut dyn Read) -> io::Result<()>>,
+    /// A locked 7z's file handed on as it unpacks, without the up-front read to its end that
+    /// proves the password: the reader reads to the end itself and the checksum fails there.
+    unchecked: bool,
 }
 
-impl Default for Copy {
-    fn default() -> Copy {
+impl Default for Copy<'_> {
+    fn default() -> Self {
         Copy {
             whole: false,
             limit: u64::MAX,
+            head: None,
+            unchecked: false,
         }
     }
 }
@@ -2710,6 +3149,9 @@ fn copy_entries(
     // Written under a passing name (noted, so a kill leaves nothing that looks whole) and given
     // its own only when whole.
     let write = |path: &Path, from: &mut dyn Read, secs: u64| -> io::Result<()> {
+        if let Some(sink) = how.head {
+            return sink(from);
+        }
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -2758,7 +3200,7 @@ fn copy_entries(
         crate::container_image::read_out(archive, &wanted, &write)?;
         // A script stays one; nothing but the permission bits is taken.
         #[cfg(unix)]
-        for (_, path, mode, _) in files.iter().filter(|(_, _, m, _)| m & 0o111 != 0) {
+        for (_, path, mode, _) in files.iter().filter(|(_, _, m, _)| how.head.is_none() && m & 0o111 != 0) {
             std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(mode & 0o755))?;
         }
         return Ok(());
@@ -2823,6 +3265,42 @@ fn copy_entries(
             .collect();
         return crate::disk_image::copy_tree(archive, inner, &entries, to);
     }
+    if let Kind::Ro(format) = k {
+        // Each entry below `inner` in order; a file read only when it comes out.
+        let pick = |e: &crate::archive_ro::Entry| e.file && below(&e.name);
+        let mut done = false;
+        crate::archive_ro::each(open_raw(archive)?, archive, format, &pick, &mut |e, from| {
+            if !below(&e.name) {
+                return Ok(true);
+            }
+            let Some(path) = place(&e.name) else {
+                skip(&e.name)?;
+                return Ok(true);
+            };
+            *any = true;
+            if e.dir {
+                // A file read for its bytes makes nothing, a crafted folder below it neither.
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
+            } else if e.file {
+                let mut from = Noting { from, left: e.size, failed: false };
+                write(&path, &mut from, e.modified).map_err(|err| copy_error(err, &from, false))?;
+                // A program stays one; nothing but the permission bits is taken.
+                #[cfg(unix)]
+                if how.head.is_none() && e.mode & 0o111 != 0 {
+                    std::fs::set_permissions(&path, std::os::unix::fs::PermissionsExt::from_mode(e.mode & 0o755))?;
+                }
+                // The one file asked for is out: nothing after it is read.
+                done = e.name == inner;
+            } else {
+                // A link or a device: not made here.
+                skip(&e.name)?;
+            }
+            Ok(!done)
+        })?;
+        return Ok(());
+    }
     if k == Kind::Zip {
         // One file, not locked: found in the directory as it is gone through, and unpacked from
         // its place, without building the whole directory (`zip_dir`).
@@ -2847,7 +3325,7 @@ fn copy_entries(
                 return Err(copy_error(err, &from, false));
             }
             #[cfg(unix)]
-            if let Some(m) = c.unix_mode().filter(|m| m & 0o111 != 0) {
+            if let Some(m) = c.unix_mode().filter(|m| how.head.is_none() && m & 0o111 != 0) {
                 std::fs::set_permissions(
                     &path,
                     std::os::unix::fs::PermissionsExt::from_mode(m & 0o777 & !NOT_SHARED),
@@ -2889,7 +3367,9 @@ fn copy_entries(
             };
             *any = true;
             if dir {
-                std::fs::create_dir_all(&path)?;
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
                 continue;
             }
             let mut e = match (encrypted, password) {
@@ -2902,6 +3382,9 @@ fn copy_entries(
             };
             // A wrong ZipCrypto password is only seen in what comes out: the check fails.
             let size = e.size();
+            if encrypted && how.head.is_some() && size > PEEK_MAX {
+                return Err(too_large(&name));
+            }
             let mut from = Noting {
                 from: &mut e,
                 left: size,
@@ -2910,9 +3393,16 @@ fn copy_entries(
             if let Err(err) = write(&path, &mut from, secs) {
                 return Err(copy_error(err, &from, encrypted));
             }
+            // Only a head kept: the rest read too, so the checksum at the end is checked.
+            if encrypted
+                && how.head.is_some()
+                && let Err(err) = io::copy(&mut crate::stop::Reader(&mut from), &mut io::sink())
+            {
+                return Err(copy_error(err, &from, encrypted));
+            }
             // A script stays one; nothing but the permission bits is taken.
             #[cfg(unix)]
-            if let Some(m) = mode.filter(|m| m & 0o111 != 0) {
+            if let Some(m) = mode.filter(|m| how.head.is_none() && m & 0o111 != 0) {
                 std::fs::set_permissions(
                     &path,
                     std::os::unix::fs::PermissionsExt::from_mode(m & 0o777 & !NOT_SHARED),
@@ -2973,11 +3463,19 @@ fn copy_entries(
                 left: e.size,
                 failed: false,
             };
+            // Locked, only a head asked for: read to its end too, as a zip's, since AES has no
+            // check of the password but the checksum at the end.
+            let check = locked && how.head.is_some() && !how.unchecked && !e.is_directory;
+            if check && e.size > PEEK_MAX {
+                failed = Some(too_large(&name));
+                return Ok(false);
+            }
             let done = if e.is_directory {
-                std::fs::create_dir_all(&path)
+                if how.head.is_none() { std::fs::create_dir_all(&path) } else { Ok(()) }
             } else {
                 write(&path, &mut from, seven_secs(e))
-            };
+            }
+            .and_then(|()| if check { io::copy(&mut crate::stop::Reader(&mut from), &mut io::sink()).map(drop) } else { Ok(()) });
             if let Err(err) = done {
                 failed = Some(copy_error(err, &from, locked));
                 return Ok(false);
@@ -3039,7 +3537,9 @@ fn copy_entries(
             *any = true;
             let t = e.header().entry_type();
             if t.is_dir() {
-                std::fs::create_dir_all(&path)?;
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
             } else if t.is_file() {
                 let secs = e.header().mtime().unwrap_or(0);
                 write(&path, e, secs)?;
@@ -3175,7 +3675,7 @@ fn rewrite(
     hide_names: bool,
 ) -> io::Result<()> {
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
-    if matches!(k, Kind::Disk | Kind::Mbox) || in_parts(archive) || split_zip(archive) {
+    if matches!(k, Kind::Disk | Kind::Mbox | Kind::Ro(_)) || in_parts(archive) || split_zip(archive) {
         return Err(crate::disk_image::read_only());
     }
     let _one = WRITING.lock().unwrap_or_else(|e| e.into_inner());
@@ -3752,9 +4252,209 @@ pub fn create_locked(
     )
 }
 
+// ---------------------------------------------------------------- a game database unpacked beside its archive
+
+/// A game file in an archive too large to look at there (past `PEEK_MAX`, with the files of
+/// its database beside it): Lumbra's Gigabase, 4.9 GB of SCID 5 in a 7z of 1.4 GB. Instead of
+/// only refusing, the apps offer to unpack it into a folder beside the archive and open it
+/// there (`unpack_beside`): a copy of the user's own, not one in the cache.
+#[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
+pub struct Beside {
+    /// The archive, on the disk.
+    pub archive: PathBuf,
+    /// What comes out, by their names in it: the file, then its database's others.
+    pub files: Vec<String>,
+    /// Where they go: a folder beside the archive, named after it.
+    pub folder: PathBuf,
+    /// The file to open once they are out.
+    pub open: PathBuf,
+    /// Their size in all.
+    pub bytes: u64,
+    /// Each one's size, as `files`.
+    pub sizes: Vec<u64>,
+}
+
+impl Beside {
+    /// The paths through the archive of the files not in the folder whole yet: what a copy
+    /// into the folder brings out.
+    pub fn missing(&self) -> Vec<PathBuf> {
+        self.files
+            .iter()
+            .zip(&self.sizes)
+            .filter(|(f, size)| !self.whole(f, **size))
+            .map(|(f, _)| f.split('/').fold(self.archive.clone(), |p, s| p.join(s)))
+            .collect()
+    }
+
+    /// The file `f` of the archive is in the folder, a file (not a link) of its size (any size
+    /// when the archive does not say it).
+    fn whole(&self, f: &str, size: u64) -> bool {
+        let name = f.rsplit('/').next().unwrap_or(f);
+        one_name(name) && std::fs::symlink_metadata(self.folder.join(name)).is_ok_and(|m| m.is_file() && (m.len() == size || size == 0))
+    }
+
+    /// Every file is in the folder already, whole: unpacked before, opened as it is.
+    pub fn unpacked(&self) -> bool {
+        !self.files.is_empty() && self.files.iter().zip(&self.sizes).all(|(f, size)| self.whole(f, *size))
+    }
+}
+
+/// The archive's name without its ending: `Lumbras_si5.7z` → `Lumbras_si5`, `games.tar.gz`
+/// → `games`.
+fn bare_name(archive: &Path) -> String {
+    let name = archive.file_name().unwrap_or_default().to_string_lossy().into_owned();
+    let lower = name.to_ascii_lowercase();
+    let cut = ENDINGS.iter().map(|(e, _)| *e).chain([".7z", ".zip", ".rar", ".tar"]).filter(|e| lower.ends_with(e) && lower.len() > e.len()).map(str::len).max();
+    let bare = match cut {
+        Some(n) => name[..name.len() - n].to_string(),
+        None => name.rsplit_once('.').map_or(name.clone(), |(s, _)| s.to_string()),
+    };
+    // An archive named by its ending alone (`.7z`): a folder of its whole name.
+    if bare.is_empty() { name } else { bare }
+}
+
+/// The offer for the game file `path` (through an archive on the disk), when it is one and too
+/// large to look at in place; `None` otherwise (`peek` takes it, or it is no game file).
+pub fn beside(path: &Path) -> Option<Beside> {
+    beside_past(path, PEEK_MAX)
+}
+
+fn beside_past(path: &Path, most: u64) -> Option<Beside> {
+    let (archive, inner) = split(path).filter(|(a, i)| !i.is_empty() && a.is_file())?;
+    if !matches!(crate::chess::format(Path::new(&inner)), Some(crate::chess::Format::Pgn | crate::chess::Format::Pdn | crate::chess::Format::Kif | crate::chess::Format::Csa | crate::chess::Format::Pbn)) {
+        return None;
+    }
+    let all = items(&archive).ok()?;
+    let it = all.iter().find(|i| i.name == inner && !i.dir)?;
+    let (within, name) = match inner.rsplit_once('/') {
+        Some((f, n)) => (format!("{f}/"), n.to_string()),
+        None => (String::new(), inner.clone()),
+    };
+    if !one_name(&name) {
+        return None;
+    }
+    let mut files = vec![(inner.clone(), it.size)];
+    // A SCID or ChessBase database: the files beside it under its name come too.
+    let open_as = Path::new(&name);
+    if (crate::chess::cbh::is_cbh(open_as) && !crate::chess::cbv::is_cbv(open_as)) || crate::chess::scid::is_scid(open_as) {
+        let stem = name.rsplit_once('.').map_or(name.as_str(), |(s, _)| s);
+        for i in all.iter() {
+            let rest = i.name.strip_prefix(&within).filter(|n| one_name(n));
+            if !i.dir && i.name != inner && rest.is_some_and(|n| n.rsplit_once('.').is_some_and(|(s, _)| s.eq_ignore_ascii_case(stem))) {
+                files.push((i.name.to_string(), i.size));
+            }
+        }
+    }
+    let bytes: u64 = files.iter().map(|f| f.1).sum();
+    if bytes <= most {
+        return None;
+    }
+    // The first folder of the archive's name whose files are not there, or are there whole
+    // (unpacked before: opened as they are).
+    let parent = archive.parent()?.to_path_buf();
+    let bare = bare_name(&archive);
+    let folder = (1..100).map(|n| parent.join(if n == 1 { bare.clone() } else { format!("{bare} ({n})") })).find(|f| {
+        std::fs::symlink_metadata(f).is_ok_and(|m| m.is_dir())
+            && files.iter().all(|(n, size)| std::fs::symlink_metadata(f.join(&n[within.len()..])).map_or(true, |m| m.is_file() && (m.len() == *size || *size == 0)))
+            || std::fs::symlink_metadata(f).is_err()
+    })?;
+    let open = folder.join(&name);
+    let (files, sizes) = files.into_iter().unzip();
+    Some(Beside { archive, files, folder, open, bytes, sizes })
+}
+
+/// Unpacks what `b` names into its folder, each file under a passing name until it is whole
+/// (never one cut short under its own name, never over a file), and returns the file to open.
+/// A file already there whole (unpacked before) is left as it is. Stopped by the app's Stop
+/// (`stop::during`), the files whole so far stay.
+pub fn unpack_beside(b: &Beside) -> io::Result<PathBuf> {
+    std::fs::create_dir_all(&b.folder)?;
+    let password = password_for(&b.archive, None);
+    let within = b.files[0].rsplit_once('/').map_or(0, |(f, _)| f.len() + 1);
+    let all = items(&b.archive)?;
+    let size = |n: &str| all.iter().find(|i| i.name == n).map_or(0, |i| i.size);
+    crate::stop::expect(b.files.iter().map(|f| size(f)).sum());
+    for f in &b.files {
+        let to = b.folder.join(&f[within..]);
+        if to.parent() != Some(b.folder.as_path()) {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, f.clone()));
+        }
+        if std::fs::metadata(&to).is_ok_and(|m| m.is_file() && m.len() == size(f)) {
+            continue;
+        }
+        if std::fs::symlink_metadata(&to).is_ok() {
+            return Err(crate::fs::exists(&to));
+        }
+        let part = crate::fs::beside(&to);
+        let done = copy_out_with(&b.archive, f, &part, password.as_deref(), Copy::default());
+        if let Err(e) = done {
+            let _ = std::fs::remove_file(&part);
+            return Err(e);
+        }
+        // Never over a file that came meanwhile.
+        if let Err(e) = crate::fs::put(&part, &to) {
+            let _ = std::fs::remove_file(&part);
+            return Err(e);
+        }
+    }
+    Ok(b.open.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A SCID database in a zip, too large to look at there: offered to be unpacked beside the
+    /// zip, in a folder of its name, all three files; unpacked whole and opened from there;
+    /// offered again, the same folder, nothing unpacked twice; never over another file.
+    #[test]
+    fn a_game_database_unpacked_beside_its_archive() {
+        let d = std::env::temp_dir().join(format!("coxswain-beside-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("src/db")).unwrap();
+        let test = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/chess/scid-test");
+        for e in ["si5", "sg5", "sn5"] {
+            std::fs::copy(test.join(format!("test.{e}")), d.join(format!("src/db/club.{e}"))).unwrap();
+        }
+        std::fs::write(d.join("src/db/other.pgn"), "1.e4 *\n").unwrap();
+        let zip = d.join("Big base.zip");
+        create(&zip, &[d.join("src/db")]).unwrap();
+        let path = zip.join("db/club.si5");
+        for (n, bare) in [("Lumbras_si5.7z", "Lumbras_si5"), ("games.tar.gz", "games"), ("a.b.zip", "a.b"), ("noend", "noend"), (".7z", ".7z")] {
+            assert_eq!(bare_name(Path::new(n)), bare);
+        }
+        assert_eq!(beside(&path), None, "small: looked at in place");
+        assert_eq!(beside_past(&zip.join("db/notes.txt"), 0), None, "no game file");
+        let b = beside_past(&path, 0).unwrap();
+        assert!(!b.unpacked());
+        assert_eq!(b.missing().len(), 3);
+        assert_eq!(split(&b.missing()[0]), Some((zip.clone(), "db/club.si5".to_string())));
+        assert_eq!((b.folder.clone(), b.files.len(), b.open.clone()), (d.join("Big base"), 3, d.join("Big base/club.si5")));
+        assert!(!b.files.iter().any(|f| f.ends_with("other.pgn")));
+        let open = unpack_beside(&b).unwrap();
+        let games = |p: &Path| {
+            let l = crate::chess::Library::open(p).unwrap();
+            while !l.progress().done {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            l.progress().games
+        };
+        assert!(games(&open) > 0);
+        assert_eq!(games(&open), games(&d.join("src/db/club.si5")));
+        // No passing name left beside them.
+        assert_eq!(std::fs::read_dir(&b.folder).unwrap().count(), 3);
+        // Again: the same folder, its files whole, nothing copied over them.
+        assert_eq!(beside_past(&path, 0).unwrap().folder, b.folder);
+        assert!(b.unpacked());
+        unpack_beside(&b).unwrap();
+        // A file of the same name and another size there: the next folder.
+        std::fs::write(b.folder.join("club.sg5"), "mine").unwrap();
+        let c = beside_past(&path, 0).unwrap();
+        assert_eq!(c.folder, d.join("Big base (2)"));
+        assert!(unpack_beside(&b).is_err(), "never over the file that came");
+        assert_eq!(std::fs::read(b.folder.join("club.sg5")).unwrap(), b"mine");
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     /// Held by every test that makes copies of archives inside archives: they share `NESTED`
     /// and its folder, which `clean_up` empties, so they run one at a time.
@@ -3762,7 +4462,7 @@ mod tests {
     /// a large one pushes the others out, so one list of millions is all that is kept.
     #[test]
     fn kept_lists_are_compact_and_one_large_one_is_kept_alone() {
-        let item = |name: &str| Item { name: name.into(), size: 1, dir: false, modified: 2, locked: false };
+        let item = |name: &str| Item { name: name.into(), size: 1, dir: false, modified: 2, locked: false, link: false };
         let items: Items = [item("a/b.txt"), item("../out"), item("c")].into_iter().collect();
         assert_eq!((items.len(), items.seen), (2, 3));
         let names: Vec<&str> = items.iter().map(|it| it.name).collect();
@@ -3780,6 +4480,30 @@ mod tests {
         assert_eq!(names(&last), ["small.zip", "one.7z"]);
         kept_with(&mut last, Path::new("two.7z"), stamp, big(LAST_BYTES * 3 / 4));
         assert_eq!(names(&last), ["two.7z"], "the older went to make room for the newest");
+    }
+
+    /// A large list goes when the last panel holding it leaves; a small one stays for the next
+    /// look, and so does a large one another panel still holds.
+    #[test]
+    fn a_large_list_goes_with_its_last_hold() {
+        let big = |n: usize| {
+            let mut i = Items::default();
+            i.push(Item { name: "x".repeat(n), size: 1, dir: false, modified: 2, locked: false, link: false });
+            Arc::new(i.done())
+        };
+        let (mut last, stamp) = (vec![], (0, None));
+        kept_with(&mut last, Path::new("small.zip"), stamp, big(10));
+        kept_with(&mut last, Path::new("large.7z"), stamp, big(HELD_ONLY + 1));
+        let token = |i: usize| last[i].3.clone();
+        let (small, other, panel) = (token(0), token(1), token(1));
+        // A preview still reading the large list does not keep it.
+        let reader = last[1].2.clone();
+        let_go(&mut last, small);
+        let_go(&mut last, panel);
+        assert_eq!(last.len(), 2, "the other panel still holds the large one");
+        let_go(&mut last, other);
+        assert_eq!(last.iter().map(|(p, ..)| p.to_str().unwrap()).collect::<Vec<_>>(), ["small.zip"]);
+        assert_eq!(reader.len(), 1, "what reads it keeps its own");
     }
 
     fn nested_alone() -> std::sync::MutexGuard<'static, ()> {
@@ -3895,6 +4619,60 @@ mod tests {
         std::fs::remove_dir_all(d).unwrap();
     }
 
+    /// Two archives each holding a file of the same name, size and date: each look gets its
+    /// own copy, so nothing kept by a copy's path (a listing, a ChessBase archive unpacked) is
+    /// taken for the other's. The same file looked at again gets the same copy.
+    #[test]
+    fn same_name_size_and_date_in_two_archives_are_two_copies() {
+        let _alone = nested_alone();
+        let d = crate::pictures::tests::folder("peek-origin");
+        let when = crate::fs::epoch(1_700_000_000);
+        let mut outers = vec![];
+        for (n, inside) in [(1, "a"), (2, "b")] {
+            let src = d.join(format!("src{n}"));
+            std::fs::create_dir_all(&src).unwrap();
+            let file = src.join(inside);
+            std::fs::write(&file, inside).unwrap();
+            File::options().write(true).open(&file).unwrap().set_modified(when).unwrap();
+            let inner = src.join("games.zip");
+            create(&inner, &[file]).unwrap();
+            File::options().write(true).open(&inner).unwrap().set_modified(when).unwrap();
+            let outer = d.join(format!("outer{n}.zip"));
+            create(&outer, &[inner]).unwrap();
+            outers.push(outer);
+        }
+        let it = |o: &Path| items(o).unwrap().iter().find(|i| i.name == "games.zip").map(|i| (i.size, i.modified)).unwrap();
+        assert_eq!(it(&outers[0]), it(&outers[1]), "the same name, size and date");
+        let names = |o: &Path| {
+            let copy = peek(&o.join("games.zip")).unwrap();
+            (copy.clone(), list(&copy, 10).unwrap().0.into_iter().map(|e| e.name).collect::<Vec<_>>())
+        };
+        let (first, one) = names(&outers[0]);
+        let (second, two) = names(&outers[1]);
+        assert_ne!(first, second);
+        assert_eq!((one, two), (vec!["a".to_string()], vec!["b".to_string()]));
+        assert_eq!(names(&outers[0]).0, first, "the same file, the same copy");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// The other copies to look at (a history's file, a snapshot's diff, a report): one folder
+    /// for each origin, so two commits' files of the same name, size and date never share what
+    /// is kept by a copy's path; a crafted name stays inside.
+    #[test]
+    fn copies_of_two_origins_of_the_same_name_are_two_files() {
+        let a = peek_write("x@1", "notes.txt", b"same").unwrap();
+        assert_eq!(std::fs::read(&a).unwrap(), b"same");
+        let b = peek_write("x@2", "notes.txt", b"same").unwrap();
+        assert!(a != b && !a.exists(), "a fresh folder, the one before gone");
+        assert_eq!(a.file_name(), b.file_name());
+        assert_eq!(peek_write("x@1", "notes.txt", b"same").unwrap(), a, "the same origin, the same copy");
+        assert_ne!(peek_write("x@1", "notes.txt", b"later").unwrap(), a, "other text, another copy");
+        for bad in ["../evil", "a/b", ""] {
+            let c = peek_write("y", bad, b"").unwrap();
+            assert_eq!((c.file_name().unwrap(), c.parent().and_then(Path::parent)), ("file".as_ref(), a.parent().and_then(Path::parent)), "{bad}");
+        }
+    }
+
     #[test]
     fn a_games_database_looked_at_inside_an_archive_brings_the_files_beside_it() {
         let _alone = nested_alone();
@@ -4000,6 +4778,20 @@ mod tests {
         let note = split.join("2d").join("2d.7z.001").join("games").join("note.txt");
         assert_eq!(std::fs::read(peek(&note).unwrap()).unwrap(), b"a game of go, black wins");
         assert_eq!(nested_bytes(), before, "nothing was copied into the cache for the parts either");
+        // Search looks into it too, its parts read in place.
+        let found = search_entries(&split, std::fs::metadata(&split).unwrap().len()).unwrap();
+        assert!(found.iter().any(|e| e.name == "2d/2d.7z.001/games/note.txt"), "search lists it");
+        assert!(found.iter().any(|e| e.name == "2d/2d.7z.002"), "the later part by its own name");
+        let mut read = vec![];
+        search_read(&split, 0, &|n, _| n == "2d/2d.7z.001/games/note.txt", &|n| n == "2d/2d.7z.001", &mut |n, from| {
+            let mut t = String::new();
+            from.read_to_string(&mut t).unwrap();
+            read.push((n[0].to_string(), t));
+            true
+        })
+        .unwrap();
+        assert_eq!(read, [("2d/2d.7z.001/games/note.txt".to_string(), "a game of go, black wins".to_string())]);
+        assert_eq!(nested_bytes(), before, "search copied nothing either");
         // Packed, it is still copied, and over the limit refused as before.
         let err = listing(&packed, "ranks.7z").unwrap_err();
         assert!(err.to_string().contains("ranks.7z"), "{err}");
@@ -4266,6 +5058,43 @@ mod tests {
         let _ = crate::i18n::date_time(list[0].modified);
         assert_eq!(std::fs::read(peek(&tar.join("later.txt")).unwrap()).unwrap(), b"hi");
         assert!(extract(&tar, &d).unwrap().join("later.txt").is_file());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A file read for its bytes writes nothing, where a crafted tar puts a folder below it.
+    #[test]
+    fn a_folder_below_a_streamed_file_is_not_made() {
+        let d = crate::pictures::tests::folder("stream-no-folders");
+        let mut b = tar::Builder::new(vec![]);
+        // The folder first: the read stops at the file.
+        let mut h = tar::Header::new_gnu();
+        h.set_entry_type(tar::EntryType::Directory);
+        h.set_size(0);
+        h.set_mode(0o755);
+        b.append_data(&mut h, "notes.txt/made-by-a-stream/", std::io::empty()).unwrap();
+        let mut h = tar::Header::new_gnu();
+        h.set_size(2);
+        h.set_mode(0o644);
+        b.append_data(&mut h, "notes.txt", &b"hi"[..]).unwrap();
+        let tar = d.join("crafted.tar");
+        std::fs::write(&tar, b.into_inner().unwrap()).unwrap();
+        let mut got = vec![];
+        stream(&tar.join("notes.txt"), |r| r.read_to_end(&mut got)).unwrap();
+        assert_eq!(got, b"hi");
+        assert!(!Path::new("made-by-a-stream").exists() && !Path::new("notes.txt").exists());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A program in a cpio read for its bytes: no permission is set on a file that was not made.
+    #[cfg(unix)]
+    #[test]
+    fn a_program_in_a_cpio_streams() {
+        let d = crate::pictures::tests::folder("stream-program");
+        let cpio = d.join("a.cpio");
+        std::fs::write(&cpio, crate::archive_ro::tests::newc(&[("run.sh", b"hi")])).unwrap();
+        let mut got = vec![];
+        stream(&cpio.join("run.sh"), |r| r.read_to_end(&mut got)).unwrap();
+        assert_eq!(got, b"hi");
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -4561,6 +5390,86 @@ mod tests {
     }
 
     #[test]
+    fn cpio_deb_rpm_and_cab_open_read_only() {
+        use crate::archive_ro::tests::{ar_of, cab_of, gz, newc, rpm_of};
+        let d = std::env::temp_dir().join(format!("coxswain-test-archive-ro-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let files: &[(&str, &[u8])] = &[("./usr/", b""), ("./usr/notes.txt", b"rocket fuel"), ("usr/go.sh", b"echo"), ("../evil", b"x")];
+        let mut data = tar::Builder::new(vec![]);
+        let mut h = tar::Header::new_gnu();
+        h.set_size(11);
+        h.set_cksum();
+        data.append_data(&mut h, "usr/notes.txt", &b"rocket fuel"[..]).unwrap();
+        let data = gz(&data.into_inner().unwrap());
+        let made = [
+            ("a.cpio", newc(files)),
+            ("a.cpio.gz", gz(&newc(files))),
+            ("a.rpm", rpm_of(&gz(&newc(files)))),
+            ("a.cab", cab_of(&[("usr\\notes.txt", b"rocket fuel")])),
+            ("a.deb", ar_of(&[("debian-binary", b"2.0\n"), ("data.tar.gz", &data)])),
+        ];
+        for (name, bytes) in made {
+            let p = d.join(name);
+            std::fs::write(&p, bytes).unwrap();
+            assert!(opens(&p) && is_archive(&p) && read_only(&p), "{name}");
+            let names: Vec<String> = list(&p, 10).unwrap().0.into_iter().map(|e| e.name).collect();
+            // `..` is never listed, so nothing that acts on an entry is led outside.
+            assert!(!names.iter().any(|n| n.contains("..")), "{name}: {names:?}");
+            let inner = if name == "a.deb" { "data.tar.gz" } else { "usr/notes.txt" };
+            assert!(names.iter().any(|n| n == inner), "{name}: {names:?}");
+            let out = d.join(format!("{name}-out"));
+            std::fs::create_dir_all(&out).unwrap();
+            let one = copy_out(&p, inner, &out, None, false).unwrap();
+            if name != "a.deb" {
+                assert_eq!(std::fs::read(&one).unwrap(), b"rocket fuel", "{name}");
+            }
+            let all = extract(&p, &out).unwrap();
+            assert!(all.join(inner).is_file(), "{name}");
+            assert!(!out.join("evil").exists() && !d.join("evil").exists(), "{name}");
+            #[cfg(unix)]
+            if name == "a.cpio" || name == "a.cpio.gz" || name == "a.rpm" {
+                use std::os::unix::fs::PermissionsExt;
+                assert_eq!(std::fs::metadata(all.join("usr/go.sh")).unwrap().permissions().mode() & 0o777, 0o755, "{name}");
+            }
+            assert!(add(&p, &[("x".into(), one.clone())], None).is_err(), "{name} is never written");
+            // Search reads its files, and those of the tar inside a Debian package.
+            let size = std::fs::metadata(&p).unwrap().len();
+            let found = search_entries(&p, size).unwrap();
+            assert!(found.iter().any(|e| e.name == "usr/notes.txt" || e.name == "data.tar.gz/usr/notes.txt"), "{name}: {found:?}");
+            let mut text = vec![];
+            search_read(&p, size, &|n, _| n.ends_with("notes.txt"), &|n| n == "data.tar.gz", &mut |_, from| {
+                from.read_to_end(&mut text).unwrap();
+                false
+            })
+            .unwrap();
+            assert_eq!(text, b"rocket fuel", "{name}");
+        }
+        // A cabinet set: opening the second part lists and copies out files of all of them,
+        // finding the others by the names they hold (any case) in the same folder.
+        use crate::archive_cab::tests::{cab_bytes, stored};
+        let first = cab_bytes((5, 0), (None, Some("DISK2.cab")), &[(0, vec![stored(b"one")])], &[("a.txt", 3, 0, 0)]);
+        let second = cab_bytes((5, 1), (Some("disk1.cab"), None), &[(0, vec![stored(b"two")])], &[("b.txt", 3, 0, 0)]);
+        std::fs::write(d.join("disk1.cab"), first).unwrap();
+        std::fs::write(d.join("disk2.cab"), second).unwrap();
+        let p = d.join("disk2.cab");
+        let names: Vec<String> = list(&p, 10).unwrap().0.into_iter().map(|e| e.name).collect();
+        assert_eq!(names, ["a.txt", "b.txt"]);
+        let out = d.join("set-out");
+        std::fs::create_dir_all(&out).unwrap();
+        assert_eq!(std::fs::read(copy_out(&p, "a.txt", &out, None, false).unwrap()).unwrap(), b"one");
+        // A part that changes changes the list kept of the set, though the file opened has not.
+        let first2 = cab_bytes((5, 0), (None, Some("DISK2.cab")), &[(0, vec![stored(b"onetwo")])], &[("a.txt", 3, 0, 0), ("a2.txt", 3, 3, 0)]);
+        std::fs::write(d.join("disk1.cab"), first2).unwrap();
+        let names: Vec<String> = list(&p, 10).unwrap().0.into_iter().map(|e| e.name).collect();
+        assert_eq!(names, ["a.txt", "a2.txt", "b.txt"]);
+        let lone = cab_bytes((6, 0), (None, Some("gone.cab")), &[(0, vec![stored(b"x")])], &[("c.txt", 1, 0, 0)]);
+        std::fs::write(d.join("lone.cab"), lone).unwrap();
+        assert_eq!(list(&d.join("lone.cab"), 10).unwrap().0.len(), 1, "its own files are listed");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
     fn archive_zip_and_tar_roundtrip() {
         let d = std::env::temp_dir().join(format!("coxswain-test-archive-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
@@ -4686,10 +5595,11 @@ mod tests {
         got.sort();
         assert_eq!(got, ["EVIL.cbp", "evil.cbg", "evil.cbh"]);
         assert_eq!(std::fs::read(folder.join("evil.cbg")).unwrap(), b"x/evil.cbg");
-        // Crafted names looked at themselves stay in the folder too (or are not listed).
+        // Crafted names looked at themselves stay in a folder of their own beside it too (or
+        // are not listed).
         for name in ["x/..\\..\\evil.cbh", "x/C:evil.cbh"] {
             if let Ok(c) = peek(&zp.join(name)) {
-                assert_eq!(c.parent(), Some(folder), "{name}");
+                assert_eq!(c.parent().and_then(Path::parent), folder.parent(), "{name}");
             }
         }
         for up in [folder.parent().unwrap(), folder.parent().unwrap().parent().unwrap()] {
@@ -4699,6 +5609,33 @@ mod tests {
         assert!(one_name("a.cbg") && !one_name("../a.cbg") && !one_name("..") && !one_name("a/b"));
         assert_eq!(one_name("..\\a.cbg"), !cfg!(windows));
         assert_eq!(one_name("C:a.cbg"), !cfg!(windows));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A file's first bytes come out of a zip, a tar.gz and a 7z, and out of a zip inside a zip,
+    /// nothing written to the peek folder; the rest is said to be there.
+    #[test]
+    fn a_files_head_comes_out_in_memory() {
+        let _alone = nested_alone();
+        let d = crate::pictures::tests::folder("head");
+        let src = d.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let text = "a line of the log\n".repeat(1000);
+        std::fs::write(src.join("app.log"), &text).unwrap();
+        let peeked = || peek_folder().ok().and_then(|f| std::fs::read_dir(f).ok()).map_or(0, |r| r.count());
+        let before = peeked();
+        for name in ["logs.zip", "logs.tar.gz", "logs.7z"] {
+            let a = d.join(name);
+            create(&a, &[src.join("app.log")]).unwrap();
+            assert_eq!(head(&a.join("app.log"), 1 << 20).unwrap(), (text.clone().into_bytes(), false), "{name}");
+            let (some, more) = head(&a.join("app.log"), 18).unwrap();
+            assert_eq!((some.as_slice(), more), (&b"a line of the log\n"[..], true), "{name}");
+            assert!(head(&a.join("nothing.txt"), 10).is_err());
+        }
+        let outer = d.join("outer.zip");
+        create(&outer, &[d.join("logs.zip")]).unwrap();
+        assert_eq!(head(&outer.join("logs.zip").join("app.log"), 9).unwrap(), (b"a line of".to_vec(), true));
+        assert_eq!(peeked(), before, "no copy to look at was made");
         std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -5216,6 +6153,24 @@ mod tests {
             "a copy out notices by the checksum"
         );
         assert!(!d.join("out/a.txt").exists());
+        // A 7z locked with AES (no check of the password at all) neither, its names open.
+        let text = "secret two ".repeat(200);
+        std::fs::write(d.join("c.txt"), &text).unwrap();
+        let sz = d.join("locked.7z");
+        create_locked(&sz, &[d.join("c.txt")], Some("hunter2"), false).unwrap();
+        remember(&sz, "wrong");
+        assert_eq!(head(&sz.join("c.txt"), 4).unwrap_err().to_string(), LOCKED);
+        remember(&sz, "hunter2");
+        assert_eq!(head(&sz.join("c.txt"), 6).unwrap(), (b"secret".to_vec(), true));
+        forget(&sz);
+        // Nor does a look at its head (`head`, the preview without a copy) show what comes out.
+        remember(&zp, &wrong);
+        assert_eq!(head(&zp.join("a.txt"), 4).unwrap_err().to_string(), LOCKED, "the head's look notices too");
+        remember(&zp, "hunter2");
+        assert_eq!(head(&zp.join("a.txt"), 4).unwrap(), (b"secr".to_vec(), true));
+        // A stream would show bytes before the checksum could tell: a locked file is refused.
+        assert_eq!(stream(&zp.join("a.txt"), |_| Ok(())).unwrap_err().kind(), io::ErrorKind::Unsupported);
+        forget(&zp);
         assert_eq!(
             add(&zp, &[("b.txt".into(), d.join("b.txt"))], Some(&wrong))
                 .unwrap_err()
@@ -5500,6 +6455,18 @@ mod tests {
         let listed: Vec<String> = crate::fs::list(&inner, true).unwrap().into_iter().map(|e| e.name).collect();
         assert_eq!(listed, ["..", "a.sgf", "b.sgf", "c.sgf"]);
         assert_eq!(std::fs::read_to_string(peek(&inner.join("b.sgf")).unwrap()).unwrap(), text("b.sgf"));
+        // Search looks into it with its parts too, and reads its games.
+        let found = search_entries(&outer, std::fs::metadata(&outer).unwrap().len()).unwrap();
+        assert!(found.iter().any(|e| e.name == "set/go.zip/c.sgf"), "search lists it");
+        let mut read = vec![];
+        search_read(&outer, 0, &|n, _| n == "set/go.zip/c.sgf", &|n| n == "set/go.zip", &mut |n, from| {
+            let mut t = String::new();
+            from.read_to_string(&mut t).unwrap();
+            read.push((n[0].to_string(), t));
+            true
+        })
+        .unwrap();
+        assert_eq!(read, [("set/go.zip/c.sgf".to_string(), text("c.sgf"))]);
         // A part missing: named.
         std::fs::remove_file(d.join("go.z02")).unwrap();
         let err = list(&last, 10).unwrap_err().to_string();
@@ -5559,6 +6526,19 @@ mod tests {
         create(&outer, std::slice::from_ref(&parts)).unwrap();
         let inside = outer.join("parts").join("go.7z.001");
         assert!(opens_inside(&inside));
+        // Search looks into it, its parts copied out together for the look.
+        let found = search_entries(&outer, std::fs::metadata(&outer).unwrap().len()).unwrap();
+        let names: Vec<&str> = found.iter().map(|e| e.name.as_str()).filter(|n| n.starts_with("parts/go.7z.001/")).collect();
+        assert_eq!(names, ["parts/go.7z.001/a.sgf", "parts/go.7z.001/b.sgf", "parts/go.7z.001/c.sgf"]);
+        let mut read = vec![];
+        search_read(&outer, 0, &|n, _| n == "parts/go.7z.001/c.sgf", &|n| n == "parts/go.7z.001", &mut |n, from| {
+            let mut t = String::new();
+            from.read_to_string(&mut t).unwrap();
+            read.push((n[0].to_string(), t));
+            true
+        })
+        .unwrap();
+        assert_eq!(read, [("parts/go.7z.001/c.sgf".to_string(), text("c.sgf"))]);
         assert_eq!(listed(&inside), ["..", "a.sgf", "b.sgf", "c.sgf"]);
         // Its preview lists it, all its parts there; the copy held until the next such preview.
         let copy = peek(&inside).unwrap();

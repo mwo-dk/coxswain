@@ -80,6 +80,29 @@ pub fn read_at(f: &File, buf: &mut [u8], at: u64) -> std::io::Result<usize> {
     Ok(n)
 }
 
+/// What lines are read from: a file, or a file inside an archive as it is unpacked (no copy on
+/// the disk, `entry_file`).
+enum Src {
+    File(File),
+    Entry(crate::entry_file::EntryFile),
+}
+
+impl Src {
+    fn read_at(&self, buf: &mut [u8], at: u64) -> std::io::Result<usize> {
+        match self {
+            Src::File(f) => read_at(f, buf, at),
+            Src::Entry(e) => e.read_at(buf, at),
+        }
+    }
+
+    fn try_clone(&self) -> std::io::Result<Src> {
+        match self {
+            Src::File(f) => f.try_clone().map(Src::File),
+            Src::Entry(e) => e.try_clone().map(Src::Entry),
+        }
+    }
+}
+
 /// Where a file's lines start, found by a thread.
 #[derive(Default)]
 struct Index {
@@ -99,7 +122,7 @@ struct Index {
 impl Index {
     /// A thread finding the lines of `file` from byte `from` on, into a new index, or (`into`)
     /// on into one that has read to `from`.
-    fn start(file: File, from: u64, into: Option<Arc<Index>>) -> Arc<Index> {
+    fn start(file: Src, from: u64, into: Option<Arc<Index>>) -> Arc<Index> {
         let index = into.unwrap_or_else(|| Arc::new(Index { starts: Mutex::new(vec![0]), ..Index::default() }));
         index.done.store(false, Ordering::Release);
         let i = index.clone();
@@ -121,11 +144,11 @@ impl Index {
 /// Find where each line of the file starts, a megabyte at a time from byte `at`, into `index`;
 /// `done` at the end, at `MOST_LINES`, or when the file cannot be read further; nothing more once
 /// `stop`.
-fn find_lines(f: &File, index: &Index, mut at: u64) {
+fn find_lines(f: &Src, index: &Index, mut at: u64) {
     let mut buf = vec![0u8; 1 << 20];
     let mut found = vec![];
     while !index.stop.load(Ordering::Relaxed) {
-        let n = match read_at(f, &mut buf, at) {
+        let n = match f.read_at(&mut buf, at) {
             Ok(0) | Err(_) => break,
             Ok(n) => n,
         };
@@ -146,7 +169,7 @@ fn find_lines(f: &File, index: &Index, mut at: u64) {
 
 /// A file's lines, read as they are asked for; cheap to clone for another thread.
 pub struct Reader {
-    file: File,
+    file: Src,
     index: Arc<Index>,
     /// UTF-8 (stray bytes shown as �), else Windows-1252: the file's start says it for all.
     pub utf8: bool,
@@ -235,7 +258,7 @@ impl Reader {
         // Short lines in one read; a span of long ones a line at a time, each cut.
         let whole = (to - from <= READ_AT_ONCE).then(|| {
             let mut buf = vec![0u8; (to - from) as usize];
-            let n = read_at(&self.file, &mut buf, from).unwrap_or(0);
+            let n = self.file.read_at(&mut buf, from).unwrap_or(0);
             buf.truncate(n);
             buf
         });
@@ -250,7 +273,7 @@ impl Reader {
                     }
                     None => {
                         own.resize(len as usize, 0);
-                        let n = read_at(&self.file, &mut own, w[0]).unwrap_or(0);
+                        let n = self.file.read_at(&mut own, w[0]).unwrap_or(0);
                         own.truncate(n);
                         &own[..]
                     }
@@ -289,8 +312,16 @@ impl Lines {
     /// The lines of `file`, opened from `path` (`open_file`), read as UTF-8 or (not `utf8`)
     /// Windows-1252.
     pub fn new(path: &Path, file: File, utf8: bool) -> std::io::Result<Lines> {
+        let file = Src::File(file);
         let index = Index::start(file.try_clone()?, 0, None);
         Ok(Lines { path: path.to_path_buf(), reader: Reader { file, index, utf8 } })
+    }
+
+    /// The lines of the file `path` inside an archive, read as it is unpacked.
+    fn in_archive(file: crate::entry_file::EntryFile, utf8: bool) -> std::io::Result<Lines> {
+        let (path, file) = (file.path().to_path_buf(), Src::Entry(file));
+        let index = Index::start(file.try_clone()?, 0, None);
+        Ok(Lines { path, reader: Reader { file, index, utf8 } })
     }
 
     /// Open `path` and find its lines; its first 8 KB say how it is read. `None` for a file that
@@ -315,6 +346,11 @@ impl Lines {
         &self.path
     }
 
+    /// Whether the lines are of a file inside an archive, which does not change as it is read.
+    pub fn is_entry(&self) -> bool {
+        matches!(self.reader.file, Src::Entry(_))
+    }
+
     /// Look for lines written since: on from the end, or from the start again when the file
     /// was rotated or cut short. Nothing while the lines are still being found.
     pub fn grow(&mut self) -> Grew {
@@ -323,13 +359,15 @@ impl Lines {
             return Grew::No;
         }
         let end = index.end.load(Ordering::Acquire);
-        if replaced(&self.path, &self.reader.file) {
+        // An entry of an archive does not grow.
+        let Src::File(file) = &self.reader.file else { return Grew::No };
+        if replaced(&self.path, file) {
             return match open_file(&self.path) {
                 Ok(f) => self.anew(Some(f)),
                 Err(_) => Grew::No,
             };
         }
-        match self.reader.file.metadata().map(|m| m.len()) {
+        match file.metadata().map(|m| m.len()) {
             Ok(len) if len < end => self.anew(None),
             Ok(len) if len > end => match self.reader.file.try_clone() {
                 Ok(f) => {
@@ -346,7 +384,7 @@ impl Lines {
     fn anew(&mut self, file: Option<File>) -> Grew {
         self.reader.index.stop.store(true, Ordering::Relaxed);
         if let Some(f) = file {
-            self.reader.file = f;
+            self.reader.file = Src::File(f);
         }
         match self.reader.file.try_clone() {
             Ok(f) => {
@@ -1088,6 +1126,9 @@ impl View {
 
     /// `path` opened and viewed; `None` for a file that is no text, or UTF-16.
     pub fn open(path: &Path) -> std::io::Result<Option<View>> {
+        if !path.exists() && crate::archive::split(path).is_some() {
+            return View::open_in_archive(path);
+        }
         let file = open_file(path)?;
         let size = file.metadata()?.len();
         let mut head = vec![0u8; 8192];
@@ -1102,8 +1143,32 @@ impl View {
         Ok(Some(View::new(Lines::new(path, file, utf8)?, &name, &text, size)))
     }
 
+    /// The file `path` inside an archive, viewed as it is unpacked, a block at a time, no copy
+    /// made; going back to a line unpacks again, from a kept place before it where the archive has
+    /// them (a tar, `archive::stream_at`), else from the start of the entry. A locked file
+    /// fails (read a copy then, `archive::peek`).
+    pub fn open_in_archive(path: &Path) -> std::io::Result<Option<View>> {
+        let file = crate::entry_file::EntryFile::open(path)?;
+        let size = file.len();
+        let mut head = vec![0u8; 8192];
+        let n = file.read_at(&mut head, 0)?;
+        head.truncate(n);
+        if head.starts_with(&[0xff, 0xfe]) || head.starts_with(&[0xfe, 0xff]) || head.contains(&0) {
+            return Ok(None);
+        }
+        let utf8 = crate::view::is_utf8(&head);
+        let text = crate::view::decode(&head).unwrap_or_default();
+        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        Ok(Some(View::new(Lines::in_archive(file, utf8)?, &name, &text, size)))
+    }
+
     pub fn reader(&self) -> &Reader {
         self.lines.reader()
+    }
+
+    /// Whether this is a file inside an archive: it never grows, so there is nothing to follow.
+    pub fn is_entry(&self) -> bool {
+        self.lines.is_entry()
     }
 
     pub fn shape(&self) -> &Shape {
@@ -1269,6 +1334,38 @@ mod tests {
 
     fn s(v: &[&str]) -> Vec<String> {
         v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn a_log_inside_an_archive_is_paged_as_it_is_unpacked_with_no_copy() {
+        let d = dir("in-archive");
+        let src = d.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        // Over eight blocks of the entry's stream (JSON Lines, so the log keys apply).
+        let n = 500_000;
+        let text: String = (0..n).map(|i| format!("{{\"level\":\"info\",\"msg\":\"line {i} of the log\"}}\n")).collect();
+        std::fs::write(src.join("app.jsonl"), &text).unwrap();
+        let zip = d.join("logs.zip");
+        crate::archive::create(&zip, &[src.join("app.jsonl")]).unwrap();
+        let inside = zip.join("app.jsonl");
+        let copies = || crate::archive::peek_folder().ok().and_then(|f| std::fs::read_dir(f).ok()).map_or(0, |r| r.count());
+        let before = copies();
+        let v = View::open(&inside).unwrap().unwrap();
+        assert!(v.log && v.format == Format::JsonLines);
+        let limit = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(60));
+        while !v.reader().count().1 {
+            assert!(std::time::Instant::now() < limit, "lines never found");
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        assert_eq!(v.reader().count(), (n, true));
+        // Lines from the end, the middle and the start (going back unpacks again).
+        for i in [n - 1, n / 2, 0] {
+            assert_eq!(v.reader().read(i, i + 1, 1000), [format!("{{\"level\":\"info\",\"msg\":\"line {i} of the log\"}}")]);
+        }
+        assert_eq!(copies(), before, "no copy was made on the disk");
+        // A file that is no text is none; a missing one an error.
+        assert!(View::open(&zip.join("nothing.log")).is_err());
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]

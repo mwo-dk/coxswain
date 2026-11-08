@@ -7,8 +7,9 @@
 //! whole batch back.
 //!
 //! The plan and the run reach the files through `pinned`: folder handles, never a link, and the
-//! run writes only the very files the plan read (same file, same ctime, same content by its
-//! BLAKE3), each anew beside itself in its held folder. Binary files, files over `edit::MOST`,
+//! run writes only the very files the plan read (same file and path, same content by its
+//! BLAKE3; not the same ctime, which FreeBSD's UFS moves by itself after a rename), each anew
+//! beside itself in its held folder, and only while it is still as it was read. Binary files, files over `edit::MOST`,
 //! read-only ones, hard links, other users' files and files with ACLs or extended attributes are
 //! left out, and so is version control's own folder.
 
@@ -85,8 +86,8 @@ pub struct Change {
 pub struct FilePlan {
     pub path: PathBuf,
     pub encoding: edit::Encoding,
-    /// The file as the plan read it: the run writes only this very file (same device, inode and
-    /// ctime) with this very content (BLAKE3).
+    /// The file as the plan read it: the run writes only this very file (same device and inode)
+    /// with this very content (BLAKE3).
     pub id: Id,
     pub hash: String,
     pub changes: Vec<Change>,
@@ -320,7 +321,7 @@ pub fn plan(roots: &[PathBuf], q: &Query, stop: &AtomicBool, progress: &Progress
     let re = q.compile()?;
     let template = q.template();
     let mut plan = Plan { roots: roots.to_vec(), query: q.clone(), token: pinned::token(), ..Default::default() };
-    let (mut set, mut said, mut counted) = (Set::default(), Said::default(), 0);
+    let (mut set, mut said, mut counted) = (Set::any_ctime(), Said::default(), 0);
     pinned::walk(roots, &walk_spec(None), stop, &mut said, |node| {
         match node.stat.kind {
             Entry::Dir | Entry::Other => return true,
@@ -431,7 +432,9 @@ pub(crate) fn release(dir: &Path) {
 
 /// A folder of this run's own in the system's temporary folder, for the files as they were:
 /// made for this user alone (0700, never one that is there, under a name not to be guessed), and
-/// locked for as long as this app runs.
+/// locked for as long as this app runs. On unix it is made and locked under a passing name and
+/// only then given its own, so a folder under a `coxswain-replace-` name is always locked while
+/// its run lives, and `sweep` can take one that is not at once.
 fn keep_dir() -> std::io::Result<PathBuf> {
     static RUN: AtomicUsize = AtomicUsize::new(0);
     let mut last = std::io::Error::from(std::io::ErrorKind::AlreadyExists);
@@ -439,22 +442,15 @@ fn keep_dir() -> std::io::Result<PathBuf> {
         let n = RUN.fetch_add(1, Ordering::Relaxed);
         let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
         let salt = blake3::hash(format!("{}-{n}-{nanos}-{:p}", std::process::id(), &last).as_bytes()).to_hex();
-        let dir = std::env::temp_dir().join(format!("coxswain-replace-{}-{}", crate::spill::run(), &salt[..16]));
-        match private_dir(&dir) {
+        let name = format!("coxswain-replace-{}-{}", crate::spill::run(), &salt[..16]);
+        let dir = std::env::temp_dir().join(&name);
+        #[cfg(unix)]
+        let making = std::env::temp_dir().join(format!(".making-{name}"));
+        #[cfg(not(unix))]
+        let making = dir.clone();
+        match private_dir(&making) {
             Ok(()) => {
-                let mut o = std::fs::OpenOptions::new();
-                o.write(true).create_new(true);
-                #[cfg(unix)]
-                std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
-                let f = o.open(dir.join(".lock"))?;
-                #[cfg(unix)]
-                {
-                    use std::os::fd::AsRawFd;
-                    // SAFETY: the file just made.
-                    if unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
-                        return Err(std::io::Error::last_os_error());
-                    }
-                }
+                let f = locked_in(&making, &dir)?;
                 HELD.lock().map_err(|_| std::io::Error::other("lock"))?.push((dir.clone(), f));
                 return Ok(dir);
             }
@@ -464,6 +460,41 @@ fn keep_dir() -> std::io::Result<PathBuf> {
     Err(last)
 }
 
+/// The folder `making`, just made, given its lock (held from now on) and then, on unix, the name
+/// `dir`. On any fault it goes again, so nothing is left under its passing name; a crash in
+/// between leaves it to `sweep`.
+fn locked_in(making: &Path, dir: &Path) -> std::io::Result<std::fs::File> {
+    let locked = (|| {
+        let mut o = std::fs::OpenOptions::new();
+        o.write(true).create_new(true);
+        #[cfg(unix)]
+        std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
+        let f = o.open(making.join(".lock"))?;
+        #[cfg(unix)]
+        {
+            use std::os::fd::AsRawFd;
+            // SAFETY: the file just made.
+            if unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            std::fs::rename(making, dir)?;
+        }
+        #[cfg(not(unix))]
+        let _ = dir;
+        Ok(f)
+    })();
+    if locked.is_err() {
+        let _ = std::fs::remove_dir_all(making);
+    }
+    locked
+}
+
+/// Whether `name` is a folder of undo copies: `coxswain-replace-…`, or one a crash left under its
+/// passing name `.making-coxswain-replace-…`.
+fn kept_name(name: &str) -> bool {
+    name.strip_prefix(".making-").unwrap_or(name).starts_with("coxswain-replace-")
+}
+
 /// Every folder of undo copies in the temporary folder that is this user's own, a live run's
 /// too (Disk use shows them all; its Remove takes only those of runs that ended, by `sweep`).
 pub(crate) fn kept_dirs() -> Vec<PathBuf> {
@@ -471,7 +502,7 @@ pub(crate) fn kept_dirs() -> Vec<PathBuf> {
         .into_iter()
         .flatten()
         .flatten()
-        .filter(|e| e.file_name().to_string_lossy().starts_with("coxswain-replace-"))
+        .filter(|e| kept_name(&e.file_name().to_string_lossy()))
         .filter(|e| {
             std::fs::symlink_metadata(e.path()).is_ok_and(|m| {
                 #[cfg(unix)]
@@ -508,7 +539,8 @@ pub(crate) fn sweep() {
         for e in rd.flatten() {
             let name = e.file_name().to_string_lossy().into_owned();
             // This app's own folders are never swept, whatever its locks say (NFS, Solaris).
-            if !name.starts_with("coxswain-replace-") || name.starts_with(&own) {
+            let making = name.starts_with(".making-");
+            if !kept_name(&name) || name.trim_start_matches(".making-").starts_with(&own) {
                 continue;
             }
             let Ok(m) = std::fs::symlink_metadata(e.path()) else { continue };
@@ -516,14 +548,18 @@ pub(crate) fn sweep() {
                 continue;
             }
             let lock = std::fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK).open(e.path().join(".lock"));
-            let old = |t: i64| t < crate::fs::now() as i64 - 600;
             let free = match &lock {
-                // A lock no one holds, made long ago: its run has ended. A new one is left, since a
-                // run locks it only just after making it.
+                // A lock no one holds: its run has ended (`keep_dir` locks a folder before it
+                // gives it this name). Under its passing name, a run may be between making the
+                // lock and taking it: only one ten minutes old goes.
                 // SAFETY: an open file; the lock, if got, goes with the handle.
-                Ok(f) => f.metadata().is_ok_and(|l| old(l.mtime())) && (unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) }) == 0,
-                // No lock at all: one being made this moment is left; an old one goes.
-                Err(_) => old(m.mtime()),
+                Ok(f) => {
+                    (!making || f.metadata().is_ok_and(|l| l.mtime() < crate::fs::now() as i64 - 600))
+                        && (unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) }) == 0
+                }
+                // No lock at all: an older version's folder it was making this moment is left
+                // (it named the folder before locking it); an old one goes.
+                Err(_) => m.mtime() < crate::fs::now() as i64 - 600,
             };
             if free {
                 let _ = std::fs::remove_dir_all(e.path());
@@ -579,18 +615,33 @@ pub(crate) fn read_kept(path: &Path) -> std::io::Result<Vec<u8>> {
 /// Undo: `bytes` back into the file at `path`, in the folder it was written in, and only while
 /// it is still the very file written then, unchanged since.
 pub(crate) fn write_back(path: &Path, bytes: &[u8], pin: Pin) -> std::io::Result<()> {
-    use std::io::Read as _;
     let p = pinned::Place::reopen(path, pin.dir)?;
+    // The very file written, with the very content written.
+    let Some(sum) = pin.sum else { return Err(pinned::changed()) };
+    let now = same_content(&p, &pin.file, &sum)?;
+    p.rewrite(now.id, bytes).map(drop)
+}
+
+/// What the file at `p` is now, while it is still `file` (device and inode) with the content
+/// `sum` and no ACL or extended attributes, whatever its ctime: FreeBSD's UFS with soft updates
+/// moves a file's ctime by itself half a second to seconds after a rename into its name.
+fn same_content(p: &pinned::Place, file: &Id, sum: &str) -> std::io::Result<pinned::Stat> {
+    use std::io::Read as _;
     let now = p.stat()?;
-    // The very file written, with the very content written (its ctime may have moved by itself).
-    let Some(sum) = pin.sum.filter(|_| now.id.same_file(&pin.file)) else { return Err(pinned::changed()) };
-    let (f, _) = p.open(now.id)?;
+    if !now.id.same_file(file) {
+        return Err(pinned::changed());
+    }
+    let (mut f, now) = p.open(now.id)?;
+    #[cfg(unix)]
+    if pinned::extra_permissions(&f) {
+        return Err(pinned::changed());
+    }
     let mut was = vec![];
-    f.take(edit::MOST + 1).read_to_end(&mut was)?;
+    (&mut f).take(edit::MOST + 1).read_to_end(&mut was)?;
     if hash(&was) != sum {
         return Err(pinned::changed());
     }
-    p.rewrite(now.id, bytes).map(drop)
+    Ok(now)
 }
 
 /// Write the ticked changes of `picks` in the files of `plan`, as the plan read them; `stop`
@@ -599,14 +650,16 @@ pub fn apply(plan: &Plan, picks: &[Pick], stop: &AtomicBool, progress: &Progress
     let q = &plan.query;
     let re = q.compile()?;
     let template = q.template();
-    let by_id: HashMap<Id, usize> = plan.files.iter().enumerate().map(|(i, f)| (f.id, i)).collect();
+    // By device and inode: the plan's set meets a file whatever its ctime (`Set::any_ctime`), and
+    // the content is checked below.
+    let by_id: HashMap<(u64, u128), usize> = plan.files.iter().enumerate().map(|(i, f)| ((f.id.dev, f.id.ino), i)).collect();
     let picked: HashMap<usize, HashSet<usize>> = picks.iter().filter(|p| p.file < plan.files.len()).map(|p| (p.file, p.skip.iter().copied().collect())).collect();
     let mut done = Applied { replaced: 0, files: 0, failed: vec![], record: Record::new(Kind::Replace) };
     sweep();
     let (mut keep, mut kept) = (None::<PathBuf>, 0u64);
     let (mut reached, mut said) = (HashSet::new(), Said::default());
     pinned::walk(&plan.roots, &walk_spec(Some(&plan.set)), stop, &mut said, |node| {
-        let Some(i) = by_id.get(&node.stat.id).copied().filter(|i| picked.contains_key(i)) else { return true };
+        let Some(i) = by_id.get(&(node.stat.id.dev, node.stat.id.ino)).copied().filter(|i| picked.contains_key(i)) else { return true };
         if !reached.insert(i) {
             return true;
         }
@@ -614,10 +667,14 @@ pub fn apply(plan: &Plan, picks: &[Pick], stop: &AtomicBool, progress: &Progress
         let file = &plan.files[i];
         let fail = |why: String| format!("{}: {why}", node.path.display());
         let written = (|| {
-            let (raw, _) = read(node)?;
+            let (raw, stat) = read(node)?;
             // The very content the plan showed.
             if hash(&raw) != file.hash {
                 return Err(t!("pinned.changed"));
+            }
+            // Made read-only since the plan (which leaves those out): its ctime alone told.
+            if read_only(&stat) {
+                return Err(t!("replace.read_only"));
             }
             let Some((text, encoding)) = edit::decode(&raw) else { return Err(t!("replace.binary")) };
             let (new, n) = replaced(&text, &re, q, &template, &picked[&i], file.changes.len()).ok_or_else(too_big)?;
@@ -642,7 +699,19 @@ pub fn apply(plan: &Plan, picks: &[Pick], stop: &AtomicBool, progress: &Progress
             let written = o
                 .open(&was)
                 .and_then(|mut f| std::io::Write::write_all(&mut f, &raw).and_then(|_| f.sync_all()))
-                .and_then(|_| node.place.rewrite(node.stat.id, &bytes));
+                .and_then(|_| {
+                    // Its ctime moved by itself since it was read: written still when it is the
+                    // same file with the content read.
+                    node.place.rewrite(node.stat.id, &bytes).or_else(|e| {
+                        if e.to_string() != t!("pinned.changed") {
+                            return Err(e);
+                        }
+                        match same_content(&node.place, &node.stat.id, &file.hash) {
+                            Ok(now) if !read_only(&now) => node.place.rewrite(now.id, &bytes),
+                            _ => Err(e),
+                        }
+                    })
+                });
             match written {
                 Ok(id) => Ok(Some((n, was, Pin { dir: node.place.dir_id(), file: id, sum: Some(hash(&bytes)) }))),
                 Err(e) => {
@@ -686,7 +755,7 @@ pub fn picks(plan: &Plan) -> Vec<Pick> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     fn q(find: &str, with: &str) -> Query {
@@ -764,6 +833,63 @@ mod tests {
         let undone = done.record.undo(|_| {});
         assert_eq!((undone.done, undone.refused.len()), (0, 1));
         assert_eq!(std::fs::read_to_string(&a).unwrap(), "mine now");
+    }
+
+    /// Its ctime moved, and nothing else: chmod to the mode it has, until the clock has ticked.
+    #[cfg(unix)]
+    pub(crate) fn ctime_moves(p: &Path) {
+        use std::os::unix::fs::MetadataExt;
+        let m = std::fs::metadata(p).unwrap();
+        let start = std::time::Instant::now();
+        while std::fs::metadata(p).is_ok_and(|n| (n.ctime(), n.ctime_nsec()) == (m.ctime(), m.ctime_nsec())) {
+            assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(10)), "the ctime never moves");
+            std::fs::set_permissions(p, m.permissions()).unwrap();
+            std::thread::yield_now();
+        }
+    }
+
+    /// The run's retry and undo: the same file with the same content is met whatever its ctime,
+    /// one written since is not.
+    #[cfg(unix)]
+    #[test]
+    fn the_same_content_is_met_whatever_its_ctime() {
+        use std::os::unix::fs::MetadataExt;
+        let d = crate::fs::Scratch::named("replace-same");
+        let a = d.join("a");
+        std::fs::write(&a, "x").unwrap();
+        let m = std::fs::metadata(d.to_path_buf()).unwrap();
+        let p = pinned::Place::reopen(&a, (m.dev(), u128::from(m.ino()))).unwrap();
+        let was = p.stat().unwrap().id;
+        ctime_moves(&a);
+        let now = same_content(&p, &was, &hash(b"x")).unwrap();
+        assert!(now.id.same_file(&was) && now.id != was);
+        std::fs::write(&a, "y").unwrap();
+        assert!(same_content(&p, &was, &hash(b"x")).is_err());
+    }
+
+    /// FreeBSD's UFS with soft updates moves the ctime of a file renamed into its name (a replace
+    /// run's own, an editor's save), and at times of its folder, by itself up to seconds later:
+    /// a quick second replace planned before then is still written. A file made read-only since
+    /// the plan, which only its ctime told before, is still left.
+    #[cfg(unix)]
+    #[test]
+    fn a_ctime_moved_by_itself_since_the_plan_is_written_but_not_a_file_made_read_only() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = crate::fs::Scratch::named("replace-ctime");
+        let (sub, a, b) = (d.join("sub"), d.join("sub/a"), d.join("sub/b"));
+        std::fs::create_dir(&sub).unwrap();
+        std::fs::write(&a, "x").unwrap();
+        std::fs::write(&b, "x").unwrap();
+        let plan = plan_of(&[d.to_path_buf()], &q("x", "y"));
+        assert_eq!(plan.files.len(), 2);
+        ctime_moves(&a);
+        ctime_moves(&sub);
+        std::fs::set_permissions(&b, std::fs::Permissions::from_mode(0o444)).unwrap();
+        let done = apply_all(&plan);
+        assert_eq!(std::fs::read_to_string(&a).unwrap(), "y");
+        assert_eq!(std::fs::read_to_string(&b).unwrap(), "x");
+        assert_eq!((done.files, done.failed.len()), (1, 1), "{:?}", done.failed);
+        assert!(done.failed[0].ends_with(&t!("replace.read_only")), "{:?}", done.failed);
     }
 
     #[test]
@@ -985,6 +1111,36 @@ mod tests {
         }
     }
 
+    /// A folder that could not be locked or named leaves nothing under its passing name; one a
+    /// crash left there is listed in Disk use and swept once it is old and nobody holds it.
+    #[cfg(unix)]
+    #[test]
+    fn a_folder_left_half_made_goes() {
+        let name = format!("coxswain-replace-test-half-{}", std::process::id());
+        let making = std::env::temp_dir().join(format!(".making-{name}"));
+        private_dir(&making).unwrap();
+        // The rename fails: no such folder to put it in.
+        assert!(locked_in(&making, &std::env::temp_dir().join("no-such-folder").join(&name)).is_err());
+        assert!(!making.exists(), "removed again on the fault");
+        // A crash left one: fresh, it is left (a run may be locking it); old, it goes.
+        private_dir(&making).unwrap();
+        std::fs::write(making.join(".lock"), "").unwrap();
+        assert!(kept_dirs().contains(&making));
+        sweep();
+        assert!(making.exists());
+        let lock = std::fs::OpenOptions::new().write(true).open(making.join(".lock")).unwrap();
+        lock.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(3600)).unwrap();
+        drop(lock);
+        for _ in 0..250 {
+            sweep();
+            if !making.exists() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(!making.exists());
+    }
+
     #[cfg(unix)]
     #[test]
     fn kept_folders_of_ended_runs_are_swept_and_ours_are_kept() {
@@ -993,14 +1149,9 @@ mod tests {
         private_dir(&dead).unwrap();
         std::fs::write(dead.join(".lock"), "").unwrap();
         std::fs::write(dead.join("0"), "was").unwrap();
-        // A lock just made and not yet held is a run starting: left, by this and every other
-        // test's sweep, so none removes the folder while it is still being filled.
-        sweep();
-        assert!(dead.join("0").exists());
-        let lock = std::fs::OpenOptions::new().write(true).open(dead.join(".lock")).unwrap();
-        lock.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(3600)).unwrap();
-        drop(lock);
-        // Another test's run may hold the dead folder's lock for a moment while it sweeps it too.
+        // A lock no one holds is a run that ended, however new it is: gone at the first sweep
+        // (Remove in Disk use), not ten minutes later. Another test's run may hold the dead
+        // folder's lock for a moment while it sweeps it too.
         for _ in 0..250 {
             sweep();
             if !dead.exists() {

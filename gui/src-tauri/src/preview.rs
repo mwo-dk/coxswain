@@ -28,12 +28,11 @@ pub async fn git_diff(path: PathBuf) -> Res<Option<String>> {
             return Ok((!text.trim().is_empty()).then_some(text));
         }
         let (Some(dir), Some(name)) = (path.parent(), path.file_name()) else { return Ok(None) };
-        let out = coxswain_core::git::command(dir)
-            // No external diff or textconv program from the repository's own config.
-            .args(["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "HEAD", "--"])
-            .arg(name)
-            .output()
-            .map_err(|e| e.to_string())?;
+        let mut c = coxswain_core::git::command(dir);
+        // No external diff or textconv program from the repository's own config.
+        c.args(["diff", "--no-color", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "HEAD", "--"]).arg(name);
+        // Ended past its limit: a repository can name a FIFO git waits on.
+        let Some(out) = coxswain_core::git::output(c) else { return Ok(None) };
         let text = String::from_utf8_lossy(&out.stdout);
         Ok((out.status.success() && !text.trim().is_empty()).then(|| text.chars().take(512 * 1024).collect()))
     })
@@ -294,8 +293,15 @@ pub async fn file_facts(path: PathBuf, ctx: tauri::State<'_, crate::Ctx>) -> Res
 
 fn exif_facts(path: &Path) -> Vec<(String, String)> {
     use exif::{In, Tag};
-    let Ok(f) = File::open(path) else { return vec![] };
-    let Ok(ex) = exif::Reader::new().read_from_container(&mut BufReader::new(f)) else { return vec![] };
+    // Inside an archive: from the bytes the preview's picture was served from.
+    let ex = match crate::asset::inside_file(path) {
+        Some(bytes) => exif::Reader::new().read_from_container(&mut std::io::Cursor::new(&bytes[..])),
+        None => {
+            let Ok(f) = File::open(path) else { return vec![] };
+            exif::Reader::new().read_from_container(&mut BufReader::new(f))
+        }
+    };
+    let Ok(ex) = ex else { return vec![] };
     let get = |t: Tag| ex.get_field(t, In::PRIMARY).map(|f| f.display_value().with_unit(&ex).to_string().trim_matches('"').to_string());
     let mut out: Vec<(String, String)> = [
         (t!("facts.camera"), [get(Tag::Make), get(Tag::Model)].into_iter().flatten().collect::<Vec<_>>().join(" ")),
@@ -325,7 +331,12 @@ fn exif_facts(path: &Path) -> Vec<(String, String)> {
 
 fn audio_facts(path: &Path) -> Vec<(String, String)> {
     use lofty::prelude::*;
-    let Ok(file) = lofty::read_from_path(path) else { return vec![] };
+    // Inside an archive: from the bytes the player was served from.
+    let file = match crate::asset::inside_file(path) {
+        Some(bytes) => lofty::probe::Probe::new(std::io::Cursor::new(&bytes[..])).guess_file_type().ok().and_then(|p| p.read().ok()),
+        None => lofty::read_from_path(path).ok(),
+    };
+    let Some(file) = file else { return vec![] };
     let mut out = vec![];
     if let Some(tag) = file.primary_tag().or_else(|| file.first_tag()) {
         let mut add = |k: &str, v: Option<String>| {
@@ -461,6 +472,33 @@ fn kind_name(code: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A song inside a zip, previewed from memory, has its facts read from those bytes.
+    #[test]
+    fn a_song_inside_an_archive_has_its_facts() {
+        let dir = std::env::temp_dir().join(format!("coxswain-test-song-facts-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // Two seconds of 8 kHz mono 8-bit silence.
+        let (rate, n) = (8000u32, 16000u32);
+        let mut wav = b"RIFF".to_vec();
+        wav.extend((36 + n).to_le_bytes());
+        wav.extend(b"WAVEfmt ");
+        wav.extend(16u32.to_le_bytes());
+        wav.extend([1, 0, 1, 0]);
+        wav.extend(rate.to_le_bytes());
+        wav.extend(rate.to_le_bytes());
+        wav.extend([1, 0, 8, 0]);
+        wav.extend(b"data");
+        wav.extend(n.to_le_bytes());
+        wav.extend(std::iter::repeat_n(128u8, n as usize));
+        let song = dir.join("tone.wav");
+        std::fs::write(&song, &wav).unwrap();
+        let zip = dir.join("music.zip");
+        coxswain_core::archive::create(&zip, std::slice::from_ref(&song)).unwrap();
+        let facts = audio_facts(&zip.join("tone.wav"));
+        assert!(facts.iter().any(|(_, v)| v == "0:02"), "{facts:?}");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn binary_kinds_from_headers() {

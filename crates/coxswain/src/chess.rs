@@ -82,6 +82,15 @@ struct Thinking {
     stop: Arc<AtomicBool>,
 }
 
+/// A new PGN made from a game inside an archive, and the place not chosen yet: `folder` is the
+/// folder being typed once `f` was pressed.
+struct Saving {
+    word: &'static str,
+    text: String,
+    origin: play::Origin,
+    folder: Option<String>,
+}
+
 pub struct Viewer {
     pub path: PathBuf,
     lib: Option<Arc<Library>>,
@@ -122,6 +131,8 @@ pub struct Viewer {
     /// to narrow it, the move chosen).
     played: Option<PlayedLine>,
     picking: Option<(String, usize)>,
+    /// A new PGN waiting for its place to be chosen (`saving_key`).
+    saving: Option<Saving>,
     /// An engine line being stepped through: the board shows it, the engine stays on the game.
     browse: Option<Browse>,
     /// The engine: asked about each position while `analysis` is on.
@@ -224,6 +235,7 @@ impl Viewer {
             pick: 0,
             played: None,
             picking: None,
+            saving: None,
             browse: None,
             analysis: cfg.chess.analysis,
             program: play::engine_for(cfg),
@@ -277,6 +289,11 @@ impl Viewer {
         std::thread::spawn(move || tx.send(chess::games::game_of_hit(&path, &snippet)));
         self.hit = Some(rx);
         self.said = Some(t!("common.loading"));
+    }
+
+    /// Whether the archive the games are read out of wants a password.
+    pub fn locked(&self) -> bool {
+        self.lib.as_ref().is_some_and(|l| l.progress().error.is_some_and(|e| e.contains(coxswain_core::archive::LOCKED)))
     }
 
     /// The table follows the reading: asked again when there are more games, twice a second.
@@ -464,7 +481,7 @@ impl Viewer {
             }
             return;
         };
-        if self.thinking.as_ref().is_some_and(|t| t.fen == fen) || self.analysed.as_ref().is_some_and(|a| a.0 == fen) {
+        if self.thinking.as_ref().is_some_and(|t| t.fen == fen) || self.analysed.as_ref().is_some_and(|a| a.0 == fen && !matches!(&a.1, Ok(x) if x.review)) {
             return;
         }
         if let Some(t) = self.thinking.take() {
@@ -477,6 +494,15 @@ impl Viewer {
                 return;
             }
         };
+        // Seen before: shown at once; the game review's while the engine looks deeper.
+        match play::remembered(&program, &self.chess, &fen) {
+            Some(a) if !a.review => {
+                self.analysed = Some((fen, Ok(a)));
+                return;
+            }
+            Some(a) => self.analysed = Some((fen.clone(), Ok(a))),
+            None => {}
+        }
         let (tx, rx) = std::sync::mpsc::channel();
         let stop = Arc::new(AtomicBool::new(false));
         let (f, s, chess) = (fen.clone(), stop.clone(), self.chess.clone());
@@ -532,10 +558,62 @@ impl Viewer {
         let mut sans: Vec<String> = g.path_to(l.base).iter().map(|&n| g.nodes[n as usize].san.clone()).collect();
         sans.extend(l.moves.iter().map(|m| m.san.clone()));
         let text = play::line_pgn(&g.tags, &g.start, &sans);
-        self.said = Some(match play::save_beside(&self.path, "line", &text) {
-            Ok(p) => t!("chess.line_saved", "name" => p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
-            Err(e) => t!("chess.line_not_saved", "error" => e),
-        });
+        self.save("line", text);
+    }
+
+    /// `text` as a new PGN file: next to this one, or, for a game from an archive, where the
+    /// user says (`Saving`).
+    fn save(&mut self, word: &'static str, text: String) {
+        match play::origin(&self.path) {
+            Ok(Some(origin)) => self.saving = Some(Saving { word, text, origin, folder: None }),
+            Ok(None) => self.said = Some(play::save_where(&self.path, None, &play::Where::Beside, word, &text).unwrap_or_else(|e| e)),
+            Err(e) => self.said = Some(e),
+        }
+    }
+
+    /// A key while the place for a new PGN is asked: `b` beside the archive (Enter), `f` another
+    /// folder (typed, the archive's folder first), `i` into the archive, Esc to cancel.
+    fn saving_key(&mut self, key: Key) {
+        let Some(mut s) = self.saving.take() else { return };
+        self.said = None;
+        let at = if let Some(text) = s.folder.as_mut() {
+            match key.code {
+                KeyCode::Esc => return,
+                KeyCode::Enter => Some(play::Where::Folder(PathBuf::from(text.clone()))),
+                KeyCode::Backspace => {
+                    text.pop();
+                    None
+                }
+                _ => {
+                    if let Some(c) = crate::typed(&key) {
+                        text.push(c);
+                    }
+                    None
+                }
+            }
+        } else {
+            match key.code {
+                KeyCode::Esc => return,
+                KeyCode::Enter | KeyCode::Char('b') => Some(play::Where::Beside),
+                KeyCode::Char('i') if s.origin.writable => Some(play::Where::Inside),
+                KeyCode::Char('f') => {
+                    s.folder = Some(s.origin.archive.parent().map(|p| p.display().to_string()).unwrap_or_default());
+                    None
+                }
+                _ => None,
+            }
+        };
+        match at {
+            Some(at) => {
+                let said = play::save_where(&self.path, Some(&s.origin), &at, s.word, &s.text);
+                // A folder refused is typed again; anything else ends the question.
+                if said.is_err() && matches!(at, play::Where::Folder(_)) && s.folder.is_some() {
+                    self.saving = Some(s);
+                }
+                self.said = Some(said.unwrap_or_else(|e| e));
+            }
+            None => self.saving = Some(s),
+        }
     }
 
     /// The search helper, for Find this position.
@@ -613,10 +691,7 @@ impl Viewer {
             return;
         }
         let text = review::annotated_pgn(&o.game, &r);
-        self.said = Some(match play::save_beside(&self.path, "annotated", &text) {
-            Ok(p) => t!("chess.line_saved", "name" => p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
-            Err(e) => t!("chess.line_not_saved", "error" => e),
-        });
+        self.save("annotated", text);
     }
 
     /// The evaluation of the position shown, from White's side: the game's analysis, else the
@@ -656,6 +731,7 @@ impl Viewer {
     fn pick_key(&mut self, key: Key) -> Outcome {
         let Some((mut text, mut sel)) = self.picking.take() else { return Outcome::Stay };
         let list = self.pick_list(&text);
+        let typed = crate::typed(&key);
         match key.code {
             KeyCode::Esc => return Outcome::Stay,
             KeyCode::Enter => {
@@ -670,8 +746,8 @@ impl Viewer {
                 text.pop();
                 sel = 0;
             }
-            KeyCode::Char(c) if !key.ctrl && !key.alt => {
-                text.push(c);
+            _ if typed.is_some() => {
+                text.extend(typed);
                 sel = 0;
             }
             _ => {}
@@ -724,7 +800,12 @@ impl Viewer {
 
     /// A key, and the action the keymap binds it to.
     pub fn key(&mut self, key: Key, action: Option<Action>) -> Outcome {
+        if self.saving.is_some() {
+            self.saving_key(key);
+            return Outcome::Stay;
+        }
         if let Some((field, mut text)) = self.typing.take() {
+            let typed = crate::typed(&key);
             match key.code {
                 KeyCode::Esc => {}
                 KeyCode::Enter => {
@@ -744,8 +825,8 @@ impl Viewer {
                     text.pop();
                     self.typing = Some((field, text));
                 }
-                KeyCode::Char(c) if !key.ctrl && !key.alt => {
-                    text.push(c);
+                _ if typed.is_some() => {
+                    text.extend(typed);
                     self.typing = Some((field, text));
                 }
                 _ => self.typing = Some((field, text)),
@@ -1086,7 +1167,15 @@ impl Viewer {
             t!("chess.keys_list")
         };
         f.render_widget(Paragraph::new(fit(&keys, w)).style(dim), foot);
-        let line = match &self.typing {
+        let line = if let Some(s) = &self.saving {
+            let archive = s.origin.archive.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let text = match &s.folder {
+                Some(dir) => format!("{}{}: {dir}▏", self.said.as_ref().map(|s| format!("{s} · ")).unwrap_or_default(), t!("chess.save_folder")),
+                None if s.origin.writable => t!("chess.save_where_in", "archive" => archive),
+                None => t!("chess.save_where", "archive" => archive),
+            };
+            Some((text, sty(&theme.dialog_input)))
+        } else { match &self.typing {
             Some((field, text)) => {
                 let label = match field {
                     Field::Player => t!("chess.filter_player"),
@@ -1100,7 +1189,7 @@ impl Viewer {
                 Some((text, _)) => Some((format!("{}: {text}▏", t!("chess.pick")), sty(&theme.dialog_input))),
                 None => self.said.clone().map(|s| (s, dim)),
             },
-        };
+        } };
         if let Some((s, style)) = line {
             f.render_widget(Paragraph::new(fit(&s, w)).style(style), said);
         }
@@ -1970,6 +2059,9 @@ impl Viewer {
             Some((f, Ok(a))) if Some(f) == fen.as_ref() => {
                 let browse = self.browsing();
                 let mut head = t!("chess.engine", "name" => a.engine, "depth" => a.depth);
+                if a.review {
+                    head = format!("{head} · {}", t!("chess.engine_from_review"));
+                }
                 match a.lines.len() {
                     0 => {}
                     1 => head = format!("{head} · {}", t!("chess.engine_line_key")),
@@ -2081,6 +2173,23 @@ mod tests {
         assert_eq!(at(4, Some(39))[0], "w04 w05 w06 w07");
         // Near the start: nothing scrolls.
         assert_eq!(at(1, Some(6))[0], "w00 w01 w02 w03");
+    }
+
+    /// Terminals report Shift+A as `a` with Shift: the player field types the capital.
+    #[test]
+    fn a_chess_field_types_capitals_with_shift() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-chess-shift-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("g.pgn");
+        std::fs::write(&p, "[White \"A\"]\n\n1.e4 *\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        v.key(key(KeyCode::Char('/')), None);
+        v.key(Key { code: KeyCode::Char('m'), ctrl: false, alt: false, shift: true }, None);
+        assert_eq!(v.typing.as_ref().map(|(_, t)| t.as_str()), Some("M"));
+        // Ctrl+letter is no text.
+        v.key(Key { code: KeyCode::Char('x'), ctrl: true, alt: false, shift: false }, None);
+        assert_eq!(v.typing.as_ref().map(|(_, t)| t.as_str()), Some("M"));
     }
 
     #[test]

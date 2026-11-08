@@ -9,7 +9,8 @@ use coxswain_core::history;
 use coxswain_core::menu::Subject;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::borrow::Cow;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 /// Up to this many entries a listing comes whole, so a small folder needs no more asking.
@@ -22,8 +23,21 @@ struct List {
     /// The page's number for the listing: a later one replaces it, an earlier one never does.
     generation: u64,
     dir: PathBuf,
+    /// As `fs::list_lean` gives them: most without a path, which `Entry::path_in(dir)` gives back.
     entries: Vec<Entry>,
     marked: HashSet<PathBuf>,
+    /// The kept list of the archive `dir` is in (`archive::hold`): a large one goes once no
+    /// tab lists a folder of it.
+    _hold: Option<coxswain_core::archive::Hold>,
+}
+
+/// `e` of a listing of `dir` with its path, as everything outside the listing takes it.
+fn full(dir: &Path, e: &Entry) -> Entry {
+    let mut e = e.clone();
+    if let Cow::Owned(p) = e.path_in(dir) {
+        e.path = p;
+    }
+    e
 }
 
 /// The tabs' listings, by the page's tab id.
@@ -106,11 +120,11 @@ impl List {
     fn rows(&self, from: usize, to: usize, ctx: &Ctx) -> Rows {
         let (from, to) = (from.min(self.entries.len()), to.min(self.entries.len()));
         let part = &self.entries[from..to];
-        let marked: Vec<bool> = part.iter().map(|e| self.marked.contains(&e.path)).collect();
+        let marked: Vec<bool> = part.iter().map(|e| self.marked.contains(&*e.path_in(&self.dir))).collect();
         let st = ctx.state.lock().unwrap_or_else(|e| e.into_inner());
         let cfg = ctx.cfg();
         let plain = cfg.plain_glyphs().then(|| cfg.glyphs());
-        let (prefix, items) = to_page(&self.dir, part.to_vec(), |p| st.tags.get(p).cloned(), plain.as_ref());
+        let (prefix, items) = to_page(&self.dir, part.iter().map(|e| full(&self.dir, e)).collect(), |p| st.tags.get(p).cloned(), plain.as_ref());
         Rows { from, prefix, items: items.into_iter().zip(marked).map(|(item, m)| Row { item, m }).collect() }
     }
 
@@ -123,7 +137,7 @@ impl List {
     }
 
     fn marked(&self) -> impl Iterator<Item = &Entry> {
-        self.entries.iter().filter(|e| !self.marked.is_empty() && self.marked.contains(&e.path))
+        self.entries.iter().filter(|e| !self.marked.is_empty() && self.marked.contains(&*e.path_in(&self.dir)))
     }
 
     /// The marked entries, copied: their counts are made (`Pending::done`) once the tabs' lock
@@ -131,11 +145,11 @@ impl List {
     fn marks(&self) -> Pending {
         // ponytail: one pass over the listing per change of marks; kept counts if a million
         // marked entries make Insert slow.
-        Pending(self.marked().cloned().collect())
+        Pending(self.marked().map(|e| full(&self.dir, e)).collect())
     }
 
     fn up(&self) -> Option<PathBuf> {
-        self.entries.first().filter(|e| e.is_parent()).map(|e| e.path.clone())
+        self.entries.first().filter(|e| e.is_parent()).map(|e| e.path_in(&self.dir).into_owned())
     }
 
     fn oci(&self) -> bool {
@@ -143,7 +157,7 @@ impl List {
     }
 
     fn find(&self, name: &str) -> Option<usize> {
-        self.entries.iter().position(|e| e.name == name || e.path.as_os_str() == name)
+        self.entries.iter().position(|e| e.name == name || e.path_in(&self.dir).as_os_str() == name)
     }
 
     fn sort(&mut self, sort: SortKey, reverse: bool, measured: &HashMap<PathBuf, u64>) {
@@ -168,9 +182,11 @@ impl List {
     }
 
     fn mark(&mut self, op: MarkOp) {
+        let dir = &self.dir;
         let toggle = |marked: &mut HashSet<PathBuf>, e: &Entry| {
-            if !marked.remove(&e.path) {
-                marked.insert(e.path.clone());
+            let p = e.path_in(dir);
+            if !marked.remove(&*p) {
+                marked.insert(p.into_owned());
             }
         };
         let real = |e: &&Entry| !e.is_parent();
@@ -180,13 +196,13 @@ impl List {
                     toggle(&mut self.marked, e);
                 }
             }
-            MarkOp::Range(a, b) => self.marked.extend(self.entries.iter().take(b.saturating_add(1)).skip(a).filter(real).map(|e| e.path.clone())),
+            MarkOp::Range(a, b) => self.marked.extend(self.entries.iter().take(b.saturating_add(1)).skip(a).filter(real).map(|e| e.path_in(dir).into_owned())),
             // As in a file explorer: everything in the folder, files and folders, but `..`.
-            MarkOp::All => self.marked.extend(self.entries.iter().filter(real).map(|e| e.path.clone())),
+            MarkOp::All => self.marked.extend(self.entries.iter().filter(real).map(|e| e.path_in(dir).into_owned())),
             MarkOp::None => self.marked.clear(),
             MarkOp::Paths(paths) => {
-                let here: HashSet<&PathBuf> = self.entries.iter().filter(real).map(|e| &e.path).collect();
-                let add: Vec<PathBuf> = paths.into_iter().filter(|p| here.contains(p)).collect();
+                let here: HashSet<Cow<Path>> = self.entries.iter().filter(real).map(|e| e.path_in(dir)).collect();
+                let add: Vec<PathBuf> = paths.into_iter().filter(|p| here.contains(p.as_path())).collect();
                 self.marked.extend(add);
             }
             MarkOp::Invert => self.entries.iter().filter(|e| !e.is_dir).for_each(|e| toggle(&mut self.marked, e)),
@@ -197,9 +213,9 @@ impl List {
                     let name: Vec<char> = e.name.to_lowercase().chars().collect();
                     if pats.iter().any(|g| coxswain_core::index::glob(g, &name)) {
                         if on {
-                            self.marked.insert(e.path.clone());
+                            self.marked.insert(e.path_in(dir).into_owned());
                         } else {
-                            self.marked.remove(&e.path);
+                            self.marked.remove(&*e.path_in(dir));
                         }
                     }
                 }
@@ -244,7 +260,7 @@ pub async fn tab_list(
     tabs: tauri::State<'_, Tabs>,
 ) -> Res<TabListing> {
     let (mut entries, meta) = read_listing(dir, show_hidden, sort, reverse, &ctx).await?;
-    crate::compare::hide_same(&mut entries);
+    crate::compare::hide_same(&meta.dir, &mut entries);
     let mut all = tabs.0.lock().map_err(|e| e.to_string())?;
     let mut marked = HashSet::new();
     if let Some(old) = all.get_mut(&tab) {
@@ -255,9 +271,9 @@ pub async fn tab_list(
             marked = std::mem::take(&mut old.marked);
         }
     }
-    let alive: HashSet<&PathBuf> = if marked.is_empty() { HashSet::new() } else { entries.iter().map(|e| &e.path).collect() };
-    marked.retain(|p| alive.contains(p));
-    let list = List { generation, dir: meta.dir.clone(), entries, marked };
+    let alive: HashSet<Cow<Path>> = if marked.is_empty() { HashSet::new() } else { entries.iter().map(|e| e.path_in(&meta.dir)).collect() };
+    marked.retain(|p| alive.contains(p.as_path()));
+    let list = List { generation, _hold: coxswain_core::archive::hold(&meta.dir), dir: meta.dir.clone(), entries, marked };
     let total = list.entries.len();
     let cursor = focus.and_then(|f| list.find(&f)).unwrap_or(cursor.min(total.saturating_sub(1)));
     let marks = list.marks();
@@ -280,9 +296,9 @@ pub fn tab_rows(tab: u64, generation: u64, from: usize, to: usize, ctx: tauri::S
 #[allow(clippy::too_many_arguments)]
 pub fn tab_sort(tab: u64, generation: u64, sort: SortKey, reverse: bool, measured: HashMap<PathBuf, u64>, cursor: usize, span: usize, ctx: tauri::State<Ctx>, tabs: tauri::State<Tabs>) -> Res<TabListing> {
     let (mut answer, marks) = tabs.with(tab, |l| {
-        let at = l.entries.get(cursor).map(|e| e.path.clone());
+        let at = l.entries.get(cursor).map(|e| e.path_in(&l.dir).into_owned());
         l.sort_as(generation, sort, reverse, &measured)?;
-        let cursor = at.and_then(|p| l.entries.iter().position(|e| e.path == p)).unwrap_or(0);
+        let cursor = at.and_then(|p| l.entries.iter().position(|e| e.path_in(&l.dir) == p.as_path())).unwrap_or(0);
         Ok::<_, String>((TabListing { meta: None, total: l.entries.len(), up: l.up(), oci: l.oci(), cursor, rows: l.around(cursor, span, &ctx), marks: Marks::default() }, l.marks()))
     })??;
     answer.marks = marks.done();
@@ -326,7 +342,7 @@ pub struct Pick {
 #[tauri::command(async)]
 pub fn tab_pick(tab: u64, which: String, tabs: tauri::State<Tabs>) -> Res<Vec<Pick>> {
     tabs.with(tab, |l| {
-        let pick = |e: &Entry| Pick { name: e.name.clone(), path: e.path.clone(), is_dir: e.is_dir };
+        let pick = |e: &Entry| Pick { name: e.name.clone(), path: e.path_in(&l.dir).into_owned(), is_dir: e.is_dir };
         match which.as_str() {
             "marked" => l.marked().map(pick).collect(),
             "dirs" => l.entries.iter().filter(|e| e.is_dir && !e.is_parent()).map(pick).collect(),
@@ -359,9 +375,9 @@ mod tests {
         let dir = PathBuf::from("/d");
         let entries = names
             .iter()
-            .map(|&(name, is_dir)| Entry { name: name.into(), path: if name == ".." { "/".into() } else { dir.join(name) }, is_dir, is_symlink: false, is_exec: false, hidden: false, size: 10, modified: 0, created: 0, online: false, referenced: 0, origin: PathBuf::new() })
+            .map(|&(name, is_dir)| Entry { name: name.into(), path: if name == ".." { "/".into() } else { PathBuf::new() }, is_dir, is_symlink: false, is_exec: false, hidden: false, size: 10, modified: 0, created: 0, online: false, referenced: 0, origin: PathBuf::new() })
             .collect();
-        List { generation: 1, dir, entries, marked: HashSet::new() }
+        List { generation: 1, dir, entries, marked: HashSet::new(), _hold: None }
     }
 
     #[test]

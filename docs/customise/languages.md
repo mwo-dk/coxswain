@@ -269,7 +269,7 @@ them.
   dialogs). While a word is being composed, Enter, Esc and the arrows belong to the input
   method: Enter takes the word and does not run the dialog, Esc drops the word and does not
   close it.
-- **Quick search** (**Alt+letter**, then letters) jumps to a name that starts with what you
+- **Quick search** (letters in the desktop app, **Alt+letter** in the terminal app, then more letters) jumps to a name that starts with what you
   type; a name kept decomposed (as macOS does with Hangul, or か + ゙ for が) is found by the
   composed letters. An input method composes only in a text field, so in the desktop app quick
   search takes the letters typed straight from the keyboard; for a Chinese, Japanese or Korean name use

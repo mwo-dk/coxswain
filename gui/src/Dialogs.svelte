@@ -215,7 +215,8 @@
     await showInTab(tb, h.path);
     // A game in a PGN file: that game, on the board in the preview.
     if (h.snippet && ["pgn", "pdn", "shogi", "pbn"].includes(chessFormat(basename(h.path)))) {
-      const index = await invoke("chess_hit", { path: h.path, snippet: h.snippet });
+      // A game of a database Find looked through game by game: its number; else by the snippet.
+      const index = h.game ?? (await invoke("chess_hit", { path: h.path, snippet: h.snippet }));
       if (index != null) {
         ui.chessAt = { path: h.path, index };
         ui.showPreview = true;
@@ -465,7 +466,7 @@
   const parts = (s) => s.split(/\{(\w+)\}/);
 
   // Screen-reader name for modals that have no title of their own.
-  const KIND_LABEL = { linehistory: "action.line_history", help: "help.title", search: "search.title", rename: "action.batch_rename", props: "action.properties", tag: "action.tag" };
+  const KIND_LABEL = { keytest: "keytest.title", linehistory: "action.line_history", help: "help.title", search: "search.title", rename: "action.batch_rename", props: "action.properties", tag: "action.tag" };
 
   // ------------------------------------------------------------ pack
 
@@ -725,6 +726,12 @@
         </div>
         <div class="buttons"><button class="primary" onclick={close}>{t("common.close")}</button></div>
         <p class="keys">{t("dialog.keys_one", { verb: t("common.close") })}</p>
+      {:else if m.kind === "keytest"}
+        <h2>{t("keytest.title")}</h2>
+        <p>{t("keytest.intro")}</p>
+        <pre class="keylog">{m.lines.join("\n")}</pre>
+        <div class="buttons"><button class="primary" onclick={close}>{t("common.close")}</button></div>
+        <p class="keys">{t("keytest.keys", { verb: t("common.close") })}</p>
       {:else if m.kind === "message"}
         <h2>{m.title}</h2>
         <p>{m.text}</p>
@@ -803,7 +810,7 @@
             </tbody>
           </table>
           <p>{t("dialogs.help_mouse", { where: `${t("settings.title")} → ${t("settings.area.behaviour")} → ${t("setting.right_click")}` })}</p>
-          <p>{t("dialogs.help_quick")}</p>
+          <p>{t("dialogs.help_quick", { key: ui.cfg.actions.command_line?.[1] || `${ui.cfg.actions.menu?.[1] ?? ""} → ${ui.cfg.actions.command_line?.[0] ?? ""}` })}</p>
           <p>{t("dialogs.help_views")}</p>
           <p>{#each parts(t("dialogs.help_syntax")) as s, i (i)}{#if i % 2}<b>{t("search.title")}</b>{:else}{s}{/if}{/each} <code>foo bar</code> · <code>foo|bar</code> · <code>!foo</code> · <code>*.rs</code> · <code>ext:rs;toml</code> · <code>file:</code> <code>folder:</code> · <code>src/ foo</code> · <code>case:</code></p>
           <p>
@@ -1413,6 +1420,10 @@
     white-space: pre-wrap;
     font-family: var(--mono-font), var(--scripts);
     overflow: auto;
+  }
+  /* Room for the twelve lines it keeps, so the dialog does not grow as keys come. */
+  .keylog {
+    min-height: 12lh;
   }
   .glyph {
     font-family: var(--icon-font);

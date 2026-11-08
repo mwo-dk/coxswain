@@ -65,14 +65,25 @@
   }
   // What is kept of long files: what the change reads again, adds or frees, said first.
   let longChange = $state(null);
+  // Which ask is the last: an answer to an older one, or to one cancelled, is dropped.
+  let asks = 0;
   async function set(name, value) {
     const changes = { [name]: value };
-    if (!name.startsWith("long_files") && !name.startsWith("search_commit_changes")) return save(changes);
+    if (!name.startsWith("long_files") && !commitChanges(name)) return save(changes);
+    // A newer ask on another option: the one waiting goes back to its stored value.
+    if (longChange && longChange.name !== name) keepLong();
+    const ask = ++asks;
+    // Counting the changes of commits takes seconds with many large repositories: said meanwhile.
+    if (commitChanges(name)) longChange = { why: t("changes.costing"), name, busy: true };
     const why = await invoke("long_files_change", { changes }).catch(() => null);
-    if (!why) return save(changes);
+    if (ask !== asks) return;
+    if (!why) return void ((longChange = null), save(changes));
     longChange = { why, name, go: () => save(changes) };
   }
+  // Git history on or off keeps or drops the changes of commits too.
+  const commitChanges = (name) => name === "search_history" || name.startsWith("search_commit_changes");
   function keepLong() {
+    asks++;
     const name = longChange?.name;
     longChange = null;
     const el = document.getElementById("in-long_files");
@@ -97,7 +108,12 @@
     // One block shows both themes: the one asked for.
     if (at === "theme" || at === "tui_theme") themeFor = at;
     await tick();
-    const el = document.getElementById(`opt-${at}`);
+    // Disk use's rows come when they are read: the user's own files are shown once they are.
+    // Both reads: the second (with the container images) adds rows above Your own files.
+    if (at === "disk_yours") await Promise.all([diskRead, diskFull]);
+    await tick();
+    // With none of the user's own files kept, Disk use itself.
+    const el = document.getElementById(`opt-${at}`) ?? (at === "disk_yours" ? document.getElementById("opt-disk") : null);
     if (!el) return;
     for (let d = el.closest("details"); d; d = d.parentElement?.closest("details")) d.open = true;
     el.scrollIntoView({ block: "center" });
@@ -177,13 +193,16 @@
       bench = { error: String(e) };
     }
   }
+  /** Which status lines show the runtime's own error. */
+  const details = $state({});
   async function step(line) {
     error = "";
     if (line.step === "turn_on") return chooseLevel("text");
     if (line.step === "set_up") return openSetup();
     if (line.step === "try_it") return tryAsk();
     if (line.step === "bench") return runBench();
-    const what = { read_now: "now", pause: "pause", resume: "resume", stop_transcribing: "stop_transcribing" }[line.step] ?? "restart";
+    if (line.step === "details") return (details[line.part] = !details[line.part]);
+    const what = { read_now: "now", pause: "pause", resume: "resume", stop_transcribing: "stop_transcribing", retry_now: "retry_pulls" }[line.step] ?? "restart";
     await invoke("index_action", { what }).catch((e) => (error = String(e)));
     loadIndex();
   }
@@ -205,9 +224,9 @@
     return at ? t("settings.search_root_size", { size: size(bytes) }) : t("settings.search_root_away", { size: size(bytes) });
   };
   async function addFolder(name, input) {
-    const dir = await invoke("resolve_path", { base: tab()?.dir ?? ui.cfg.home, input: input || tab()?.dir || "" });
+    const dir = await invoke("folder_to_add", { panel: tab()?.dir ?? ui.cfg.home, input: input ?? "" });
     adding[name] = "";
-    if (!s[name].includes(dir)) set(name, [...s[name], dir]);
+    if (dir && !s[name].includes(dir)) set(name, [...s[name], dir]);
   }
   function addWord(name) {
     const word = (adding[name] ?? "").trim();
@@ -379,13 +398,18 @@
   const limits = $derived([["time", t("settings.chess_limit_time")], ["depth", t("settings.chess_limit_depth")], ["nodes", t("settings.chess_limit_nodes")]]);
   const preferLabel = (v) => t({ auto: "settings.prefer_auto", local: "settings.prefer_local", container: "settings.prefer_container" }[v] ?? "settings.prefer_auto");
   const installed = (r) => r.programs.filter((p) => p.path);
-  const imageState = (im) => (tools.pulling[im.image] != null ? tools.pulling[im.image] || t("common.loading") : im.pulled != null ? t("settings.image_pulled", { size: size(im.pulled) }) : im.download ? `${t("settings.image_not_pulled")} (${im.download})` : t("settings.image_not_pulled"));
+  const imageState = (im) => (tools.pulling[im.image] != null ? tools.pulling[im.image] || t("common.loading") : tools.failed?.[im.image] ? tools.failed[im.image] : im.pulled != null ? t("settings.image_pulled", { size: size(im.pulled) }) : im.download ? `${t("settings.image_not_pulled")} (${im.download})` : t("settings.image_not_pulled"));
   // ------------------------------------------------------------ the chess engine
   /** The known engines (only looked for, never run), and what Test engine read: the chosen
    *  engine's name and options, "testing" while it runs, or why it could not. */
   let engines = $state([]);
   let engine = $state(null);
-  const loadEngines = () => invoke("chess_engines").then((v) => (engines = v), () => (engines = []));
+  // Where the analysed positions are kept, and how many at most.
+  let memory = $state(null);
+  const loadEngines = () => {
+    invoke("chess_memory").then((m) => (memory = m), () => {});
+    return invoke("chess_engines").then((v) => (engines = v), () => (engines = []));
+  };
   async function chooseEngine(program) {
     engine = null;
     await set("chess_engine", program === "stockfish" ? "" : program);
@@ -438,9 +462,11 @@
   let diskSaid = $state("");
   let clearing = $state("");
   let also = $state({ models: false, outside: false });
+  let diskRead = Promise.resolve();
+  let diskFull = Promise.resolve();
   const loadDisk = () => {
-    invoke("disk_list", { images: false }).then((v) => (disk ??= v), (e) => (diskSaid = String(e)));
-    invoke("disk_list", { images: true }).then((v) => (disk = v), () => {});
+    diskRead = invoke("disk_list", { images: false }).then((v) => (disk ??= v), (e) => (diskSaid = String(e)));
+    diskFull = invoke("disk_list", { images: true }).then((v) => (disk = v), () => {});
   };
   const diskOf = (kind) => (disk ?? []).filter((d) => (kind === "own" ? d.kind === "own" || d.kind === "model" : d.kind === kind));
   /** What *Clear everything that can be built again* clears, with what is ticked. */
@@ -593,7 +619,7 @@
         {/each}
       {/if}
       <form class="folder" onsubmit={(e) => (e.preventDefault(), words ? addWord(name) : addFolder(name, adding[name]))}>
-        <input id="in-{name}" bind:value={adding[name]} spellcheck="false" placeholder={words ? "*.log" : tab()?.dir} />
+        <input id="in-{name}" bind:value={adding[name]} spellcheck="false" placeholder={words ? "*.log" : "~/Documents"} />
         <button type="submit">{t("settings.search_add")}</button>
       </form>
     </div>
@@ -688,6 +714,7 @@
             <span>{l.text}
               {#if l.bar}<br /><progress max={l.bar[1] || 1} value={l.bar[0]}></progress> <small class="hint">{l.bar[1] ? Math.min(99, Math.floor((l.bar[0] * 100) / l.bar[1])) : 100} %</small>{/if}
               {#if l.note}<br /><small class="hint" class:err={l.bad}>{l.note}</small>{/if}
+              {#if l.details && details[l.part]}<br /><small class="hint err"><code class="details">{l.details}</code></small>{/if}
               {#if l.part === "meaning" && index?.meaning_runs_text && s.meaning_engine === "builtin"}<br /><small class="hint">{index.meaning_runs_text}</small>{/if}
               {#if l.poor}<br /><small class={l.poor.tip ? "hint" : "err"}>{l.poor.text}</small>{#if l.poor.button}{" "}<button class="link" onclick={() => usePoor(l.poor)}>{l.poor.button}</button>{/if}{/if}
               {#if l.part === "ask" && trial}<br /><small class="hint" class:err={trial.error}>{trial.busy ? t("common.loading") : trial.error ?? t("setup.try_done", { seconds: (trial.ms / 1000).toFixed(1) })}</small>{/if}
@@ -695,7 +722,7 @@
             </span>
             {#if l.step}<span class="steps"
                 ><button disabled={(trial?.busy && l.step === "try_it") || (bench?.busy && l.step === "bench")} onclick={() => step(l)}>{t(`settings.step.${l.step}`)}</button
-                >{#if l.also}<button onclick={() => step({ step: l.also })}>{t(`settings.step.${l.also}`)}</button>{/if}</span
+                >{#if l.also}<button onclick={() => step({ step: l.also, part: l.part })}>{t(`settings.step.${l.also}`)}</button>{/if}</span
               >{:else}<span></span>{/if}
           {/each}
         </div>
@@ -726,17 +753,17 @@
             {@render check("search_archives")}
             {#if s.search_archives}{@render check("search_archives_everywhere", undefined, undefined, true)}{/if}
             {@render check("search_history")}
+            {#if longChange && commitChanges(longChange.name)}
+              <!-- Outside the history block: s still holds the stored value until saved. The room and time it takes, or what turning it off frees, said before it is saved. -->
+              <p><strong>{longChange.why}</strong></p>
+              <div class="buttons">
+                {#if !longChange.busy}<button class="primary" onclick={() => { longChange.go(); longChange = null; }}>{t("common.apply")}</button>{/if}
+                <button onclick={keepLong}>{t("common.cancel")}</button>
+              </div>
+            {/if}
             {#if s.search_history}
               {@render check("search_commit_changes", undefined, undefined, true)}
               {#if !s.search_commit_changes}{@render list("search_commit_changes_in", t("settings.search_names_only_none"))}{/if}
-              {#if longChange?.name.startsWith("search_commit_changes")}
-                <!-- The room and time it takes, or what turning it off frees, said before it is saved. -->
-                <p><strong>{longChange.why}</strong></p>
-                <div class="buttons">
-                  <button class="primary" onclick={() => { longChange.go(); longChange = null; }}>{t("common.apply")}</button>
-                  <button onclick={keepLong}>{t("common.cancel")}</button>
-                </div>
-              {/if}
             {/if}
             {@render check("search_cloud", s.search_cloud === "all", (v) => set("search_cloud", v ? "all" : "local-only"))}
             {#if s.search_cloud !== "all"}
@@ -845,7 +872,7 @@
             {@render choice("long_files", [["sample", t("settings.long_files.sample")], ["everything", t("settings.long_files.everything")]])}
             {@render list("long_files_everything", t("settings.search_names_only_none"))}
             {@render list("long_files_sample", t("settings.search_names_only_none"))}
-            {#if longChange && !longChange.name.startsWith("search_commit_changes")}
+            {#if longChange && !commitChanges(longChange.name)}
               <p><strong>{longChange.why}</strong></p>
               <div class="buttons">
                 <button class="primary" onclick={() => { longChange.go(); longChange = null; }}>{t("common.apply")}</button>
@@ -1001,10 +1028,12 @@
                       <small>{im.image ? t("ptools.container", { image: im.image.split("@")[0], state: imageState(im) }) : t("ptools.container_none", { key: im.key })}</small>
                       {#if !im.image}<button onclick={openConfig}>{t("settings.open_config")}</button>{/if}
                       {#if im.image && !tools.no_runtime}
-                        <button disabled={tools.pulling[im.image] != null} onclick={() => imageAction("pull_image", im.image)}>{t("settings.pull")}</button>
+                        <button disabled={tools.pulling[im.image] != null} onclick={() => imageAction("pull_image", im.image)}>{t(tools.failed?.[im.image] ? "settings.step.retry_now" : "settings.pull")}</button>
                         <button disabled={tools.pulling[im.image] != null || im.pulled == null} onclick={() => imageAction("remove_image", im.image)}>{t("common.remove")}</button>
+                        {#if tools.failed_details?.[im.image]}<button onclick={() => (details[im.image] = !details[im.image])}>{t("settings.step.details")}</button>{/if}
                       {/if}
                     </div>
+                    {#if details[im.image] && tools.failed_details?.[im.image]}<small class="hint err"><code class="details">{tools.failed_details[im.image]}</code></small>{/if}
                   {/each}
                   <div class="ptool-use">
                     <small class:err={r.missing}>{t("ptools.uses", { engine: r.uses })}</small>
@@ -1097,6 +1126,7 @@
           {@render num("chess_review_time", 100, 10000, 100)}
           {@render num("chess_review_depth", 1, 99)}
           {@render num("chess_review_nodes", 1000, 10000000000, 1000)}
+          {#if memory}<p class="hint" id="opt-chess_memory">{t("chess.memory")}: <code>{memory[0]}</code> · {t("chess.memory_hint", { most: memory[1] })}</p>{/if}
         </details>
         <details class="group" id="opt-book" open>
           <summary>{t("settings.group.book")}</summary>
@@ -1177,6 +1207,7 @@
           {@render check("show_hidden")}
           {@render check("confirm_delete")}
           {@render choice("right_click", [["mark", t("settings.right_click_mark")], ["menu", t("settings.right_click_menu")]])}
+          {@render choice("typing", [["find", t("settings.typing_find")], ["command", t("settings.typing_command")]])}
           {@render check("hints")}
           <div class="buttons sub"><button onclick={() => invoke("hints_reset").then(() => (hintsReset = true), (e) => (error = String(e)))}>{t("settings.hints_reset")}</button>{#if hintsReset} <span class="hint">{t("settings.hints_reset_done")}</span>{/if}</div>
           {@render check("folder_sizes")}
@@ -1284,7 +1315,7 @@
             {#each diskOf("outside") as d (d.id)}{@render diskRow(d)}{/each}
           {/if}
           {#if diskOf("yours").length}
-            <p class="lab">{t("disk.head.yours")}</p>
+            <p class="lab" id="opt-disk_yours" class:flash={flash === "disk_yours"}>{t("disk.head.yours")}</p>
             <p class="hint">{t("disk.yours_hint")}</p>
             {#each diskOf("yours") as d (d.id)}{@render diskRow(d)}{/each}
           {/if}
@@ -1519,6 +1550,11 @@
   }
   .level small {
     display: block;
+  }
+  code.details {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 0.9em;
   }
   details.details > summary {
     font-weight: bold;
@@ -1892,6 +1928,7 @@
     margin: 2px 0 0;
     max-width: 100ch;
     line-height: 1.45;
+    white-space: pre-line;
   }
   .new {
     margin-inline-start: 6px;

@@ -24,6 +24,52 @@ const MAX_RANGE: u64 = 1000 * 1024;
 /// read in ranges or not at all, so no request fills the memory.
 const MAX_WHOLE: u64 = 512 * 1024 * 1024;
 
+/// The most a file inside an archive is served: it is unpacked into memory whole.
+const MAX_INSIDE: u64 = 64 * 1024 * 1024;
+
+/// The archive's size and time when a file of it was unpacked.
+type Stamp = (u64, Option<std::time::SystemTime>);
+
+/// The last file served from inside an archive, unpacked, with its archive as it was then: a
+/// player asks for its song or video a range at a time, and each would unpack it again. One
+/// file, at most `MAX_INSIDE`; the next one served from an archive takes its place.
+static INSIDE: std::sync::Mutex<Option<(PathBuf, Stamp, std::sync::Arc<Vec<u8>>)>> = std::sync::Mutex::new(None);
+
+/// The file inside an archive the preview showed last, from memory: what its facts are read
+/// from (`preview::file_facts`), from the same unpacking. `None` for a file on disk.
+pub fn inside_file(path: &Path) -> Option<std::sync::Arc<Vec<u8>>> {
+    let (archive, _) = coxswain_core::archive::split(path).filter(|_| !path.exists())?;
+    inside(path, &archive).ok().flatten()
+}
+
+/// The preview has left the files inside archives: the one kept unpacked goes.
+#[tauri::command]
+pub fn inside_forget() {
+    *INSIDE.lock().unwrap_or_else(|e| e.into_inner()) = None;
+}
+
+/// The bytes of `path`, a file inside `archive`, from memory (`archive::head`): the kept ones
+/// while the archive has not changed. `None` when it is larger than `MAX_INSIDE`.
+fn inside(path: &Path, archive: &Path) -> std::io::Result<Option<std::sync::Arc<Vec<u8>>>> {
+    let m = std::fs::metadata(archive)?;
+    let stamp = (m.len(), m.modified().ok());
+    let mut kept = INSIDE.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((p, s, bytes)) = kept.as_ref()
+        && p == path
+        && *s == stamp
+    {
+        return Ok(Some(bytes.clone()));
+    }
+    // Unpacked under the lock: a player's next range waits for these bytes, not for its own.
+    let (bytes, more) = coxswain_core::archive::head(path, MAX_INSIDE)?;
+    if more {
+        return Ok(None);
+    }
+    let bytes = std::sync::Arc::new(bytes);
+    *kept = Some((path.to_path_buf(), stamp, bytes.clone()));
+    Ok(Some(bytes))
+}
+
 /// The type a file is served as, from its first bytes and its name. A document type that could
 /// run script (HTML, XHTML, XML) is served as plain text, so a `.pdf` that holds a web page shows
 /// as text, never as a page; an unknown type is plain bytes, not HTML as Tauri's default.
@@ -102,6 +148,35 @@ pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Respo
         return status(StatusCode::FORBIDDEN);
     }
     let read = || -> std::io::Result<Response<Vec<u8>>> {
+        // A file inside an archive (a picture in a zip): unpacked into memory, never copied to
+        // the disk, served whole; one larger than `MAX_INSIDE` is not.
+        // Only the preview's picture asks so (`?inside`): a grid of thumbnails would unpack each.
+        let asked = req.uri().query().is_some_and(|q| q.split('&').any(|p| p == "inside"));
+        if asked
+            && !path.exists()
+            && let Some((archive, _)) = coxswain_core::archive::split(&path)
+        {
+            let Some(bytes) = inside(&path, &archive)? else {
+                return Ok(status(StatusCode::PAYLOAD_TOO_LARGE));
+            };
+            let len = bytes.len() as u64;
+            let mime = content_type(&bytes[..bytes.len().min(8192)], &path);
+            let mut resp = answer().header(header::CONTENT_TYPE, &mime).header(header::X_CONTENT_TYPE_OPTIONS, "nosniff").header(header::ACCEPT_RANGES, "bytes");
+            if mime != "application/pdf" {
+                resp = resp.header(header::CONTENT_SECURITY_POLICY, "sandbox");
+            }
+            let ranged = req.headers().get(header::RANGE).and_then(|r| r.to_str().ok());
+            let (resp, body) = match ranged.map(|r| range(r, len)) {
+                Some(None) => (resp.status(StatusCode::RANGE_NOT_SATISFIABLE).header(header::CONTENT_RANGE, format!("bytes */{len}")), Vec::new()),
+                Some(Some((start, end))) => {
+                    let resp = resp.status(StatusCode::PARTIAL_CONTENT).header(header::CONTENT_RANGE, format!("bytes {start}-{end}/{len}"));
+                    (resp.header(header::ACCESS_CONTROL_EXPOSE_HEADERS, "content-range"), bytes[start as usize..=end as usize].to_vec())
+                }
+                None if req.method() == tauri::http::Method::HEAD => (resp.header(header::CONTENT_LENGTH, len), Vec::new()),
+                None => (resp.header(header::CONTENT_LENGTH, len), bytes.to_vec()),
+            };
+            return Ok(resp.body(body).expect("a file's answer"));
+        }
         let mut file = File::open(&path)?;
         let len = file.metadata()?.len();
         let mut magic = Vec::with_capacity(len.min(8192) as usize);
@@ -195,6 +270,35 @@ mod tests {
         asked = true;
         let r = respond(&get(&online, None), cloud(asked));
         assert_eq!((r.status(), r.body().as_slice()), (StatusCode::OK, &b"%PDF-1.4 secret"[..]));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A song or a PDF inside a zip is served from memory a range at a time, from one unpacking,
+    /// and anew once the zip has changed.
+    #[test]
+    fn inside_an_archive_in_ranges() {
+        let dir = std::env::temp_dir().join(format!("coxswain-test-inside-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (song, zip) = (dir.join("song.mp3"), dir.join("music.zip"));
+        let none = |_: &Path| false;
+        let ask = |range: Option<&str>| {
+            let mut r = get(&zip.join("song.mp3"), range);
+            *r.uri_mut() = format!("{}?inside", r.uri()).parse().unwrap();
+            respond(&r, none)
+        };
+        std::fs::write(&song, b"0123456789").unwrap();
+        coxswain_core::archive::create(&zip, std::slice::from_ref(&song)).unwrap();
+        let r = ask(Some("bytes=2-4"));
+        assert_eq!((r.status(), r.body().as_slice()), (StatusCode::PARTIAL_CONTENT, &b"234"[..]));
+        assert_eq!(r.headers()[header::CONTENT_RANGE], "bytes 2-4/10");
+        assert_eq!(ask(Some("bytes=-3")).body().as_slice(), b"789");
+        assert_eq!(ask(Some("bytes=10-")).status(), StatusCode::RANGE_NOT_SATISFIABLE);
+        assert_eq!(ask(None).body().as_slice(), b"0123456789");
+        assert!(!dir.join("music.zip").join("song.mp3").exists(), "no copy made");
+        std::fs::remove_file(&zip).unwrap();
+        std::fs::write(&song, b"abcdefghijklmnop").unwrap();
+        coxswain_core::archive::create(&zip, std::slice::from_ref(&song)).unwrap();
+        assert_eq!(ask(Some("bytes=0-2")).headers()[header::CONTENT_RANGE], "bytes 0-2/16", "the changed zip read anew");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

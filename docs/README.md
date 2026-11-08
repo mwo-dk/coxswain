@@ -66,7 +66,7 @@ mindmap
 | [The screen](panels/the-screen.md) | Panels, active panel, title bar with the version, status line and notices, F-key bar (*12 Settings* at its right end in the terminal app), archives shown in the pane, starting in a folder |
 | [Notices and what's new](panels/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
 | [Moving around and going to a folder](panels/moving.md) | Cursor keys, Enter, parent, other panel, refresh, Alt+F1/Alt+F2, Ctrl+L, cd |
-| [Quick search](panels/quick-search.md) | Alt+letter to jump to a name |
+| [Quick search](panels/quick-search.md) | Type letters (desktop app) or Alt+letter to jump to a name |
 | [Marking files](panels/marking.md) | Insert, + - *, patterns, marking with the mouse, what uses the marks |
 | [Sorting and hidden files](panels/sorting.md) | Ctrl+F3 to Ctrl+F6, headers, the rules, Alt+. and show_hidden |
 | [Tabs, back and forward, one pane or two](panels/tabs-and-panes.md) | Tabs, back and forward, one pane or two (Ctrl+O; in the terminal app the last output, with *Panels hidden · any key brings them back*), the splitter |
@@ -194,7 +194,7 @@ mindmap
 | [Drag and drop](files/drag-and-drop.md) | Out to other apps (out of archives too), between panes, onto folders, in; the copy/move menu, Ctrl and Shift |
 | [Batch rename (Ctrl+M)](files/batch-rename.md) | Batch rename (Ctrl+M, desktop): regex, groups, {n:3} counter, live preview, conflicts |
 | [Find and replace across files (Alt+R)](files/find-and-replace.md) | Alt+R, both apps: text or a regex in the marked files or Find's results; every change previewed and untickable; encoding, line endings and permissions kept; one undo |
-| [Archives as folders](files/archives.md) | Zip/tar/7z opened with Enter; copy in, out, between; formats; what is rewritten; why not RAR; limits |
+| [Archives as folders](files/archives.md) | Zip/tar/7z, cpio, .deb, .rpm and .cab opened with Enter; copy in, out, between; formats; what is rewritten; why not RAR; limits |
 | [Pack (Alt+F5) and extract (Ctrl+E)](files/pack-and-extract.md) | Pack (Alt+F5) into any archive format by its name, extract (Ctrl+E) into a new folder |
 | [Passwords for encrypted zip and 7z](files/archive-passwords.md) | Passwords for locked zip and 7z: when asked, kept in memory for the app run, never saved |
 | [Disk images, CHM help files and CBR comics](files/disk-images.md) | Facts of .iso, .dmg, .vhd, .vhdx, .vmdk, .qcow2 and raw images in the preview; opened like folders, read-only, with an installed 7-Zip (opt-in), never mounted |
@@ -235,6 +235,7 @@ mindmap
 | [Reference](reference/README.md) | The area index, its pages and the keys that reach them |
 | [The terminal app](reference/terminal-app.md) | What it has, what only the desktop app has and why, differences, archives and search by meaning in the terminal, the terminal it needs |
 | [Command-line flags](reference/command-line-flags.md) | Every flag of coxswain and coxswain-gui: folders, --paths, --dump-config, --config-path, --meaning, --index-service, --settings, --duplicates, --index-helper, exit status |
+| [Pick mode](reference/pick-mode.md) | `coxswain --pick` and `coxswain-gui --pick`: another program chooses files or folders, or a name to save under (`--save`), with Coxswain; the paths to a file or standard output, one per line, exit status 0 or 1; dimmed files and *Show all*; archives |
 | [Configuration: every key](reference/configuration.md) | Config.toml: every key with type, default and reader; which Settings item writes it; what has no key |
 | [Privacy: what stays, what can leave](reference/privacy.md) | What stays on your machine, every case where something can leave it, and how to stop it |
 | [Update checks](reference/updates.md) | The update check: what it sends, what each app shows, the upgrade command, turning it off |
