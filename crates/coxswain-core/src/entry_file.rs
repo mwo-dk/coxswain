@@ -4,12 +4,14 @@
 //! `EntryReader` is the entry's bytes in order, unpacked on a thread that waits when the reader
 //! does not keep up (a few chunks are in flight, no more). `EntryFile` reads at any place, as a
 //! file would: a few blocks are kept, and a place before the one the unpacking is at starts the
-//! unpacking again from the entry's start (the way a packed PGN file is read, `chess::games`).
+//! unpacking again, from the entry's start or, where the archive keeps places to restart from
+//! (`archive::stream_at`: a tar), from the one before it (the way a packed PGN file is read,
+//! `chess::games`).
 //! Memory is bounded by the blocks and chunks, whatever the entry's size.
 
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, sync_channel};
 use std::sync::{Arc, Mutex};
 
@@ -32,21 +34,23 @@ impl EntryReader {
     /// Start unpacking `path`. Waits for the first bytes, so a file that cannot be read so
     /// (locked, not there) fails here.
     pub fn open(path: &Path) -> io::Result<EntryReader> {
-        Self::start(path, false)
+        EntryReader::open_at(path, 0, Arc::default(), false)
     }
 
     /// `open`, also for a locked file of a 7z whose password was given (`archive::stream_in`):
     /// a wrong one fails somewhere in the read, at the end at the latest.
     pub fn open_known(path: &Path) -> io::Result<EntryReader> {
-        Self::start(path, true)
+        EntryReader::open_at(path, 0, Arc::default(), true)
     }
 
-    fn start(path: &Path, known: bool) -> io::Result<EntryReader> {
+    /// `open`, from byte `offset` of the entry on; `unpacked` counts the bytes unpacked.
+    fn open_at(path: &Path, offset: u64, unpacked: Arc<AtomicU64>, known: bool) -> io::Result<EntryReader> {
         let (tx, rx) = sync_channel(IN_FLIGHT);
         let path = path.to_path_buf();
         std::thread::Builder::new().name("archive-stream".into()).spawn(move || {
             let sent = tx.clone();
-            let done = crate::archive::stream_in(&path, move |from| {
+            let done = crate::archive::stream_at(&path, offset, move |from, before| {
+                unpacked.fetch_add(before, Ordering::Relaxed);
                 loop {
                     let mut buf = vec![0u8; CHUNK];
                     let n = from.read(&mut buf)?;
@@ -54,6 +58,7 @@ impl EntryReader {
                         return Ok(());
                     }
                     buf.truncate(n);
+                    unpacked.fetch_add(n as u64, Ordering::Relaxed);
                     // The reader is gone: the unpacking stops.
                     tx.send(Ok(buf)).map_err(|_| io::Error::new(io::ErrorKind::Interrupted, "closed"))?;
                 }
@@ -101,19 +106,21 @@ pub struct EntryFile {
     cursor: Mutex<Cursor>,
     /// Times the unpacking was started: once for a read in order, more for going back.
     opened: Arc<AtomicUsize>,
+    /// Bytes unpacked in all, those skipped to reach a place included.
+    unpacked: Arc<AtomicU64>,
 }
 
 impl EntryFile {
     pub fn open(path: &Path) -> io::Result<EntryFile> {
         let size = crate::archive::entry_size(path)?;
-        let f = EntryFile { path: path.to_path_buf(), size, cursor: Mutex::new(Cursor { reader: None, blocks: vec![] }), opened: Arc::default() };
+        let f = EntryFile { path: path.to_path_buf(), size, cursor: Mutex::new(Cursor { reader: None, blocks: vec![] }), opened: Arc::default(), unpacked: Arc::default() };
         // A file that cannot be read so fails now, not at the first line.
         f.read_at(&mut [0u8; 1], 0)?;
         Ok(f)
     }
 
     pub fn try_clone(&self) -> io::Result<EntryFile> {
-        Ok(EntryFile { path: self.path.clone(), size: self.size, cursor: Mutex::new(Cursor { reader: None, blocks: vec![] }), opened: self.opened.clone() })
+        Ok(EntryFile { path: self.path.clone(), size: self.size, cursor: Mutex::new(Cursor { reader: None, blocks: vec![] }), opened: self.opened.clone(), unpacked: self.unpacked.clone() })
     }
 
     pub fn path(&self) -> &Path {
@@ -134,6 +141,12 @@ impl EntryFile {
         self.opened.load(Ordering::Relaxed)
     }
 
+    /// Bytes unpacked over this file and its clones: a read in order unpacks about the entry's
+    /// size, going back far unpacks more only by the stretch from the place restarted at.
+    pub fn unpacked(&self) -> u64 {
+        self.unpacked.load(Ordering::Relaxed)
+    }
+
     /// Bytes this cursor holds now.
     pub fn held(&self) -> usize {
         self.cursor.lock().unwrap_or_else(|e| e.into_inner()).blocks.iter().map(|(_, b)| b.len()).sum()
@@ -148,14 +161,16 @@ impl EntryFile {
             return Ok(c.blocks.len() - 1);
         }
         let want = n * BLOCK;
-        // Going back (or no unpacking yet): from the entry's start.
-        if c.reader.as_ref().is_none_or(|(_, at)| *at > want) {
-            c.reader = Some((EntryReader::open(&self.path)?, 0));
-            self.opened.fetch_add(1, Ordering::Relaxed);
-        }
         // The blocks just before `n` are kept on the way, so paging back one block at a time
         // unpacks once per few blocks, not once per block.
-        let first = n.saturating_sub(BLOCKS as u64 - 1).max(c.reader.as_ref().map_or(0, |(_, at)| at.div_ceil(BLOCK)));
+        let back = n.saturating_sub(BLOCKS as u64 - 1);
+        // Going back (or no unpacking yet): from the blocks kept before `n`, where the archive
+        // can start there (a tar), else from the entry's start.
+        if c.reader.as_ref().is_none_or(|(_, at)| *at > want) {
+            c.reader = Some((EntryReader::open_at(&self.path, back * BLOCK, self.unpacked.clone(), false)?, back * BLOCK));
+            self.opened.fetch_add(1, Ordering::Relaxed);
+        }
+        let first = back.max(c.reader.as_ref().map_or(0, |(_, at)| at.div_ceil(BLOCK)));
         let first = first.min(n);
         for k in first..=n {
             let (r, at) = c.reader.as_mut().expect("opened above");
@@ -271,6 +286,44 @@ mod tests {
             let mut buf = vec![0u8; 20];
             f.read_at(&mut buf, 3 * BLOCK + 7).unwrap();
             assert_eq!(buf, &text.as_bytes()[3 * BLOCK as usize + 7..][..20], "{name}");
+        }
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Going back far in a big entry restarts near the place, where the archive keeps places
+    /// to restart from (a tar), and from the entry's start where it does not (a zip); counted
+    /// in bytes unpacked, never in time.
+    #[test]
+    fn going_back_restarts_from_a_kept_place_in_a_tar_and_from_the_start_in_a_zip() {
+        let d = crate::pictures::tests::folder("entry-file-seek");
+        let src = d.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        let text: String = (0..1_200_000).map(|i| format!("2026-11-03 INFO line {i} of the log {}\n", i % 977)).collect();
+        assert!(text.len() as u64 > 40 * BLOCK);
+        std::fs::write(src.join("big.log"), &text).unwrap();
+        let size = text.len() as u64;
+        for (name, smaller) in [("logs.tar.gz", true), ("logs.tar", true), ("logs.zip", false)] {
+            let a = d.join(name);
+            crate::archive::create(&a, &[src.join("big.log")]).unwrap();
+            // Listed once: a gzip keeps its restart places then.
+            crate::archive::list(&a, 100).unwrap();
+            let f = EntryFile::open(&a.join("big.log")).unwrap();
+            let mut buf = vec![0u8; 100];
+            let far = size - 3 * BLOCK;
+            f.read_at(&mut buf, far).unwrap();
+            assert_eq!(buf, &text.as_bytes()[far as usize..][..100], "{name}");
+            let to_far = f.unpacked();
+            // Back to a line far above: the reader is past it, so the entry is opened again.
+            f.read_at(&mut buf, 30 * BLOCK + 5).unwrap();
+            assert_eq!(buf, &text.as_bytes()[30 * BLOCK as usize + 5..][..100], "{name}");
+            let back = f.unpacked() - to_far;
+            if smaller {
+                assert!(to_far >= far, "{name}: forward is read on, as before");
+                assert!(back < 12 * BLOCK, "{name}: {back} bytes unpacked to go back");
+            } else {
+                assert!(to_far >= far, "{name}");
+                assert!(back >= 27 * BLOCK, "{name}");
+            }
         }
         std::fs::remove_dir_all(d).unwrap();
     }
