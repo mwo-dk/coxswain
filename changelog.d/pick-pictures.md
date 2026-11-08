@@ -1,1 +1,0 @@
-| **The picker looks like what it does.** In pick mode the desktop app greys out the F-keys of actions a picker refuses (Copy, Move and the rest), and the pick page has pictures of both apps. | [Pick mode](reference/pick-mode.md#choosing) |

@@ -1,1 +1,0 @@
-| **A file looked at inside an archive is never shown with another archive's contents.** Two archives that each hold a file of the same name, size and date (a `.cbv` in two zips) shared one unpacked copy, so the second showed the first one's games; each archive's file now has its own copy. Nothing kept is made again. | [Archives as folders](files/archives.md#limits) |
