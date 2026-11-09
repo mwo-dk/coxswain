@@ -3475,9 +3475,15 @@ fn copy_entries(
                     failed = Some(err);
                     return Ok(false);
                 }
-                return io::copy(&mut crate::stop::Reader(from), &mut io::sink())
-                    .map(|_| true)
-                    .map_err(Into::into);
+                // Stopped: said as Stop, not through the crate (which takes it for a wrong password).
+                return match io::copy(&mut crate::stop::Reader(from), &mut io::sink()) {
+                    Ok(_) => Ok(true),
+                    Err(err) if crate::stop::is(&err) => {
+                        failed = Some(err);
+                        Ok(false)
+                    }
+                    Err(err) => Err(err.into()),
+                };
             };
             *any = true;
             let mut from = Noting {
@@ -3512,13 +3518,13 @@ fn copy_entries(
         if let Some(only) = how.only {
             let wanted: Vec<usize> = (0..a.files.len()).filter(|&i| !a.files[i].is_directory && only.contains(&a.files[i].name.replace('\\', "/"))).collect();
             let mut blocks: Vec<usize> = wanted.iter().filter_map(|&i| a.stream_map.file_block_index[i]).collect();
+            blocks.sort_unstable();
             blocks.dedup();
-            // Failed, `each` ends a block at its first entry.
+            // Failed, stopped or all out: `each` said so, no block after is unpacked.
             for b in blocks {
-                if all_out() {
+                if !sevenz_rust2::BlockDecoder::new(1, b, a, &pw, &mut Joined::open(archive)?).for_each_entries(&mut each).map_err(seven_error)? {
                     break;
                 }
-                sevenz_rust2::BlockDecoder::new(1, b, a, &pw, &mut Joined::open(archive)?).for_each_entries(&mut each).map_err(seven_error)?;
             }
             // An empty file is in no block.
             for i in wanted.into_iter().filter(|&i| a.stream_map.file_block_index[i].is_none()) {
