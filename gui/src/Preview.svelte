@@ -56,8 +56,17 @@
   const most = (f) => (["docx", "sheet", "notebook"].includes(previewKind(f)) || deck(f) ? 25 * 1024 * 1024 : MAX_WHOLE);
   // A `.bin` (maybe an opening book, told by `chess_is_book` below) is read from memory up to 64 MB.
   const direct = $derived(inside && !inHistory && (reads(raw) === "stream" || (reads(raw) === "whole" && raw.size <= most(raw))) && !(/\.bin$/i.test(raw.name) && raw.size > MAX_WHOLE) && !copied.includes(raw.path));
+  /** A locked file read from memory whose password is wanted: asked for here, then read again
+   *  (`tries`, which also makes the web view ask anew). The password is proved before anything
+   *  shows: the core reads the file to its checksum first (`archive::head`). */
+  let lockedAt = $state("");
+  let tries = $state(0);
+  /** The file a password was last given for: asked again, the pane says it did not open it. */
+  let asked = $state("");
+  /** How a file inside an archive is asked for from memory; a new `try` after each password. */
+  const insideQuery = () => `?inside${tries ? `&try=${tries}` : ""}`;
   /** `path` as the web view asks for it: from memory when it is read so. */
-  const src = (path) => convertFileSrc(path) + (direct ? "?inside" : "");
+  const src = (path) => convertFileSrc(path) + (direct ? insideQuery() : "");
   // Off the files read from memory: the last one unpacked (up to 64 MB) is let go.
   $effect(() => {
     if (!direct) invoke("inside_forget");
@@ -67,13 +76,23 @@
   $effect(() => {
     const cur = raw;
     if (!direct || previewKind(cur) !== "pdf") return;
-    fetch(convertFileSrc(cur.path) + "?inside", { method: "HEAD" }).then(
-      (r) => r.ok || needsCopy(cur.path),
+    fetch(convertFileSrc(cur.path) + insideQuery(), { method: "HEAD" }).then(
+      (r) => r.ok || failed(cur.path, r.status),
       () => needsCopy(cur.path),
     );
   });
   /** `path` gets its copy after all. */
   const needsCopy = (path) => !copied.includes(path) && (copied = [...copied.slice(-50), path]);
+  /** Reading `path` from memory failed: locked (the core answers 401, `LOCKED`), its password
+   *  is asked for here; anything else gets its copy. `status`: the answer, when known. `media`:
+   *  a song or video served but not played (a codec the web view lacks) gets its copy too, whose
+   *  player then offers a frame or waveform. */
+  async function failed(path, status, media = false) {
+    status ??= await fetch(convertFileSrc(path) + insideQuery(), { method: "HEAD" }).then((r) => r.status, () => 0);
+    if (raw?.path !== path) return;
+    if (status === 401) lockedAt = path;
+    else if (status !== 200 || media) needsCopy(path);
+  }
   let peeked = $state({ from: "", to: "", error: "" });
   $effect(() => {
     const cur = raw;
@@ -124,7 +143,7 @@
     invoke("viewer_detect", { path: cur.path }).then((k) => e?.path === cur.path && k !== previewKind(cur) && (sniffed = { path: cur.path, kind: k }), () => {});
   });
   const kind = $derived(
-    output ? "output" : online ? "online" : inside && e === raw && !direct && !chessInside ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
+    output ? "output" : online ? "online" : direct && lockedAt === raw.path ? "locked" : inside && e === raw && !direct && !chessInside ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
   );
   /** A blob of a model store that holds weights (Ollama's, a Hugging Face one's): by the name the
    *  store gives it (`local_models::names`), as its own name says nothing. */
@@ -248,8 +267,10 @@
         if (k === "log") return void (logPath = cur.path);
         const unpacked = direct;
         const [s, trunc, bin] = await invoke("read_text", { path: cur.path, max: LIMIT }).catch((err) => {
-          // Locked, or not to be read as it is unpacked: from a copy, as before.
-          if (unpacked) needsCopy(cur.path);
+          // Locked: its password asked for, and read from memory again; anything else that
+          // cannot be read as it is unpacked: from a copy, as before.
+          if (unpacked && String(err).includes(LOCKED)) lockedAt = cur.path;
+          else if (unpacked) needsCopy(cur.path);
           throw err;
         });
         if (e?.path !== cur.path) return;
@@ -327,8 +348,8 @@
     const deck = k === "office" && DECKS.includes(ext(cur));
     // Inside an archive: from memory (`?inside`), else from a copy after all.
     const unpacked = direct;
-    const read = (render) => render(cur.path, unpacked).catch((err) => {
-      if (unpacked) needsCopy(cur.path);
+    const read = (render) => render(cur.path, unpacked && insideQuery()).catch((err) => {
+      if (unpacked) failed(cur.path);
       throw err;
     });
     if (!["docx", "notebook", "sheet", "font", "parquet", "drawio"].includes(k) && !deck) return;
@@ -847,6 +868,8 @@
       {#if kind === "online"}
         <p class="more">{"\u{f0c2}"} <b>{t("preview.online")}</b> {t("preview.online_hint", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>
         <button class="render" onclick={() => { const path = raw.path; invoke("cloud_fetch", { path }).then(() => fetched.push(path)); }}>{t("preview.online_download")}</button>
+      {:else if kind === "locked"}
+        <p class="more">{t(asked === raw.path ? "archive.locked_again" : "archive.preview_locked")} <button class="link" onclick={() => unlock(raw.path, () => ((asked = lockedAt), (lockedAt = ""), tries++))}>{t("archive.preview_unlock")}</button></p>
       {:else if kind === "in-archive"}
         {#if peeked.error.includes(LOCKED)}
           <p class="more">{t("archive.preview_locked")} <button class="link" onclick={() => unlock()}>{t("archive.preview_unlock")}</button></p>
@@ -889,7 +912,7 @@
       {:else if diffing}
         {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{/if}
       {:else if kind === "bom" && !source}
-        <BomView path={e.path} onfail={() => direct && needsCopy(raw.path)} />
+        <BomView path={e.path} onfail={(err) => direct && (err.includes(LOCKED) ? (lockedAt = raw.path) : needsCopy(raw.path))} />
       {:else if kind === "chess"}
         <ChessView path={e.path} onfail={() => inside && needsCopy(raw.path)} />
       {:else if kind === "netron"}
@@ -899,7 +922,7 @@
       {:else if kind === "go"}
         <GoView path={e.path} onfail={() => inside && needsCopy(raw.path)} />
       {:else if kind === "provenance" && !source && !statement}
-        <ProvenanceView path={e.path} onfail={() => direct && needsCopy(raw.path)} />
+        <ProvenanceView path={e.path} onfail={(err) => direct && (err.includes(LOCKED) ? (lockedAt = raw.path) : needsCopy(raw.path))} />
       {:else if kind === "provenance" && !source}
         {#if tree !== undefined}<div class="tree">{@render node(null, tree, 0)}</div>{:else}<p class="more">{t("provenance.reading")}</p>{/if}
       {:else if kind === "bom" || kind === "provenance"}
@@ -1060,7 +1083,7 @@
         {/if}
         <div class="drawio" use:drawioView={rich.drawio}></div>
       {:else if kind === "image"}
-        <div class="media checker"><img src={src(e.path)} alt={e.name} onerror={() => direct && needsCopy(e.path)} /></div>
+        <div class="media checker"><img src={src(e.path)} alt={e.name} onerror={() => direct && failed(e.path)} /></div>
       {:else if kind === "picture"}
         {#if pic?.error}
           <p class="more">{pic.error}</p>
@@ -1100,11 +1123,11 @@
         <div class="media">
           <!-- svelte-ignore a11y_media_has_caption -->
           <!-- A codec the web view lacks: a frame of it instead, with MP4 offered (`media`). -->
-          <video src={src(e.path)} controls preload="metadata" poster={still?.path === e.path ? convertFileSrc(still.file) : undefined} onerror={() => (direct ? needsCopy(e.path) : (sniffed = { path: e.path, kind: "video_other" }))}></video>
+          <video src={src(e.path)} controls preload="metadata" poster={still?.path === e.path ? convertFileSrc(still.file) : undefined} onerror={() => (direct ? failed(e.path, undefined, true) : (sniffed = { path: e.path, kind: "video_other" }))}></video>
         </div>
       {:else if kind === "audio"}
         {#if still?.path === e.path}<div class="media wave"><img src={convertFileSrc(still.file)} alt={t("media.waveform")} /></div>{/if}
-        <div class="media"><audio src={src(e.path)} controls preload="metadata" onerror={() => (direct ? needsCopy(e.path) : (sniffed = { path: e.path, kind: "audio_other" }))}></audio></div>
+        <div class="media"><audio src={src(e.path)} controls preload="metadata" onerror={() => (direct ? failed(e.path, undefined, true) : (sniffed = { path: e.path, kind: "audio_other" }))}></audio></div>
       {:else if kind === "pdf"}
         <!-- Make PDF searchable: offered on every PDF, said why on one without text (a scan). -->
         {#if !direct}<p class="more">{#if scanned === e.path}{t("preview.scanned")} {/if}<button class="render" onclick={() => makeSearchable([e.path])}>{t("action.searchable_pdf")}</button> <kbd>{ui.cfg.actions.searchable_pdf?.[1] ?? ""}</kbd></p>{/if}
