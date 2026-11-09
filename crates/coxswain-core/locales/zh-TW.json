@@ -4398,6 +4398,7 @@
  "viewer.keys_follow": "F 跟隨 · E 遇錯停止 · & 篩選",
  "viewer.following": "跟隨中：新行一寫入就顯示 · F 停止",
  "viewer.not_following": "未跟隨",
+ "viewer.archive_still": "封存檔內的檔案在讀取期間不會變動，所以沒有可跟隨的內容",
  "viewer.stopped_at_error": "在第 {line} 行遇到錯誤，已停止跟隨",
  "viewer.level_all": "所有層級",
  "viewer.level_warn": "警告和錯誤",

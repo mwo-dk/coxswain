@@ -377,8 +377,10 @@ impl Viewer {
         v.points = vec![];
         v.syntax = None;
         v.numbers = true;
+        // The keys of a log without F and E: a file in an archive never changes, so it is not followed.
         let keys = if log { t!("viewer.keys_log") } else { t!("viewer.keys_follow") };
-        v.key_line = format!("{keys} · {}", t!("viewer.keys", "edit" => edit, "view" => view_key));
+        let keys: Vec<&str> = keys.split(" · ").filter(|k| !k.starts_with("F ") && !k.starts_with("E ")).collect();
+        v.key_line = format!("{} · {}", keys.join(" · "), t!("viewer.keys", "edit" => edit, "view" => view_key));
         Ok(Some(v))
     }
 
@@ -637,8 +639,18 @@ impl Viewer {
         self.top = n.saturating_sub(self.page.max(1));
     }
 
+    /// Whether the file is inside an archive, which does not change while it is read: then
+    /// **F** and **E** say so and do nothing.
+    fn still(&mut self) -> bool {
+        let still = matches!(&self.body, Body::File(v) if v.is_entry());
+        if still {
+            self.said = Some(t!("viewer.archive_still"));
+        }
+        still
+    }
+
     fn set_follow(&mut self, on: bool) {
-        if !matches!(self.body, Body::File(_)) {
+        if !matches!(self.body, Body::File(_)) || (on && self.still()) {
             return;
         }
         self.follow = on;
@@ -925,6 +937,7 @@ impl Viewer {
             }
             (_, Some('p')) => return Outcome::Pager(self.path.clone()),
             (_, Some('h')) if self.original.is_some() => return Outcome::Original(self.original.clone().unwrap_or_default()),
+            (_, Some('F' | 'E')) if file && self.still() => {}
             (_, Some('F')) if file => self.set_follow(!self.follow),
             (_, Some('&')) if file => self.typing = Some(Typing::Filter(self.shape().typed_text())),
             (_, Some('E')) if file => {
@@ -1221,6 +1234,10 @@ mod tests {
         finish(&mut v);
         assert_eq!(v.found, Some(199_999));
         assert!(Viewer::in_archive(&zip.join("none.txt"), ["F4", "F3"]).is_err());
+        // Nothing to follow in a file that cannot grow: no F or E on the key line, and F says why.
+        assert!(!v.key_line.contains("F follow") && !v.key_line.contains("E stop"), "{}", v.key_line);
+        v.key(key(KeyCode::Char('F')), None);
+        assert!(!v.follow && v.said == Some(t!("viewer.archive_still")));
         std::fs::remove_dir_all(d).unwrap();
     }
 

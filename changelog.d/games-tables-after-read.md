@@ -1,0 +1,1 @@
+| **A huge game file no longer holds up the indexing of new files.** The one-time pass that makes the games table of game files over 4 MB now runs after new and changed files are read, not before, so a multi-GB game file is no longer read to the end first. Nothing kept is made again. | [Games tables](previews/chess.md#large-databases) |

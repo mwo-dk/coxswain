@@ -696,9 +696,9 @@ impl Store {
     /// Find looks through all its games (`chess::games::find`). Nothing the store holds of them
     /// changes: no text is read again, no vector made again. Until `until`, then on at the next
     /// scan (a table made stays made); `stop` ends it between files and inside one. A file read
-    /// whole takes as long as it takes (the pass runs before the walk). A stop mid-file
-    /// starts that file again at the next scan. A file in the cloud, on a disk not plugged in
-    /// or left out is skipped for good: its table is made when it is next opened or changes.
+    /// whole takes as long as it takes (the pass runs after the read, so
+    /// new files are indexed first). A stop mid-file starts that file again at the next scan. A
+    /// file in the cloud, on a disk not plugged in or left out is skipped for good: its table is made when it is next opened or changes.
     fn games_tables_made(&self, key: &str, tag: &str, left_out: &dyn Fn(&str) -> bool, stop: &dyn Fn() -> bool, until: Instant) -> rusqlite::Result<()> {
         if self.tag_reached(key, tag) {
             return Ok(());
@@ -3151,8 +3151,9 @@ fn scan_for(
     store.reader_changed("readers.scid", "1", &[".si4"])?;
     // SCID 5 databases (2.34): read for the first time, as SCID 4's are; only `.si5` files.
     // At 2, a game's positions are numbered by its row (deleted games left out), so Find this
-    // position opens the right game: the `.si5` files are read once again.
-    store.reader_changed("readers.scid5", "2", &[".si5"])?;
+    // position opens the right game: the `.si5` files are read once again. At 3 (2.36), the
+    // deleted flag read from its own bit and names after a base's description kept: once more.
+    store.reader_changed("readers.scid5", "3", &[".si5"])?;
     // ChessBase databases (2.33): a line per game and their positions, as PGN files; read once.
     store.reader_changed("readers.cbh", "1", &[".cbh"])?;
     // ChessBase archives (2.34): read for the first time, as the database they hold. At 2
@@ -3226,11 +3227,6 @@ fn scan_for(
     // those, and nothing but their positions.
     let halt = || stop.load(Ordering::Relaxed) || store.cleared.load(Ordering::Relaxed);
     store.pgn_positions_renumbered("readers.pgn", "3", &halt)?;
-    // Game files over 4 MB get their games table (2.36), so Find looks through every game: each
-    // read once; nothing in the store is read or made again.
-    if MAKE_GAMES_TABLES {
-        store.games_tables_made("tables.games", "1", &|p| left_out_file(p, cfg), &halt, Instant::now() + PDF_SLICE)?;
-    }
     // PDFs of 1 MB or more are looked at once by the page-at-a-time reader (2.35), up to a
     // minute a scan: only those whose own text is now longer are read again, never by OCR.
     store.pdf_layers("readers.pdf-pages", "1", PDF_LOOKED_AT, cfg.text_max_size, &|p| left_out_file(p, cfg), &halt, Instant::now() + PDF_SLICE)?;
@@ -3280,6 +3276,12 @@ fn scan_for(
     *store.walked.lock().unwrap() = Some((roots, began));
     if read(store, cfg, stop)? {
         return Ok(false);
+    }
+    // After the read, so a multi-GB game file does not hold up the indexing of new files.
+    // Game files over 4 MB get their games table (2.36), so Find looks through every game: each
+    // read once; nothing in the store is read or made again.
+    if MAKE_GAMES_TABLES {
+        store.games_tables_made("tables.games", "1", &|p| left_out_file(p, cfg), &halt, Instant::now() + PDF_SLICE)?;
     }
     // Git in a repository left in the cloud would download it.
     let repos = if cfg.history {

@@ -861,6 +861,22 @@ open(f"{d}/the-rocket-garden.fb2", "w").write(f"""<?xml version="1.0" encoding="
 PY
 rm "$d/Documents/Books/cover.png"
 
+# For the previews with a button under them (convert-media, searchable-pdf, the d2 diagram):
+# a six-second AVI and a WMA (real ffmpeg output, a Mandelbrot zoom and a tone), a scanned page
+# (an image-only PDF, no text layer: Make PDF searchable) and a D2 diagram.
+if command -v ffmpeg >/dev/null; then
+  ffmpeg -v error -y -f lavfi -i "mandelbrot=size=1280x720:rate=25" -f lavfi -i "sine=frequency=440:sample_rate=44100" -t 6 \
+    -c:v mpeg4 -q:v 2 -c:a mp2 -ac 1 "$d/Videos/launch.avi" || true
+  ffmpeg -v error -y -f lavfi -i "sine=frequency=330:sample_rate=44100" -t 8 -c:a wmav2 "$d/Videos/countdown.wma" || true
+fi
+magick -size 1240x1754 xc:'#f4f1e8' -attenuate 0.6 +noise Gaussian -font "$(fc-match -f '%{file}' serif)" -fill '#222' -pointsize 30 \
+  -annotate +120+260 'The rocket left the pad at 09:14 in a light westerly wind.' \
+  -annotate +120+310 'The engine burned for ten seconds, as planned, and the fuel' \
+  -annotate +120+360 'valve held. Apogee was 312 m; the parachute opened at 290 m.' \
+  -annotate +120+460 'The wind check passed at 4 m/s. Next flight: a longer burn' \
+  -annotate +120+510 'with the new throttle.' -background '#f4f1e8' -rotate 0.6 -quality 92 "$d/Documents/scan.pdf"
+printf 'Tank -> Valve: fuel\nValve -> Engine: burn\n' > "$d/Documents/launch.d2"
+
 # Two cloud accounts the sidebar and the Left/Right panel lists find (docs/organise/clouds.md):
 # Dropbox's info.json and the Nextcloud client's settings, each naming a sync folder.
 mkdir -p "$d/.dropbox" "$d/Dropbox/Camera Uploads" "$d/.config/Nextcloud" "$d/Nextcloud/Receipts" "$d/Nextcloud/Shared"
