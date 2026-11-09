@@ -261,7 +261,8 @@ pub fn detect(path: &Path) -> &'static str {
 pub fn detect_any(path: &Path) -> &'static str {
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let kind = by_name(&name, false);
-    if crate::cloud::unasked(path) {
+    // Its module off: nothing is run on the bytes (a disk image's 7-Zip) to tell it apart.
+    if crate::cloud::unasked(path) || crate::modules::off_for(kind).is_some() {
         return kind;
     }
     let lower = name.to_lowercase();

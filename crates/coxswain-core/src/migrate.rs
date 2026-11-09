@@ -88,48 +88,52 @@ pub const SWITCHES: &[(Option<&str>, &str, &str)] = &[(None, "bom_viewer", "bom"
 /// module in `[modules] off` (kept there if it is already). `true`, the default, just goes:
 /// every module is on unless turned off.
 fn switches(doc: &mut DocumentMut, said: &mut Vec<String>) {
-    let mut off = vec![];
     for &(table, key, module) in SWITCHES {
         let t = match table {
             None => Some(doc.as_table_mut() as &mut dyn TableLike),
             Some(t) => doc.get_mut(t).and_then(Item::as_table_like_mut),
         };
-        let Some(old) = t.and_then(|t| take(t, key)) else { continue };
+        let Some(old) = t.and_then(|t| take(t, key, table.is_none())) else { continue };
         if let Some(note) = old.1 {
-            keep_note(doc, table, note);
+            keep_note(doc, note);
         }
-        let old = old.0;
+        // A `[preview]` with nothing left in it is not written as an empty header.
+        if let Some(t) = table.and_then(|t| doc.get_mut(t)).and_then(Item::as_table_mut).filter(|t| t.iter().all(|(_, i)| !i.is_value())) {
+            t.set_implicit(true);
+        }
         let name = table.map_or(key.to_string(), |t| format!("[{t}] {key}"));
-        if old.as_bool() == Some(false) {
-            off.push(module);
+        if old.0.as_bool() != Some(false) {
+            said.push(format!("{name} (removed)"));
+        } else if turn_off(doc, module) {
             said.push(format!("{name} = false → [modules] off = [\"{module}\"]"));
         } else {
-            said.push(format!("{name} (removed)"));
-        }
-    }
-    if off.is_empty() {
-        return;
-    }
-    if !doc.contains_key("modules") {
-        doc.insert("modules", Item::Table(toml_edit::Table::new()));
-    }
-    let Some(modules) = doc.get_mut("modules").and_then(Item::as_table_like_mut) else { return };
-    let list = modules.entry("off").or_insert(toml_edit::value(toml_edit::Array::new()));
-    if let Some(list) = list.as_array_mut() {
-        for id in off {
-            if !list.iter().any(|v| v.as_str() == Some(id)) {
-                list.push(id);
-            }
+            // `[modules] off` is there but no list: said, for the user to do.
+            said.push(format!("{name} = false (add \"{module}\" to [modules] off yourself)"));
         }
     }
 }
 
-/// `key` taken out of `t`, with the comment above it when it has one: that goes to the key
-/// after it, or, with none, back to the caller (`keep_note`).
-fn take(t: &mut dyn TableLike, key: &str) -> Option<(Item, Option<String>)> {
-    let names: Vec<String> = t.iter().map(|(k, _)| k.to_string()).collect();
+/// `module` in `[modules] off` (a new table at the end when there is none); false when that
+/// is there but no list it can be added to.
+fn turn_off(doc: &mut DocumentMut, module: &str) -> bool {
+    if !doc.contains_key("modules") {
+        doc.insert("modules", Item::Table(toml_edit::Table::new()));
+    }
+    let Some(modules) = doc.get_mut("modules").and_then(Item::as_table_like_mut) else { return false };
+    let Some(list) = modules.entry("off").or_insert(toml_edit::value(toml_edit::Array::new())).as_array_mut() else { return false };
+    if !list.iter().any(|v| v.as_str() == Some(module)) {
+        list.push(module);
+    }
+    true
+}
+
+/// `key` taken out of `t`, with the comment above it when it has one and `carry`: that goes to
+/// the value after it, or, with none, back to the caller (`keep_note`). Without `carry` (in a
+/// table, where it was about that key alone) it goes with the key.
+fn take(t: &mut dyn TableLike, key: &str, carry: bool) -> Option<(Item, Option<String>)> {
+    let names: Vec<String> = t.iter().filter(|(k, i)| *k == key || i.is_value()).map(|(k, _)| k.to_string()).collect();
     let at = names.iter().position(|n| n == key)?;
-    let note = t.key(key).and_then(|k| k.leaf_decor().prefix()).and_then(|p| p.as_str()).filter(|p| p.contains('#')).map(str::to_string);
+    let note = t.key(key).and_then(|k| k.leaf_decor().prefix()).and_then(|p| p.as_str()).filter(|p| carry && p.contains('#')).map(str::to_string);
     let item = t.remove(key)?;
     let Some(note) = note else { return Some((item, None)) };
     match names.get(at + 1).and_then(|n| t.key_mut(n)) {
@@ -142,12 +146,8 @@ fn take(t: &mut dyn TableLike, key: &str) -> Option<(Item, Option<String>)> {
     }
 }
 
-/// A comment whose key went last in its table: at the top level (a file's own heading) above the
-/// first table; in `[preview]` it was about that key alone and goes with it.
-fn keep_note(doc: &mut DocumentMut, table: Option<&str>, note: String) {
-    if table.is_some() {
-        return;
-    }
+/// A comment above the last top-level value (a file's own heading): above the first table.
+fn keep_note(doc: &mut DocumentMut, note: String) {
     let first = doc.iter().filter(|(_, i)| i.is_table()).map(|(k, _)| k.to_string()).min_by_key(|k| doc.get(k).and_then(Item::as_table).and_then(|t| t.position()).unwrap_or(isize::MAX));
     if let Some(t) = first.and_then(|k| doc.get_mut(&k)).and_then(Item::as_table_mut) {
         let was = t.decor().prefix().and_then(|p| p.as_str()).unwrap_or("").to_string();
@@ -263,6 +263,13 @@ max_results = 500
         assert_eq!(rewrite("[preview]\ntimeout = 60\n").unwrap(), None);
         let (new, _) = rewrite("provenance_viewer = false\n[modules]\noff = [\"games\", \"provenance\"]\n").unwrap().unwrap();
         assert_eq!(crate::config::Config::parse(&new).unwrap().modules.off, ["games", "provenance"]);
+        // [modules] off of another type: nothing lost without a word.
+        let (new, said) = rewrite("bom_viewer = false\n[modules]\noff = \"games\"\n").unwrap().unwrap();
+        assert_eq!(said, ["bom_viewer = false (add \"bom\" to [modules] off yourself)"], "{new}");
+        // [preview] left empty is no empty header; a comment on ebooks goes with it.
+        let (new, _) = rewrite("[preview.tools]\noffice = \"local\"\n[preview]\n# cal\nebooks = false\n").unwrap().unwrap();
+        assert!(!new.contains("[preview]\n") && !new.contains("# cal"), "{new}");
+        assert_eq!(crate::config::Config::parse(&new).unwrap().preview.tools["office"], "local");
         // On one line too.
         let (new, _) = rewrite("preview = { ebooks = false }\n").unwrap().unwrap();
         assert_eq!(crate::config::Config::parse(&new).unwrap().modules.off, ["ebooks"], "{new}");

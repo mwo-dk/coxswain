@@ -126,8 +126,8 @@ authors and chapters: Find (**Alt+F7**) and *Find in files* (**Shift+F7**) find 
 second or two; a library of a thousand books is read in the background over half an hour or so,
 on mains power faster than on battery.
 
-The helper looks for calibre when it starts: an image pulled from a preview or a conversion is
-used from its next start (the next time you log in, or after a change to *Finding files*). This
+An image pulled later, from a preview or a conversion, is noticed at the helper's next pass
+over your folders, and the books are read then. This
 reader has its own version (`readers.ebooks` in the search store). calibre becoming able to run
 reads only the MOBI, AZW, AZW3, FB2, LIT and PDB files again, once; nothing else is read or
 embedded anew. A later change to what calibre gives of a book reads only these files again.

@@ -548,7 +548,7 @@ static READY: AtomicBool = AtomicBool::new(false);
 
 /// When the helper starts: whether calibre can run now, installed or its image there. Nothing
 /// is downloaded for the search: the image comes when a preview or *Convert e-book* asks for it,
-/// and the search reads the books from the helper's next start.
+/// and `extensions` notices it on the search's next pass.
 pub fn prepare() {
     if searching().is_some_and(ready) {
         READY.store(true, Ordering::Relaxed);
@@ -564,6 +564,10 @@ pub fn state() -> Option<crate::images::pulls::State> {
 
 /// The endings the search reads with calibre now: none until it can run.
 pub fn extensions() -> Vec<&'static str> {
+    // An image pulled since the helper started (from a preview or a conversion): read from now.
+    if !READY.load(Ordering::Relaxed) && searching().is_some_and(ready) {
+        READY.store(true, Ordering::Relaxed);
+    }
     if searching().is_some() && READY.load(Ordering::Relaxed) { FORMATS.to_vec() } else { vec![] }
 }
 

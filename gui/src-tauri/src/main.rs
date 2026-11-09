@@ -263,6 +263,8 @@ fn css(c: &str) -> Option<String> {
 #[tauri::command(async)]
 fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
     let cfg = ctx.cfg();
+    // Every way the config is read again ends here: the core's gate follows the page's.
+    coxswain_core::modules::set_off(&cfg.modules.off);
     let server_url = coxswain_core::settings::server_url(&cfg.search);
     let themes = cfg
         .themes

@@ -1976,11 +1976,16 @@ impl App {
                     let any = if a == Action::View { coxswain_core::viewers::detect_any(&e) } else { "" };
                     // Its module off (`[modules] off`): shown as text or hex, and the first time,
                     // which module would show it.
+                    let mut kind = any;
                     if let Some(m) = coxswain_core::modules::off_for(any) {
-                        self.view_or_edit(a, &e);
-                        return self.module_off(m);
+                        // Provenance off, a statement that carries a CycloneDX BOM: the BOM viewer.
+                        if m.id == "provenance" && coxswain_core::modules::on("bom") && coxswain_core::bom::sniff(&e) {
+                            kind = "bom";
+                        } else {
+                            self.view_or_edit(a, &e);
+                            return self.module_off(m);
+                        }
                     }
-                    let kind = any;
                     // An e-book calibre reads: its title, authors and text.
                     if kind == "ebook" {
                         return self.ebook_view(e);

@@ -97,8 +97,8 @@ searchable* …) stay in the action menu too.
 off = ["games", "neural_networks"]
 ```
 
-A name Coxswain does not know is left alone: Settings writes only the names it knows when you
-next change a module there. Both apps read `[modules]` when they start and after every change
+A name Coxswain does not know is ignored, and Settings drops it when you next change a module
+there. Both apps read `[modules]` when they start and after every change
 in Settings. See [Configuration: every key](../reference/configuration.md#modules).
 
 ## The older switches
