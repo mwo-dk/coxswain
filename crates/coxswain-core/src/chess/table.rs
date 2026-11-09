@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 /// A game's row on the disk.
 pub(crate) const ROW: usize = 52;
 /// What the folder holds changes form: an older form is never read.
-const FORM: &str = "2";
+pub(crate) const FORM: &str = "2";
 /// A table not opened for this long goes.
 pub const KEPT: Duration = Duration::from_secs(30 * 24 * 3600);
 /// The most all tables take: past it the ones opened longest ago go, never the newest.
@@ -98,6 +98,8 @@ pub(crate) struct Done {
     stamp: String,
     /// The limits it was read with.
     extra: String,
+    /// Kept whole when it is not UTF-8, so its table is found again.
+    #[serde(with = "crate::spill::path_json")]
     pub source: PathBuf,
     pub games: u32,
     pub capped: bool,
@@ -141,7 +143,7 @@ fn parts(path: &Path) -> Vec<PathBuf> {
 }
 
 /// The database's identity: its path, and the size and time of each of its files.
-fn stamp(path: &Path) -> String {
+pub(crate) fn stamp(path: &Path) -> String {
     let mut h = blake3::Hasher::new();
     h.update(FORM.as_bytes());
     h.update(path.as_os_str().as_encoded_bytes());
@@ -184,7 +186,7 @@ fn modified(p: &Path) -> Option<SystemTime> {
 /// A folder being made, by a run that ended without finishing it: its run (named in the
 /// folder, `<key>-<run>-<n>`) has ended; or, when that cannot be told, its rows did not grow
 /// for `STALE`.
-fn stale(dir: &Path) -> bool {
+pub(crate) fn stale(dir: &Path) -> bool {
     let name = dir.file_name().unwrap_or_default().to_string_lossy().into_owned();
     let run = name.split_once('-').and_then(|(_, r)| r.rsplit_once('-')).map(|(r, _)| r.to_string());
     match run.as_deref().and_then(crate::spill::alive) {
@@ -251,6 +253,9 @@ impl Table {
                     _ => {}
                 }
             }
+            // This run's list held, so another run tells this folder from one a crash left
+            // (`stale`), also in a run that never wrote a passing name.
+            crate::spill::register();
             let dir = root.join(format!("{key}-{}-{}", crate::spill::run(), N.fetch_add(1, Ordering::Relaxed)));
             if let Ok(t) = Table::new(&dir, false, &stamp, extra, &source) {
                 return Ok((t, None));
@@ -258,6 +263,11 @@ impl Table {
         }
         let dir = std::env::temp_dir().join(format!("coxswain-games-{}-{}", crate::spill::run(), N.fetch_add(1, Ordering::Relaxed)));
         Ok((Table::new(&dir, true, &stamp, extra, &source)?, None))
+    }
+
+    /// The stamp of the database it was read from.
+    pub(crate) fn stamp(&self) -> &str {
+        &self.stamp
     }
 
     fn kept(dir: &Path, stamp: &str, extra: &str, source: &Path) -> io::Result<Table> {
@@ -558,6 +568,35 @@ mod tests {
         std::fs::remove_file(&db).unwrap();
         prune_in(&root, KEPT, MOST);
         assert!(!dir.exists());
+        std::fs::remove_dir_all(&src).unwrap();
+    }
+
+    /// A database whose path is not UTF-8 is kept: its `done` is written and read back whole.
+    #[cfg(unix)]
+    #[test]
+    fn a_path_not_utf8_is_kept() {
+        use std::os::unix::ffi::OsStrExt;
+        let source = PathBuf::from(std::ffi::OsStr::from_bytes(b"/games/caf\xe9.pgn"));
+        let done = Done { stamp: "s".into(), extra: String::new(), source: source.clone(), games: 3, capped: false };
+        let back: Done = serde_json::from_slice(&serde_json::to_vec(&done).unwrap()).unwrap();
+        assert_eq!((back.source, back.games), (source, 3));
+        // A `done` of before reads as it did.
+        let old: Done = serde_json::from_str(r#"{"stamp":"s","extra":"","source":"/games/a.pgn","games":1,"capped":false}"#).unwrap();
+        assert_eq!(old.source, Path::new("/games/a.pgn"));
+    }
+
+    /// A table being made holds its run's list, so another run never takes it for one a crash
+    /// left, however slowly it grows, also in a run that wrote no passing name before.
+    #[test]
+    fn a_table_being_made_holds_its_runs_list() {
+        let src = std::env::temp_dir().join(format!("coxswain-table-list-{}", std::process::id()));
+        std::fs::create_dir_all(&src).unwrap();
+        let db = src.join("b.pgn");
+        std::fs::write(&db, "x").unwrap();
+        let (t, _) = Table::open(&db, "").unwrap();
+        assert!(!t.temp);
+        assert_eq!(crate::spill::list_held(crate::spill::run()), Some(true));
+        drop(t);
         std::fs::remove_dir_all(&src).unwrap();
     }
 }

@@ -642,6 +642,7 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
             ("figurines", "settings.chess_pieces_figurines"),
         ]),
         "chess_engine_limit" | "chess_review_limit" => pairs(&[("time", "settings.chess_limit_time"), ("depth", "settings.chess_limit_depth"), ("nodes", "settings.chess_limit_nodes")]),
+        "chess_position_depth" => pairs(&[("15", "settings.chess_depth_15"), ("30", "settings.chess_depth_30"), ("all", "settings.chess_depth_all")]),
         "chess_board" => pairs(&[("theme", "settings.chess_board_theme"), ("green", "settings.chess_board_green"), ("brown", "settings.chess_board_brown")]),
         "whisper_model" => coxswain_core::transcribe::choices(cfg),
         "meaning_engine" => vec![
@@ -1999,7 +2000,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         (None, Mode::List { .. }) => (t!("tui.settings.list_keys"), dim),
         (None, Mode::Pick(_)) => (t!("tui.settings.pick_keys"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(i)) if !i.clear) => (t!("disk.keys_tui_show"), dim),
-        (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(i)) if i.kind == coxswain_core::disk::Kind::Yours) => (t!("disk.keys_tui_remove"), dim),
+        (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(i)) if i.kind == coxswain_core::disk::Kind::Yours || i.id.starts_with("positions:")) => (t!("disk.keys_tui_remove"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(_))) => (t!("disk.keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Server(_))) => (t!("settings.history_server_keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if !r.container) => (t!("ptools.keys_tui_no_image"), dim),

@@ -174,10 +174,12 @@ impl EntryFile {
         let first = first.min(n);
         for k in first..=n {
             let (r, at) = c.reader.as_mut().expect("opened above");
-            io::copy(&mut r.take(k * BLOCK - (*at).min(k * BLOCK)), &mut io::sink())?;
+            let skipped = io::copy(&mut r.take(k * BLOCK - (*at).min(k * BLOCK)), &mut io::sink())?;
             let mut data = Vec::with_capacity(BLOCK as usize);
             let got = r.take(BLOCK).read_to_end(&mut data)?;
-            *at = k * BLOCK + got as u64;
+            // The bytes taken: an entry that ends before its listed size leaves `at` at its end,
+            // so a read past it later does not start the unpacking again (#907).
+            *at += skipped + got as u64;
             c.blocks.retain(|(j, _)| *j != k);
             if c.blocks.len() >= BLOCKS {
                 c.blocks.remove(0);
@@ -228,6 +230,22 @@ mod tests {
         let a = d.join("logs.zip");
         crate::archive::create(&a, &[src.join("big.log")]).unwrap();
         (d, a, text)
+    }
+
+    /// #907: past the entry's real end (an archive whose listed size is more than it holds)
+    /// nothing is read, and the unpacking is not started again for it.
+    #[test]
+    fn a_read_past_the_end_does_not_unpack_again() {
+        let (d, a, text) = zip_of("entry-file-past-end", 70_000);
+        assert!(text.len() as u64 > 2 * BLOCK && (text.len() as u64) < 3 * BLOCK);
+        let f = EntryFile::open(&a.join("big.log")).unwrap();
+        let mut buf = vec![0u8; 100];
+        assert_eq!(f.read_at(&mut buf, 8 * BLOCK).unwrap(), 0);
+        assert_eq!(f.read_at(&mut buf, 4 * BLOCK).unwrap(), 0);
+        assert_eq!(f.read_at(&mut buf, 3 * BLOCK).unwrap(), 0);
+        assert_eq!(f.unpackings(), 1);
+        drop(f);
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]

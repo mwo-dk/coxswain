@@ -1300,7 +1300,7 @@ export async function init() {
   setPictureEndings(ui.cfg.picture_endings);
   setMediaEndings(ui.cfg.media_endings);
   setGeoEndings(ui.cfg.geo_endings);
-  setViewerRules(ui.cfg.viewer_rules);
+  setViewerRules(ui.cfg.viewer_rules, ui.cfg.viewer_reads);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;
@@ -1489,6 +1489,8 @@ export async function gamesOf(e, on, inside = !!tab().archive) {
   if (!on) return false;
   if (["games", "positions", "book"].includes(on.enter)) return (await openGames(e.path, inside), true);
   if (!on.maybe_games) return false;
+  // A book or a DhtmlXQ game read from inside the archive, no copy (`chess::games::streams`).
+  if (inside && (await invoke("chess_streams", { path: e.path }).catch(() => false))) return (await openGames(e.path, true), true);
   const copy = await invoke("archive_peek", { path: e.path }).catch(() => null);
   if (!copy || !(await invoke("chess_sniffed", { path: copy }).catch(() => false))) return false;
   await openGames(copy, false);

@@ -49,11 +49,14 @@ nested ones too, opens the same way: **Enter** in both apps, **F3** in the termi
 preview pane in the desktop app. A PGN file (also `.pgn.gz` and `.pgn.zst`), a draughts, shogi
 or bridge file and a DhtmlXQ game are read as they are unpacked, with no copy on the disk: the
 table fills while the archive is read, and a game far into a big file is found by unpacking the
-file again from its start (the way a packed PGN file is read). A SCID or ChessBase
-database, an EPD or FEN file, a Go file and an opening book are read from a copy Coxswain takes
-out of the archive, a SCID or ChessBase database with the files beside it under the same name;
-a `.cbv` holds its own, and so does a locked file once its password is given
-([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)). *Save as new PGN*
+file again from its start (the way a packed PGN file is read). An opening book and a Go file up
+to 64 MB, and an EPD or FEN file of any size (its first 16 MB, as outside), are unpacked into
+memory whole and read there, also with no copy on the disk: a book is looked up at each position
+and a Go game read at its place in the file, which an unpacker cannot jump to. A SCID or
+ChessBase database is read from a copy Coxswain takes out of the archive, with the files beside
+it under the same name: it is read in pieces from several files, here and there in each. So is a
+`.cbv` (it holds its own), a book or Go file over 64 MB, and a locked file once its password is
+given ([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)). *Save as new PGN*
 on a game read so asks where, as it does for a copy ([the choices](chess-play.md#a-game-from-inside-an-archive)).
 
 A PGN file over 256 MB inside an archive (a 7z, a zip, a tar) is not copied out: it is read
@@ -86,7 +89,12 @@ never changed.
 name), *Opening or ECO* (in the opening's name, or the start of its code: `C4` finds C40 to
 C49), the result, *From year* and *To year*, and *Rating at least* (both players). In the
 terminal app: **/** player, **o** opening, **r** cycles the result, **y** years (`1850-1900`),
-**e** rating, **c** clears them all; type, then **Enter**.
+**e** rating, **c** clears them all; type, then **Enter**. **i** builds the position index (or
+stops its build), **I** removes it.
+
+**Position index.** *Build position index* under the count (**i** in the terminal app) indexes
+the games' positions, for the opening tree on a game's board and for the list cut to the games
+that reach a position ([Chess: position index and opening tree](chess-positions.md)).
 
 **Sorting.** Desktop: a click on a heading sorts by it, a second click reverses. Terminal:
 **s** takes the next column, **S** reverses. Games with no name in that column come last. Names sort by the language's alphabet
@@ -188,6 +196,7 @@ is, on the bar beside the board).
 | **a**, **b** | The engine on or off, its best move ([The engine](chess-play.md#the-engine)) | The same |
 | **g**, **w** | Analyse the whole game, save it annotated ([Analysing a whole game](chess-play.md#analysing-a-whole-game)) | The same |
 | **p** | Find this position: the games that reach it ([Finding games](#finding-games)) | The same |
+| **t** | The opening tree of the position, from the database's position index (also *Tree*; [Chess: position index and opening tree](chess-positions.md)) | The same; **↑ ↓** and **Enter** play one of its moves |
 | **PgDn** / **PgUp** | The next / previous game of the table | The same |
 | **Esc** | Back to the table (*Games* too); on the table in the preview pane, the keys back to the panels | Back to the table |
 | A click on a move | Shows it | – |
@@ -359,8 +368,10 @@ his or her games there, all of them ([A player in a game
 database](../search/ask.md#how-much-it-reads)).
 
 A store made before this release reads each game file over 4 MB once more, in the
-background, a minute at a time, to make its table: only those files, and nothing the store
-keeps of them is read or made again (their text and their vectors stay).
+background, to make its table: only those files, and nothing the store keeps of them is read or
+made again (their text and their vectors stay). It runs after the new files of a scan are read,
+and stops for the next scan after a minute, between files: a file it has begun is read to its
+end, however long that takes.
 
 ## ChessBase databases
 
@@ -467,6 +478,8 @@ ChessBase's password-protected archives (`.cbz`), its newer `.2cbh` format and o
 | *Chess board* | `[chess] board` | `theme` (default), `green`, `brown` |
 | *Opening book* | `[chess] book` | A path to a Polyglot `.bin` book; empty (default): the first book next to the game file |
 | *Game pieces in the terminal* | `[chess] pieces` | `auto` (default), `pictures`, `octants`, `sextants`, `quadrants`, `halves`, `figurines` ([Game pieces in the terminal](game-pieces.md#the-setting)) |
+| *Position index for every games table* | `[chess] position_index` | `false` (default): a database gets a position index only when its table's *Build position index* is pressed; `true`: every games table opened builds one in the background |
+| *Position index depth* | `[chess] position_depth` | `"15"` or `"30"` (default) moves of each game, or `"all"`: the whole game |
 
 ```toml
 [chess]
@@ -537,8 +550,12 @@ The table shows its games like a PGN file's.
 Yes. **Enter** on the zip opens it like a folder; on a games file inside (a `.pgn`, a ChessBase
 `.cbv` archive or `.cbh` database, a SCID `.si4` or `.si5` index, an `.sgf` …) press **Enter**
 in either app (the command line says *Enter: Open games*), **F3** in the terminal app, or rest
-the cursor on it with the preview open in the desktop app. That file is copied out into Coxswain's cache folder, a database with the files beside it
-under its name (`.cbg`, `.cbp`, `.sg4` …), and its games table opens as outside the archive.
+the cursor on it with the preview open in the desktop app. A PGN family file is read as the
+archive unpacks it, and an opening book, an EPD or FEN file and a Go file up to 64 MB are
+unpacked into memory: nothing is written to the disk. A ChessBase or SCID database (and a book
+or Go file over 64 MB, or a locked file) is copied out into Coxswain's cache folder, a database
+with the files beside it under its name (`.cbg`, `.cbp`, `.sg4` …), since its games are read in
+pieces from those files, here and there. Either way its games table opens as outside the archive.
 It works in an archive inside an archive too ([Archives as folders](../files/archives.md)).
 
 #### What happens with a database too large to open inside its archive?
@@ -554,7 +571,9 @@ open there, read like any other database ([Large databases](#large-databases)). 
 *Cancel*) leaves it. The copy is yours, not the cache's: it stays until you delete it, and
 the next time the same file opens there at once without asking. A folder of that name that
 holds other files of those names is never written over: the next one, `… (2)`, is taken. Each
-file is written under a passing name until it is whole. It needs room for the whole database
+file is written under a passing name until it is whole. A 7z or a packed tar is unpacked once
+for all the files, not once for each (a solid 7z unpacks from its start), and so is any copy
+of several files of one folder of such an archive to a folder on the disk. It needs room for the whole database
 beside the archive, and only an archive on the disk: one inside another archive is refused
 as before.
 
@@ -604,13 +623,18 @@ the line above the table says how far the reading is. A solid 7z cannot be unpac
 middle, so the table also keeps the text of each game, packed, in its folder in the cache
 (`chess/tables/`): under a quarter of the PGN file's size, as games are packed in blocks of 256 KB (LZMA2),
 the tags of a block's games next to each other, then their moves without the move numbers
-(written back as they were when a game opens) (Lumbra's Gigabase: 12 GB of PGN, 2.8 GB in the cache with the table). Opening a game reads it from there,
+(written back as they were when a game opens) (Lumbra's Gigabase: 12 GB of PGN, 2.7 GB in the cache with the table).
+The blocks are packed hard (LZMA2 preset 6, tuned for text), which makes them about a tenth
+smaller than a quicker packing would, at six times the work; so each block is packed on a thread
+of its own, as many at once as the machine has cores (up to eight). The packed file is the same on
+every machine, whatever its number of cores. Opening a game reads it from there,
 in about 2 ms. Opened again with the archive unchanged, the table is taken as it is and
 the archive is not read. Past 4 GB of tables in all the oldest go first, so a table as large as this one stays
-only while it is the newest one; saving a line from the game into the archive changes the archive,
+only while it is the newest one (a table on screen keeps opening its games until its window closes, even when another window or app removes its folder meanwhile); saving a line from the game into the archive changes the archive,
 and the table is then read again. **Measured** (Lumbra's Gigabase, a 2.5 GB 7z of one 12 GB PGN file, on a desktop with an SSD):
-12,294,960 games, the first rows after 0.5 s, all read in 9 minutes (packing the games sets the
-pace), 73 MB of memory at most, opened again in 10 ms.
+12,294,960 games, the first rows after 0.7 s, all read in 7 minutes on eight cores and 12 on four
+(packing the games sets the pace; with two cores it takes about two and a half times as long as
+on four), 134 MB of memory at most, opened again in 10 ms.
 
 A PGN file in a **locked 7z** asks for the password first, the box the other locked archives
 use ([Archive passwords](../files/archive-passwords.md)): **Enter** (or **F3**) on it, or the
@@ -646,6 +670,15 @@ give a game from its middle. See [A large PGN file in an archive](#a-large-pgn-f
 Close the games window and the reading stops; the table is kept for 30 days (while it is the newest, if it is over 4 GB), **Clear** on the
 *chess/* row of Disk use removes it.
 
+#### Why does reading a huge PGN in an archive take longer on a two-core machine?
+
+Its games' text is packed hard, so it takes a tenth less room in the cache, and that packing is
+six times the work of a quicker one. With four cores or more the work is shared and the reading is
+faster than with the quicker packing; with two it is about 2.3 times slower. It happens once, the
+first time the file is read, in the background: you can filter and open games while it runs. The
+packed file is the same on every machine, so a table is never made again because the machine
+changed, and a table already kept, packed the quicker way, is taken as it is and not read again.
+
 #### Can it open a database of millions of games?
 
 Yes, of any size, in the same memory: the table of games is kept on the disk, not in memory
@@ -664,7 +697,8 @@ file once. The group shows the first few, in the file's order; the count above i
 Its table of games is kept there (`chess/tables/`), 52 bytes a game and the names: 727 MB for
 12.3 million games. It goes by itself 30 days after you last opened the file, when the file changes
 or goes, or past 4 GB of tables in all; **Clear** on the *chess/* row of Disk use removes them
-at once.
+at once. A [position index](chess-positions.md#room-on-the-disk) (`positions/`) is kept apart and is
+not counted in the 4 GB.
 
 #### Why does the book line not show?
 

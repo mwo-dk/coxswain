@@ -2209,23 +2209,32 @@ impl App {
     }
 
     /// F3 on a file inside an archive: in the viewer, no copy made. A log, JSON Lines or a text
-    /// over 16 MB is paged through as it is unpacked (a locked one from a copy), the rest of the
-    /// text is held in memory (its first 16 MB); games, a viewer of one's own and a locked file
-    /// are read from a copy (its password asked for).
+    /// over 16 MB is paged through as it is unpacked (a locked one from a copy), provenance and a
+    /// BOM open in their viewers from memory, the rest of the text is held in memory (its first
+    /// 16 MB); ChessBase and SCID, a viewer of one's own and a locked file are read from a copy
+    /// (its password asked for).
     fn peek(&mut self, path: PathBuf) {
         use coxswain_core::enter;
-        // A PGN family file or a DhtmlXQ game: its games read as it is unpacked.
+        // A PGN family file or a DhtmlXQ game: its games read as it is unpacked; an opening
+        // book, positions or a Go file in memory.
         if (enter::view(&path, enter::Place::Archive) == enter::View::Games || enter::may_be_games(&path)) && coxswain_core::chess::games::streams(&path) {
             return self.chess(&path, None);
         }
         if self.cfg.viewer.is_none() && enter::view(&path, enter::Place::Archive) == enter::View::Itself && !enter::may_be_games(&path) {
-            let labels = [self.key_label(Action::Edit), self.key_label(Action::View)];
-            let log = coxswain_core::logs::is_log_name(&path.file_name().unwrap_or_default().to_string_lossy());
+            let keys = [self.key_label(Action::Edit).to_string(), self.key_label(Action::View).to_string()];
+            let labels = [keys[0].as_str(), keys[1].as_str()];
+            let name = path.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+            // A `.intoto.jsonl` is provenance first, as `viewers::detect` has it on the disk.
+            let log = coxswain_core::logs::is_log_name(&name) && !coxswain_core::provenance::sniff_name(&name);
             // A log is paged at once; the rest reads its head first to see whether it is long.
             if log && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
                 return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
             }
             if let Ok((bytes, more)) = coxswain_core::archive::head(&path, viewer::PLAIN_OVER) {
+            // Provenance and a BOM in their viewers, read as they are unpacked (64 MB at most).
+            if !log && let Some(d) = self.inside_viewer(&path, &bytes) {
+                return self.dialog = Some(d);
+            }
             if more && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
                 return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
             }
@@ -2250,6 +2259,30 @@ impl App {
         }
     }
 
+    /// Provenance or a BOM inside an archive, told by its name or its first bytes (`head`), in
+    /// its viewer when that is on, as on the disk: `None` for any other file, and for one that
+    /// does not read as one after all (the status line says why).
+    fn inside_viewer(&mut self, path: &Path, head: &[u8]) -> Option<Dialog> {
+        use coxswain_core::{bom as cbom, provenance as cprov};
+        let name = path.file_name()?.to_string_lossy().to_lowercase();
+        let ends = |xs: &[&str]| xs.iter().any(|x| name.ends_with(x));
+        let prov = cprov::sniff_name(&name) || (ends(&[".json", ".jsonl", ".ndjson"]) && cprov::sniff_head(head));
+        let is_bom = cbom::sniff_name(&name) || (ends(&[".json", ".xml"]) && cbom::sniff_head(head));
+        if prov && self.cfg.provenance_viewer {
+            match provenance::Viewer::open(path, Some(self.panels[self.active ^ 1].dir.clone())) {
+                Ok(v) => return Some(Dialog::Provenance(Box::new(v))),
+                Err(err) => self.status = Some(err.to_string()),
+            }
+        }
+        if is_bom && self.cfg.bom_viewer {
+            match bom::Viewer::open(path) {
+                Ok(v) => return Some(Dialog::Bom(Box::new(v))),
+                Err(err) => self.status = Some(err.to_string()),
+            }
+        }
+        None
+    }
+
     fn open(&mut self) {
         let Some(e) = self.panel().current() else { return };
         // Enter goes into anything that holds things, and opens games on their board (`enter`).
@@ -2264,7 +2297,8 @@ impl App {
             _ => {}
         }
         if let Some((archive, _)) = inside {
-            // A `.bin` that may be an opening book: told by a copy's bytes.
+            // A `.bin` that may be an opening book: told by its bytes, in memory up to 64 MB,
+            // else by a copy's.
             if enter::may_be_games(&e.path) && coxswain_core::chess::games::streams(&e.path) {
                 return self.chess(&e.path, None);
             }
@@ -2581,8 +2615,9 @@ impl App {
     /// A chess file full screen: a PGN file's games (at the game of a Find hit's snippet), an EPD or
     /// FEN file's positions.
     fn chess(&mut self, path: &Path, hit: Option<String>) {
-        // Inside an archive: PGN family files and DhtmlXQ games as they are unpacked, the rest
-        // (ChessBase, SCID, an opening book, positions, Go) from a copy, as F3 views any file there.
+        // Inside an archive: PGN family files and DhtmlXQ games as they are unpacked, an opening
+        // book, positions and Go in memory (`games::in_memory`), the rest (ChessBase, SCID, a
+        // locked file, a book or Go file over 64 MB) from a copy.
         let copy;
         let path = if !path.exists() && coxswain_core::archive::split(path).is_some() && !coxswain_core::chess::games::streams(path) {
             match coxswain_core::archive::peek(path) {
@@ -3691,6 +3726,17 @@ impl App {
     /// A viewer's source (F3 in the BOM or provenance viewer): in the viewer, `back` shown
     /// again after it.
     fn source(&mut self, file: &Path, back: Dialog) {
+        // Inside an archive: its text as it is unpacked, in the built-in viewer (no copy).
+        if !file.exists() && coxswain_core::archive::split(file).is_some() {
+            let labels = [self.key_label(Action::Edit), self.key_label(Action::View)];
+            return match coxswain_core::archive::head(file, viewer::PLAIN_OVER) {
+                Ok((bytes, more)) => self.dialog = Some(Dialog::View { v: Box::new(viewer::Viewer::bytes(file, &bytes, more, labels)), back: Some(Box::new(back)) }),
+                Err(e) => {
+                    self.status = Some(e.to_string());
+                    self.dialog = Some(back);
+                }
+            };
+        }
         match self.cfg.viewer.clone() {
             Some(prog) => {
                 self.run_on(&prog, file);
@@ -6953,6 +6999,36 @@ mod tests {
             opens(&mut app, zip.clone(), "go.sgf", a);
             assert_eq!(first(&opens(&mut app, zip.join("inner.zip"), "Games.cbv", a)), "Morphy, Paul");
         }
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// F3 on a BOM or a provenance statement inside a zip: its viewer, as on the disk, read as
+    /// the zip unpacks it; its source (F3 there) in the built-in viewer, also with no copy.
+    #[test]
+    fn a_bom_and_provenance_inside_an_archive_open_in_their_viewers() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-bom-inside-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let core = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../coxswain-core/src");
+        let (bom_file, stmt) = (d.join("keycloak.cdx.json"), d.join("statement-v1.json"));
+        std::fs::copy(core.join("bom/testdata/cbomkit/keycloak.cdx.json"), &bom_file).unwrap();
+        std::fs::copy(core.join("provenance/testdata/made/statement-v1.json"), &stmt).unwrap();
+        let zip = d.join("release.zip");
+        let jsonl = d.join("build.intoto.jsonl");
+        std::fs::copy(core.join("provenance/testdata/made/lenient.intoto.jsonl"), &jsonl).unwrap();
+        coxswain_core::archive::create(&zip, &[bom_file, stmt, jsonl]).unwrap();
+        let mut app = app(d.clone(), d.clone());
+        app.peek(zip.join("keycloak.cdx.json"));
+        assert!(matches!(app.dialog, Some(Dialog::Bom(_))), "the BOM viewer");
+        let Some(Dialog::Bom(v)) = app.dialog.take() else { unreachable!() };
+        app.source(&zip.join("keycloak.cdx.json"), Dialog::Bom(v));
+        assert!(matches!(&app.dialog, Some(Dialog::View { back: Some(_), .. })), "its source, then back to it");
+        app.dialog = None;
+        app.peek(zip.join("statement-v1.json"));
+        assert!(matches!(app.dialog, Some(Dialog::Provenance(_))), "the provenance viewer");
+        app.dialog = None;
+        app.peek(zip.join("build.intoto.jsonl"));
+        assert!(matches!(app.dialog, Some(Dialog::Provenance(_))), "a .intoto.jsonl too, not the log view");
         let _ = std::fs::remove_dir_all(d);
     }
 
