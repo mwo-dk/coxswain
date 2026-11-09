@@ -340,6 +340,8 @@ fn a_grown_file_reads_only_its_new_games() {
     let t = tree(&lib, pgn::START).unwrap();
     assert!(t.stale && !t.opens && t.games == 52 && t.moves.iter().all(|m| m.best.is_none()));
     assert_eq!(games_at(&lib, pgn::START), None);
+    assert!(!opens(&lib));
+    assert!(lib.query(&super::super::games::Query { position: pgn::START.into(), ..Default::default() }).is_empty());
     keep_up(&lib, &crate::config::ChessConfig::default());
     let j = job(&p).unwrap();
     while j.phase.load(Ordering::Relaxed) < 2 {
