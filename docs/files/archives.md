@@ -379,8 +379,8 @@ panel title says `[archive]` instead of a tint and a badge, and there is no prev
 
 Yes. Put the cursor on it with the preview pane open (**Space** in the desktop app), or press
 **F3** in the terminal app. A text file or a picture is read straight out of the archive, into
-memory: the preview pane shows its first 512 KB (a picture, PDF, song, video, font, Word
-document, workbook, notebook or PowerPoint deck up to 25 MB, a Parquet file up to 64 MB,
+memory: the preview pane shows its first 512 KB (a picture, PDF, song, video, font or Parquet
+file up to 64 MB, a Word document, workbook, notebook or PowerPoint deck up to 25 MB,
 whole), the terminal
 app's viewer its first 16 MB, and nothing is written to the disk. A provenance file or a BOM
 opens in its viewer the same way, in both apps. A log, JSON Lines file or longer text
