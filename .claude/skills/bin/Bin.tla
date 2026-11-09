@@ -158,9 +158,8 @@ PutFail(a) ==
    free_name the first free name beside it (r_check); the file still the one found (r_id);
    move_new: hard_link(files/<n>, to), which fails when `to` exists by then or the item is gone
    (r_link); the file now at `to` the one found (its dev, ino: the link changes its change
-   time), else another program's put since, whose link at `to` is taken away again while
-   files/<n> is that file too, remove_file(to) (r_unlink_back, #901); files/<n> still the file now at `to`
-   (r_unlink_check); remove_file(files/<n>) (r_unlink); either gone or another's by then: move_new says false and the info file stays,
+   time), else another program's put since, which stays in the bin, its link at `to` left
+   (#901), and files/<n> still the file now at `to` (r_unlink_check); remove_file(files/<n>) (r_unlink); either gone or another's by then: move_new says false and the info file stays,
    the other program's to remove; the info file still the one found (r_info_check);
    remove_file(info) (r_info). *)
 RestoreStart(a, n, free) ==
@@ -204,20 +203,10 @@ RLink(a) ==
 \* the file just linked at `to`.
 RUnlinkCheck(a) ==
   /\ pc[a] = "r_unlink_check"
-  /\ IF origin[loc[a].to] # loc[a].c
-       THEN IF files[loc[a].n] = origin[loc[a].to] THEN Go(a, "r_unlink_back", loc[a])
-            ELSE Done(a)                  \* `to` holds a file saved since: left
+  /\ IF origin[loc[a].to] # loc[a].c THEN Done(a) \* another's: left at `to` and in the bin
      ELSE IF files[loc[a].n] = origin[loc[a].to] THEN Go(a, "r_unlink", loc[a])
      ELSE Done(a)                         \* another's now, or gone: left, and its info file
   /\ UNCHANGED <<origin, files, info, iid, wanted>>
-
-\* remove_file(to): the link of another program's file, made by r_link, taken away again.
-RUnlinkBack(a) ==
-  /\ pc[a] = "r_unlink_back"
-  /\ IF Guard(files[loc[a].n] = origin[loc[a].to]) THEN origin' = [origin EXCEPT ![loc[a].to] = None]
-     ELSE UNCHANGED origin
-  /\ Done(a)
-  /\ UNCHANGED <<files, info, iid, wanted>>
 
 RAfterUnlink == IF Checked /\ Split THEN "r_info_check" ELSE "r_info"
 
@@ -398,7 +387,7 @@ Next ==
        \/ \E s \in Ss : PutStart(a, s)
        \/ PutCheck(a) \/ PutClaim(a) \/ PutWrite(a) \/ PutMove(a) \/ PutFail(a)
        \/ \E n \in Ns, free \in BOOLEAN : RestoreStart(a, n, free)
-       \/ RCheck(a) \/ RId(a) \/ RLink(a) \/ RUnlinkCheck(a) \/ RUnlinkBack(a) \/ RUnlink(a) \/ RInfoCheck(a) \/ RInfo(a)
+       \/ RCheck(a) \/ RId(a) \/ RLink(a) \/ RUnlinkCheck(a) \/ RUnlink(a) \/ RInfoCheck(a) \/ RInfo(a)
        \/ \E n \in Ns : DeleteStart(a, n)
        \/ DCheck(a) \/ DRemove(a) \/ DInfoCheck(a) \/ DInfo(a)
        \/ EmptyStart(a) \/ EFile(a) \/ ECheck(a) \/ ERemove(a) \/ EInfoCheck(a) \/ EInfo(a)
