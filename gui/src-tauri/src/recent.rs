@@ -26,8 +26,8 @@ impl<T> Recent<T> {
 
     /// What `path` holds: kept, when the file has not changed and `fits` takes it, else `load`ed.
     pub fn get(&self, path: &Path, fits: impl Fn(&T) -> bool, load: impl FnOnce() -> Result<T, String>) -> Result<Arc<T>, String> {
-        // A file inside an archive is as new as its archive.
-        let on = coxswain_core::archive::split(path).filter(|_| !path.exists()).map_or_else(|| path.to_path_buf(), |(a, _)| a);
+        // A file inside an archive changes with its archive.
+        let on = if path.exists() { None } else { coxswain_core::archive::split(path) }.map_or_else(|| path.to_path_buf(), |(a, _)| a);
         let modified = std::fs::metadata(on).and_then(|m| m.modified()).ok();
         {
             let mut last = self.0.lock().unwrap();
