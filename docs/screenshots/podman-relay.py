@@ -24,6 +24,9 @@ sandbox while it runs, so it lets only a few calls through and changes two thing
 - a bind mount's source under /home/demo (the sandbox's home) becomes the same folder in
   <demo-home>; any other mount, or a `-v`, is refused.
 
+Calls of screens no picture needs are refused too: Tika's server (`run -d`), the virus scan's
+(`--userns=keep-id`), and Settings' disk use and removal (`system df`, `image rm`).
+
 The socket must be where the sandbox sees it: cap.py binds its own XDG_RUNTIME_DIR
 (<tmp>/coxswain-cap-<uid>) into the sandbox at the same path.
 
@@ -55,7 +58,7 @@ RUN_PREFIXES = ("--memory=", "--pids-limit=")
 RUN_VALUES = {
     "--name": lambda v: not v.startswith("-"),
     "--security-opt": lambda v: v in ("label=disable", "no-new-privileges"),
-    "--tmpfs": lambda v: v.startswith("/tmp:") and "," not in v.split(":", 1)[0],
+    "--tmpfs": lambda v: v.startswith("/tmp:"),
     "--user": lambda v: not v.startswith("-"),
     "-e": lambda v: "=" in v and not v.startswith("-"),
     "--entrypoint": lambda v: not v.startswith("-"),
@@ -67,7 +70,10 @@ RUN_VALUES = {
 def mount(value, demo):
     """A `--mount` of a folder under /home/demo, as `images::bind` writes it, with its source in
     `demo`; or the reason it is refused. Read as podman reads it: CSV fields."""
-    fields = next(csv.reader([value]))
+    try:
+        fields = next(csv.reader([value]))
+    except csv.Error:
+        return None
     kinds = [f for f in fields if f.split("=", 1)[0] == "type"]
     sources = [f for f in fields if f.split("=", 1)[0] in ("source", "src")]
     known = ("type", "source", "src", "target", "dst", "destination", "readonly", "ro")
@@ -128,7 +134,10 @@ def handle(conn, demo):
     with conn:
         try:
             msg, fds, _, _ = socket.recv_fds(conn, 1 << 20, 3)
-            args = outside(json.loads(msg), demo) if len(fds) == 3 else "podman-relay: no standard streams"
+            got = json.loads(msg)
+            if not (isinstance(got, list) and all(isinstance(a, str) for a in got)):
+                got = ["(not a list of words)"]
+            args = outside(got, demo) if len(fds) == 3 else "podman-relay: no standard streams"
             if isinstance(args, str):
                 if fds[2:]:
                     os.write(fds[2], (args + "\n").encode())
@@ -194,6 +203,7 @@ def check():
         assert isinstance(outside(bad, demo), str), bad
     assert outside(["run", "--pull=never", "img"], demo) == ["run", "--pull=never", "img"]
     assert outside(["kill", "n"], demo) == ["kill", "n"]
+    assert isinstance(outside(["run", "--mount", "type=bind,source=/home/demo/a\nb", "img"], demo), str)
     assert outside(["image", "inspect", "img"], demo) == ["image", "inspect", "img"]
     print("podman-relay: check passed")
 
