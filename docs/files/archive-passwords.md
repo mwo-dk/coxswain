@@ -198,5 +198,9 @@ page through, and a locked file over 64 MB in the preview, are read from a copy 
 folder instead (up to 256 MB): paging would show lines before the checksum at the end could
 prove the password.
 
+The PNG the desktop app makes to show an old picture (a TIFF, PSD …) is kept in the preview
+cache, as for any picture; for a locked one it is shown again only after the password is given
+and checked anew.
+
 ---
 [← Previous: Pack and extract](pack-and-extract.md) · [Next: Disk images, CHM help files and CBR comics →](disk-images.md)

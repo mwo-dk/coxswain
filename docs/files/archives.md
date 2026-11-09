@@ -228,7 +228,8 @@ through an installed 7-Zip instead, read-only, like a disk image
     memory, and **F5** copies it out for a program);
   - too large to hold in memory: an old picture, a Parquet file, a PDF, song, video or font
     over 64 MB (the preview holds the file whole, a player's seeking included), and a document,
-    workbook, notebook or deck over 25 MB (whose reader refuses it there too);
+    workbook, notebook or deck over 25 MB (whose reader refuses it there too); an old picture
+    inside a disk image too, as 7-Zip reads such a file whole;
   - read in pieces from several files: a SCID or ChessBase database and a `.cbv`, and read by
     jumping about in it, an opening book or a Go file over 64 MB (a smaller one is held in
     memory, [Chess](../previews/chess.md));

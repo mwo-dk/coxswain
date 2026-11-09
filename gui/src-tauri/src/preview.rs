@@ -76,6 +76,14 @@ fn picture_in(previews: &Path, path: &Path, page: usize, side: u32) -> Res<Optio
     static PREVIEW: std::sync::Mutex<()> = std::sync::Mutex::new(());
     {
         let side = side.clamp(64, 4096);
+        // A locked file's preview is shown from the cache only once its password is proved again
+        // (read to its checksum), so a picture once unlocked is not shown without it.
+        if !path.exists()
+            && let Some((archive, inner)) = coxswain_core::archive::split(path)
+            && coxswain_core::archive::locked_at(&archive, &inner).unwrap_or(false)
+        {
+            coxswain_core::archive::head(path, 64).map_err(|e| e.to_string())?;
+        }
         let cached = |side: u32| -> Res<(PathBuf, PathBuf, Option<OldPicture>)> {
             let out = previews.join(crate::convert::cache_name(path, path, "picture", &format!("{page}-{side}"))?);
             coxswain_core::spill::used(&out);
@@ -553,7 +561,8 @@ mod tests {
     }
 
     /// An old picture inside a locked zip: said as locked (the preview asks the password), not
-    /// taken for text; with the password, its PNG made from memory.
+    /// taken for text; with the password, its PNG made from memory, and not shown from the cache
+    /// once the password is forgotten.
     #[test]
     fn an_old_picture_inside_a_locked_archive_asks_for_its_password() {
         let d = std::env::temp_dir().join(format!("coxswain-test-old-picture-locked-{}", std::process::id()));
@@ -569,6 +578,9 @@ mod tests {
         let made = picture_in(&cache, &inner, 0, 2048).unwrap().unwrap();
         assert!(made.file.is_file() && made.pages == 1);
         coxswain_core::archive::forget(&zip);
+        // Its PNG is in the cache, but not shown again without the password.
+        assert_eq!(picture_in(&cache, &inner, 0, 2048).err().as_deref(), Some(coxswain_core::archive::LOCKED));
+        assert_eq!(picture_in(&cache, &inner, 0, 256).err().as_deref(), Some(coxswain_core::archive::LOCKED));
         std::fs::remove_dir_all(d).unwrap();
     }
 
