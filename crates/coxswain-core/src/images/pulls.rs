@@ -494,6 +494,10 @@ fn listen(_: &dyn Fn()) -> std::io::Result<()> {
 mod tests {
     use super::*;
 
+    /// Held by the tests that press *Retry now* on a failed image or count its presses: the
+    /// counter is shared, so one such test must not run while another counts.
+    static RETRY_COUNT: Mutex<()> = Mutex::new(());
+
     const DNS: &str = "Pulling docker.io/apache/tika:4.1.0 failed: Error: initializing source docker://apache/tika:4.1.0: pinging container registry registry-1.docker.io: Get \"https://registry-1.docker.io/v2/\": dial tcp: lookup registry-1.docker.io: Temporary failure in name resolution";
 
     #[test]
@@ -610,6 +614,7 @@ mod tests {
     /// reason, without pulling; *Retry now* pulls whatever the schedule says.
     #[test]
     fn a_job_that_cannot_pull_is_held_until_due_or_retried() {
+        let _counting = RETRY_COUNT.lock().unwrap_or_else(|e| e.into_inner());
         let (rt, image, stop) = (std::path::Path::new("/nonexistent/coxswain-test-runtime"), "test.invalid/job:1", std::sync::atomic::AtomicBool::new(false));
         let first = in_job(rt, image, &stop).unwrap_err();
         assert!(first.contains("test.invalid/job:1") && first.contains("→"), "{first}");
@@ -629,6 +634,7 @@ mod tests {
     /// forgets its failed pulls in a row.
     #[test]
     fn a_healthy_image_wakes_nothing_and_a_found_one_forgets() {
+        let _counting = RETRY_COUNT.lock().unwrap_or_else(|e| e.into_inner());
         let (rt, stop) = (std::path::Path::new("/nonexistent/coxswain-test-runtime"), std::sync::atomic::AtomicBool::new(false));
         let before = RETRIES.load(Ordering::SeqCst);
         let healthy = "test.invalid/healthy:1";
