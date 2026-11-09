@@ -4586,6 +4586,7 @@
  "viewer.keys_follow": "F sledovat · E zastavit u chyb · & filtr",
  "viewer.following": "Sledování: nové řádky se objevují, jak se zapisují · F končí",
  "viewer.not_following": "Sledování ukončeno",
+ "viewer.archive_still": "Soubor v archivu se při čtení nemění, takže není co sledovat",
  "viewer.stopped_at_error": "Sledování zastaveno u chyby na řádku {line}",
  "viewer.level_all": "Všechny úrovně",
  "viewer.level_warn": "Varování a chyby",

@@ -209,6 +209,37 @@ pub fn kind_of(name: &str, is_dir: bool) -> &'static str {
     "text"
 }
 
+/// What a kind's viewer needs of a file inside an archive, the cheapest that is enough.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Read {
+    /// Its bytes as the archive unpacks them: text and logs, paged.
+    Stream,
+    /// The whole file in memory, up to `MAX_WHOLE`: what the desktop app's web view draws itself.
+    Whole,
+    /// A copy on the disk (a reader or a program that opens a path).
+    Copy,
+}
+
+/// The largest file inside an archive read whole into memory (`Read::Whole`); larger, a copy.
+pub const MAX_WHOLE: u64 = 64 * 1024 * 1024;
+
+/// What the viewer of `kind` needs of a file inside an archive. Games stream where their reader
+/// does (`chess::games::streams`); the rest of their kind come from a copy.
+pub fn reads(kind: &str) -> Read {
+    match kind {
+        "text" | "markdown" | "data" | "log" | "jsonl" | "bom" | "provenance" => Read::Stream,
+        // Documents, workbooks and notebooks: their page reader takes at most 25 MB (`renderers.js`).
+        "image" | "pdf" | "audio" | "video" | "font" | "docx" | "sheet" | "notebook" | "parquet" => Read::Whole,
+        _ => Read::Copy,
+    }
+}
+
+/// Every kind the table names, with what its viewer needs (`reads`): for the desktop app.
+pub fn reads_by_kind() -> std::collections::BTreeMap<&'static str, Read> {
+    rules().iter().map(|r| r.kind).chain(["text"]).map(|k| (k, reads(k))).collect()
+}
+
 /// The kind the file at `path` on the disk is shown as: `kind_of` its name, then, where a name
 /// is not enough, its first bytes. A `.dot` that is no text is a Word template; a `.json` or
 /// `.xml` may be an attestation or a BOM (provenance first: a statement may carry a CycloneDX
@@ -382,7 +413,7 @@ mod tests {
     #[test]
     fn the_desktop_apps_copy_of_the_table_is_current() {
         let cases: Vec<serde_json::Value> = CASES.iter().map(|(n, d)| serde_json::json!({ "name": n, "is_dir": d, "kind": kind_of(n, *d) })).collect();
-        let want = serde_json::to_string_pretty(&serde_json::json!({ "rules": rules(), "cases": cases })).unwrap() + "\n";
+        let want = serde_json::to_string_pretty(&serde_json::json!({ "rules": rules(), "reads": reads_by_kind(), "max_whole": MAX_WHOLE, "cases": cases })).unwrap() + "\n";
         let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../gui/src/viewer-kinds.json");
         if std::env::var_os("COXSWAIN_WRITE_VARIANTS").is_some() {
             std::fs::write(&file, &want).unwrap();

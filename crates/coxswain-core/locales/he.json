@@ -4583,6 +4583,7 @@
  "viewer.keys_follow": "F מעקב · E עצירה בשגיאות · & מסנן",
  "viewer.following": "במעקב: שורות חדשות מופיעות ככל שהן נכתבות · F עוצר",
  "viewer.not_following": "המעקב הופסק",
+ "viewer.archive_still": "קובץ בתוך ארכיון אינו משתנה בזמן הקריאה, ולכן אין מה לעקוב אחריו",
  "viewer.stopped_at_error": "המעקב נעצר בשגיאה בשורה {line}",
  "viewer.level_all": "כל הרמות",
  "viewer.level_warn": "אזהרות ושגיאות",

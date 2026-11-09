@@ -24,7 +24,7 @@ pub struct ArchiveEntry {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum Kind {
+pub(crate) enum Kind {
     Zip,
     Tar(Pack),
     SevenZ,
@@ -530,7 +530,7 @@ fn not_archive(path: &Path) -> io::Error {
 }
 
 /// A tar, its compression undone as it is read.
-fn tar_reader(path: &Path, k: Kind) -> io::Result<tar::Archive<Box<dyn Read>>> {
+pub(crate) fn tar_reader(path: &Path, k: Kind) -> io::Result<tar::Archive<Box<dyn Read>>> {
     tar_reader_noting(path, k, None)
 }
 
@@ -762,6 +762,11 @@ pub fn remember(archive: &Path, password: &str) {
     all.push((archive.to_path_buf(), password.to_string()));
     drop(all);
     uncache(archive);
+}
+
+/// Whether a password was given for `archive` in this run: one that still fails was wrong.
+pub fn has_password(archive: &Path) -> bool {
+    password_for(archive, None).is_some()
 }
 
 /// Forget the password given for `archive`.
@@ -2897,8 +2902,27 @@ pub fn streamable(path: &Path) -> bool {
 /// password is only proved by the checksum at the end, so a copy is read instead), and so is
 /// one in a disk image (7-Zip reads those whole).
 pub fn stream<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>) -> io::Result<T> {
+    stream_in(path, f, false)
+}
+
+/// Whether `stream_in` with `known` reads the file `path`: `streamable`, or a locked file of a 7z
+/// (without the password it fails with `LOCKED`, which the apps ask the password for).
+pub fn streamable_known(path: &Path) -> bool {
+    entry_of(path).is_ok_and(|(archive, _, it, _)| {
+        kind(&archive) != Some(Kind::Disk) && (!it.locked || kind(&archive) == Some(Kind::SevenZ))
+    })
+}
+
+/// `stream`, also for a locked file of a 7z whose password was given in this run when `known`.
+/// The password is only proved by the checksum at the end, so `f` must read to the end and treat
+/// a failure as no data (the games table does: a table that failed is never kept).
+pub fn stream_in<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>, known: bool) -> io::Result<T> {
     let (archive, inner, it, _held) = entry_of(path)?;
-    if it.locked || kind(&archive) == Some(Kind::Disk) {
+    let seven = known && kind(&archive) == Some(Kind::SevenZ);
+    if it.locked && seven && password_for(&archive, None).is_none() {
+        return Err(locked());
+    }
+    if (it.locked && !seven) || kind(&archive) == Some(Kind::Disk) {
         return Err(io::Error::new(io::ErrorKind::Unsupported, inner));
     }
     let (f, out) = (std::cell::RefCell::new(Some(f)), std::cell::RefCell::new(None));
@@ -2907,8 +2931,33 @@ pub fn stream<T>(path: &Path, f: impl FnOnce(&mut dyn Read) -> io::Result<T>) ->
         *out.borrow_mut() = Some(f(from)?);
         Ok(())
     };
-    copy_out_with(&archive, &inner, Path::new(""), password_for(&archive, None).as_deref(), Copy { head: Some(&sink), ..Copy::default() })?;
+    copy_out_with(&archive, &inner, Path::new(""), password_for(&archive, None).as_deref(), Copy { head: Some(&sink), unchecked: known, ..Copy::default() })?;
     out.into_inner().ok_or_else(|| io::Error::other("nothing read"))
+}
+
+/// `stream`, with the reader at byte `offset` of the file, and `f` told how many bytes were
+/// unpacked to get there. A tar is read from a kept place before `offset` (`tar_index::entry_from`)
+/// where there is one; any other archive unpacks the entry from its start up to `offset`
+/// (zip's deflate, 7-Zip's LZMA and the like keep no decoder state to restart from). `known`: as
+/// for `stream_in`.
+pub fn stream_at<T>(path: &Path, offset: u64, f: impl FnOnce(&mut dyn Read, u64) -> io::Result<T>, known: bool) -> io::Result<T> {
+    if offset > 0 {
+        let (archive, inner, it, _held) = entry_of(path)?;
+        if !it.locked
+            && let Some(Kind::Tar(pack)) = kind(&archive)
+            && let Some((mut r, unpacked)) = crate::tar_index::entry_from(&archive, pack, &inner, offset)?
+        {
+            return f(&mut r, unpacked);
+        }
+    }
+    stream_in(
+        path,
+        |r| {
+            let skipped = io::copy(&mut r.take(offset), &mut io::sink())?;
+            f(r, skipped)
+        },
+        known,
+    )
 }
 
 /// A name that is one file's in a folder: no `/` or `..`, and on Windows no `\\`, `:` (a drive
@@ -3039,6 +3088,13 @@ struct Copy<'a> {
     whole: bool,
     limit: u64,
     head: Option<&'a dyn Fn(&mut dyn Read) -> io::Result<()>>,
+    /// A locked 7z's file handed on as it unpacks, without the up-front read to its end that
+    /// proves the password: the reader reads to the end itself and the checksum fails there.
+    unchecked: bool,
+    /// Only the entries it names come out, the rest are read past (`copy_out_files`).
+    only: Option<&'a std::collections::HashSet<String>>,
+    /// Told each file written whole.
+    wrote: Option<&'a dyn Fn(&Path)>,
 }
 
 impl Default for Copy<'_> {
@@ -3047,6 +3103,9 @@ impl Default for Copy<'_> {
             whole: false,
             limit: u64::MAX,
             head: None,
+            unchecked: false,
+            only: None,
+            wrote: None,
         }
     }
 }
@@ -3060,11 +3119,16 @@ fn copy_entries(
     any: &mut bool,
     used: &mut bool,
 ) -> io::Result<()> {
+    #[cfg(test)]
+    PASSES.with(|n| n.set(n.get() + 1));
     let prefix = format!("{inner}/");
     let below = |name: &str| inner.is_empty() || name == inner || name.starts_with(&prefix);
     // Where an entry lands, never outside `to`: `..` and absolute parts are refused (on Windows
     // also a drive or a `\\`, which are only characters elsewhere).
     let place = |name: &str| -> Option<PathBuf> {
+        if how.only.is_some_and(|only| !only.contains(name)) {
+            return None;
+        }
         let rest = if inner.is_empty() {
             name
         } else if name == inner {
@@ -3092,6 +3156,9 @@ fn copy_entries(
         Ok(())
     };
     let left = std::cell::Cell::new(how.limit);
+    // Files written whole, and whether all those `only` names are: nothing after them is read.
+    let out = std::cell::Cell::new(0usize);
+    let all_out = || how.only.is_some_and(|only| out.get() >= only.len());
     // `secs`: the entry's modified time, which the file out of the archive keeps (0: none).
     // Written under a passing name (noted, so a kill leaves nothing that looks whole) and given
     // its own only when whole.
@@ -3125,7 +3192,12 @@ fn copy_entries(
             let _ = f.set_modified(crate::fs::epoch(secs));
         }
         drop(f);
-        crate::fs::put(&tmp, path).inspect_err(|_| drop(std::fs::remove_file(&tmp)))
+        crate::fs::put(&tmp, path).inspect_err(|_| drop(std::fs::remove_file(&tmp)))?;
+        out.set(out.get() + 1);
+        if let Some(wrote) = how.wrote {
+            wrote(path);
+        }
+        Ok(())
     };
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
     if k == Kind::Image {
@@ -3226,13 +3298,16 @@ fn copy_entries(
             };
             *any = true;
             if e.dir {
-                std::fs::create_dir_all(&path)?;
+                // A file read for its bytes makes nothing, a crafted folder below it neither.
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
             } else if e.file {
                 let mut from = Noting { from, left: e.size, failed: false };
                 write(&path, &mut from, e.modified).map_err(|err| copy_error(err, &from, false))?;
                 // A program stays one; nothing but the permission bits is taken.
                 #[cfg(unix)]
-                if e.mode & 0o111 != 0 {
+                if how.head.is_none() && e.mode & 0o111 != 0 {
                     std::fs::set_permissions(&path, std::os::unix::fs::PermissionsExt::from_mode(e.mode & 0o755))?;
                 }
                 // The one file asked for is out: nothing after it is read.
@@ -3311,7 +3386,9 @@ fn copy_entries(
             };
             *any = true;
             if dir {
-                std::fs::create_dir_all(&path)?;
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
                 continue;
             }
             let mut e = match (encrypted, password) {
@@ -3360,7 +3437,7 @@ fn copy_entries(
     } else if k == Kind::SevenZ {
         // One file, not locked: through the list read as it is unpacked, its block unpacked
         // up to it (`seven_list`), however long the list; else by the crate.
-        if !inner.is_empty() {
+        if !inner.is_empty() && how.only.is_none() {
             let mut file = BufReader::new(Joined::open(archive)?);
             match crate::seven_list::find(&mut file, inner) {
                 Ok(Some((l, i))) if !l.locked() => {
@@ -3388,6 +3465,9 @@ fn copy_entries(
         let mut each = |e: &sevenz_rust2::ArchiveEntry,
                         from: &mut dyn Read|
          -> Result<bool, sevenz_rust2::Error> {
+            if failed.is_some() || all_out() {
+                return Ok(false);
+            }
             let name = e.name.replace('\\', "/").trim_end_matches('/').to_string();
             // Read past, not skipped: in a solid 7z the next entry comes from the same stream.
             let Some(path) = place(&name) else {
@@ -3395,9 +3475,15 @@ fn copy_entries(
                     failed = Some(err);
                     return Ok(false);
                 }
-                return io::copy(from, &mut io::sink())
-                    .map(|_| true)
-                    .map_err(Into::into);
+                // Stopped: said as Stop, not through the crate (which takes it for a wrong password).
+                return match io::copy(&mut crate::stop::Reader(from), &mut io::sink()) {
+                    Ok(_) => Ok(true),
+                    Err(err) if crate::stop::is(&err) => {
+                        failed = Some(err);
+                        Ok(false)
+                    }
+                    Err(err) => Err(err.into()),
+                };
             };
             *any = true;
             let mut from = Noting {
@@ -3407,13 +3493,13 @@ fn copy_entries(
             };
             // Locked, only a head asked for: read to its end too, as a zip's, since AES has no
             // check of the password but the checksum at the end.
-            let check = locked && how.head.is_some() && !e.is_directory;
+            let check = locked && how.head.is_some() && !how.unchecked && !e.is_directory;
             if check && e.size > PEEK_MAX {
                 failed = Some(too_large(&name));
                 return Ok(false);
             }
             let done = if e.is_directory {
-                std::fs::create_dir_all(&path)
+                if how.head.is_none() { std::fs::create_dir_all(&path) } else { Ok(()) }
             } else {
                 write(&path, &mut from, seven_secs(e))
             }
@@ -3422,18 +3508,40 @@ fn copy_entries(
                 failed = Some(copy_error(err, &from, locked));
                 return Ok(false);
             }
-            // The one file asked for is out: nothing after it is unpacked.
-            Ok(e.is_directory || name != inner)
+            // The one file asked for is out (or all those `only` names): nothing after it is unpacked.
+            Ok((e.is_directory || name != inner) && !all_out())
         };
         // One file: only its own block is unpacked, not those before it (a 7z in many blocks).
         let a = r.archive();
+        let pw = password.map_or_else(sevenz_rust2::Password::empty, sevenz_rust2::Password::from);
+        // Files of a list: only their blocks are unpacked, each once, in order.
+        if let Some(only) = how.only {
+            let wanted: Vec<usize> = (0..a.files.len()).filter(|&i| !a.files[i].is_directory && only.contains(&a.files[i].name.replace('\\', "/"))).collect();
+            let mut blocks: Vec<usize> = wanted.iter().filter_map(|&i| a.stream_map.file_block_index[i]).collect();
+            blocks.sort_unstable();
+            blocks.dedup();
+            // Failed, stopped or all out: `each` said so, no block after is unpacked.
+            for b in blocks {
+                if !sevenz_rust2::BlockDecoder::new(1, b, a, &pw, &mut Joined::open(archive)?).for_each_entries(&mut each).map_err(seven_error)? {
+                    break;
+                }
+            }
+            // An empty file is in no block.
+            for i in wanted.into_iter().filter(|&i| a.stream_map.file_block_index[i].is_none()) {
+                each(&a.files[i], &mut io::empty()).map_err(seven_error)?;
+            }
+            if let Some(err) = failed {
+                return Err(err);
+            }
+            *used |= locked;
+            return Ok(());
+        }
         let one = a
             .files
             .iter()
             .position(|f| !f.is_directory && f.name.replace('\\', "/") == inner);
         match one.map(|i| (i, a.stream_map.file_block_index[i])) {
             Some((_, Some(b))) => {
-                let pw = password.map_or_else(sevenz_rust2::Password::empty, sevenz_rust2::Password::from);
                 sevenz_rust2::BlockDecoder::new(1, b, a, &pw, &mut Joined::open(archive)?)
                     .for_each_entries(&mut each)
                     .map(drop)
@@ -3452,8 +3560,15 @@ fn copy_entries(
         // file can be unpacked from there (an xz in blocks, a gzip or a zstd of frames listed
         // whole before), not from the start.
         let Kind::Tar(pack) = k else { unreachable!() };
+        // Files of a list: from a place before the first of them, when all their places are known.
         let from = crate::tar_index::load(archive)
-            .and_then(|all| all.into_iter().find(|l| l.name == inner && !l.dir))
+            .and_then(|all| match how.only {
+                None => all.into_iter().find(|l| l.name == inner && !l.dir),
+                Some(only) => {
+                    let wanted: Vec<_> = all.into_iter().filter(|l| !l.dir && only.contains(&l.name)).collect();
+                    if wanted.len() == only.len() { wanted.into_iter().min_by_key(|l| l.at) } else { None }
+                }
+            })
             .map(|l| -> io::Result<Option<Box<dyn Read>>> {
                 Ok(match crate::tar_index::from(archive, pack, l.at)? {
                     Some((mut r, skip)) => {
@@ -3479,12 +3594,14 @@ fn copy_entries(
             *any = true;
             let t = e.header().entry_type();
             if t.is_dir() {
-                std::fs::create_dir_all(&path)?;
+                if how.head.is_none() {
+                    std::fs::create_dir_all(&path)?;
+                }
             } else if t.is_file() {
                 let secs = e.header().mtime().unwrap_or(0);
                 write(&path, e, secs)?;
-                // The one file asked for is out: nothing after it is unpacked.
-                if name == inner {
+                // The one file asked for is out (or all those `only` names): nothing after it is unpacked.
+                if name == inner || all_out() {
                     return Ok(false);
                 }
             } else {
@@ -4197,7 +4314,7 @@ pub fn create_locked(
 /// A game file in an archive too large to look at there (past `PEEK_MAX`, with the files of
 /// its database beside it): Lumbra's Gigabase, 4.9 GB of SCID 5 in a 7z of 1.4 GB. Instead of
 /// only refusing, the apps offer to unpack it into a folder beside the archive and open it
-/// there (`unpack_beside`): a copy of the user's own, not one in the cache.
+/// there (the Copy job, `Beside::missing`, in one pass: `copy_out_files`): a copy of the user's own, not one in the cache.
 #[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
 pub struct Beside {
     /// The archive, on the disk.
@@ -4303,50 +4420,84 @@ fn beside_past(path: &Path, most: u64) -> Option<Beside> {
     Some(Beside { archive, files, folder, open, bytes, sizes })
 }
 
-/// Unpacks what `b` names into its folder, each file under a passing name until it is whole
-/// (never one cut short under its own name, never over a file), and returns the file to open.
-/// A file already there whole (unpacked before) is left as it is. Stopped by the app's Stop
-/// (`stop::during`), the files whole so far stay.
-pub fn unpack_beside(b: &Beside) -> io::Result<PathBuf> {
-    std::fs::create_dir_all(&b.folder)?;
-    let password = password_for(&b.archive, None);
-    let within = b.files[0].rsplit_once('/').map_or(0, |(f, _)| f.len() + 1);
-    let all = items(&b.archive)?;
-    let size = |n: &str| all.iter().find(|i| i.name == n).map_or(0, |i| i.size);
-    crate::stop::expect(b.files.iter().map(|f| size(f)).sum());
-    for f in &b.files {
-        let to = b.folder.join(&f[within..]);
-        if to.parent() != Some(b.folder.as_path()) {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, f.clone()));
+/// Several files of one folder of a 7z or a compressed tar on the disk (`paths`), copied into
+/// the folder `dest`, none there yet: the archive and their names in it, for `copy_out_files`
+/// to unpack them in one pass. `None` for any other copy, which goes a file at a time.
+pub fn one_pass(paths: &[PathBuf], dest: &Path) -> Option<(PathBuf, Vec<String>)> {
+    if paths.len() < 2 || !dest.is_dir() {
+        return None;
+    }
+    let mut out: Option<(PathBuf, Vec<String>)> = None;
+    for p in paths {
+        let (archive, inner) = split(p).filter(|_| std::fs::symlink_metadata(p).is_err())?;
+        let name = inner.rsplit('/').next().filter(|n| one_name(n))?;
+        if std::fs::symlink_metadata(dest.join(name)).is_ok() {
+            return None;
         }
-        if std::fs::metadata(&to).is_ok_and(|m| m.is_file() && m.len() == size(f)) {
-            continue;
-        }
-        if std::fs::symlink_metadata(&to).is_ok() {
-            return Err(crate::fs::exists(&to));
-        }
-        let part = crate::fs::beside(&to);
-        let done = copy_out_with(&b.archive, f, &part, password.as_deref(), Copy::default());
-        if let Err(e) = done {
-            let _ = std::fs::remove_file(&part);
-            return Err(e);
-        }
-        // Never over a file that came meanwhile.
-        if let Err(e) = crate::fs::put(&part, &to) {
-            let _ = std::fs::remove_file(&part);
-            return Err(e);
+        match &mut out {
+            None => {
+                if !archive.is_file() || !matches!(kind(&archive), Some(Kind::SevenZ | Kind::Tar(_))) || nested(&archive, &inner, false) {
+                    return None;
+                }
+                out = Some((archive, vec![inner]));
+            }
+            Some((a, names)) => {
+                let folder = |n: &str| n.rsplit_once('/').map(|(f, _)| f.to_string());
+                if *a != archive || folder(&names[0]) != folder(&inner) {
+                    return None;
+                }
+                names.push(inner);
+            }
         }
     }
-    Ok(b.open.clone())
+    let (archive, names) = out?;
+    let set: std::collections::HashSet<&str> = names.iter().map(String::as_str).collect();
+    let files = items(&archive).ok()?.iter().filter(|it| !it.dir && set.contains(it.name)).count();
+    // Each a file of the archive, none twice.
+    (set.len() == names.len() && files == names.len()).then_some((archive, names))
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Times `copy_entries` went through an archive on this thread.
+    static PASSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// The files `names` of one folder of `archive` (`one_pass`) out into the folder `dest`, in one
+/// pass through it, rather than each from the archive's start, as a solid 7z or a compressed tar
+/// unpacks one file (a game database's three files: once, not three times). Each is written
+/// under a passing name and gets its own when whole, never over a file; stopped or failed, the
+/// files whole so far stay. The files it wrote, and how it ended.
+pub fn copy_out_files(archive: &Path, names: &[String], dest: &Path, password: Option<&str>) -> (Vec<PathBuf>, io::Result<()>) {
+    let wrote = std::cell::RefCell::new(vec![]);
+    let r = (|| {
+        let within = names.first().and_then(|n| n.rsplit_once('/')).map_or("", |(f, _)| f);
+        let only: std::collections::HashSet<String> = names.iter().cloned().collect();
+        let all = items(archive)?;
+        crate::stop::expect(all.iter().filter(|it| only.contains(it.name)).map(|it| it.size).sum());
+        let password = password_for(archive, password);
+        let (mut any, mut used) = (false, false);
+        let note = |p: &Path| wrote.borrow_mut().push(p.to_path_buf());
+        copy_entries(archive, within, dest, password.as_deref(), Copy { only: Some(&only), wrote: Some(&note), ..Copy::default() }, &mut any, &mut used)?;
+        if let (true, Some(pw)) = (used, &password) {
+            remember(archive, pw);
+        }
+        match names.iter().find(|n| !wrote.borrow().contains(&dest.join(n.rsplit('/').next().unwrap_or(n)))) {
+            Some(n) => Err(io::Error::new(io::ErrorKind::NotFound, format!("{n} is not in {}", archive.display()))),
+            None => Ok(()),
+        }
+    })();
+    (wrote.into_inner(), r)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// A SCID database in a zip, too large to look at there: offered to be unpacked beside the
-    /// zip, in a folder of its name, all three files; unpacked whole and opened from there;
-    /// offered again, the same folder, nothing unpacked twice; never over another file.
+    /// A SCID database in a 7z, too large to look at there: offered to be unpacked beside the
+    /// 7z, in a folder of its name, all three files; unpacked whole by the Copy job in one pass
+    /// through the 7z (#907), as it can be undone, and opened from there; offered again, the same
+    /// folder, nothing unpacked twice; never over another file.
     #[test]
     fn a_game_database_unpacked_beside_its_archive() {
         let d = std::env::temp_dir().join(format!("coxswain-beside-{}", std::process::id()));
@@ -4357,8 +4508,13 @@ mod tests {
             std::fs::copy(test.join(format!("test.{e}")), d.join(format!("src/db/club.{e}"))).unwrap();
         }
         std::fs::write(d.join("src/db/other.pgn"), "1.e4 *\n").unwrap();
-        let zip = d.join("Big base.zip");
+        let zip = d.join("Big base.7z");
         create(&zip, &[d.join("src/db")]).unwrap();
+        // As both apps do it: the folder made, the files missing copied into it by the job.
+        let unpack = |b: &Beside| {
+            std::fs::create_dir_all(&b.folder).unwrap();
+            crate::undo::run(crate::undo::Op::Copy, &b.missing(), &b.folder, None, &Default::default(), |_| {})
+        };
         let path = zip.join("db/club.si5");
         for (n, bare) in [("Lumbras_si5.7z", "Lumbras_si5"), ("games.tar.gz", "games"), ("a.b.zip", "a.b"), ("noend", "noend"), (".7z", ".7z")] {
             assert_eq!(bare_name(Path::new(n)), bare);
@@ -4371,7 +4527,11 @@ mod tests {
         assert_eq!(split(&b.missing()[0]), Some((zip.clone(), "db/club.si5".to_string())));
         assert_eq!((b.folder.clone(), b.files.len(), b.open.clone()), (d.join("Big base"), 3, d.join("Big base/club.si5")));
         assert!(!b.files.iter().any(|f| f.ends_with("other.pgn")));
-        let open = unpack_beside(&b).unwrap();
+        let before = PASSES.get();
+        let ran = unpack(&b);
+        assert!(ran.failed.is_empty() && ran.stopped.is_none(), "{:?}", ran.failed);
+        assert_eq!(PASSES.get() - before, 1, "one pass through the 7z for its three files");
+        let open = b.open.clone();
         let games = |p: &Path| {
             let l = crate::chess::Library::open(p).unwrap();
             while !l.progress().done {
@@ -4386,13 +4546,53 @@ mod tests {
         // Again: the same folder, its files whole, nothing copied over them.
         assert_eq!(beside_past(&path, 0).unwrap().folder, b.folder);
         assert!(b.unpacked());
-        unpack_beside(&b).unwrap();
+        assert!(b.missing().is_empty());
+        // Undone as a copy is (not run here: it goes to the bin).
+        let touched = ran.rec.touched();
+        assert_eq!(touched.iter().filter(|p| p.parent() == Some(b.folder.as_path())).count(), 3, "{touched:?}");
         // A file of the same name and another size there: the next folder.
         std::fs::write(b.folder.join("club.sg5"), "mine").unwrap();
         let c = beside_past(&path, 0).unwrap();
         assert_eq!(c.folder, d.join("Big base (2)"));
-        assert!(unpack_beside(&b).is_err(), "never over the file that came");
+        assert!(!unpack(&b).failed.is_empty(), "never over the file that came");
         assert_eq!(std::fs::read(b.folder.join("club.sg5")).unwrap(), b"mine");
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    /// Files of one folder of a 7z or a tar.gz out in one pass: what was there is never written
+    /// over nor said to be written (the job would record it, and undo would bin it), the rest
+    /// come out, and the error says so (#907).
+    #[test]
+    fn files_of_one_folder_come_out_in_one_pass_never_over_a_file() {
+        let d = std::env::temp_dir().join(format!("coxswain-one-pass-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("src/db")).unwrap();
+        for n in ["a.pgn", "b.pgn", "c.pgn"] {
+            std::fs::write(d.join("src/db").join(n), format!("[Event \"{n}\"]\n1.e4 *\n")).unwrap();
+        }
+        for name in ["games.7z", "games.tar.gz"] {
+            let archive = d.join(name);
+            create(&archive, &[d.join("src/db")]).unwrap();
+            let out = d.join(format!("out-{name}"));
+            std::fs::create_dir_all(&out).unwrap();
+            let paths: Vec<PathBuf> = ["a.pgn", "c.pgn"].iter().map(|n| archive.join("db").join(n)).collect();
+            let (a, names) = one_pass(&paths, &out).unwrap();
+            assert_eq!((a, names.clone()), (archive.clone(), vec!["db/a.pgn".to_string(), "db/c.pgn".to_string()]));
+            // A file of that name came while it ran.
+            std::fs::write(out.join("c.pgn"), "mine").unwrap();
+            let before = PASSES.get();
+            let (wrote, r) = copy_out_files(&archive, &names, &out, None);
+            assert_eq!(PASSES.get() - before, 1, "{name}");
+            assert_eq!(wrote, [out.join("a.pgn")], "{name}");
+            assert!(r.is_err(), "{name}");
+            assert_eq!(std::fs::read(out.join("c.pgn")).unwrap(), b"mine");
+            assert_eq!(std::fs::read(out.join("a.pgn")).unwrap(), std::fs::read(d.join("src/db/a.pgn")).unwrap());
+            assert!(!out.join("b.pgn").exists());
+            // There already: no one pass, the job goes a file at a time.
+            assert!(one_pass(&paths, &out).is_none());
+            // Not of one folder, or one file: no one pass either.
+            assert!(one_pass(&paths[..1], &out).is_none());
+        }
         let _ = std::fs::remove_dir_all(&d);
     }
 
@@ -4998,6 +5198,43 @@ mod tests {
         let _ = crate::i18n::date_time(list[0].modified);
         assert_eq!(std::fs::read(peek(&tar.join("later.txt")).unwrap()).unwrap(), b"hi");
         assert!(extract(&tar, &d).unwrap().join("later.txt").is_file());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A file read for its bytes writes nothing, where a crafted tar puts a folder below it.
+    #[test]
+    fn a_folder_below_a_streamed_file_is_not_made() {
+        let d = crate::pictures::tests::folder("stream-no-folders");
+        let mut b = tar::Builder::new(vec![]);
+        // The folder first: the read stops at the file.
+        let mut h = tar::Header::new_gnu();
+        h.set_entry_type(tar::EntryType::Directory);
+        h.set_size(0);
+        h.set_mode(0o755);
+        b.append_data(&mut h, "notes.txt/made-by-a-stream/", std::io::empty()).unwrap();
+        let mut h = tar::Header::new_gnu();
+        h.set_size(2);
+        h.set_mode(0o644);
+        b.append_data(&mut h, "notes.txt", &b"hi"[..]).unwrap();
+        let tar = d.join("crafted.tar");
+        std::fs::write(&tar, b.into_inner().unwrap()).unwrap();
+        let mut got = vec![];
+        stream(&tar.join("notes.txt"), |r| r.read_to_end(&mut got)).unwrap();
+        assert_eq!(got, b"hi");
+        assert!(!Path::new("made-by-a-stream").exists() && !Path::new("notes.txt").exists());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A program in a cpio read for its bytes: no permission is set on a file that was not made.
+    #[cfg(unix)]
+    #[test]
+    fn a_program_in_a_cpio_streams() {
+        let d = crate::pictures::tests::folder("stream-program");
+        let cpio = d.join("a.cpio");
+        std::fs::write(&cpio, crate::archive_ro::tests::newc(&[("run.sh", b"hi")])).unwrap();
+        let mut got = vec![];
+        stream(&cpio.join("run.sh"), |r| r.read_to_end(&mut got)).unwrap();
+        assert_eq!(got, b"hi");
         std::fs::remove_dir_all(d).unwrap();
     }
 

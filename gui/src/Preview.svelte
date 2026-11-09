@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { ui, tab, item, keyOf, lineHistory, openHistory, openGitView, switchBranch, newBranch, remoteRun, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
   import { pageUrl, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, calendar, contacts, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, viewerReads, MAX_WHOLE, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -42,17 +42,15 @@
   /** A PGN family file inside an archive: its games are read as it is unpacked
    *  (`chess::games::streams`, no copy); ChessBase, SCID, positions, books and Go come from a copy. */
   const chessInside = $derived(inside && !inHistory && /\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa)$/i.test(raw.name) && !copied.includes(raw.path));
-  const DIRECT = ["text", "markdown", "data", "image", "log", "jsonl", "bom", "provenance"];
-  /** Read whole into memory, up to 64 MB: drawn by the web view, or by a reader in this page
-   *  (`renderers.js`) or the core that takes the bytes. */
-  const DRAWN = ["pdf", "audio", "video", "font", "docx", "sheet", "notebook", "parquet"];
   /** Slide decks this page draws itself (`renderPptx`); other Office files go to LibreOffice. */
   const DECKS = ["pptx", "pptm", "ppsx", "potx"];
   const deck = (f) => previewKind(f) === "office" && DECKS.includes(ext(f));
-  /** The most of each read into memory: what its reader takes (`bytes`, 25 MB), else 64 MB. */
-  const most = (f) => (["docx", "sheet", "notebook"].includes(previewKind(f)) || deck(f) ? 25 : 64) * 1024 * 1024;
-  const drawn = (f) => (DRAWN.includes(previewKind(f)) || deck(f)) && f.size <= most(f);
-  const direct = $derived(inside && !inHistory && (DIRECT.includes(previewKind(raw)) || drawn(raw)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
+  /** What the kind's viewer needs (`viewers::reads`): a stream or the whole file, read from
+   *  memory as the archive unpacks it, or else a copy. A deck is read whole. */
+  const reads = (f) => (deck(f) ? "whole" : viewerReads(previewKind(f)));
+  /** The most of a file read whole: what its reader takes (`bytes`, 25 MB), else `MAX_WHOLE`. */
+  const most = (f) => (["docx", "sheet", "notebook"].includes(previewKind(f)) || deck(f) ? 25 * 1024 * 1024 : MAX_WHOLE);
+  const direct = $derived(inside && !inHistory && (reads(raw) === "stream" || (reads(raw) === "whole" && raw.size <= most(raw))) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
   /** `path` as the web view asks for it: from memory when it is read so. */
   const src = (path) => convertFileSrc(path) + (direct ? "?inside" : "");
   // Off the files read from memory: the last one unpacked (up to 64 MB) is let go.
@@ -86,7 +84,11 @@
     );
   }
   /** Asks for the password of the archive at `path`, then does `then` again. */
-  function unlock(path = peeked.from, then = () => peek(path)) {
+  function unlock(
+    path = peeked.from,
+    // A large PGN in a locked 7z is read as it unpacks once the password is known, not from a copy.
+    then = () => invoke("chess_streams", { path }).then((ok) => (ok ? ((copied = copied.filter((c) => c !== path)), (peeked = { from: "", to: "", error: "" })) : peek(path))),
+  ) {
     ui.modal = {
       kind: "input",
       feature: "archive_passwords",

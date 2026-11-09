@@ -127,7 +127,7 @@ fn restore_in(trash: &Path, name: &str, path: &Path) -> io::Result<()> {
         return Err(not_in());
     }
     // Never over a file made at `path` since the look above.
-    let ours = crate::bin::fd::move_new(&file, &path)?;
+    let ours = crate::bin::fd::move_new(&file, &path, was.0)?;
     // Still the one read: another program may have taken it away and a put made a new one.
     if ours && crate::bin::fd::id(&info) == was.1 {
         let _ = fs::remove_file(info);
