@@ -4757,7 +4757,7 @@
  "chess.index_stop_tip": "Pysäyttää hakemiston rakentamisen; siitä ei säilytetä mitään",
  "chess.index_ready": "Asemahakemisto: {depth}, {size}",
  "chess.index_depth": "{n} siirtoa",
- "chess.index_stale": "vanhentunut, rakennetaan uudelleen taustalla",
+ "chess.index_stale": "vanhentunut, rakennetaan uudelleen taustalla; sen pelit avautuvat puusta, kun se on valmis",
  "chess.index_remove": "Poista",
  "chess.index_remove_tip": "Poistaa tietokannan asemahakemiston ja vapauttaa sen tilan levyltä",
  "chess.index_removed": "Asemahakemisto poistettu",

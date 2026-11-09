@@ -752,6 +752,9 @@ pub struct Tree {
     pub moves: Vec<TreeMove>,
     /// The index is of the database as it was before it changed: being built again.
     pub stale: bool,
+    /// Its games can be listed and opened: not while it is stale, as its game numbers are of the
+    /// database before it changed (`games_at` gives none then).
+    pub opens: bool,
     /// The index's depth in moves (0: the whole game); a position past it has no moves.
     pub depth: u32,
 }
@@ -790,7 +793,7 @@ fn tree_of<K: Kind>(k: &K, idx: &Index, lib: &Library, fen: &str) -> io::Result<
         })
         .collect();
     moves.sort_by(|a, b| b.games.cmp(&a.games).then_with(|| a.san.cmp(&b.san)));
-    Ok(Tree { games, moves, stale: false, depth: idx.depth() })
+    Ok(Tree { games, moves, stale: false, opens: false, depth: idx.depth() })
 }
 
 fn key_of(lib: &Library, fen: &str) -> Option<u64> {
@@ -1203,7 +1206,7 @@ pub fn status(lib: &Library, depth: u32) -> Status {
     let mut s = Status { can: true, ..Status::default() };
     if let Some(i) = opened(path) {
         (s.ready, s.depth, s.bytes, s.games) = (true, i.depth(), i.bytes(), i.games());
-        s.stale = i.done.stamp != stamp(path);
+        s.stale = !fresh(&i, path);
     }
     if let Some(j) = job(path) {
         match j.phase.load(Ordering::Relaxed) {
@@ -1344,7 +1347,7 @@ pub fn keep_up(lib: &Arc<Library>, cfg: &crate::config::ChessConfig) {
         }
     }
     match opened(path) {
-        Some(i) if i.done.stamp != stamp(path) => build(lib.clone(), i.depth()),
+        Some(i) if !fresh(&i, path) => build(lib.clone(), i.depth()),
         Some(_) => {}
         None if cfg.position_index => {
             let removed = REMOVED.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(HashMap::new).get(path).cloned();
@@ -1396,14 +1399,21 @@ pub fn tree(lib: &Library, fen: &str) -> Option<Tree> {
         _ => tree_of(&Chess, &idx, lib, fen),
     }
     .ok()?;
-    t.stale = idx.done.stamp != stamp(&lib.path);
+    t.stale = !fresh(&idx, &lib.path);
+    t.opens = !t.stale;
     Some(t)
 }
 
+/// The index is of the database as it is now. A stale one still gives its counts, but never its
+/// game numbers: they are of the database before it changed, and would open other games.
+fn fresh(idx: &Index, path: &Path) -> bool {
+    idx.done.stamp == stamp(path)
+}
+
 /// The games of `lib` that reach the position `fen`, in the file's order; none without an
-/// index.
+/// index, or while it is stale (`fresh`).
 pub fn games_at(lib: &Library, fen: &str) -> Option<Vec<u32>> {
-    let idx = opened(&lib.path)?;
+    let idx = opened(&lib.path).filter(|i| fresh(i, &lib.path))?;
     idx.reaching(key_of(lib, fen)?).ok()
 }
 

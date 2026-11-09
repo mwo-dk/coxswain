@@ -4670,7 +4670,7 @@
  "chess.index_stop_tip": "停止建立索引;不保留任何部分",
  "chess.index_ready": "局面索引:{depth},{size}",
  "chess.index_depth": "{n} 回合",
- "chess.index_stale": "已过时,正在后台重建",
+ "chess.index_stale": "已过时,正在后台重建;重建完成后才能从树中打开对局",
  "chess.index_remove": "移除",
  "chess.index_remove_tip": "移除此数据库的局面索引并释放其磁盘空间",
  "chess.index_removed": "已移除局面索引",

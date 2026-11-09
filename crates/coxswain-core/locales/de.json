@@ -4757,7 +4757,7 @@
  "chess.index_stop_tip": "Hält den Aufbau des Index an; nichts davon wird behalten",
  "chess.index_ready": "Stellungsindex: {depth}, {size}",
  "chess.index_depth": "{n} Züge",
- "chess.index_stale": "veraltet, wird im Hintergrund neu aufgebaut",
+ "chess.index_stale": "veraltet, wird im Hintergrund neu aufgebaut; seine Partien öffnen sich vom Baum aus erst danach",
  "chess.index_remove": "Entfernen",
  "chess.index_remove_tip": "Entfernt den Stellungsindex dieser Datenbank und gibt seinen Platz auf der Festplatte frei",
  "chess.index_removed": "Stellungsindex entfernt",

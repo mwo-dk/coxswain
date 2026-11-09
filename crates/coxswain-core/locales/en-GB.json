@@ -4768,7 +4768,7 @@
  "chess.index_stop_tip": "Stops building the index; nothing of it is kept",
  "chess.index_ready": "Position index: {depth}, {size}",
  "chess.index_depth": "{n} moves",
- "chess.index_stale": "out of date, built again in the background",
+ "chess.index_stale": "out of date, built again in the background; its games open from the tree once that is done",
  "chess.index_remove": "Remove",
  "chess.index_remove_tip": "Removes this database's position index and frees its room on the disk",
  "chess.index_removed": "Position index removed",

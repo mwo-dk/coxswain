@@ -4757,7 +4757,7 @@
  "chess.index_stop_tip": "Stoppar bygginga av indeksen; ingenting av han blir teke vare på",
  "chess.index_ready": "Stillingsindeks: {depth}, {size}",
  "chess.index_depth": "{n} trekk",
- "chess.index_stale": "utdatert, blir bygd på nytt i bakgrunnen",
+ "chess.index_stale": "utdatert, blir bygd på nytt i bakgrunnen; partia i det opnar seg frå treet når det er ferdig",
  "chess.index_remove": "Fjern",
  "chess.index_remove_tip": "Fjernar stillingsindeksen til databasen og frigjer plassen på disken",
  "chess.index_removed": "Stillingsindeks fjerna",
