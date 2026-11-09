@@ -1259,8 +1259,36 @@ fn game_in_block(raw: &[u8], k: usize) -> Option<Vec<u8>> {
     Some(game)
 }
 
+/// How a block is packed: LZMA2's normal mode, about 16% smaller than preset 3 (used before)
+/// but six times slower to pack, so blocks are packed on several threads. The stream carries
+/// its own settings, so a block packed either way unpacks the same: no table is read again.
+fn packing() -> lzma_rust2::Lzma2Options {
+    let mut options = lzma_rust2::Lzma2Options::with_preset(6);
+    options.lzma_options.dict_size = DICT;
+    // Text: no position bits, and four of the byte before (about 2% smaller than the defaults).
+    (options.lzma_options.pb, options.lzma_options.lc) = (0, 4);
+    options
+}
+
+/// The threads that pack blocks: one block each at a time, so memory stays a few blocks.
+fn packers() -> usize {
+    std::thread::available_parallelism().map_or(2, |n| n.get()).clamp(1, 8)
+}
+
+/// One block, unpacked, packed.
+fn pack_block(raw: &[u8]) -> io::Result<Vec<u8>> {
+    let mut z = lzma_rust2::Lzma2Writer::new(Vec::new(), packing());
+    z.write_all(raw)?;
+    z.finish().map_err(io::Error::other)
+}
+
+/// A block being packed, on its own thread.
+type Packer = std::thread::JoinHandle<io::Result<Vec<u8>>>;
+
 /// The games of a block being made: their sizes, tags and moves, and their rows, handed on once
-/// the block is on the disk (a row is never shown before its text can be read).
+/// the block is on the disk (a row is never shown before its text can be read). Closed blocks
+/// are packed on threads of their own, at most `threads` at once, and written in turn, so the
+/// file is the same whatever the number of threads.
 struct Block {
     side: io::BufWriter<File>,
     at: u64,
@@ -1268,9 +1296,16 @@ struct Block {
     tags: Vec<u8>,
     moves: Vec<u8>,
     heads: Vec<Head>,
+    packing: std::collections::VecDeque<(Packer, Vec<Head>)>,
+    threads: usize,
 }
 
 impl Block {
+    fn new(side: File, threads: usize) -> Block {
+        let side = io::BufWriter::with_capacity(1 << 20, side);
+        Block { side, at: 0, sizes: vec![], tags: vec![], moves: vec![], heads: vec![], packing: Default::default(), threads: threads.max(1) }
+    }
+
     /// What the block holds so far, unpacked.
     fn len(&self) -> usize {
         self.sizes.len() + self.tags.len() + self.moves.len()
@@ -1288,31 +1323,55 @@ impl Block {
         self.sizes.extend_from_slice(&(tags.len() as u32).to_le_bytes());
         self.sizes.extend_from_slice(&size.to_le_bytes());
         let place = self.heads.len() as u64;
-        self.heads.push(Head { offset: self.at, len: place, tags: h.tags.clone(), plies: h.plies, sans: h.sans.clone(), text: vec![], format: h.format });
+        // The block's place in the file is set once it is written.
+        self.heads.push(Head { offset: 0, len: place, tags: h.tags.clone(), plies: h.plies, sans: h.sans.clone(), text: vec![], format: h.format });
     }
 
-    /// The block is written and flushed, then its games are handed on; false when `each` said stop.
+    /// The block goes to be packed; the oldest packed blocks are written while `threads` are
+    /// packing. False when `each` said stop.
     fn close(&mut self, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<bool> {
-        if self.heads.is_empty() {
-            return Ok(true);
+        if !self.heads.is_empty() {
+            let mut raw = Vec::with_capacity(4 + self.len());
+            raw.extend_from_slice(&(self.heads.len() as u32).to_le_bytes());
+            raw.append(&mut self.sizes);
+            raw.append(&mut self.tags);
+            raw.append(&mut self.moves);
+            let packer = std::thread::Builder::new().name("pack games".into()).spawn(move || pack_block(&raw))?;
+            self.packing.push_back((packer, std::mem::take(&mut self.heads)));
         }
-        let mut options = lzma_rust2::Lzma2Options::with_preset(3);
-        options.lzma_options.dict_size = DICT;
-        let mut z = lzma_rust2::Lzma2Writer::new(Vec::new(), options);
-        z.write_all(&(self.heads.len() as u32).to_le_bytes())?;
-        z.write_all(&self.sizes)?;
-        z.write_all(&self.tags)?;
-        z.write_all(&self.moves)?;
-        let packed = z.finish().map_err(io::Error::other)?;
+        while self.packing.len() >= self.threads {
+            if !self.write_oldest(each)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
+    /// The block, then every block still being packed, written. False when `each` said stop.
+    fn finish(&mut self, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<bool> {
+        if !self.close(each)? {
+            return Ok(false);
+        }
+        while !self.packing.is_empty() {
+            if !self.write_oldest(each)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
+    /// The oldest block being packed is written and flushed, then its games are handed on.
+    fn write_oldest(&mut self, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<bool> {
+        let Some((packer, heads)) = self.packing.pop_front() else { return Ok(true) };
+        let packed = packer.join().map_err(|_| io::Error::other("packing a block failed"))??;
         self.side.write_all(&(packed.len() as u32).to_le_bytes())?;
         self.side.write_all(&packed)?;
         self.side.flush()?;
+        let at = self.at;
         self.at += 4 + packed.len() as u64;
-        self.sizes.clear();
-        self.tags.clear();
-        self.moves.clear();
         let mut more = true;
-        for h in self.heads.drain(..) {
+        for mut h in heads {
+            h.offset = at;
             more = more && each(&h);
         }
         Ok(more)
@@ -1324,7 +1383,7 @@ impl Block {
 /// the table keeps what it needs to show a game), and the game is handed on with its place
 /// there. `unpacked` bytes at most are read.
 fn from_archive(path: &Path, dir: &Path, stop: &AtomicBool, read: &Arc<AtomicU64>, unpacked: u64, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<()> {
-    let mut block = Block { side: io::BufWriter::with_capacity(1 << 20, File::create(dir.join(GAMES))?), at: 0, sizes: vec![], tags: vec![], moves: vec![], heads: vec![] };
+    let mut block = Block::new(File::create(dir.join(GAMES))?, packers());
     let mut failed = None;
     let r = BufReader::new(Counted { inner: crate::entry_file::EntryReader::open_known(path)?, read: read.clone() }).take(unpacked);
     scan(BufReader::with_capacity(1 << 16, r), stop, super::Format::Pgn, true, true, |h| {
@@ -1343,9 +1402,9 @@ fn from_archive(path: &Path, dir: &Path, stop: &AtomicBool, read: &Arc<AtomicU64
     if let Some(e) = failed {
         return Err(e);
     }
-    // The last block, unless the pass was stopped.
+    // The last blocks, unless the pass was stopped.
     if !stop.load(Ordering::Relaxed) {
-        block.close(each)?;
+        block.finish(each)?;
     }
     block.side.get_ref().sync_all()
 }
@@ -2356,12 +2415,12 @@ mod tests {
         assert_eq!(packed, b"\x01e4 e5 \x01Nf3 Nc6 \x01Bb5 a6 1-0\n");
         // Each game of a block back as it was, tags and moves.
         let d = tempdir::Dir::new();
-        let mut block = Block { side: io::BufWriter::new(File::create(d.0.join(GAMES)).unwrap()), at: 0, sizes: vec![], tags: vec![], moves: vec![], heads: vec![] };
+        let mut block = Block::new(File::create(d.0.join(GAMES)).unwrap(), 1);
         let texts: Vec<Vec<u8>> = TWO.split_inclusive("1-0\n").map(|g| g.as_bytes().to_vec()).chain(cases.iter().map(|c| c.to_vec())).collect();
         for t in &texts {
             block.add(&Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], text: t.clone(), format: super::super::Format::Pgn });
         }
-        assert!(block.close(&mut |_| true).unwrap());
+        assert!(block.finish(&mut |_| true).unwrap());
         drop(block);
         let packed = std::fs::read(d.0.join(GAMES)).unwrap();
         let mut raw = vec![];
@@ -2371,6 +2430,51 @@ mod tests {
         }
         assert_eq!(game_in_block(&raw, texts.len()), None);
         assert_eq!(game_in_block(&raw[..raw.len() - 1], texts.len() - 1), None, "a block cut short");
+        // A block packed as before (preset 3) unpacks the same way, so such tables stay.
+        let mut before = lzma_rust2::Lzma2Options::with_preset(3);
+        before.lzma_options.dict_size = DICT;
+        let mut z = lzma_rust2::Lzma2Writer::new(Vec::new(), before);
+        z.write_all(&raw).unwrap();
+        let mut again = vec![];
+        lzma_rust2::Lzma2Reader::new(&z.finish().unwrap()[..], DICT, None).read_to_end(&mut again).unwrap();
+        assert_eq!(again, raw);
+    }
+
+    /// Blocks packed on several threads make the same file as on one, hand the games on in their
+    /// order with their block's place, and never pack more than `threads` blocks at once.
+    #[test]
+    fn blocks_pack_the_same_on_any_number_of_threads() {
+        let d = tempdir::Dir::new();
+        let texts: Vec<Vec<u8>> = (0..3000).map(|i| format!("[Event \"E{i}\"]\n[White \"P{}\"]\n\n1. e4 e5 2. Nf3 {{{i}}} {} 1-0\n\n", i % 97, "a3 h6 ".repeat(i % 40)).into_bytes()).collect();
+        let run = |threads: usize| {
+            let path = d.0.join(format!("games-{threads}"));
+            let mut block = Block::new(File::create(&path).unwrap(), threads);
+            let mut seen = vec![];
+            for t in &texts {
+                block.add(&Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], text: t.clone(), format: super::super::Format::Pgn });
+                // Small blocks, so there are many of them.
+                if block.len() >= 4096 {
+                    assert!(block.close(&mut |h| { seen.push((h.offset, h.len)); true }).unwrap());
+                    assert!(block.packing.len() < threads.max(1), "at most `threads` blocks packing");
+                }
+            }
+            assert!(block.finish(&mut |h| { seen.push((h.offset, h.len)); true }).unwrap());
+            drop(block);
+            (std::fs::read(&path).unwrap(), seen)
+        };
+        let (one, rows) = run(1);
+        assert!(rows.iter().filter(|r| r.1 == 0).count() > 100, "many blocks");
+        for threads in [2, 3, 8] {
+            assert_eq!(run(threads), (one.clone(), rows.clone()), "{threads} threads");
+        }
+        // Each game back from its block's place.
+        for (k, &(offset, len)) in rows.iter().enumerate() {
+            let at = offset as usize;
+            let n = u32::from_le_bytes(one[at..at + 4].try_into().unwrap()) as usize;
+            let mut raw = vec![];
+            lzma_rust2::Lzma2Reader::new(&one[at + 4..at + 4 + n], DICT, None).read_to_end(&mut raw).unwrap();
+            assert_eq!(game_in_block(&raw, len as usize).unwrap(), texts[k]);
+        }
     }
 
     #[test]

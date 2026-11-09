@@ -4146,6 +4146,8 @@
  "disk.work.cost": "nothing; a run working now keeps its folder",
  "disk.chess.what": "Chess analyses kept, the games tables of game files opened, and ChessBase archives unpacked to be read.",
  "disk.chess.cost": "a game is analysed again, a game file read again, an archive unpacked again when opened",
+ "disk.picked.what": "Files chosen inside archives in pick mode (coxswain --pick), unpacked for the program that asked; a run's go a day after it ended.",
+ "disk.picked.cost": "a program that was given one of these files can no longer read it",
  "feature.virus_scan.a1": "No. It scans only when you press {scan_viruses}, in a container with no network, your files read-only. The one download is ClamAV's virus database from database.clamav.net, before a scan when it is more than a day old.",
  "feature.virus_scan.a2": "Nothing until you choose: leave it, put it in the bin, or move it into the quarantine folder (coxswain/quarantine in your data folder), where it cannot be run. Nothing is ever deleted by itself.",
  "feature.virus_scan.a3": "Podman or docker, and Scan for viruses turned on in Settings ({settings}) → Previews. ClamAV's image (about 80 MB) is pulled on the first scan, once the question before it has said so.",

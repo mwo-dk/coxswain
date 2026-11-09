@@ -306,9 +306,21 @@ pub fn empty() -> Done {
     sys::empty()
 }
 
-/// The free name for `name` in `dir`: itself, else `name (2)`, `name (3)` …
-fn free_in(dir: &Path, name: &str) -> PathBuf {
-    crate::fs::name_candidates(name)
+/// The free name for `name` in `dir`: itself, else `name (2)`, `name (3)` … As bytes, as
+/// `crate::fs::name_candidates` splits a name, so a name that is not UTF-8 keeps its bytes.
+fn free_in(dir: &Path, name: &std::ffi::OsStr) -> PathBuf {
+    let (stem, ext) = (Path::new(name).file_stem().unwrap_or(name), Path::new(name).extension());
+    let numbered = (2..).map(|n| {
+        let mut s = stem.to_os_string();
+        s.push(format!(" ({n})"));
+        if let Some(e) = ext {
+            s.push(".");
+            s.push(e);
+        }
+        s
+    });
+    std::iter::once(name.to_os_string())
+        .chain(numbered)
         .map(|n| dir.join(n))
         .find(|p| fs::symlink_metadata(p).is_err())
         .expect("some name is free")
@@ -580,9 +592,11 @@ pub(crate) mod fd {
                 continue;
             };
             for e in rd.flatten() {
-                let file = e.file_name().to_string_lossy().into_owned();
-                if let Some(name) = file.strip_suffix(".trashinfo") {
-                    out.extend(item(b, name));
+                // As bytes: a name that is not UTF-8 (another program's put of a Latin-1 file)
+                // names its item and info file only as it is (#900).
+                let file = PathBuf::from(e.file_name());
+                if file.extension() == Some("trashinfo".as_ref()) {
+                    out.extend(file.file_stem().and_then(|name| item(b, name)));
                 }
             }
         }
@@ -590,22 +604,24 @@ pub(crate) mod fd {
     }
 
     /// The item `name` of bin `b`: its info file, read, and its item in `files/`.
-    fn item(b: &Bin, name: &str) -> Option<Item> {
+    fn item(b: &Bin, name: &std::ffi::OsStr) -> Option<Item> {
         // `.`, `..` or nothing would name `files` or the bin itself.
-        if ["", ".", ".."].contains(&name) {
+        if ["", ".", ".."].iter().any(|n| name == *n) {
             return None;
         }
         let path = b.dir.join("files").join(name);
         fs::symlink_metadata(&path).ok()?;
         // Read whole even when not UTF-8 (an older program's raw `Path=`): listed, so
         // counted and seen before an Empty.
-        let text = fs::read(b.dir.join("info").join(format!("{name}.trashinfo"))).ok()?;
+        let text = fs::read(info_of(&path)).ok()?;
         let (origin, deleted) = parse(&String::from_utf8_lossy(&text), b.top.as_deref())?;
         let (is_dir, is_symlink, size) = sized(&path, deleted);
         Some(Item {
             name: origin
                 .file_name()
-                .map_or_else(|| name.to_string(), |n| n.to_string_lossy().into_owned()),
+                .unwrap_or(name)
+                .to_string_lossy()
+                .into_owned(),
             path,
             origin,
             deleted,
@@ -674,7 +690,7 @@ pub(crate) mod fd {
             .find(|b| path.parent() == Some(b.dir.join("files").as_path()) && real(b))?;
         // That item alone: listing the whole bin for each one made Empty and a restore of
         // many items quadratic.
-        item(b, path.file_name()?.to_str()?).filter(|i| i.path == path)
+        item(b, path.file_name()?).filter(|i| i.path == path)
     }
 
     /// An item's file and its info file, as `id` tells them: looked at again before each removal,
@@ -699,10 +715,9 @@ pub(crate) mod fd {
             .parent()
             .and_then(Path::parent)
             .unwrap_or(Path::new(""));
-        bin.join("info").join(format!(
-            "{}.trashinfo",
-            path.file_name().unwrap_or_default().to_string_lossy()
-        ))
+        let mut name = path.file_name().unwrap_or_default().to_os_string();
+        name.push(".trashinfo");
+        bin.join("info").join(name)
     }
 
     pub fn restore_in(bins: &[Bin], paths: &[PathBuf], free_name: bool) -> Done {
@@ -723,7 +738,10 @@ pub(crate) mod fd {
                     done.taken.push(p.clone());
                     continue;
                 }
-                to = free_in(to.parent().unwrap_or(Path::new("/")), &item.name);
+                to = free_in(
+                    to.parent().unwrap_or(Path::new("/")),
+                    item.origin.file_name().unwrap_or(item.name.as_ref()),
+                );
             }
             midway();
             // Still the item found: another program may have taken it away, and a put another
@@ -735,7 +753,7 @@ pub(crate) mod fd {
             let moved = to
                 .parent()
                 .map_or(Ok(()), fs::create_dir_all)
-                .and_then(|_| move_new(&item.path, &to));
+                .and_then(|_| move_new(&item.path, &to, was.0));
             match moved {
                 Ok(ours) => {
                     if ours {
@@ -743,6 +761,8 @@ pub(crate) mod fd {
                     }
                     done.done += 1;
                 }
+                // Not the item found any more (#901): said of the item, not of its place.
+                Err(e) if e.kind() == io::ErrorKind::NotFound => done.failed.push(failed(p, e)),
                 Err(e) => done.failed.push(failed(&to, e)),
             }
         }
@@ -756,10 +776,12 @@ pub(crate) mod fd {
     /// file or a folder with something in it. Across disks (the home bin holds what was moved in
     /// from another), the move F6 does. `false`: the file was moved, but its name in the bin was
     /// taken away by another program meanwhile (or holds another's file now), so its info file
-    /// is that program's to remove.
+    /// is that program's to remove. `was`: `from`'s id when it was looked at; a file linked that
+    /// is not that one is another program's, put under the name since: it stays in the bin,
+    /// and `err.not_in_trash`.
     // ponytail: that move checks, then moves: a file made in that instant at `to` is replaced.
     // Windows restores through the shell, with the same check first.
-    pub fn move_new(from: &Path, to: &Path) -> io::Result<bool> {
+    pub fn move_new(from: &Path, to: &Path, was: Option<Id>) -> io::Result<bool> {
         let across = |e: &io::Error| {
             #[cfg(test)]
             if crate::fs::ACROSS.get() {
@@ -802,9 +824,26 @@ pub(crate) mod fd {
             #[cfg(not(test))]
             let link = fs::hard_link;
             match simulated().and_then(|_| link(from, to)) {
-                // `from` still the file now at `to`, else another program's since (or gone): left.
-                Ok(()) if id(from) != id(to) => return Ok(false),
                 Ok(()) => {
+                    let now = id(to);
+                    // The file looked at, not one put under its name between that look and the
+                    // link (#901). A link changes the change time: device and inode only.
+                    // shortcut: a file freed and another given its inode in that instant goes
+                    // unseen; closing it needs a link by handle (linkat AT_EMPTY_PATH), Linux only.
+                    let inode = |i: Option<Id>| i.map(|i| (i.0, i.1));
+                    // Its link at `to` is left: removing it by name could remove a file saved
+                    // there since, after another program put this one back in the bin.
+                    if now.is_some() && inode(now) != inode(was) {
+                        return Err(io::Error::new(
+                            io::ErrorKind::NotFound,
+                            crate::t!("err.not_in_trash"),
+                        ));
+                    }
+                    // `from` still the file now at `to`, else another program's since (or
+                    // gone): left.
+                    if id(from) != now {
+                        return Ok(false);
+                    }
                     return match fs::remove_file(from) {
                         Ok(()) => Ok(true),
                         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
@@ -1046,7 +1085,7 @@ mod sys {
                     done.taken.push(i.path);
                     continue;
                 }
-                to = free_in(&t.original_parent, &i.name);
+                to = free_in(&t.original_parent, i.name.as_ref());
             }
             // Restored under the name asked for, which is also what the clash check looks at.
             t.name = to.file_name().unwrap_or_default().to_os_string();
@@ -1726,18 +1765,101 @@ mod tests {
         fs::write(d.join("from"), "bin").unwrap();
         fs::write(d.join("to"), "new").unwrap();
         assert_eq!(
-            move_new(&d.join("from"), &d.join("to")).unwrap_err().kind(),
+            move_new(&d.join("from"), &d.join("to"), id(&d.join("from")))
+                .unwrap_err()
+                .kind(),
             io::ErrorKind::AlreadyExists
         );
         assert_eq!(fs::read_to_string(d.join("to")).unwrap(), "new");
         assert_eq!(fs::read_to_string(d.join("from")).unwrap(), "bin");
         fs::create_dir_all(d.join("dir/x")).unwrap();
         assert_eq!(
-            move_new(&d.join("dir"), &d.join("to")).unwrap_err().kind(),
+            move_new(&d.join("dir"), &d.join("to"), id(&d.join("dir")))
+                .unwrap_err()
+                .kind(),
             io::ErrorKind::AlreadyExists
         );
-        move_new(&d.join("from"), &d.join("back")).unwrap();
+        move_new(&d.join("from"), &d.join("back"), id(&d.join("from"))).unwrap();
         assert!(!d.join("from").exists() && fs::read_to_string(d.join("back")).unwrap() == "bin");
+    }
+
+    /// Another program empties the item and puts another file under its name between restore's
+    /// look and its link: that file is not taken out of the bin (#901).
+    #[cfg(unix)]
+    #[test]
+    fn bin_move_takes_only_the_file_looked_at() {
+        let d = crate::fs::Scratch::named("bin-move-looked-at");
+        let from = d.join("from");
+        fs::write(&from, "item").unwrap();
+        let was = id(&from);
+        // Held open, so the new file cannot get its inode number.
+        let _kept = fs::File::open(&from).unwrap();
+        fs::remove_file(&from).unwrap();
+        fs::write(&from, "another's").unwrap();
+        let to = d.join("to");
+        assert_eq!(
+            move_new(&from, &to, was).unwrap_err().kind(),
+            io::ErrorKind::NotFound
+        );
+        assert_eq!(fs::read_to_string(&from).unwrap(), "another's", "still in the bin");
+        assert_eq!(
+            fs::read_to_string(&to).unwrap(),
+            "another's",
+            "its link at the place is left"
+        );
+    }
+
+    /// An item whose name is not UTF-8 (another program's put of a Latin-1 file) is listed,
+    /// deleted for good and emptied by its name as it is (#900).
+    // macOS refuses a file name that is not UTF-8; its bin is not this one anyway.
+    #[cfg(all(unix, not(target_os = "macos")))]
+    #[test]
+    fn bin_lists_and_empties_an_item_named_in_latin_1() {
+        use std::os::unix::ffi::OsStrExt;
+        let d = crate::fs::Scratch::named("bin-latin-1");
+        let b = bin(&d, &[]);
+        let bins = [b.clone()];
+        let put = |name: &[u8]| {
+            let name = std::ffi::OsStr::from_bytes(name);
+            fs::write(b.dir.join("files").join(name), "abc").unwrap();
+            let mut info = name.to_os_string();
+            info.push(".trashinfo");
+            fs::write(
+                b.dir.join("info").join(info),
+                "[Trash Info]\nPath=/x/caf%E9\nDeletionDate=2026-10-01T12:00:00\n",
+            )
+            .unwrap();
+            b.dir.join("files").join(name)
+        };
+        let a = put(b"caf\xe9");
+        put(b"caf\xe9 (2)");
+        let l = list_in(&bins);
+        assert_eq!(l.len(), 2);
+        assert!(l.iter().any(|i| i.path == a));
+        assert_eq!(delete_in(&bins, std::slice::from_ref(&a)).done, 1);
+        assert_eq!(list_in(&bins).len(), 1);
+        assert_eq!(empty_in(&bins).done, 1);
+        for f in ["files", "info"] {
+            assert_eq!(fs::read_dir(b.dir.join(f)).unwrap().count(), 0, "{f}");
+        }
+    }
+
+    /// Restore under a free name keeps a name's bytes, and numbers it before its extension.
+    // macOS refuses a file name that is not UTF-8; its bin is not this one anyway.
+    #[cfg(all(unix, not(target_os = "macos")))]
+    #[test]
+    fn bin_free_name_keeps_the_bytes() {
+        use std::os::unix::ffi::OsStrExt;
+        let d = crate::fs::Scratch::named("bin-free-name");
+        let name = std::ffi::OsStr::from_bytes(b"caf\xe9.txt");
+        fs::write(d.join(name), "").unwrap();
+        assert_eq!(
+            free_in(&d, name),
+            d.join(std::ffi::OsStr::from_bytes(b"caf\xe9 (2).txt"))
+        );
+        fs::write(d.join(".bashrc"), "").unwrap();
+        assert_eq!(free_in(&d, ".bashrc".as_ref()), d.join(".bashrc (2)"));
+        assert_eq!(free_in(&d, "new".as_ref()), d.join("new"));
     }
 
     /// The home bin holds what was moved in from another disk: it goes back across.
