@@ -1,1 +1,0 @@
-| **The terminal app's Alt+F1 and Alt+F2 list the drives.** Under *Type a path…*, each drive with its name and free space, as the desktop app's sidebar shows them: on Windows *C: Windows · 8.6 GB free*, *D:*, USB sticks and mapped network drives; elsewhere *System* and the other mounted disks. | [Moving around](panels/moving.md#where-are-my-drives-in-the-terminal-app) |

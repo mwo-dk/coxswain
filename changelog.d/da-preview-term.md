@@ -1,1 +1,0 @@
-| **Danish texts say forhåndsvisning for preview throughout.** The Settings area is now Forhåndsvisninger, and the Danish texts no longer use eksempel where they mean a preview. | [Previews](previews/README.md) |

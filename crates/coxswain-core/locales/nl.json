@@ -4485,6 +4485,7 @@
  "viewer.keys_follow": "F volgen · E stoppen bij fouten · & filter",
  "viewer.following": "Volgen: nieuwe regels verschijnen zodra ze geschreven worden · F stopt",
  "viewer.not_following": "Volgen gestopt",
+ "viewer.archive_still": "Een bestand in een archief verandert niet terwijl het gelezen wordt, dus er is niets te volgen",
  "viewer.stopped_at_error": "Volgen gestopt bij een fout op regel {line}",
  "viewer.level_all": "Alle niveaus",
  "viewer.level_warn": "Waarschuwingen en fouten",

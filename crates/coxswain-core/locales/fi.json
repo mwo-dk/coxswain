@@ -4485,6 +4485,7 @@
  "viewer.keys_follow": "F seuraa · E pysähdy virheisiin · & suodatin",
  "viewer.following": "Seurataan: uudet rivit näkyvät sitä mukaa kuin niitä kirjoitetaan · F lopettaa",
  "viewer.not_following": "Ei seurata",
+ "viewer.archive_still": "Arkiston sisällä oleva tiedosto ei muutu lukemisen aikana, joten seurattavaa ei ole",
  "viewer.stopped_at_error": "Seuraaminen pysähtyi virheeseen rivillä {line}",
  "viewer.level_all": "Kaikki tasot",
  "viewer.level_warn": "Varoitukset ja virheet",
