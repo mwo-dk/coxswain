@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { ui, tab, item, keyOf, lineHistory, openHistory, openGitView, switchBranch, newBranch, remoteRun, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
   import { pageUrl, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, calendar, contacts, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, viewerReads, MAX_WHOLE, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, kindByName, moduleOff, viewerReads, MAX_WHOLE, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -44,7 +44,7 @@
    *  memory whole (`games::in_memory`), as a book is (a `.bin`, told by `chess_is_book` below);
    *  ChessBase and SCID come from a copy. */
   const chessInside = $derived(
-    inside && !inHistory && (/\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa|epd|fen)$/i.test(raw.name) || (/\.sgf$/i.test(raw.name) && raw.size <= MAX_WHOLE)) && !copied.includes(raw.path),
+    inside && !inHistory && !moduleOff("chess") && (/\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa|epd|fen)$/i.test(raw.name) || (/\.sgf$/i.test(raw.name) && raw.size <= MAX_WHOLE)) && !copied.includes(raw.path),
   );
   /** Slide decks this page draws itself (`renderPptx`); other Office files go to LibreOffice. */
   const DECKS = ["pptx", "pptm", "ppsx", "potx"];
@@ -142,9 +142,21 @@
     if (!cur || cur.is_dir || cur.online || !/\.(h5|dot)$/i.test(cur.name) || sniffed.path === cur.path || (inside && cur === raw)) return;
     invoke("viewer_detect", { path: cur.path }).then((k) => e?.path === cur.path && k !== previewKind(cur) && (sniffed = { path: cur.path, kind: k }), () => {});
   });
-  const kind = $derived(
-    output ? "output" : online ? "online" : direct && lockedAt === raw.path ? "locked" : inside && e === raw && !direct && !chessInside ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : previewKind(e),
+  /** The kind whatever modules are off, and the kind shown: `text` when its module is off. */
+  const kindAny = $derived(
+    output ? "output" : online ? "online" : direct && lockedAt === raw.path ? "locked" : inside && e === raw && !direct && !chessInside ? "in-archive" : e && sniffed.path === e.path ? sniffed.kind : geoSource ? "text" : storeModel(e) ? "model" : kindByName(e),
   );
+  // Read so that a change of `[modules] off` shows at once (`setModulesOff` follows it).
+  const kind = $derived((ui.cfg?.settings?.modules_off, moduleOff(kindAny) ? "text" : kindAny));
+  // The first time a file of a module that is off is shown as text: which module would show it
+  // (asked once a module while the page is open; the core remembers it for good).
+  const noticed = new Set();
+  $effect(() => {
+    const m = (ui.cfg?.settings?.modules_off, moduleOff(kindAny));
+    if (!m || noticed.has(m)) return;
+    noticed.add(m);
+    invoke("module_notice", { module: m, key: ui.cfg.actions.settings?.[1] ?? "" }).then((text) => text && (ui.status = text), () => {});
+  });
   /** A blob of a model store that holds weights (Ollama's, a Hugging Face one's): by the name the
    *  store gives it (`local_models::names`), as its own name says nothing. */
   function storeModel(f) {
@@ -257,7 +269,7 @@
           return;
         }
         // A Polyglot opening book: its moves on a board (ChessView), unless the source is asked for.
-        if (k === "text" && !src && /\.bin$/i.test(cur.name) && (await invoke("chess_is_book", { path: cur.path }))) {
+        if (k === "text" && !src && !moduleOff("chess") && /\.bin$/i.test(cur.name) && (await invoke("chess_is_book", { path: cur.path }))) {
           if (e?.path !== cur.path) return;
           ui.book = cur.path;
           sniffed = { path: cur.path, kind: "chess" };
@@ -281,7 +293,7 @@
           return void (sniffed = { path: cur.path, kind: "office" });
         }
         // A DhtmlXQ xiangqi game (`chess::sniff`): on its board, unless the source is asked for.
-        if (!bin && k === "text" && !src && looksLikeDhtml(cur.name, s)) {
+        if (!bin && k === "text" && !src && !moduleOff("chess") && looksLikeDhtml(cur.name, s)) {
           ui.book = cur.path;
           sniffed = { path: cur.path, kind: "chess" };
           return;
@@ -1024,9 +1036,6 @@
         {:else if conv.engines[0]?.id === "off:"}
           <!-- Off for this kind in Settings → Previews → Preview tools. -->
           <p class="more">{conv.engines[0].note} <button class="render" onclick={() => (ui.modal = { kind: "settings", section: "preview_tools" })}>{t("preview.settings")}</button></p>
-        {:else if conv.tool === "calibre" && !ui.cfg.settings.ebooks}
-          <!-- E-books only turned off: nothing to install. -->
-          <p class="more">{conv.engines[0]?.note} <button class="render" onclick={() => (ui.modal = { kind: "settings", section: "ebooks" })}>{t("preview.settings")}</button></p>
         {:else if wouldOf(conv)}
           <!-- Nothing shows it without an install or a download: what would, with both ways. -->
           {@const w = wouldOf(conv)}

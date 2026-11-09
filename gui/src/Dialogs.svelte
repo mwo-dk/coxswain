@@ -5,7 +5,7 @@
   import { ui, tab, cd, showInTab, load, openPackage, refreshUndo, actionLabel, keysOf, gitTool, applyViruses, openReplace, reloadAll, syncRun } from "./app.svelte.js";
   import { failure } from "./errors.js";
   import { Channel } from "@tauri-apps/api/core";
-  import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf, chessFormat } from "./lib.js";
+  import { invoke, takesPassword, withEnding, packFormat, basename, parent, size, date, TAGS, TAG_COLORS, tagName, isHistory, historyOf, chessFormat, moduleOff } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
   import { hljs } from "./hl.js";
   import { KINDS, prefix, nextKind, step } from "./find.js";
@@ -214,7 +214,9 @@
     if (isHistory(h.path)) return cd(tb, h.path);
     await showInTab(tb, h.path);
     // A game in a PGN file: that game, on the board in the preview.
-    if (h.snippet && ["pgn", "pdn", "shogi", "pbn"].includes(chessFormat(basename(h.path)))) {
+    // Games' module off: the file is shown, no board.
+    const games = !moduleOff("chess");
+    if (games && h.snippet && ["pgn", "pdn", "shogi", "pbn"].includes(chessFormat(basename(h.path)))) {
       // A game of a database Find looked through game by game: its number; else by the snippet.
       const index = h.game ?? (await invoke("chess_hit", { path: h.path, snippet: h.snippet }));
       if (index != null) {
@@ -223,7 +225,7 @@
       }
     }
     // A game in an SGF file: the same.
-    if (h.snippet && chessFormat(basename(h.path)) === "sgf") {
+    if (games && h.snippet && chessFormat(basename(h.path)) === "sgf") {
       const index = await invoke("go_hit", { path: h.path, snippet: h.snippet });
       if (index != null) {
         ui.goAt = { path: h.path, index };

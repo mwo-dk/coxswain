@@ -38,7 +38,7 @@ what you asked for comes first. **F1** opens it then ([Opening it again](#openin
 | 1 | *Two panels* | Two folders side by side; the lit one is active, and what you copy or move goes to the other one. The keys to know first, as your `[keys]` set them: **Tab** other panel, **Enter** open, **F5** copy, **F6** move, **Ctrl+F** Find, **F9** commands, **F1** help. Under them: *Shift+F10 / Menu: what you can do with what is under the cursor. A right-click opens that menu or marks; Settings → Behaviour chooses which.* ([The action menu](action-menu.md)) and *F1 → Features lists every feature with its keys and answers to the common questions.* ([Features and questions](features.md)) | Read, then choose *Typing letters*: *Jump to a name* or *Go to the command line* ([Quick search](quick-search.md#typing-letters-or-the-command-line)) |
 | 2 | *Finding files* | How far Find looks: the four search levels of [Search settings](../search/settings.md): *Names only*, *Names and text* (the default), *+ meaning*, *+ Ask*, each with what it costs | Choose a level. *+ meaning* and *+ Ask* need a model: when none is chosen yet, the [setup guide](../search/setup.md) opens, and when it closes you are back at this step |
 | 3 | *Looks* | Four themes (Cyber, Classic blue, Tokyo Night, Light), the language, and the icons | Choose a theme and a language; the screen changes at once. Icons: see below. More themes, fonts and sizes are in Settings → Looks |
-| 4 | *Privacy* | "Nothing leaves this machine unless you turn it on." The update check (at start and then once a day, to GitHub: `api.github.com`, or the file of the channel your copy came from) and the list of what can leave the machine with the settings as they are now | Switch the update check off or on; *Done* closes the guide |
+| 4 | *Privacy* | "Nothing leaves this machine unless you turn it on." The update check (at start and then once a day, to GitHub: `api.github.com`, or the file of the channel your copy came from) and the list of what can leave the machine with the settings as they are now; then a line that viewers you do not need can be turned off ([Modules](../customise/modules.md)) | Switch the update check off or on; **Choose modules** (desktop app) opens Settings at *Modules*, the terminal app names Settings → *Modules*; *Done* closes the guide |
 
 **Icons (step 3).** The file and git icons need a Nerd Font.
 
@@ -131,8 +131,9 @@ See [Glyphs and fonts](../customise/glyphs-and-fonts.md).
 
 #### Does the guide send anything anywhere?
 
-No. Step 4 only shows what could leave the machine and
-lets you switch the update check.
+No. Step 4 only shows what could leave the machine,
+lets you switch the update check, and says where viewers can be turned off (**Choose modules**
+in the desktop app opens Settings at *Modules*).
 
 ---
 [← Previous: Panels and keys](README.md) · [Next: The screen →](the-screen.md)

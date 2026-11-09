@@ -124,8 +124,7 @@ stays on: nothing is mounted, so nothing needs relabelling.
   in `helper.log` in the cache folder, and the same error is under **Details** on the line
   (**Delete** in the terminal app, where it shows in the status bar). **Retry now** on the line
   pulls again at once, also after a full disk you have cleared; the helper also pulls again at
-  once when the registry answers after it did not, and calibre's image for
-  [e-book search](../previews/ebooks.md) is handled the same way.
+  once when the registry answers after it did not.
 - A pull that fails for no network (no name lookup, no connection, a timeout, the registry busy)
   or an error the runtime does not explain is tried again by itself: 5 minutes later, then 10,
   20, 40, and then every hour. A full disk or an image the registry does not have is not tried

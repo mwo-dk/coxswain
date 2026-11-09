@@ -78,11 +78,12 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     let seen = |id: &str| state.notices_dismissed.iter().any(|d| d == id);
     // A mistake in config.toml, before anything else: the terminal app has said it at start.
     let mut all = if terminal { vec![] } else { refused(cfg) };
-    // Version 2.0 renamed keys in config.toml: which, once.
+    // An update rewrote config.toml (`migrate`): what, once per rewrite.
     if !state.migrated.is_empty() {
+        let changes = state.migrated.join(", ");
         all.push(Notice::new(
-            "migrated-2",
-            t!("notice.migrated", "changes" => state.migrated.join(", ")),
+            format!("migrated:{changes}"),
+            t!("notice.migrated", "changes" => changes),
             Some("keys"),
         ));
     }
@@ -418,15 +419,6 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             ..Notice::new("7zip", text, Some("disk_images"))
         });
     }
-    // E-books are turned on, but neither calibre nor podman or docker is there to read them. Once.
-    if cfg.preview.ebooks
-        && let Err(why) = crate::ebook::how(&cfg.preview)
-    {
-        all.push(Notice {
-            copy: crate::tools::install("calibre"),
-            ..Notice::new("ebooks", why, Some("ebooks"))
-        });
-    }
     // The chess view asks an engine about each position, but none is installed: what to install.
     if cfg.chess.analysis
         && let Err(text) = crate::chess::play::engine_for(cfg)
@@ -709,11 +701,18 @@ mod tests {
         state.migrated = vec!["[keys] mkdir → new_folder".into()];
         let n = next(&cfg, &status, &state, true).unwrap();
         assert!(
-            n.id == "migrated-2" && n.text.contains("mkdir → new_folder"),
+            n.id == "migrated:[keys] mkdir → new_folder" && n.text.contains("mkdir → new_folder"),
             "{n:?}"
         );
         dismiss(&mut state, &n.id);
         assert_eq!(ids(&state, &status), None);
+        // A later rewrite (the old switches into modules): said too, once.
+        state.migrated = vec!["bom_viewer = false → [modules] off = [\"bom\"]".into()];
+        let n = next(&cfg, &status, &state, true).unwrap();
+        assert!(n.text.contains("bom_viewer"), "{n:?}");
+        dismiss(&mut state, &n.id);
+        assert_eq!(ids(&state, &status), None);
+        state.migrated.clear();
 
         // Search stalled: said at once, and again when the reason changes.
         status.meaning_error = Some("http://localhost:11434: Connection refused".into());

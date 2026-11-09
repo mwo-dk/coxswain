@@ -19,8 +19,8 @@ async function load() {
     while (end < lines.length && /^(\s|\}|$)/.test(lines[end]) && lines[end] !== "") end++;
     return lines.slice(at, end).join("\n").replace(/^export /, "");
   };
-  const code = ["viewerRules", "readsByKind", "setViewerRules", "previewKind", "viewerReads"].map(part).join("\n");
-  return import("data:text/javascript," + encodeURIComponent(`${code}\nexport { setViewerRules, previewKind, viewerReads };`));
+  const code = ["viewerRules", "readsByKind", "setViewerRules", "moduleOf", "modulesOff", "setModulesOff", "moduleOff", "previewKind", "kindByName", "viewerReads"].map(part).join("\n");
+  return import("data:text/javascript," + encodeURIComponent(`${code}\nexport { setViewerRules, setModulesOff, moduleOff, previewKind, viewerReads };`));
 }
 
 test("previewKind gives the core's kind for every case", async () => {
@@ -39,4 +39,17 @@ test("viewerReads gives what the core says each kind's viewer needs inside an ar
   const limit = src.match(/^export const MAX_WHOLE = (.+);$/m);
   assert.ok(limit, "lib.js says MAX_WHOLE");
   assert.equal(Function(`return ${limit[1]}`)(), max_whole, "lib.js's MAX_WHOLE is the core's");
+});
+
+test("a file whose module is off is previewed as text", async () => {
+  const { setViewerRules, setModulesOff, moduleOff, previewKind } = await load();
+  setViewerRules(rules, reads);
+  setModulesOff({ chess: "games", go: "games", pdf: "documents" }, ["games"]);
+  assert.equal(previewKind({ name: "club.pgn", is_dir: false }), "text");
+  assert.equal(previewKind({ name: "game.sgf", is_dir: false }), "text");
+  assert.equal(moduleOff("chess"), "games");
+  assert.equal(previewKind({ name: "paper.pdf", is_dir: false }), "pdf");
+  assert.equal(moduleOff("pdf"), null);
+  setModulesOff({}, []);
+  assert.equal(previewKind({ name: "club.pgn", is_dir: false }), "chess");
 });

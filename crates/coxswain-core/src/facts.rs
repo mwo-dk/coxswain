@@ -127,7 +127,7 @@ fn text_and_format(path: &Path) -> Option<(String, String)> {
         return Some((crate::neural::text(&name, &m), m.format.clone()));
     }
     // A local model: its card, and a GGUF's chat template in full (the card folds it).
-    if let Some((f, template)) = crate::local_models::read(path) {
+    if let Some((f, template)) = crate::modules::on("neural_networks").then(|| crate::local_models::read(path)).flatten() {
         let format = f.iter().find(|(k, _)| *k == t!("facts.format")).map_or_else(String::new, |(_, v)| v.clone());
         let mut out = format!("{name}\n\n{}", lines(&f));
         if let Some(t) = template {

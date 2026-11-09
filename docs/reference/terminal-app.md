@@ -231,8 +231,7 @@ option, **Space** flips or chooses, **Enter** types a value or opens a list, **/
 setting, **Esc** closes. The whole walk-through: [Settings in the terminal
 app](../customise/settings.md#in-the-terminal-app).
 
-The keys only the terminal app reads are `theme`, `viewer`, `bom_viewer` and `provenance_viewer` (*Looks* and
-*Behaviour*). A change made by hand in `config.toml` needs the app started again. Things that do
+The keys only the terminal app reads are `theme` and `viewer` (*Looks* and *Behaviour*). A change made by hand in `config.toml` needs the app started again. Things that do
 more than set a value also have flags, for scripts:
 
 | To | Run |

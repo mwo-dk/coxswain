@@ -1,7 +1,7 @@
 // Shared app state and navigation. Components read `ui` and call these functions.
 
 import { Paged, SPAN } from "./paged.svelte.js";
-import { invoke, size, basename, parent, applyTheme, isArchive, chessFormat, isDrawio, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, setViewerRules, isGeo, isScad, CONVERTER, previewKind, isKicad, isSums, isFirstPart, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
+import { invoke, size, basename, parent, applyTheme, isArchive, chessFormat, isDrawio, setArchiveEndings, setDiskEndings, setPictureEndings, setMediaEndings, isMedia, isEditable, setGeoEndings, setViewerRules, setModulesOff, isGeo, isScad, CONVERTER, previewKind, isKicad, isSums, isFirstPart, diskSure, diskSeen, HISTORY, ALL, UPSTREAM, BRANCHES, WORKTREES, SNAPSHOTS, PACKAGE, LOCKED } from "./lib.js";
 import { setLanguage, t, tn } from "./i18n.svelte.js";
 import { failure } from "./errors.js";
 /** The texts, for functions whose tab is called `t`. */
@@ -818,7 +818,7 @@ async function planEbook(paths, to) {
     return void (ui.status = String(err));
   }
   const title = t("action.convert_ebook");
-  if (plan.missing) return void (ui.modal = { kind: "message", title, text: plan.missing, settings: ui.cfg.settings.ebooks ? (ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews") : "ebooks", feature: "ebooks" });
+  if (plan.missing) return void (ui.modal = { kind: "message", title, text: plan.missing, settings: ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews", feature: "ebooks" });
   if (!plan.books.length) return void (ui.status = t("ebook.none"));
   const what = plan.books.length === 1 ? t("ebook.confirm_one", { name: basename(plan.books[0]), target: plan.targets[0] }) : t("ebook.confirm_many", { n: plan.books.length, format: to.toUpperCase() });
   ui.modal = { kind: "confirm", title, text: `${what} ${t("ebook.no_drm")} ${plan.about}`, ok: t("ebook.go"), safe: true, run: () => runEbook(plan.books, to), feature: "ebooks" };
@@ -1301,6 +1301,7 @@ export async function init() {
   setMediaEndings(ui.cfg.media_endings);
   setGeoEndings(ui.cfg.geo_endings);
   setViewerRules(ui.cfg.viewer_rules, ui.cfg.viewer_reads);
+  setModulesOff(ui.cfg.viewer_modules, ui.cfg.settings.modules_off);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;

@@ -460,11 +460,8 @@ fn serve_here() -> io::Result<()> {
     if let Some(s) = store.clone() {
         crate::extract::tika::prepare(move || s.hurry.store(true, Ordering::Relaxed));
     }
-    // calibre's image, when e-books are turned on and it is not pulled yet: once there, the
-    // books it reads are read at once.
-    if let Some(s) = store.clone() {
-        crate::ebook::prepare(move || s.hurry.store(true, Ordering::Relaxed));
-    }
+    // calibre, when it can run: the books it reads are read.
+    crate::ebook::prepare();
     // Transcripts, when they are turned on: what was asked for, in the background.
     if let Some(s) = store.clone() {
         std::thread::spawn(move || crate::transcribe::work(s, config, Arc::new(AtomicBool::new(false))));

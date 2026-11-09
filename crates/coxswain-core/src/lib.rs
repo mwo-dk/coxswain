@@ -103,6 +103,7 @@ pub mod update;
 pub mod user_menu;
 pub mod vcs;
 pub mod wc;
+pub mod modules;
 pub mod view;
 pub mod viewers;
 pub mod viruses;

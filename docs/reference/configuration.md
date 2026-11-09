@@ -13,6 +13,7 @@ app reads it and which Settings item writes it.
 
 - [The file](#the-file)
 - [Renamed in 2.0](#renamed-in-20)
+- [Switches that became modules](#switches-that-became-modules)
 - [Top-level keys](#top-level-keys)
 - [Glyphs](#glyphs)
 - [`[keys]`](#keys)
@@ -23,6 +24,7 @@ app reads it and which Settings item writes it.
 - [`[gui]`](#gui)
 - [`[git]`](#git)
 - [`[archive]`](#archive)
+- [`[modules]`](#modules)
 - [`[chess]`](#chess)
 - [What has no key](#what-has-no-key)
 - [Settings and config.toml](#settings-and-configtoml)
@@ -89,17 +91,38 @@ directory; and the name index's folders the names Settings shows.
 **What happens on the first start of 2.0.** Both apps rewrite `config.toml` once, before they
 read it: each old key gets its new name in the same place, with its value and its comments.
 Where the new name is there already, it wins and the old line goes. A notice then lists what
-changed: *Coxswain 2.0 renamed keys in config.toml, your comments kept: [keys] mkdir →
+changed: *Coxswain updated config.toml for this version, your comments kept: [keys] mkdir →
 new_folder, [search] exclude → name_exclude.* The desktop app shows it under *Settings →
 Overview* (**Show me** opens *Keys*), the terminal app once in the status line. A file kept as a link (with your dotfiles)
 is rewritten where the link points.
 
 **When the file cannot be written** (read-only, owned by another user), nothing is changed and
 the app prints on the terminal it was started from which keys to rename by hand:
-`coxswain: config.toml could not be updated for 2.0 (…/config.toml: Permission denied (os error 13)). Rename these keys
+`coxswain: config.toml could not be updated (…/config.toml: Permission denied (os error 13)). Make these changes
 yourself: [keys] mkdir → new_folder.` The old names are not read any more: an old action name in
 `[keys]` is an action this version does not know, left out with a notice; an old `roots` or
 `exclude` in `[search]` is ignored, like any unknown key.
+
+## Switches that became modules
+
+Three switches each turned one viewer off. They are [modules](#modules) now, and the keys are
+gone:
+
+| Was | Now |
+|---|---|
+| `bom_viewer` (top level) | `"bom"` in `[modules] off` |
+| `provenance_viewer` (top level) | `"provenance"` in `[modules] off` |
+| `[preview] ebooks` | `"ebooks"` in `[modules] off` |
+
+**What happens on the first start of a version with modules.** Both apps rewrite `config.toml`
+once, before they read it, the same way as for 2.0 above: a switch set to `false` puts its
+module in `[modules] off` (added to the list you have, or a new `[modules]` table at the end);
+one set to `true` is taken out, as is one in no state at all, since every module is on by
+default. Your comments and the other keys stay. The notice lists it: *Coxswain updated
+config.toml for this version, your comments kept: bom_viewer = false → [modules] off =
+["bom"], [preview] ebooks (removed).* E-book previews were off by default before; with no
+`ebooks` line the *E-books* module is on, and a book's preview offers calibre (to install, or
+its image to download after a click) ([E-books](../previews/ebooks.md#the-e-books-module)).
 
 ## Top-level keys
 
@@ -114,8 +137,6 @@ yourself: [keys] mkdir → new_folder.` The old names are not read any more: an 
 | `editor` | string | none | The program for **F4**. Terminal app: else `$VISUAL`, `$EDITOR`, else the [built-in editor](../commands/editor.md). Desktop app: else the default application ([View and edit](../commands/view-and-edit.md)) | Both |
 | `viewer` | string | none | A program for the terminal app's **F3**; unset, the [built-in viewer](../commands/view-and-edit.md#the-built-in-viewer) | Terminal |
 | `terminal` | string | none | The terminal *Open a terminal here* (**F2**, **t**) and *Open in your git tool* open: a name as Settings lists it (`"ghostty"`, `"kitty"`, `"iterm2"`, `"wt"`, `"pwsh"`) or a command, `{dir}` being the folder (`"footclient -D {dir}"`). Unset: Terminal on a Mac, Windows' *Default terminal application*, else `$TERMINAL` or the first found ([Choosing the terminal](../commands/user-menu.md#choosing-the-terminal)) | Both |
-| `bom_viewer` | bool | `true` | **F3** on a CycloneDX BOM opens the BOM viewer; `false` opens the built-in viewer ([Cryptography bills of materials](../previews/bom.md)) | Terminal |
-| `provenance_viewer` | bool | `true` | **F3** on build provenance opens the provenance viewer; `false` opens the built-in viewer ([Build provenance](../previews/provenance.md)) | Terminal |
 | `confirm_delete` | bool | `true` | Ask before moving to the trash, deleting, or taking something out of an archive | Both |
 | `right_click` | string | unset | A right-click on a row: `"mark"` marks it (Norton Commander), `"menu"` opens the [action menu](../panels/action-menu.md); Ctrl+right-click does the other in the desktop app. Unset: the menu in the desktop app, marking in the terminal app | Both |
 | `typing` | string | unset | Letters typed in a panel: `"find"` jumps to the first name that starts with them ([Quick search](../panels/quick-search.md)) and the command line is on **Ctrl+K**; `"command"` types them on the command line (Norton Commander). Unset: `"find"` in the desktop app, `"command"` in the terminal app | Both |
@@ -289,7 +310,6 @@ set is never changed.
 | `images.kicad` | string | `"docker.io/kicad/kicad:9.0.9@sha256:…"` | KiCad's image of its release, pinned to its digest (about 476 MB, 1.7 GB on disk; amd64 only), for KiCad's previews and Export from KiCad ([KiCad](../previews/kicad.md)); one you set must have `kicad-cli` on its `PATH` |
 | `images.openscad` | string | `"docker.io/openscad/openscad:trixie.2026-10-19@sha256:…"` | OpenSCAD's image of a dated snapshot, pinned to its digest (about 241 MB, 635 MB on disk), for models' pictures and Export 3D model ([OpenSCAD models](../previews/openscad.md)); one you set must have `openscad` on its `PATH` |
 | `images.calibre` | string | `"docker.io/linuxserver/calibre:9.16.0@sha256:…"` | calibre, for [e-books](../previews/ebooks.md) in both apps (about 1.3 GB, 3.6 GB on disk), pinned by its digest; one you set must have `sh`, `ebook-convert`, `ebook-meta` and `tar` |
-| `ebooks` | bool | `false` | [E-books with calibre](../previews/ebooks.md): previews, text for search and *Convert e-book* for MOBI, AZW, AZW3, FB2, LIT and PDB books, in both apps; changing it restarts the search helper |
 | `images.whisper` | string | `"ghcr.io/ggml-org/whisper.cpp:main@sha256:…"` | whisper.cpp's image, for transcripts when no whisper-cli is installed (about 505 MB, 1.1 GB on disk). Pinned to its digest |
 | `timeout` | number (seconds) | `120` | Seconds before a conversion is stopped; pulling an image is not counted |
 | `latex_auto` | bool | `true` | Build a LaTeX document by itself when it is shown and its sources have changed |
@@ -341,6 +361,14 @@ Read by both apps when they start, and by each after a change in its own Setting
 |---|---|---|---|
 | `disk_images` | bool | `false` | Open disk images (.iso, .dmg, .vhd, .vhdx, .vmdk, .qcow2, .vdi, .wim, raw .img), .chm help files and .cbr comics like folders, read-only, with an installed 7-Zip. Off: **Enter** opens them like any file; the preview shows a disk image's facts either way ([Disk images](../files/disk-images.md)) |
 
+## `[modules]`
+
+Which viewers are loaded, in both apps ([Modules: choose the viewers](../customise/modules.md)). Read when the apps start and after a change in Settings.
+
+| Key | Type | Default | Does |
+|---|---|---|---|
+| `off` | list of strings | `[]` | The modules turned off: `documents`, `office`, `ebooks`, `latex`, `html`, `diagrams`, `openscad`, `kicad`, `data`, `media`, `old_formats`, `geodata`, `neural_networks`, `games`, `bom`, `provenance`, `disk_images`. A file one of them would show is shown as text or hex; Enter on a games file or a disk image of a module that is off does what it does with any file |
+
 ## `[chess]`
 
 How [chess games](../previews/chess.md), [Go games](../previews/go.md), [draughts games](../previews/draughts.md), [xiangqi games](../previews/xiangqi.md) and [shogi games](../previews/shogi.md) are shown, in both apps.
@@ -387,7 +415,7 @@ Some choices are not in `config.toml`, and that is on purpose:
 
 Each Settings item, the name `--settings=` opens it at (in both apps: `coxswain --settings=…`,
 `coxswain-gui --settings=…`) and the key it writes, area by area ([The Settings window](../customise/settings.md)).
-An area's own name opens it too: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`,
+An area's own name opens it too: `overview`, `search`, `previews`, `modules`, `games`, `looks`, `behaviour`, `keys`,
 `privacy`; `models` and `disk` open *Built-in models* and *Disk use*:
 
 | Settings area | Item | `--settings=` | Key |
@@ -427,7 +455,6 @@ An area's own name opens it too: `overview`, `search`, `previews`, `games`, `loo
 | *Previews → General* | *How previews are made* | `preview_prefer` | `[preview] prefer` |
 | | *Timeout (seconds)* | `preview_timeout` | `[preview] timeout` |
 | *Previews → Documents* | *Build LaTeX by itself* | `latex_auto` | `[preview] latex_auto` |
-| | *E-books with calibre* | `ebooks` | `[preview] ebooks` |
 | | *Export draw.io diagrams* | `drawio` | `[preview] drawio` |
 | *Previews → Container images* | *Container runtime* | `preview_container` | `[preview] container` |
 | | *LaTeX image* | `latex_image` | `[preview] images.latex` |
@@ -451,6 +478,7 @@ An area's own name opens it too: `overview`, `search`, `previews`, `games`, `loo
 | *Games → Opening book* | *Opening book* | `chess_book` | `[chess] book` |
 | *Games → Position index* | *Position index for every games table* | `chess_position_index` | `[chess] position_index` |
 | | *Position index depth* | `chess_position_depth` | `[chess] position_depth` |
+| *Modules* | A checkbox per module | `modules_off` | `[modules] off` |
 | *Looks* | *Language* | `language` | `language` |
 | | *Theme of the desktop app* (*For*: *Desktop app*) | `theme` | `[gui] theme` |
 | | *Theme of the terminal app* (*For*: *Terminal app*) | `tui_theme` | `theme` |
@@ -472,8 +500,6 @@ An area's own name opens it too: `overview`, `search`, `previews`, `games`, `loo
 | | *Editor* | `editor` | `editor` |
 | | *Viewer (terminal app)* | `viewer` | `viewer` |
 | | *Terminal* | `terminal` | `terminal` |
-| | *CBOM viewer on F3 (terminal app)* | `bom_viewer` | `bom_viewer` |
-| | *Provenance viewer on F3 (terminal app)* | `provenance_viewer` | `provenance_viewer` |
 | *Privacy and updates* | *Check for a new version* | `check_updates` | `check_updates` |
 
 *Keys* lists every action and its keys, read-only, with **Open config.toml**. Every other key

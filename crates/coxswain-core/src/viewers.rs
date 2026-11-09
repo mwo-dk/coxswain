@@ -177,8 +177,14 @@ fn build() -> Vec<Rule> {
     r
 }
 
-/// The kind a file or folder named `name` is shown as; `text` when no rule fits.
+/// The kind a file or folder named `name` is shown as; `text` when no rule fits, or when the
+/// module that shows it is off (`modules::gate`).
 pub fn kind_of(name: &str, is_dir: bool) -> &'static str {
+    crate::modules::gate(by_name(name, is_dir))
+}
+
+/// `kind_of`, whatever modules are off.
+pub fn by_name(name: &str, is_dir: bool) -> &'static str {
     static COMPILED: OnceLock<Vec<Option<regex::Regex>>> = OnceLock::new();
     let compiled = COMPILED.get_or_init(|| {
         let re = |s: &str| Some(regex::Regex::new(s).expect("a viewer rule's pattern"));
@@ -249,10 +255,17 @@ pub fn reads_by_kind() -> std::collections::BTreeMap<&'static str, Read> {
 /// a `.h5` a Keras model; a `.pdb` a Palm e-book; a `.vhd` or `.img` that is no disk image, an
 /// old picture or tracker module that is none, is text. For the one file the user is on, not a
 /// listing; a file only in the cloud is told by its name, since reading it would download it.
+/// A module that is off makes it `text` (`modules::gate`): its file is shown as text or hex.
 pub fn detect(path: &Path) -> &'static str {
+    crate::modules::gate(detect_any(path))
+}
+
+/// `detect`, whatever modules are off: which module would show the file.
+pub fn detect_any(path: &Path) -> &'static str {
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    let kind = kind_of(&name, false);
-    if crate::cloud::unasked(path) {
+    let kind = by_name(&name, false);
+    // Its module off: nothing is run on the bytes (a disk image's 7-Zip) to tell it apart.
+    if crate::cloud::unasked(path) || crate::modules::off_for(kind).is_some() {
         return kind;
     }
     let lower = name.to_lowercase();
@@ -414,7 +427,7 @@ mod tests {
     /// written anew with `COXSWAIN_WRITE_VARIANTS=1`, and failing here while it is out of date.
     #[test]
     fn the_desktop_apps_copy_of_the_table_is_current() {
-        let cases: Vec<serde_json::Value> = CASES.iter().map(|(n, d)| serde_json::json!({ "name": n, "is_dir": d, "kind": kind_of(n, *d) })).collect();
+        let cases: Vec<serde_json::Value> = CASES.iter().map(|(n, d)| serde_json::json!({ "name": n, "is_dir": d, "kind": by_name(n, *d) })).collect();
         let want = serde_json::to_string_pretty(&serde_json::json!({ "rules": rules(), "reads": reads_by_kind(), "max_whole": MAX_WHOLE, "cases": cases })).unwrap() + "\n";
         let file = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../gui/src/viewer-kinds.json");
         if std::env::var_os("COXSWAIN_WRITE_VARIANTS").is_some() {

@@ -222,6 +222,7 @@ mindmap
 |---|---|
 | [Customising](customise/README.md) | The Settings window, themes, looks, languages, keys, glyphs and fonts, with the main keys |
 | [The Settings window](customise/settings.md) | Opening it (Ctrl+, or the gear in the desktop app, F12 in the terminal app, Shift+F10, F9, `--settings=search` or `--settings=search_meaning`), its areas from Overview to Privacy and updates, Find a setting, every item with its config.toml key, how saving keeps comments, the terminal app's full-screen Settings (F12, `--settings`) and flags |
+| [Modules: choose the viewers](customise/modules.md) | Settings → Modules in both apps and `[modules] off`: the viewers by module (documents, office, e-books, LaTeX, HTML, diagrams, data, media, games …), each with its formats, libraries and programs; a file whose module is off is shown as text or hex, said once |
 | [Themes](customise/themes.md) | The 33 built-in themes in six groups, picking one in each app (Settings → Looks, F12 in the terminal app, F9 "Theme: …", `theme` / `[gui] theme`), what the terminal app takes |
 | [Looks](customise/looks.md) | The desktop app's corners, bevels, title bars and era fonts per theme, `look =` in your own theme |
 | [Your own theme and the colour slots](customise/own-theme.md) | Your own theme: `[themes.<name>]`, starting from --dump-config, colour names vs #rrggbb, every colour slot and where each app uses it |

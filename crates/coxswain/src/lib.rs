@@ -1824,6 +1824,9 @@ impl App {
             }
             Action::LongFiles => self.long_files(),
             Action::Chess => {
+                if let Some(m) = coxswain_core::modules::off_for("chess") {
+                    return self.status = Some(coxswain_core::modules::off_text(m, self.key_label(Action::Settings)));
+                }
                 if let Some(e) = self.panel().current().filter(|e| !e.is_dir && coxswain_core::chess::sniff(&e.path).is_some()).map(|e| e.path.clone()) {
                     self.chess(&e, None);
                 } else {
@@ -1970,14 +1973,22 @@ impl App {
                     }
                     // Which viewer: the core's table and, where a name is not enough, the bytes
                     // (`viewers::detect`), as the desktop app's preview has it.
-                    let kind = if a == Action::View { coxswain_core::viewers::detect(&e) } else { "" };
-                    // An e-book calibre reads, when e-books are on: its title, authors and text.
-                    if kind == "ebook" {
-                        if self.cfg.preview.ebooks {
-                            return self.ebook_view(e);
+                    let any = if a == Action::View { coxswain_core::viewers::detect_any(&e) } else { "" };
+                    // Its module off (`[modules] off`): shown as text or hex, and the first time,
+                    // which module would show it.
+                    let mut kind = any;
+                    if let Some(m) = coxswain_core::modules::off_for(any) {
+                        // Provenance off, a statement that carries a CycloneDX BOM: the BOM viewer.
+                        if m.id == "provenance" && coxswain_core::modules::on("bom") && coxswain_core::bom::sniff(&e) {
+                            kind = "bom";
+                        } else {
+                            self.view_or_edit(a, &e);
+                            return self.module_off(m);
                         }
-                        // Off: shown as it is, and where to turn its text on.
-                        self.status = Some(format!("{} ({})", t!("ebook.off"), t!("searchable.settings_key", "key" => self.key_label(Action::Settings))));
+                    }
+                    // An e-book calibre reads: its title, authors and text.
+                    if kind == "ebook" {
+                        return self.ebook_view(e);
                     }
                     // An old picture, a tracker module, a model, a workbook, an Outlook message: what
                     // it holds, as text. Also a local model known only by its bytes (a store's blob).
@@ -1999,7 +2010,7 @@ impl App {
                     }
                     // A statement whose provenance does not open may still carry a CycloneDX BOM.
                     let mut bom = kind == "bom";
-                    if kind == "provenance" && self.cfg.provenance_viewer {
+                    if kind == "provenance" {
                         let other = Some(self.panels[self.active ^ 1].dir.clone());
                         match provenance::Viewer::open(&e, other) {
                             Ok(v) => return self.dialog = Some(Dialog::Provenance(Box::new(v))),
@@ -2023,9 +2034,8 @@ impl App {
                     if matches!(kind, "chess" | "go") {
                         return self.chess(&e, None);
                     }
-                    // With provenance off, a statement that carries a CycloneDX predicate is a BOM.
-                    bom |= kind == "provenance" && !self.cfg.provenance_viewer && coxswain_core::bom::sniff(&e);
-                    if bom && self.cfg.bom_viewer {
+                    // A statement whose provenance did not open, with the BOM module off: as text.
+                    if bom && coxswain_core::modules::on("bom") {
                         match bom::Viewer::open(&e) {
                             Ok(v) => return self.dialog = Some(Dialog::Bom(Box::new(v))),
                             // Not readable as a BOM after all: the pager shows it as it is.
@@ -2262,7 +2272,7 @@ impl App {
     }
 
     /// Provenance or a BOM inside an archive, told by its name or its first bytes (`head`), in
-    /// its viewer when that is on, as on the disk: `None` for any other file, and for one that
+    /// its viewer when its module is on, as on the disk: `None` for any other file, and for one that
     /// does not read as one after all (the status line says why).
     fn inside_viewer(&mut self, path: &Path, head: &[u8]) -> Option<Dialog> {
         use coxswain_core::{bom as cbom, provenance as cprov};
@@ -2270,13 +2280,13 @@ impl App {
         let ends = |xs: &[&str]| xs.iter().any(|x| name.ends_with(x));
         let prov = cprov::sniff_name(&name) || (ends(&[".json", ".jsonl", ".ndjson"]) && cprov::sniff_head(head));
         let is_bom = cbom::sniff_name(&name) || (ends(&[".json", ".xml"]) && cbom::sniff_head(head));
-        if prov && self.cfg.provenance_viewer {
+        if prov && coxswain_core::modules::on("provenance") {
             match provenance::Viewer::open(path, Some(self.panels[self.active ^ 1].dir.clone())) {
                 Ok(v) => return Some(Dialog::Provenance(Box::new(v))),
                 Err(err) => self.status = Some(err.to_string()),
             }
         }
-        if is_bom && self.cfg.bom_viewer {
+        if is_bom && coxswain_core::modules::on("bom") {
             match bom::Viewer::open(path) {
                 Ok(v) => return Some(Dialog::Bom(Box::new(v))),
                 Err(err) => self.status = Some(err.to_string()),
@@ -3531,6 +3541,20 @@ impl App {
     }
 
     /// View, edit (in the editor set, else the built-in one) or edit here (the built-in one).
+    /// A file of a module that is off is shown as text: the first time for that module, the
+    /// status line says which module would show it and where to turn it on.
+    /// Said in the built-in viewer when it opened, so the viewer does not hide it.
+    fn module_off(&mut self, m: &coxswain_core::modules::Module) {
+        let Some(text) = coxswain_core::modules::notice_once(m, self.key_label(Action::Settings)) else { return };
+        match self.dialog.take() {
+            Some(Dialog::View { v, back }) => self.dialog = Some(Dialog::View { v: Box::new((*v).saying(text)), back }),
+            other => {
+                self.dialog = other;
+                self.status = Some(text);
+            }
+        }
+    }
+
     fn view_or_edit(&mut self, a: Action, file: &Path) {
         if a == Action::View && self.cfg.viewer.is_none() {
             return self.view_in(file, None);
@@ -4518,6 +4542,7 @@ impl App {
                         Some(Row::Hit { hit, .. }) => {
                             // A game in a PGN file: that game, on the board.
                             if matches!(coxswain_core::chess::format(&hit.path), Some(coxswain_core::chess::Format::Pgn | coxswain_core::chess::Format::Sgf | coxswain_core::chess::Format::Pdn | coxswain_core::chess::Format::Kif | coxswain_core::chess::Format::Csa | coxswain_core::chess::Format::Pbn))
+                                && coxswain_core::modules::on("games")
                                 && let Some(snippet) = hit.snippet.clone()
                             {
                                 let (path, game) = (hit.path.clone(), hit.game);
@@ -5507,7 +5532,8 @@ const USAGE: &str = "coxswain [LEFT] [RIGHT]      a folder, or a file to open it
                   paths go to FILE or to standard output, one per line; exit 0 when chosen,
                   1 when cancelled
   --settings[=AREA|OPTION]  start with Settings open (in the app: F12): search, previews,
-                  games, looks, behaviour, keys, privacy, or an option such as show_hidden
+                  modules, games, looks, behaviour, keys, privacy, or an option such as
+                  show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
   --paths         print where everything is kept: config, state, index, search store, models
@@ -6039,6 +6065,7 @@ pub fn main() {
     });
     coxswain_core::i18n::set_language(coxswain_core::i18n::resolve(&cfg.language));
     coxswain_core::disk_image::set_open(cfg.archive.disk_images);
+    coxswain_core::modules::set_off(&cfg.modules.off);
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
     let dir = |i: usize| {
         let d = args.get(i).map(|a| resolve(&cwd, a)).unwrap_or_else(|| cwd.clone());

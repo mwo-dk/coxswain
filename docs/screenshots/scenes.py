@@ -306,6 +306,8 @@ scene("panels-quick-search.png", args=["/home/demo/projects/rocket", "/home/demo
 scene("tui-clouds.png", args=["/home/demo", "/home/demo/projects"], keys=START + ["M-F1"])
 scene("tui-config-mistakes.png", args=["/home/demo", "/home/demo"], keys=["wait:1"], guide=False,
       config='# Coxswain\ntheme = 3\n# 7 lines\ncheck_updates = false\n\n[search]\nmax_results = "many"\n')
+scene("tui-settings-modules.png", keys=START + ["F12", "wait:1", "Right", "Right", "Right", "wait:1", "Down*14"],
+      config='modules.off = ["games"]\n')
 scene("tui-search.png", keys=START + ["M-F7", "type:*.rs|*.toml src/", "wait:3"])
 scene("tui-text-search.png", keys=START + ["M-F7", "type:engine", "Tab", "wait:3"])
 

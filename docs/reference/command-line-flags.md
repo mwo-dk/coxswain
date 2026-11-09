@@ -56,7 +56,8 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
                   paths go to FILE or to standard output, one per line; exit 0 when chosen,
                   1 when cancelled
   --settings[=AREA|OPTION]  start with Settings open (in the app: F12): search, previews,
-                  games, looks, behaviour, keys, privacy, or an option such as show_hidden
+                  modules, games, looks, behaviour, keys, privacy, or an option such as
+                  show_hidden
   --dump-config   print the full default config (redirect it to the config file to customise)
   --config-path   print where the config file is read from
   --paths         print where everything is kept: config, state, index, search store, models
@@ -94,7 +95,7 @@ coxswain [LEFT] [RIGHT]      a folder, or a file to open its folder with the cur
 | Flag | Does |
 |---|---|
 | `LEFT`, `RIGHT` | The folders of the left and right panel. A relative path is from the current folder, `~` is home. A file opens its folder with the cursor on it. Without them: the current folder in both |
-| `--settings[=AREA\|OPTION] [LEFT] [RIGHT]` | Starts the app with [Settings](../customise/settings.md#in-the-terminal-app) open: at Overview, at an area (`overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy`) or with the cursor on an option (`show_hidden`, `search_meaning`, `ask_model`, `language`, `max_results` …). **Esc** closes it to the panels, which show `LEFT` and `RIGHT` as without the flag. A name it does not know, such as 1.x's `meaning`, `ask`, `news` or `cloud`, opens Overview |
+| `--settings[=AREA\|OPTION] [LEFT] [RIGHT]` | Starts the app with [Settings](../customise/settings.md#in-the-terminal-app) open: at Overview, at an area (`overview`, `search`, `previews`, `modules`, `games`, `looks`, `behaviour`, `keys`, `privacy`) or with the cursor on an option (`show_hidden`, `search_meaning`, `ask_model`, `language`, `max_results` …). **Esc** closes it to the panels, which show `LEFT` and `RIGHT` as without the flag. A name it does not know, such as 1.x's `meaning`, `ask`, `news` or `cloud`, opens Overview |
 | `--help`, `-h` | Prints the text above |
 | `--version`, `-V` | Prints `coxswain X.Y.Z` |
 | `--dump-config` | Prints every option with its default, as TOML, including every built-in theme and the full `[keys]` table. `coxswain --dump-config > ~/.config/coxswain/config.toml` gives you the full list to edit |
@@ -197,8 +198,9 @@ coxswain-gui [LEFT] [RIGHT]   a folder, or a file to open its folder with the cu
                             let another program choose files or folders, or a name to save
                             under: the paths go to FILE or to standard output, one per line;
                             exit 0 when chosen, 1 when cancelled
-  --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, games,
-                            looks, behaviour, keys, privacy, or an option such as show_hidden
+  --settings[=AREA|OPTION]  start with Settings open: overview, search, previews, modules,
+                            games, looks, behaviour, keys, privacy, or an option such as
+                            show_hidden
   --duplicates [FOLDER …]   start with Find duplicates scanning these folders (default: this one)
   --version
   --help
@@ -220,7 +222,7 @@ The terminal app, coxswain, has the rest: coxswain --help
 | `--settings=preview_tools` | …at *Previews*, scrolled to *Preview tools* ([Preview tools in Settings](../previews/tools.md#preview-tools-in-settings)) |
 | `--settings=chess_engines` | …at *Games*, scrolled to *Chess engines* ([Choosing an engine](../previews/chess-play.md#choosing-an-engine)) |
 | `--settings=chess_positions` | …at *Games*, scrolled to *Position index* ([Chess: position index and opening tree](../previews/chess-positions.md#settings-and-configtoml)) |
-| `--settings=AREA` | …at that area: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
+| `--settings=AREA` | …at that area: `overview`, `search`, `previews`, `modules`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
 | `--settings=OPTION` | …at the area of that option, with its group open, scrolled to it and lit up for a moment: an option's name, such as `check_updates` or `folder_sizes` |
 | `--pick[=FILE]` | Pick mode, with the terminal app's flags: one window that only chooses, with a bar to *Choose* (or *Save*) and *Cancel*. Only the paths go to standard output; exit status `0` when chosen, `1` when cancelled (closing the window too), `2` for a flag it does not know. See [Pick mode](pick-mode.md) |
 | `--duplicates [FOLDER …]` | Opens *Find duplicates* and scans these folders at once; without folders, the current one. The panes open as usual behind it |

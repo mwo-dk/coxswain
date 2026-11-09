@@ -49,7 +49,7 @@ window, with the details beside the tree.
   Enter in. Filters apply here too.
 
 **Terminal app.** **F3** on a BOM opens the viewer full screen; **F3** there (or `s`) shows the
-source in the built-in viewer, as F3 does on any file. `bom_viewer = false` in the config shows the source straight away.
+source in the built-in viewer, as F3 does on any file. With the module *Cryptography bills of materials* off (Settings → [Modules](../customise/modules.md)) F3 shows the source straight away.
 
 | Key | Does |
 |---|---|
@@ -145,11 +145,10 @@ above it. A renewed certificate therefore counts as rated better, not as removed
 
 | Where | Key | Default | Does |
 |---|---|---|---|
-| `config.toml`, top level; Settings → *Behaviour* (both apps) → *CBOM viewer on F3 (terminal app)* | `bom_viewer` | `true` | The terminal app's **F3** on a BOM opens the BOM viewer; `false` opens the built-in viewer as for any file |
+| Settings → *Modules* → *Cryptography bills of materials* (both apps) | `[modules] off` without `"bom"` | On | BOMs are shown in the BOM viewer (**F3**, the preview); off, as text like any file. It was `bom_viewer` before modules ([The older switches](../customise/modules.md#the-older-switches)) |
 
-The desktop app itself has no setting for it: the preview pane always shows a BOM, and the
-**Tree / Sunburst / Source** switch remembers your choice. See also
-[Configuration: every key](../reference/configuration.md#top-level-keys).
+The preview pane's **Tree / Sunburst / Source** switch remembers your choice. See also
+[Configuration: every key](../reference/configuration.md#modules).
 
 ## Questions
 
@@ -189,8 +188,8 @@ holds CNSA 2.0 and the dates on which ratings change, so a profile and year choi
 #### How do I get the old F3 back in the terminal app?
 
 In the viewer, **F3** again (or `s`) shows the BOM's source in the built-in viewer, as F3 does on
-any file. **Esc** there brings you back to the BOM viewer, and **Esc** again to the panels. To make F3 always show the source, set `bom_viewer = false` in
-`config.toml`.
+any file. **Esc** there brings you back to the BOM viewer, and **Esc** again to the panels. To make F3 always show the source, turn off the module *Cryptography bills of materials* in
+*Settings → Modules*.
 
 #### Does it read SPDX files, or the vulnerabilities in an SBOM?
 

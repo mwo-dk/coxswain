@@ -4,7 +4,8 @@
 //! next to the original. Comics (.cbz, .cbr) and EPUB have readers of their own and are not
 //! sent to calibre.
 //!
-//! Off unless `[preview] ebooks` is on. calibre runs as installed (`ebook-convert`), else from
+//! Their previews are the *E-books* module's (`[modules] off`); the search and *Convert e-book*
+//! use calibre whenever it is there. calibre runs as installed (`ebook-convert`), else from
 //! its container image (`[preview.images] calibre`), chosen by `[preview] prefer` and
 //! `[preview.tools] ebooks` as every preview tool is. The container is held tight: no network, no
 //! capabilities, no new privileges, a read-only root with /tmp in memory, bounded memory and
@@ -89,12 +90,8 @@ pub enum How {
     Container { rt: &'static str, path: PathBuf, image: String },
 }
 
-/// The way calibre runs here, or why it cannot: it is turned off, or what to install, or which
-/// setting to change.
+/// The way calibre runs here, or why it cannot: what to install, or which setting to change.
 pub fn how(cfg: &PreviewConfig) -> Result<How, String> {
-    if !cfg.ebooks {
-        return Err(t!("ebook.off"));
-    }
     let pref = crate::preview_tools::asked(cfg, TOOL);
     let pref = pref.as_str();
     let local = crate::tools::which("ebook-convert").map(|convert| How::Local { convert, meta: crate::tools::which("ebook-meta") });
@@ -535,14 +532,13 @@ fn convert(how: &How, book: &Path, to: &'static str, stop: &AtomicBool, timeout:
 
 // ---------------------------------------------------------------- search
 
-/// calibre as the search helper uses it, from config.toml as it was when the helper started
-/// (it starts again when `[preview] ebooks` changes): None unless e-books and text search are
-/// both on.
+/// calibre as the search helper uses it, from config.toml as it was when the helper started:
+/// None unless text search is on and calibre can run.
 fn searching() -> Option<&'static How> {
     static H: OnceLock<Option<How>> = OnceLock::new();
     H.get_or_init(|| {
         let cfg = crate::config::Config::load().ok()?;
-        (cfg.search.text && cfg.preview.ebooks).then(|| how(&cfg.preview).ok()).flatten()
+        cfg.search.text.then(|| how(&cfg.preview).ok()).flatten()
     })
     .as_ref()
 }
@@ -550,44 +546,28 @@ fn searching() -> Option<&'static How> {
 /// The image is pulled (or calibre installed): set once known, so a read costs no runtime call.
 static READY: AtomicBool = AtomicBool::new(false);
 
-/// When the helper starts: with e-books on and the image not pulled yet, it is pulled in the
-/// background (turning the option on, under its size and cost, is the click that asks for it),
-/// then `pulled` to read the books it can now read. Nothing when it is off.
-pub fn prepare(pulled: impl FnOnce() + Send + 'static) {
-    let Some(how) = searching() else { return };
-    if ready(how) {
+/// When the helper starts: whether calibre can run now, installed or its image there. Nothing
+/// is downloaded for the search: the image comes when a preview or *Convert e-book* asks for it,
+/// and `extensions` notices it on the search's next pass.
+pub fn prepare() {
+    if searching().is_some_and(ready) {
         READY.store(true, Ordering::Relaxed);
-        return;
     }
-    let How::Container { path, image, .. } = how.clone() else { return };
-    std::thread::spawn(move || {
-        crate::images::pulls::until_there(
-            &image,
-            "calibre",
-            || crate::images::pull(&path, &image),
-            || crate::tools::image_size(&path, &image).is_some(),
-            || crate::images::pulls::reachable(&image),
-            crate::images::pulls::rest,
-        );
-        READY.store(true, Ordering::Relaxed);
-        used(&image);
-        pulled();
-    });
 }
 
-/// How calibre stands for the search, for the status lines; None while e-books or text search
-/// are off, or calibre runs without a container.
+/// How calibre stands for the search, for the status lines: Ready once its image is there;
+/// None while text search is off, calibre runs without a container, or its image is not there.
 pub fn state() -> Option<crate::images::pulls::State> {
-    use crate::images::pulls::State;
-    let How::Container { image, .. } = searching()? else { return None };
-    if let Some(line) = crate::images::pulling().get(image.as_str()) {
-        return Some(State::Pulling(line.clone()));
-    }
-    Some(crate::images::pulls::failure(image).unwrap_or(if READY.load(Ordering::Relaxed) { State::Ready } else { State::Pulling(String::new()) }))
+    let How::Container { .. } = searching()? else { return None };
+    READY.load(Ordering::Relaxed).then_some(crate::images::pulls::State::Ready)
 }
 
 /// The endings the search reads with calibre now: none until it can run.
 pub fn extensions() -> Vec<&'static str> {
+    // An image pulled since the helper started (from a preview or a conversion): read from now.
+    if !READY.load(Ordering::Relaxed) && searching().is_some_and(ready) {
+        READY.store(true, Ordering::Relaxed);
+    }
     if searching().is_some() && READY.load(Ordering::Relaxed) { FORMATS.to_vec() } else { vec![] }
 }
 
@@ -659,8 +639,6 @@ mod tests {
         assert_eq!(ending(&d.join("symbols.pdb")), None, "a debugging database is no book");
         assert_eq!(ending(Path::new("/x/Book.AZW3")), Some("azw3"));
         assert!(!is_ebook(Path::new("/x/comic.cbz")) && !is_ebook(Path::new("/x/b.epub")), "they have their own readers");
-        let mut cfg = PreviewConfig { ebooks: true, ..Default::default() };
-        cfg.tools.insert("ebooks".into(), "local".into());
         let how = How::Local { convert: "/nonexistent/ebook-convert".into(), meta: None };
         let r = make(&how, &d.join("locked.azw3"), Want::Text, &d, &AtomicBool::new(false), Duration::from_secs(1), &mut |_| {});
         crate::i18n::set_language("en-GB");
@@ -668,13 +646,10 @@ mod tests {
     }
 
     #[test]
-    fn ebooks_are_off_by_default_and_follow_the_preference() {
+    fn ebooks_follow_the_preference() {
         crate::i18n::set_language("en-GB");
         let mut cfg = PreviewConfig::default();
-        assert!(!cfg.ebooks);
-        assert_eq!(how(&cfg), Err(t!("ebook.off")));
         assert_eq!(cfg.images.get(TOOL).map(String::as_str), Some(IMAGE));
-        cfg.ebooks = true;
         cfg.container = "off".into();
         cfg.tools.insert("ebooks".into(), "container".into());
         match how(&cfg) {
@@ -756,7 +731,7 @@ mod tests {
         assert!(!p.title.is_empty() && p.epub.is_file());
         let txt = std::fs::read_to_string(text_copy(&p).unwrap()).unwrap();
         assert!(txt.starts_with(&p.title) && txt.contains("Chapter"), "{txt}");
-        let mut cfg = PreviewConfig { ebooks: true, ..Default::default() };
+        let mut cfg = PreviewConfig::default();
         cfg.tools.insert("ebooks".into(), "container".into());
         for to in formats_for(&copy) {
             let r = run_all(&cfg, to, std::slice::from_ref(&copy), &AtomicBool::new(false), |_| {}, |_| {});

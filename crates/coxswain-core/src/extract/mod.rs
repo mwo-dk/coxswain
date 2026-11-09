@@ -78,7 +78,7 @@ fn reader(path: &Path) -> Option<Reader> {
         }
         e if tika::FORMATS.contains(&e) => tika::text,
         e if installed::POSTSCRIPT.contains(&e) => installed::postscript,
-        // E-books calibre reads, when `[preview] ebooks` is on (`ebook`).
+        // E-books calibre reads, when it can run (`ebook`).
         e if crate::ebook::FORMATS.contains(&e) => crate::ebook::text,
         _ => return None,
     })

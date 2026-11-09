@@ -75,7 +75,7 @@ not searched.* with *Read this folder too* ([all states](find-file.md#when-somet
 
 Coxswain reads the documents itself, starting no other program (except the
 [optional ones](scans.md) you install, [Apache Tika's container](tika.md) when you turn it on,
-and calibre for [e-books](../previews/ebooks.md#search) when you turn them on), and no reader
+and calibre for [e-books](../previews/ebooks.md#search) when it is there), and no reader
 touches the network. A file that cannot be
 read (damaged, locked, not what its name says) is marked as without text and tried again when it
 changes.
