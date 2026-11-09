@@ -977,9 +977,17 @@ impl Viewer {
                 }
             }
             KeyCode::Char('l') => {
-                if !self.tree_now().is_some_and(|t| t.games > 0) {
-                    self.said = Some(t!("chess.tree_none_tui"));
-                    return Some(Outcome::Stay);
+                match self.tree_now() {
+                    Some(t) if t.games > 0 && !t.opens => {
+                        // Out of date: its game numbers are of the database before it changed.
+                        self.said = Some(t!("chess.index_stale"));
+                        return Some(Outcome::Stay);
+                    }
+                    Some(t) if t.games > 0 => {}
+                    _ => {
+                        self.said = Some(t!("chess.tree_none_tui"));
+                        return Some(Outcome::Stay);
+                    }
                 }
                 self.query.position = self.now().0?;
                 self.requery();
