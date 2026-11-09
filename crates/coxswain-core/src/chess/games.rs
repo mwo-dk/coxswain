@@ -847,12 +847,22 @@ impl Library {
         let extra = if streamed { format!("{limits:?} {GAMES_FORM}") } else { format!("{limits:?}") };
         let (mut table, mut kept) = Table::open(path, &extra)?;
         // A table of a PGN out of an archive whose games' text is gone is read anew.
-        let mut games = if streamed { File::open(table.dir().join(GAMES)).ok() } else { None };
+        // Only a missing file is taken for gone: a refused open (a virus scanner) never throws a table away.
+        let held = |t: &Table| match File::open(t.dir().join(GAMES)) {
+            Ok(f) => Ok(Some(f)),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e),
+        };
+        let mut games = if streamed { held(&table)? } else { None };
         if streamed && kept.is_some() && games.is_none() {
             let dir = table.dir().to_path_buf();
             drop(table);
             crate::spill::gone(&dir);
             (table, kept) = Table::open(path, &extra)?;
+            games = held(&table)?;
+            if kept.is_some() && games.is_none() {
+                return Err(io::Error::from(io::ErrorKind::NotFound));
+            }
         }
         // A new table's: made empty here, filled by `from_archive` through its own handle.
         if streamed && games.is_none() {
