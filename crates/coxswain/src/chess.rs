@@ -932,7 +932,9 @@ impl Viewer {
         } else if st.building.is_some() {
             chess::positions::stop(&lib.path);
         } else if !st.ready || st.stale {
-            chess::positions::build(lib, chess::positions::depth_of(&self.chess.position_depth));
+            // An index built again keeps its depth; a new one takes Settings'.
+            let depth = if st.ready { st.depth } else { chess::positions::depth_of(&self.chess.position_depth) };
+            chess::positions::build(lib, depth);
         }
         self.pos_index_asked = None;
     }
