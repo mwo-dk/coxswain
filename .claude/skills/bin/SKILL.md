@@ -76,7 +76,7 @@ and `report.txt (2)` beside it), a crash of either program between any two steps
 saving a new file at a free place at any time, restores with and without *Restore under a free
 name*, every order of Empty's deletions. 3.4 million distinct states (the lock serialises restore,
 delete and Empty; the unlocked variant has 57 million), about a minute; with `--outside` one
-Coxswain and one other program, 7.2 million (4.0 million with `--variant atomic`), a few
+Coxswain and one other program, 7.8 million (4.0 million with `--variant atomic`), a few
 minutes. TLC visits all of them.
 
 Not modelled, so not proven:
@@ -105,7 +105,8 @@ Not modelled, so not proven:
   the whole undo (Esc or Stop ends the wait, and the undo then does nothing); its steps are not
   modelled.
 - An info file that is not UTF-8 or does not parse: `list_in` reads it lossily, so a raw
-  `Path=` still lists the item; one that does not parse at all is never a stray, and its item
+  `Path=` still lists the item, and joins an item's name as bytes, so a name that is not UTF-8
+  is listed too (#900); one that does not parse at all is never a stray, and its item
   stays through Empty. The model's info files are written whole or empty.
 - Other programs' own steps (`--outside`): their delete for good, restore and Empty are taken
   to be right for themselves: each removes or moves out the file it listed in one step, then
@@ -122,6 +123,9 @@ Not modelled, so not proven:
   modelled only where the code reads its result (`hard_link`, `remove_file`, `rename` of a
   missing source).
 - More than two programs or files: a trace needing three has not been looked for.
+- `move_new`'s check after the link (#901) compares device and inode only, as the link changes
+  the change time: another program's file given the freed inode of the item within that
+  instant goes unseen.
 - `fd::id` is the device, inode and change time: a file freed and another made since may get
   the same inode number, and on a coarse clock (Linux before 6.13: 1–4 ms ticks) the same change
   time only if made within the tick of the old item's last change (its trashing): negligible,
@@ -168,6 +172,15 @@ between each re-check and its call: TLC finds it (`--outside`), and with each pa
 (`--variant atomic`) every promise holds. Closing it needs the other program to take a lock
 too; the docs say two programs emptying at once is not guarded.
 
+**#901, a restore taking another program's file** (no promise breaks: the file is not lost,
+only moved): `move_new` compared the bin file with the file at the place after the link, both
+then the same, so a file another program put under the item's name between restore's re-check
+(`RId`) and the link went to the item's place. It now compares the file at the place with the
+id found (device and inode), and takes that link away again (`RUnlinkBack`) only while the bin
+file is the same file, so a file saved at the place since is left; TLC found that order when
+the link was taken away without that check (another program puts the restored file back, the
+user saves a new one there).
+
 Do not weaken `Bin.tla` to make a promise pass. A fix is in the code.
 
 ## Does my change touch the verified code?
@@ -178,13 +191,13 @@ order of system calls in them, needs the model looked at (and the sync commit mo
 | Model action(s) | Code (at the sync commit) |
 |---|---|
 | `PutStart`, `PutCheck`, `PutClaim`, `PutWrite`, `PutMove`, `PutFail` | `xdg_trash::put_in` (`crates/coxswain-core/src/xdg_trash.rs`, lines 47–91): the `name_candidates` loop, `symlink_metadata(files/n)`, `create_new`, `write_all`, `rename`, the `remove_file(&i)` on failure. Also the `trash` crate's `move_to_trash`, same order. |
-| `Free`, `Take`, `Done`, `lock` | `fd::hold` (`bin.rs` 346–388, `lock_all`): `flock` on `<bin>/.coxswain-lock` (`try_lock`; when busy, nothing is done) at the start of `restore_in`, `delete_in`, `empty_in`; `fd::wait` (waits, until Stop) for `undo::Record::undo` and `fs::trash_named`. Let go when they return (`fd::Held`: an unlock before the close, as a program another thread starts holds a copy of the handle until it runs, #797) or the program dies. |
-| `Listed`, `RestoreStart`, `DeleteStart`, `EmptyStart`, `iid`, `SameFile`, `SameInfo` | `fd::list_in` (`bin.rs` 562–576: an info file whose `parse` succeeds and whose item exists), `fd::find` (657–664) and `fd::ids` (670–672: `fd::id`, 408–417, of the file and its info file). |
-| `RCheck`, `RId` | `fd::restore_in` (694–736): `symlink_metadata(&to)`, `taken`, `free_in` with `name_candidates`; then `id(&item.path)` against the one found. |
-| `RLink`, `RUnlinkCheck`, `RUnlink` | `fd::move_new` (748–829), the file branch: `hard_link(from, to)`, `id(from) == id(to)`, then `remove_file(from)`; `false` when either finds the file gone or another's; also `xdg_trash::restore_in` (101–136), which takes the ids before reading the info file and re-checks the file before `move_new`. |
-| `RInfoCheck`, `RInfo` | `fd::restore_in`: when `move_new` says `true`, `remove_info` (676–681: `id(info)` against the one found, then `remove_file`). |
-| `DCheck`, `DRemove`, `DInfoCheck`, `DInfo` | `fd::delete_in` (839–858: `find` and `ids` per path) and `fd::delete_listed` (863–889): `id(p)` against the one listed, `remove(p)`, then `remove_info`. |
-| `EFile`, `ECheck`, `ERemove`, `EInfoCheck`, `EInfo`, `ESweepCheck`, `ESweepRm` | `fd::empty_in` (896–935): `list_in` with `ids` of each item, and the strays of `read_dir(files)` (`unlisted`: info file missing or empty) with their `id`, `delete_listed` on the list, then for each stray `unlisted` and the same `id` again before `remove`. `ESweepFiles`, `ESweepInfo` are the `sweep_all` variant only. |
+| `Free`, `Take`, `Done`, `lock` | `fd::hold` (`bin.rs` 358–402, `lock_all`): `flock` on `<bin>/.coxswain-lock` (`try_lock`; when busy, nothing is done) at the start of `restore_in`, `delete_in`, `empty_in`; `fd::wait` (waits, until Stop) for `undo::Record::undo` and `fs::trash_named`. Let go when they return (`fd::Held`: an unlock before the close, as a program another thread starts holds a copy of the handle until it runs, #797) or the program dies. |
+| `Listed`, `RestoreStart`, `DeleteStart`, `EmptyStart`, `iid`, `SameFile`, `SameInfo` | `fd::list_in` (`bin.rs` 576–592, `item`: an info file whose `parse` succeeds and whose item exists, names as bytes), `fd::find` (675–682) and `fd::ids` (688–690: `fd::id`, 422–431, of the file and its info file). |
+| `RCheck`, `RId` | `fd::restore_in` (711–755): `symlink_metadata(&to)`, `taken`, `free_in` with `name_candidates`; then `id(&item.path)` against the one found. |
+| `RLink`, `RUnlinkCheck`, `RUnlinkBack`, `RUnlink` | `fd::move_new` (769–870), the file branch: `hard_link(from, to)`, `id(to)` against the id found (device, inode; else `remove_file(to)` while `id(from)` is that file too), `id(from) == id(to)`, then `remove_file(from)`; `false` when either finds the file gone or another's; also `xdg_trash::restore_in` (101–136), which takes the ids before reading the info file and re-checks the file before `move_new`. |
+| `RInfoCheck`, `RInfo` | `fd::restore_in`: when `move_new` says `true`, `remove_info` (694–699: `id(info)` against the one found, then `remove_file`). |
+| `DCheck`, `DRemove`, `DInfoCheck`, `DInfo` | `fd::delete_in` (880–899: `find` and `ids` per path) and `fd::delete_listed` (904–930): `id(p)` against the one listed, `remove(p)`, then `remove_info`. |
+| `EFile`, `ECheck`, `ERemove`, `EInfoCheck`, `EInfo`, `ESweepCheck`, `ESweepRm` | `fd::empty_in` (937–976): `list_in` with `ids` of each item, and the strays of `read_dir(files)` (`unlisted`: info file missing or empty) with their `id`, `delete_listed` on the list, then for each stray `unlisted` and the same `id` again before `remove`. `ESweepFiles`, `ESweepInfo` are the `sweep_all` variant only. |
 | `ODelete`, `ORestore`, `OInfo` | Not Coxswain: another program's delete for good, restore and Empty (`--outside`), taking no lock. |
 | `Make` | Not Coxswain: the user or any program saving a file at a free place. |
 | `Crash` | Not Coxswain: the process or machine dying between two system calls. |
