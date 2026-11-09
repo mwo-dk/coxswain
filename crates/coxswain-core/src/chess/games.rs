@@ -392,7 +392,17 @@ pub fn in_archive(path: &Path) -> bool {
 /// Whether the games of `path` can be read from inside its archive without a copy: a PGN family
 /// file by its name (also packed), and a DhtmlXQ game by its first bytes.
 pub fn streams(path: &Path) -> bool {
-    if !in_archive(path) || super::scid::is_scid(path) || super::cbh::is_cbh(path) || !crate::archive::streamable(path) {
+    streams_with(path, Limits::default().keep)
+}
+
+/// `streams`, a plain PGN over `keep` bytes being the one kept in the table (`Limits::keep`).
+fn streams_with(path: &Path, keep: u64) -> bool {
+    if !in_archive(path) || super::scid::is_scid(path) || super::cbh::is_cbh(path) {
+        return false;
+    }
+    // A locked 7z's large plain PGN is read as it unpacks once its password is given (`from_archive`).
+    let keeps = || pack(path) == Pack::None && kind(path) == super::Format::Pgn && crate::archive::entry_size(path).is_ok_and(|s| s > keep);
+    if !(crate::archive::streamable(path) || (keeps() && crate::archive::streamable_known(path))) {
         return false;
     }
     matches!(super::format(path), Some(super::Format::Pgn | super::Format::Pdn | super::Format::Pbn | super::Format::Kif | super::Format::Csa)) || is_dhtml(path)
@@ -813,7 +823,7 @@ impl Library {
     pub fn open_with(path: &Path, limits: Limits) -> io::Result<Library> {
         let inside = in_archive(path);
         let size = if inside { crate::archive::entry_size(path)? } else { std::fs::metadata(path)?.len() };
-        if inside && !streams(path) {
+        if inside && !streams_with(path, limits.keep) {
             return Err(io::Error::new(io::ErrorKind::Unsupported, path.display().to_string()));
         }
         let read = Arc::new(AtomicU64::new(0));
@@ -830,13 +840,14 @@ impl Library {
         let scid = if super::scid::is_scid(path) { Some(Arc::new(super::scid::Base::open(path)?)) } else { None };
         let cbh = super::cbh::is_cbh(path);
         let format = if scid.is_some() || cbh { super::Format::Pgn } else { kind(path) };
-        let (mut table, mut kept) = Table::open(path, &format!("{limits:?}"))?;
+        let extra = if streamed { format!("{limits:?} {GAMES_FORM}") } else { format!("{limits:?}") };
+        let (mut table, mut kept) = Table::open(path, &extra)?;
         // A table of a PGN out of an archive whose games' text is gone is read anew.
         if streamed && kept.is_some() && !table.dir().join(GAMES).exists() {
             let dir = table.dir().to_path_buf();
             drop(table);
             crate::spill::gone(&dir);
-            (table, kept) = Table::open(path, &format!("{limits:?}"))?;
+            (table, kept) = Table::open(path, &extra)?;
         }
         let table = Arc::new(table);
         let _held = (cbh && super::cbv::is_cbv(path)).then(|| super::cbv::hold(path));
@@ -1056,17 +1067,7 @@ impl Library {
             f.read_exact(&mut n)?;
             let mut raw = vec![];
             lzma_rust2::Lzma2Reader::new(f.take(u32::from_le_bytes(n) as u64), DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
-            let mut rest = &raw[..];
-            for k in 0.. {
-                let (head, tail) = rest.split_at_checked(4).ok_or_else(|| io::Error::from(io::ErrorKind::UnexpectedEof))?;
-                let size = u32::from_le_bytes(head.try_into().expect("4 bytes")) as usize;
-                let game = tail.get(..size).ok_or_else(|| io::Error::from(io::ErrorKind::UnexpectedEof))?;
-                if k == len {
-                    return Ok(text(game).into_owned());
-                }
-                rest = &tail[size..];
-            }
-            unreachable!()
+            return Ok(text(&game_in_block(&raw, len as usize).ok_or_else(|| io::Error::from(io::ErrorKind::UnexpectedEof))?).into_owned());
         }
         if let Some(pgn) = archived_pgn(&self.path) {
             return Ok(text(&Source { pack: pack(&pgn), path: pgn, open: None, points: None, entry: None }.read(offset, len)?).into_owned());
@@ -1097,29 +1098,160 @@ impl Library {
 
 /// The file in a table's folder with the text of the games read out of an archive, in blocks of
 /// about `BLOCK` bytes of text, each packed (LZMA2) on its own: a u32 of the packed size, then
-/// the packed games, each a u32 of its size and its bytes. A row's `offset` is its block's place
-/// and `len` its place in the block.
+/// the packed block. A block unpacked: a u32 of its games, two u32 for each (the size of its
+/// tags, the size of its moves, the top bit set when its move numbers are kept as they are), then
+/// all the tags, then all the moves (`numbers_out`). Tags next to tags and moves next to moves
+/// pack smaller. A row's `offset` is its block's place and `len` its place in the block.
 const GAMES: &str = "games";
+/// The form of `GAMES`, in the table's `extra`: a table kept in another form is not taken (nor
+/// removed: an older version still reads its own), and the file is read again into a new one.
+const GAMES_FORM: &str = "games 2";
 /// A block is closed once its text is this long (a game is never split).
 const BLOCK: usize = 256 << 10;
 /// The dictionary of a block's LZMA2: twice the block, so a block is one run.
 const DICT: u32 = 2 * BLOCK as u32;
 /// The most a block unpacks to: a game of `MAX_GAME` after less than `BLOCK`, and the sizes.
 const BLOCK_MAX: u64 = MAX_GAME as u64 + 2 * BLOCK as u64;
+/// A game's moves size, with this set: its move numbers kept as they are (`numbers_out`).
+const KEPT_NUMBERS: u32 = 1 << 31;
 
-/// The games of a block being made: their text, and their rows, handed on once the block is on
-/// the disk (a row is never shown before its text can be read).
+/// Where a game's tags end: after its leading lines that start with `[`, and the blank lines
+/// after them.
+fn tags_end(game: &[u8]) -> usize {
+    let mut at = 0;
+    let mut tags = true;
+    while at < game.len() {
+        let end = game[at..].iter().position(|&b| b == b'\n').map_or(game.len(), |p| at + p + 1);
+        let line = game[at..end].trim_ascii();
+        if line.is_empty() {
+            tags = false;
+        } else if !(tags && line[0] == b'[') {
+            break;
+        }
+        at = end;
+    }
+    at
+}
+
+/// A move number (`12.`) at `at` in `b`, not after a digit, without a leading zero and not
+/// followed by another `.`: its value and where it ends (after the `.`).
+fn number_at(b: &[u8], at: usize) -> Option<(u32, usize)> {
+    if (at > 0 && b[at - 1].is_ascii_digit()) || b.get(at) == Some(&b'0') {
+        return None;
+    }
+    let digits = b[at..].iter().take_while(|c| c.is_ascii_digit()).count();
+    let dot = at + digits;
+    if !(1..=6).contains(&digits) || b.get(dot) != Some(&b'.') || b.get(dot + 1) == Some(&b'.') {
+        return None;
+    }
+    Some((std::str::from_utf8(&b[at..dot]).ok()?.parse().ok()?, dot + 1))
+}
+
+/// The moves `b` with each move number that is one more than the one before it (any number met,
+/// `number_at`) written as one byte: 1 for `N. `, 2 for `N.` with no space after. Undone by
+/// `numbers_in`. False, and nothing written, when `b` has a byte 1 or 2 of its own.
+fn numbers_out(b: &[u8], out: &mut Vec<u8>) -> bool {
+    if b.iter().any(|&c| c == 1 || c == 2) {
+        return false;
+    }
+    let (mut last, mut at) = (0u32, 0);
+    while at < b.len() {
+        if let Some((n, end)) = number_at(b, at) {
+            let space = b.get(end) == Some(&b' ');
+            if n == last.wrapping_add(1) {
+                out.push(if space { 1 } else { 2 });
+                at = end + space as usize;
+            } else {
+                out.extend_from_slice(&b[at..end]);
+                at = end;
+            }
+            last = n;
+        } else {
+            out.push(b[at]);
+            at += 1;
+        }
+    }
+    true
+}
+
+/// The moves `numbers_out` wrote, as they were.
+fn numbers_in(b: &[u8], out: &mut Vec<u8>) {
+    let (mut last, mut at) = (0u32, 0);
+    while at < b.len() {
+        if b[at] == 1 || b[at] == 2 {
+            last = last.wrapping_add(1);
+            out.extend_from_slice(last.to_string().as_bytes());
+            out.extend_from_slice(if b[at] == 1 { b". " } else { b"." });
+            at += 1;
+        } else if let Some((n, end)) = number_at(b, at) {
+            out.extend_from_slice(&b[at..end]);
+            last = n;
+            at = end;
+        } else {
+            out.push(b[at]);
+            at += 1;
+        }
+    }
+}
+
+/// The text of the game at place `k` in an unpacked block; none when the block is cut short.
+fn game_in_block(raw: &[u8], k: usize) -> Option<Vec<u8>> {
+    let u32_at = |at: usize| raw.get(at..at + 4).map(|b| u32::from_le_bytes(b.try_into().expect("4 bytes")));
+    let count = u32_at(0)? as usize;
+    if k >= count {
+        return None;
+    }
+    let sizes = |i: usize| Some((u32_at(4 + 8 * i)? as usize, u32_at(8 + 8 * i)?));
+    // Checked: a damaged block on a 32-bit system must not wrap around.
+    let start = count.checked_mul(8)?.checked_add(4)?;
+    let (mut tags, mut moves) = (start, start);
+    for i in 0..count {
+        moves = moves.checked_add(sizes(i)?.0)?;
+    }
+    for i in 0..k {
+        let (t, m) = sizes(i)?;
+        tags = tags.checked_add(t)?;
+        moves = moves.checked_add((m & !KEPT_NUMBERS) as usize)?;
+    }
+    let (t, m) = sizes(k)?;
+    let mut game = raw.get(tags..tags.checked_add(t)?)?.to_vec();
+    let packed = raw.get(moves..moves.checked_add((m & !KEPT_NUMBERS) as usize)?)?;
+    if m & KEPT_NUMBERS != 0 {
+        game.extend_from_slice(packed);
+    } else {
+        numbers_in(packed, &mut game);
+    }
+    Some(game)
+}
+
+/// The games of a block being made: their sizes, tags and moves, and their rows, handed on once
+/// the block is on the disk (a row is never shown before its text can be read).
 struct Block {
     side: io::BufWriter<File>,
     at: u64,
-    raw: Vec<u8>,
+    sizes: Vec<u8>,
+    tags: Vec<u8>,
+    moves: Vec<u8>,
     heads: Vec<Head>,
 }
 
 impl Block {
+    /// What the block holds so far, unpacked.
+    fn len(&self) -> usize {
+        self.sizes.len() + self.tags.len() + self.moves.len()
+    }
+
     fn add(&mut self, h: &Head) {
-        self.raw.extend_from_slice(&(h.text.len() as u32).to_le_bytes());
-        self.raw.extend_from_slice(&h.text);
+        let (tags, moves) = h.text.split_at(tags_end(&h.text));
+        self.tags.extend_from_slice(tags);
+        let before = self.moves.len();
+        let mut size = if numbers_out(moves, &mut self.moves) { 0 } else { KEPT_NUMBERS };
+        if size != 0 {
+            self.moves.extend_from_slice(moves);
+        }
+        size |= (self.moves.len() - before) as u32;
+        self.sizes.extend_from_slice(&(tags.len() as u32).to_le_bytes());
+        self.sizes.extend_from_slice(&size.to_le_bytes());
         let place = self.heads.len() as u64;
         self.heads.push(Head { offset: self.at, len: place, tags: h.tags.clone(), plies: h.plies, sans: h.sans.clone(), text: vec![], format: h.format });
     }
@@ -1132,13 +1264,18 @@ impl Block {
         let mut options = lzma_rust2::Lzma2Options::with_preset(3);
         options.lzma_options.dict_size = DICT;
         let mut z = lzma_rust2::Lzma2Writer::new(Vec::new(), options);
-        z.write_all(&self.raw)?;
+        z.write_all(&(self.heads.len() as u32).to_le_bytes())?;
+        z.write_all(&self.sizes)?;
+        z.write_all(&self.tags)?;
+        z.write_all(&self.moves)?;
         let packed = z.finish().map_err(io::Error::other)?;
         self.side.write_all(&(packed.len() as u32).to_le_bytes())?;
         self.side.write_all(&packed)?;
         self.side.flush()?;
         self.at += 4 + packed.len() as u64;
-        self.raw.clear();
+        self.sizes.clear();
+        self.tags.clear();
+        self.moves.clear();
         let mut more = true;
         for h in self.heads.drain(..) {
             more = more && each(&h);
@@ -1152,12 +1289,12 @@ impl Block {
 /// the table keeps what it needs to show a game), and the game is handed on with its place
 /// there. `unpacked` bytes at most are read.
 fn from_archive(path: &Path, dir: &Path, stop: &AtomicBool, read: &Arc<AtomicU64>, unpacked: u64, each: &mut dyn FnMut(&Head) -> bool) -> io::Result<()> {
-    let mut block = Block { side: io::BufWriter::with_capacity(1 << 20, File::create(dir.join(GAMES))?), at: 0, raw: vec![], heads: vec![] };
+    let mut block = Block { side: io::BufWriter::with_capacity(1 << 20, File::create(dir.join(GAMES))?), at: 0, sizes: vec![], tags: vec![], moves: vec![], heads: vec![] };
     let mut failed = None;
-    let r = reader(path, read.clone(), unpacked)?.take(unpacked);
+    let r = BufReader::new(Counted { inner: crate::entry_file::EntryReader::open_known(path)?, read: read.clone() }).take(unpacked);
     scan(BufReader::with_capacity(1 << 16, r), stop, super::Format::Pgn, true, true, |h| {
         block.add(h);
-        if block.raw.len() < BLOCK {
+        if block.len() < BLOCK {
             return true;
         }
         match block.close(each) {
@@ -1793,6 +1930,52 @@ mod tests {
         (l, d)
     }
 
+    /// A large PGN in a locked 7z, read as it unpacks: the table stops with `LOCKED` until the
+    /// password is given, then the file is read again, whole.
+    #[test]
+    fn a_large_pgn_in_a_locked_7z_is_read_once_its_password_is_given() {
+        let d = tempdir::Dir::new();
+        std::fs::write(d.0.join("big.pgn"), TWO.repeat(50)).unwrap();
+        // Names locked too (the default of the writer), or only the contents.
+        let make = |name: &str, header: bool| {
+            let sz = d.0.join(name);
+            let mut w = sevenz_rust2::ArchiveWriter::create(&sz).unwrap();
+            w.set_encrypt_header(header);
+            w.set_content_methods(vec![sevenz_rust2::encoder_options::AesEncoderOptions::new(sevenz_rust2::Password::from("hunter2")).into(), sevenz_rust2::EncoderMethod::LZMA2.into()]);
+            w.push_archive_entry(sevenz_rust2::ArchiveEntry::from_path(d.0.join("big.pgn"), "big.pgn".into()), Some(File::open(d.0.join("big.pgn")).unwrap())).unwrap();
+            w.finish().unwrap();
+            sz
+        };
+        for sz in [make("hidden.7z", true), make("shown.7z", false)] {
+        let pgn = sz.join("big.pgn");
+        let wait = |l: &Library| {
+            let limit = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(60));
+            while !l.progress().done {
+                assert!(std::time::Instant::now() < limit, "games never read");
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        let limits = Limits { keep: 0, ..Limits::default() };
+        // Names visible or not, the read stops locked; whichever step reports it.
+        let locked = |r: io::Result<Library>| match r {
+            Err(e) => e.to_string().contains(crate::archive::LOCKED),
+            Ok(l) => {
+                wait(&l);
+                l.progress().error.is_some_and(|e| e.contains(crate::archive::LOCKED))
+            }
+        };
+        assert!(locked(Library::open_with(&pgn, limits)));
+        // A wrong password reads no table: the pass ends in the error, whole or not.
+        crate::archive::remember(&sz, "wrong");
+        assert!(locked(Library::open_with(&pgn, limits)));
+        crate::archive::remember(&sz, "hunter2");
+        let l = Library::open_with(&pgn, limits).unwrap();
+        wait(&l);
+        assert_eq!((l.progress().games, l.progress().error), (100, None));
+        crate::archive::forget(&sz);
+        }
+    }
+
     /// The games of a PGN file and of a DhtmlXQ game inside a zip are read as they are unpacked:
     /// the table, a game at a place before the last one read, no copy on the disk.
     #[test]
@@ -2032,6 +2215,82 @@ mod tests {
         let again = Library::open_with(&p, keep).unwrap();
         assert!(again.progress().kept && again.progress().games == 6000);
         assert!(again.text(1).unwrap().contains("[not a tag]"));
+        drop(again);
+        // A table kept in the form before (2.36.0's, without `GAMES_FORM` in its key) is not
+        // taken, so the file is read again, nor removed, as that version still reads it.
+        let root = crate::chess::table::folder().unwrap();
+        let source = std::path::absolute(&p).unwrap();
+        let ours = std::fs::read_dir(&root)
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .find(|d| std::fs::read(d.join("done")).ok().and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok()).is_some_and(|v| v["source"].as_str() == source.to_str()))
+            .unwrap();
+        let old = ours.with_file_name(format!("{}-old-0", ours.file_name().unwrap().to_string_lossy().split('-').next().unwrap()));
+        std::fs::create_dir(&old).unwrap();
+        for f in ["rows", "names.db", GAMES] {
+            std::fs::copy(ours.join(f), old.join(f)).unwrap();
+        }
+        let done = std::fs::read_to_string(ours.join("done")).unwrap().replace(&format!(" {GAMES_FORM}"), "");
+        std::fs::write(old.join("done"), done).unwrap();
+        std::fs::remove_dir_all(&ours).unwrap();
+        let anew = Library::open_with(&p, keep).unwrap();
+        assert!(!anew.progress().kept, "read again");
+        wait(&anew);
+        assert_eq!(anew.text(5999).unwrap(), TWO[TWO.find("[Event \"London").unwrap()..]);
+        assert!(old.join("done").exists(), "the older table stays");
+    }
+
+    /// A game's moves lose their move numbers in the table and get them back as they were, also
+    /// numbers out of turn, black's `1...`, numbers without a space, in comments and variations,
+    /// and moves with a byte the packing uses.
+    #[test]
+    fn move_numbers_come_back_as_they_were() {
+        let cases: &[&[u8]] = &[
+            b"1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 1-0\n",
+            b"1.e4 e5 2.Nf3 {12. a comment} 2... Nc6 (2... d6 3. d4) 3.Bb5 *\r\n",
+            b"5. e4 e5 6. Nf3 07. Bc4 11. a3 12.\n13. h3 1234567. x 999999. 1000000. 0",
+            b"",
+            b"1.",
+            b"1. e4 \x01 2. d4",
+            b"[not a tag] 1. e4\n\n",
+            b"1.2. 3.4.",
+            b"1. 1. 2.",
+            b"12.3.",
+            b"999999. 1000000. 1000001.",
+            b"1.\r\n2.\r\n",
+            b"\xff1. e4\xff",
+        ];
+        for &moves in cases {
+            let mut packed = vec![];
+            if numbers_out(moves, &mut packed) {
+                let mut back = vec![];
+                numbers_in(&packed, &mut back);
+                assert_eq!(back, moves, "{}", String::from_utf8_lossy(moves));
+            } else {
+                assert!(packed.is_empty() && moves.contains(&1));
+            }
+        }
+        let mut packed = vec![];
+        assert!(numbers_out(cases[0], &mut packed));
+        assert_eq!(packed, b"\x01e4 e5 \x01Nf3 Nc6 \x01Bb5 a6 1-0\n");
+        // Each game of a block back as it was, tags and moves.
+        let d = tempdir::Dir::new();
+        let mut block = Block { side: io::BufWriter::new(File::create(d.0.join(GAMES)).unwrap()), at: 0, sizes: vec![], tags: vec![], moves: vec![], heads: vec![] };
+        let texts: Vec<Vec<u8>> = TWO.split_inclusive("1-0\n").map(|g| g.as_bytes().to_vec()).chain(cases.iter().map(|c| c.to_vec())).collect();
+        for t in &texts {
+            block.add(&Head { offset: 0, len: 0, tags: Default::default(), plies: 0, sans: vec![], text: t.clone(), format: super::super::Format::Pgn });
+        }
+        assert!(block.close(&mut |_| true).unwrap());
+        drop(block);
+        let packed = std::fs::read(d.0.join(GAMES)).unwrap();
+        let mut raw = vec![];
+        lzma_rust2::Lzma2Reader::new(&packed[4..], DICT, None).read_to_end(&mut raw).unwrap();
+        for (k, t) in texts.iter().enumerate() {
+            assert_eq!(game_in_block(&raw, k).as_ref(), Some(t), "game {k}");
+        }
+        assert_eq!(game_in_block(&raw, texts.len()), None);
+        assert_eq!(game_in_block(&raw[..raw.len() - 1], texts.len() - 1), None, "a block cut short");
     }
 
     #[test]

@@ -4583,6 +4583,7 @@
  "viewer.keys_follow": "F sekti · E stoti ties klaidomis · & filtras",
  "viewer.following": "Sekama: naujos eilutės rodomos, kai tik įrašomos · F baigia",
  "viewer.not_following": "Nebesekama",
+ "viewer.archive_still": "Archyve esantis failas skaitant nesikeičia, todėl nėra ko sekti",
  "viewer.stopped_at_error": "Sekimas sustojo ties klaida {line} eilutėje",
  "viewer.level_all": "Visi lygiai",
  "viewer.level_warn": "Įspėjimai ir klaidos",

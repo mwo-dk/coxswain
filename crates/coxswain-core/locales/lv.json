@@ -4583,6 +4583,7 @@
  "viewer.keys_follow": "F sekot · E apstāties pie kļūdām · & filtrs",
  "viewer.following": "Seko: jaunas rindas parādās, tiklīdz tās ieraksta · F beidz",
  "viewer.not_following": "Vairs neseko",
+ "viewer.archive_still": "Arhīvā esošs fails lasīšanas laikā nemainās, tāpēc nav ko sekot",
  "viewer.stopped_at_error": "Sekošana apstājās pie kļūdas {line}. rindā",
  "viewer.level_all": "Visi līmeņi",
  "viewer.level_warn": "Brīdinājumi un kļūdas",
