@@ -39,7 +39,7 @@ static INSIDE: std::sync::Mutex<Option<(PathBuf, Stamp, std::sync::Arc<Vec<u8>>)
 /// from (`preview::file_facts`), from the same unpacking. `None` for a file on disk.
 pub fn inside_file(path: &Path) -> Option<std::sync::Arc<Vec<u8>>> {
     let (archive, _) = coxswain_core::archive::split(path).filter(|_| !path.exists())?;
-    inside(path, &archive).ok().flatten()
+    inside(path, &archive, true).ok().flatten()
 }
 
 /// The preview has left the files inside archives: the one kept unpacked goes.
@@ -49,8 +49,9 @@ pub fn inside_forget() {
 }
 
 /// The bytes of `path`, a file inside `archive`, from memory (`archive::head`): the kept ones
-/// while the archive has not changed. `None` when it is larger than `MAX_INSIDE`.
-fn inside(path: &Path, archive: &Path) -> std::io::Result<Option<std::sync::Arc<Vec<u8>>>> {
+/// while the archive has not changed. `None` when it is larger than `MAX_INSIDE`. `keep`: kept
+/// for the next request (a player's ranges); a comic's page or a grid's tile is not.
+fn inside(path: &Path, archive: &Path, keep: bool) -> std::io::Result<Option<std::sync::Arc<Vec<u8>>>> {
     let m = std::fs::metadata(archive)?;
     let stamp = (m.len(), m.modified().ok());
     let mut kept = INSIDE.lock().unwrap_or_else(|e| e.into_inner());
@@ -66,8 +67,31 @@ fn inside(path: &Path, archive: &Path) -> std::io::Result<Option<std::sync::Arc<
         return Ok(None);
     }
     let bytes = std::sync::Arc::new(bytes);
-    *kept = Some((path.to_path_buf(), stamp, bytes.clone()));
+    if keep {
+        *kept = Some((path.to_path_buf(), stamp, bytes.clone()));
+    }
     Ok(Some(bytes))
+}
+
+/// The side of a grid's tile, in pixels: what `GridView.svelte` draws, twice for a sharp screen.
+const THUMB_SIDE: u32 = 256;
+/// A picture the web view decodes itself (an AVIF, an SVG) is served as it is up to this size.
+const THUMB_AS_IS: usize = 8 << 20;
+
+/// A grid's tile of `path`, a picture inside `archive`: its type and bytes, a PNG of at most
+/// `THUMB_SIDE` made in memory (`pictures::thumbnail`), or a small picture the web view reads
+/// itself as it is (an SVG, an AVIF). `None` for one that is neither, or larger than `MAX_INSIDE`. One at a time:
+/// a grid asks for many at once, and each holds its picture in memory.
+fn thumb(path: &Path, archive: &Path) -> std::io::Result<Option<(String, Vec<u8>)>> {
+    static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+    let Some(bytes) = inside(path, archive, false)? else { return Ok(None) };
+    if let Some(png) = coxswain_core::pictures::thumbnail(&bytes, THUMB_SIDE) {
+        return Ok(Some(("image/png".into(), png)));
+    }
+    // Only what `image` cannot read: a picture it refused (too many pixels) is not handed on.
+    let mime = content_type(&bytes[..bytes.len().min(8192)], path);
+    Ok((["image/svg+xml", "image/avif"].contains(&mime.as_str()) && bytes.len() <= THUMB_AS_IS).then(|| (mime, bytes.to_vec())))
 }
 
 /// The type a file is served as, from its first bytes and its name. A document type that could
@@ -150,13 +174,23 @@ pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Respo
     let read = || -> std::io::Result<Response<Vec<u8>>> {
         // A file inside an archive (a picture in a zip): unpacked into memory, never copied to
         // the disk, served whole; one larger than `MAX_INSIDE` is not.
-        // Only the preview's picture asks so (`?inside`): a grid of thumbnails would unpack each.
-        let asked = req.uri().query().is_some_and(|q| q.split('&').any(|p| p == "inside"));
-        if asked
+        // Only the preview asks so (`?inside`); a grid's tiles ask for `?thumb`, above.
+        let has = |w: &str| req.uri().query().is_some_and(|q| q.split('&').any(|p| p == w));
+        // A grid's tile of a picture inside an archive (`?thumb`): a small PNG made in memory.
+        if has("thumb")
             && !path.exists()
             && let Some((archive, _)) = coxswain_core::archive::split(&path)
         {
-            let Some(bytes) = inside(&path, &archive)? else {
+            return Ok(thumb(&path, &archive)?.map_or_else(
+                || status(StatusCode::UNSUPPORTED_MEDIA_TYPE),
+                |(mime, body)| answer().header(header::CONTENT_TYPE, mime).header(header::CACHE_CONTROL, "private, max-age=600").header(header::X_CONTENT_TYPE_OPTIONS, "nosniff").header(header::CONTENT_SECURITY_POLICY, "sandbox").body(body).expect("a tile's answer"),
+            ));
+        }
+        if has("inside")
+            && !path.exists()
+            && let Some((archive, _)) = coxswain_core::archive::split(&path)
+        {
+            let Some(bytes) = inside(&path, &archive, !has("once"))? else {
                 return Ok(status(StatusCode::PAYLOAD_TOO_LARGE));
             };
             let len = bytes.len() as u64;
@@ -330,6 +364,34 @@ mod tests {
         let r = ask("inside&try=2");
         assert_eq!((r.status(), r.body().as_slice()), (StatusCode::OK, &b"\x89PNG\r\n\x1a\nnot much of a picture"[..]));
         coxswain_core::archive::forget(&zip);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A grid's tile of a picture inside a zip is a small PNG made in memory, and neither it nor
+    /// a comic's page (`once`) is kept unpacked; text is no tile.
+    #[test]
+    fn a_tile_of_a_picture_inside_an_archive() {
+        let dir = std::env::temp_dir().join(format!("coxswain-test-inside-thumb-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (pic, note, zip) = (dir.join("wide.ppm"), dir.join("note.txt"), dir.join("pics.zip"));
+        let mut png = b"P6\n600 300\n255\n".to_vec();
+        png.resize(png.len() + 600 * 300 * 3, 0x80);
+        std::fs::write(&pic, &png).unwrap();
+        std::fs::write(&note, "no picture").unwrap();
+        coxswain_core::archive::create(&zip, &[pic, note]).unwrap();
+        let none = |_: &Path| false;
+        let ask = |name: &str, q: &str| {
+            let mut r = get(&zip.join(name), None);
+            *r.uri_mut() = format!("{}?{q}", r.uri()).parse().unwrap();
+            respond(&r, none)
+        };
+        let r = ask("wide.ppm", "thumb");
+        assert_eq!((r.status(), r.headers()[header::CONTENT_TYPE].to_str().unwrap()), (StatusCode::OK, "image/png"));
+        assert!(r.body().len() < png.len() / 10 && r.body().starts_with(b"\x89PNG"), "a much smaller PNG");
+        assert_eq!(ask("note.txt", "thumb").status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
+        assert_eq!(ask("wide.ppm", "inside&once").body().as_slice(), png.as_slice());
+        let kept = INSIDE.lock().unwrap().as_ref().is_some_and(|(p, ..)| p.starts_with(&zip));
+        assert!(!kept, "neither is kept unpacked");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

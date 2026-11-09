@@ -91,7 +91,8 @@ Pictures of more than 64 million pixels, and files over 256 MB, say *too large t
 A `.cbz` is a zip of pictures. The preview shows its first page, *Page 1 of 24* above it with
 **‹** and **›**, and under it *Enter opens it like a folder: copy its pages out to the other
 panel.* The pages are its pictures in the order of their names (`2.jpg` before `10.jpg`), and
-each is copied out of the comic when it is shown. **Enter** opens it like any zip
+each is read out of the comic into memory when it is shown, with no copy on the disk (a page
+that cannot be read so, a locked one or one over 64 MB, is copied out as before). **Enter** opens it like any zip
 ([Archives as folders](../files/archives.md)): **F5** copies pages out, and pages copied in are
 added. A `.cbr` (RAR) opens like a disk image, with 7-Zip ([Disk images](../files/disk-images.md)).
 
