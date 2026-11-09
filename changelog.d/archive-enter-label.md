@@ -1,1 +1,0 @@
-| **The key line says what Enter does inside an archive too.** A plain tar there says *Enter: Open archive or container image* (Enter opens an image when it is one), and a `.bin` says *Enter: Open opening book, if it is one*; before, the tar said *Open archive* and the book nothing. | [What Enter and F3 do](commands/opening-files.md#what-enter-and-f3-do) |

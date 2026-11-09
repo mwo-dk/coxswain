@@ -322,3 +322,7 @@ an archive opened as a folder, git branches. Record them in the same sandbox wit
   `<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/<name>.png"><img src="../screenshots/<name>.gif" alt="…"></picture>`,
   with an alt text that says what happens.
 - The README carries two at most (Find and Ask); the rest go on their feature's docs page.
+
+## Workers
+
+Claude Code orchestrates. Mechanical steps may go to other workers: local models, OpenCode, Codex. They are routed by a private routing skill, which keeps the routing, the caps and the statistics outside this repository. `AGENTS.md` points every worker to this file, so all of them follow the same rules, the safety ones too (a fake home, stopping only their own processes). A worker's change is checked like any other: by its tests, then by a reviewer agent that did not write it (the strongest model for the risky areas above).
