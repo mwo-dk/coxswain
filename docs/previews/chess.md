@@ -554,7 +554,9 @@ open there, read like any other database ([Large databases](#large-databases)). 
 *Cancel*) leaves it. The copy is yours, not the cache's: it stays until you delete it, and
 the next time the same file opens there at once without asking. A folder of that name that
 holds other files of those names is never written over: the next one, `… (2)`, is taken. Each
-file is written under a passing name until it is whole. It needs room for the whole database
+file is written under a passing name until it is whole. A 7z or a packed tar is unpacked once
+for all the files, not once for each (a solid 7z unpacks from its start), and so is any copy
+of several files of one folder of such an archive to a folder on the disk. It needs room for the whole database
 beside the archive, and only an archive on the disk: one inside another archive is refused
 as before.
 
