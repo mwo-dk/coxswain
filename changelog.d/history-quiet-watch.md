@@ -1,0 +1,1 @@
+| **A copy out of the history to a slow disk is no longer stopped as timed out.** F5 on a commit's files stops git only when git itself has given nothing for two minutes; time spent writing to a slow or stalled destination no longer counts, and a copy that got everything is kept. | [Git panel](panels/git.md#why-is-there-no-git-line) |
