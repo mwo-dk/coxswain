@@ -1811,7 +1811,8 @@ mod tests {
 
     /// An item whose name is not UTF-8 (another program's put of a Latin-1 file) is listed,
     /// deleted for good and emptied by its name as it is (#900).
-    #[cfg(unix)]
+    // macOS refuses a file name that is not UTF-8; its bin is not this one anyway.
+    #[cfg(all(unix, not(target_os = "macos")))]
     #[test]
     fn bin_lists_and_empties_an_item_named_in_latin_1() {
         use std::os::unix::ffi::OsStrExt;
@@ -1844,7 +1845,8 @@ mod tests {
     }
 
     /// Restore under a free name keeps a name's bytes, and numbers it before its extension.
-    #[cfg(unix)]
+    // macOS refuses a file name that is not UTF-8; its bin is not this one anyway.
+    #[cfg(all(unix, not(target_os = "macos")))]
     #[test]
     fn bin_free_name_keeps_the_bytes() {
         use std::os::unix::ffi::OsStrExt;
