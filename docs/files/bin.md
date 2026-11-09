@@ -47,7 +47,9 @@ Give them keys under `[keys]` as `bin`, `bin_restore`, `bin_delete` and `bin_emp
 
 A folder in the bin opens with **Enter** like any folder; on the BSDs, illumos and Linux its `..` leads back to the bin (on Windows and macOS to the bin's own folder on disk). The
 newest deletion is at the top. Hidden files (a name starting with `.`) follow **Alt+.** as
-anywhere.
+anywhere. A name that is not UTF-8 (a file with a Latin-1 name, put in the bin by another
+program) is listed too, shown with `�` for the bytes it cannot show, and is deleted for good and
+emptied like any other.
 
 The sidebar's row and an open bin follow what goes in and out: on Linux, the BSDs and illumos
 the bin's folders are watched; on Windows and macOS the row is read again every 30 seconds
@@ -151,6 +153,9 @@ bin has no lock. So on the BSDs, illumos, Linux and Termux Coxswain looks at eac
 just before each removal: the file and its info file must still be the ones listed (the same inode
 and change time). One that another program took away meanwhile counts as done; another file put
 under its name meanwhile stays in the bin, listed, and the dialog names it *Not in the bin*.
+A restore checks once more after it has linked the file back at its place: when that turns out to
+be such another file, its link at the place is taken away again and it stays in the bin, named
+*Not in the bin* the same way.
 What is left is the instant between that last look and the removal itself, a few microseconds,
 and, for *Empty the bin*, the time it takes to list the bin before it looks at the first item
 (longer in a bin of thousands); no program can close these alone: emptying or deleting from the
