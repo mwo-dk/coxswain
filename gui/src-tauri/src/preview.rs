@@ -77,10 +77,11 @@ fn picture_in(previews: &Path, path: &Path, page: usize, side: u32) -> Res<Optio
     {
         let side = side.clamp(64, 4096);
         // A locked file's preview is shown from the cache only once its password is proved again
-        // (read to its checksum), so a picture once unlocked is not shown without it.
+        // (read to its checksum), so a picture once unlocked is not shown without it; a listing
+        // that cannot be read (a 7z with locked names) counts as locked.
         if !path.exists()
             && let Some((archive, inner)) = coxswain_core::archive::split(path)
-            && coxswain_core::archive::locked_at(&archive, &inner).unwrap_or(false)
+            && coxswain_core::archive::locked_at(&archive, &inner).unwrap_or(true)
         {
             coxswain_core::archive::head(path, 64).map_err(|e| e.to_string())?;
         }
