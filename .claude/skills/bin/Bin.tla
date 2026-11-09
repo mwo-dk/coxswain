@@ -157,7 +157,9 @@ PutFail(a) ==
    symlink_metadata(origin) says whether its place is taken: left in the bin as `taken`, or with
    free_name the first free name beside it (r_check); the file still the one found (r_id);
    move_new: hard_link(files/<n>, to), which fails when `to` exists by then or the item is gone
-   (r_link); files/<n> still the file now at `to` (r_unlink_check); remove_file(files/<n>)
+   (r_link); the file now at `to` the one found (its dev, ino: the link changes its change
+   time), else another program's put since, which stays in the bin, its link at `to` left
+   (#901), and files/<n> still the file now at `to` (r_unlink_check); remove_file(files/<n>)
    (r_unlink); either gone or another's by then: move_new says false and the info file stays,
    the other program's to remove; the info file still the one found (r_info_check);
    remove_file(info) (r_info). *)
@@ -198,10 +200,12 @@ RLink(a) ==
                  /\ UNCHANGED files
   /\ UNCHANGED <<info, iid, wanted>>
 
-\* fd::id(from) == fd::id(to): files/<n> is still the file just linked at `to`.
+\* fd::id(to) against the id found (#901), then fd::id(from) == fd::id(to): files/<n> is still
+\* the file just linked at `to`.
 RUnlinkCheck(a) ==
   /\ pc[a] = "r_unlink_check"
-  /\ IF files[loc[a].n] = origin[loc[a].to] THEN Go(a, "r_unlink", loc[a])
+  /\ IF origin[loc[a].to] # loc[a].c THEN Done(a) \* another's: left at `to` and in the bin
+     ELSE IF files[loc[a].n] = origin[loc[a].to] THEN Go(a, "r_unlink", loc[a])
      ELSE Done(a)                         \* another's now, or gone: left, and its info file
   /\ UNCHANGED <<origin, files, info, iid, wanted>>
 

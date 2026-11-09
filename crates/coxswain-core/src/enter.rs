@@ -76,12 +76,14 @@ pub fn enter(path: &Path, is_dir: bool, place: Place) -> Enter {
     }
 }
 
-/// What F3 does on the file at `path` in `place`.
+/// What F3 does on the file at `path` in `place`: games where the viewer table says the games
+/// board shows it (`viewers::detect` on the disk, its name inside an archive, or in the cloud).
 pub fn view(path: &Path, place: Place) -> View {
-    match enter(path, false, place) {
-        Enter::Games | Enter::Positions | Enter::Book => View::Games,
-        _ => View::Itself,
-    }
+    let kind = match place {
+        Place::Disk => crate::viewers::detect(path),
+        Place::Archive => crate::viewers::kind_of(&path.file_name().unwrap_or_default().to_string_lossy(), false),
+    };
+    if matches!(kind, "chess" | "go") { View::Games } else { View::Itself }
 }
 
 /// Inside an archive, a file whose name does not say whether it is games but whose bytes may: a
