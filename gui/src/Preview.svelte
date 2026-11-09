@@ -84,12 +84,14 @@
   /** `path` gets its copy after all. */
   const needsCopy = (path) => !copied.includes(path) && (copied = [...copied.slice(-50), path]);
   /** Reading `path` from memory failed: locked (the core answers 401, `LOCKED`), its password
-   *  is asked for here; anything else gets its copy. `status`: the answer, when known. */
-  async function failed(path, status) {
+   *  is asked for here; anything else gets its copy. `status`: the answer, when known. `media`:
+   *  a song or video served but not played (a codec the web view lacks) gets its copy too, whose
+   *  player then offers a frame or waveform. */
+  async function failed(path, status, media = false) {
     status ??= await fetch(convertFileSrc(path) + insideQuery(), { method: "HEAD" }).then((r) => r.status, () => 0);
     if (raw?.path !== path) return;
     if (status === 401) lockedAt = path;
-    else if (status !== 200) needsCopy(path);
+    else if (status !== 200 || media) needsCopy(path);
   }
   let peeked = $state({ from: "", to: "", error: "" });
   $effect(() => {
@@ -1121,11 +1123,11 @@
         <div class="media">
           <!-- svelte-ignore a11y_media_has_caption -->
           <!-- A codec the web view lacks: a frame of it instead, with MP4 offered (`media`). -->
-          <video src={src(e.path)} controls preload="metadata" poster={still?.path === e.path ? convertFileSrc(still.file) : undefined} onerror={() => (direct ? failed(e.path) : (sniffed = { path: e.path, kind: "video_other" }))}></video>
+          <video src={src(e.path)} controls preload="metadata" poster={still?.path === e.path ? convertFileSrc(still.file) : undefined} onerror={() => (direct ? failed(e.path, undefined, true) : (sniffed = { path: e.path, kind: "video_other" }))}></video>
         </div>
       {:else if kind === "audio"}
         {#if still?.path === e.path}<div class="media wave"><img src={convertFileSrc(still.file)} alt={t("media.waveform")} /></div>{/if}
-        <div class="media"><audio src={src(e.path)} controls preload="metadata" onerror={() => (direct ? failed(e.path) : (sniffed = { path: e.path, kind: "audio_other" }))}></audio></div>
+        <div class="media"><audio src={src(e.path)} controls preload="metadata" onerror={() => (direct ? failed(e.path, undefined, true) : (sniffed = { path: e.path, kind: "audio_other" }))}></audio></div>
       {:else if kind === "pdf"}
         <!-- Make PDF searchable: offered on every PDF, said why on one without text (a scan). -->
         {#if !direct}<p class="more">{#if scanned === e.path}{t("preview.scanned")} {/if}<button class="render" onclick={() => makeSearchable([e.path])}>{t("action.searchable_pdf")}</button> <kbd>{ui.cfg.actions.searchable_pdf?.[1] ?? ""}</kbd></p>{/if}
