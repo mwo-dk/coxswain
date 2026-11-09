@@ -179,44 +179,68 @@ pub(crate) fn staging_in(dir: &Path) {
     }
 }
 
-/// A folder as a line of a run's list: a JSON string, or where the name is not UTF-8 (possible
-/// on the BSDs, illumos and Linux, and Windows' unpaired surrogates) its raw bytes (unix) or
-/// UTF-16 units (Windows) as a JSON array, so the sweep finds the very folder.
+/// A folder as a line of a run's list (`path_json`), so the sweep finds the very folder.
 fn line_of(dir: &Path) -> String {
-    if let Some(s) = dir.to_str() {
-        return serde_json::to_string(s).unwrap_or_default();
-    }
-    #[cfg(unix)]
-    let raw: Vec<u16> = std::os::unix::ffi::OsStrExt::as_bytes(dir.as_os_str())
-        .iter()
-        .map(|&b| u16::from(b))
-        .collect();
-    #[cfg(windows)]
-    let raw: Vec<u16> = std::os::windows::ffi::OsStrExt::encode_wide(dir.as_os_str()).collect();
-    serde_json::to_string(&raw).unwrap_or_default()
+    serde_json::to_string(&path_json::value(dir)).unwrap_or_default()
 }
 
 /// `line_of` read back; `None` for a line it does not give.
 fn folder_of(line: &str) -> Option<PathBuf> {
-    match serde_json::from_str::<serde_json::Value>(line).ok()? {
-        serde_json::Value::String(s) => Some(PathBuf::from(s)),
-        serde_json::Value::Array(units) => {
-            let units: Vec<u16> = units
-                .iter()
-                .map(|u| u.as_u64().and_then(|u| u16::try_from(u).ok()))
-                .collect::<Option<_>>()?;
-            #[cfg(unix)]
-            let os = <std::ffi::OsString as std::os::unix::ffi::OsStringExt>::from_vec(
-                units
-                    .iter()
-                    .map(|&u| u8::try_from(u).ok())
-                    .collect::<Option<Vec<u8>>>()?,
-            );
-            #[cfg(windows)]
-            let os = <std::ffi::OsString as std::os::windows::ffi::OsStringExt>::from_wide(&units);
-            Some(PathBuf::from(os))
+    path_json::path(serde_json::from_str(line).ok()?)
+}
+
+/// A path in JSON, every path whole: a string, or where it is not UTF-8 (possible on the BSDs,
+/// illumos and Linux, and Windows' unpaired surrogates) its raw bytes (unix) or UTF-16 units
+/// (Windows) as an array. For `#[serde(with = "crate::spill::path_json")]` too.
+pub(crate) mod path_json {
+    use std::path::{Path, PathBuf};
+
+    pub(crate) fn value(p: &Path) -> serde_json::Value {
+        if let Some(s) = p.to_str() {
+            return s.into();
         }
-        _ => None,
+        #[cfg(unix)]
+        let raw: Vec<u16> = std::os::unix::ffi::OsStrExt::as_bytes(p.as_os_str())
+            .iter()
+            .map(|&b| u16::from(b))
+            .collect();
+        #[cfg(windows)]
+        let raw: Vec<u16> = std::os::windows::ffi::OsStrExt::encode_wide(p.as_os_str()).collect();
+        raw.into()
+    }
+
+    /// `value` read back; `None` for a value it does not give.
+    pub(crate) fn path(v: serde_json::Value) -> Option<PathBuf> {
+        match v {
+            serde_json::Value::String(s) => Some(PathBuf::from(s)),
+            serde_json::Value::Array(units) => {
+                let units: Vec<u16> = units
+                    .iter()
+                    .map(|u| u.as_u64().and_then(|u| u16::try_from(u).ok()))
+                    .collect::<Option<_>>()?;
+                #[cfg(unix)]
+                let os = <std::ffi::OsString as std::os::unix::ffi::OsStringExt>::from_vec(
+                    units
+                        .iter()
+                        .map(|&u| u8::try_from(u).ok())
+                        .collect::<Option<Vec<u8>>>()?,
+                );
+                #[cfg(windows)]
+                let os =
+                    <std::ffi::OsString as std::os::windows::ffi::OsStringExt>::from_wide(&units);
+                Some(PathBuf::from(os))
+            }
+            _ => None,
+        }
+    }
+
+    pub(crate) fn serialize<S: serde::Serializer>(p: &Path, s: S) -> Result<S::Ok, S::Error> {
+        serde::Serialize::serialize(&value(p), s)
+    }
+
+    pub(crate) fn deserialize<'de, D: serde::Deserializer<'de>>(d: D) -> Result<PathBuf, D::Error> {
+        let v = <serde_json::Value as serde::Deserialize>::deserialize(d)?;
+        path(v).ok_or_else(|| serde::de::Error::custom("not a path"))
     }
 }
 
@@ -395,6 +419,13 @@ pub fn alive(run: &str) -> Option<bool> {
     held(&staging_dir()?.join(run))
 }
 
+/// Whether the list of the run `run` is held, asked as another run would (`alive` answers this
+/// run's own without looking).
+#[cfg(test)]
+pub(crate) fn list_held(run: &str) -> Option<bool> {
+    held(&staging_dir()?.join(run))
+}
+
 /// Whether another holds the lock of the list at `list`; `None` when there is none. One got is
 /// let go at once, by `Held`, so no program started meanwhile keeps it (#802).
 fn held(list: &Path) -> Option<bool> {
@@ -519,6 +550,8 @@ pub fn sweep_ended() {
                 let _ = std::fs::remove_dir_all(&p);
             }
         }
+        // Files chosen in pick mode: the program that asked reads them after the run ends.
+        crate::archive::sweep(&cache.join(crate::pick::PICKED), DAY);
     }
     sweep_old_temp(&std::env::temp_dir());
     crate::replace::sweep();

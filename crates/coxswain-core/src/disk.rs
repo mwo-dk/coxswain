@@ -84,6 +84,8 @@ const OWN: &[(&str, &[&str], bool)] = &[
     ),
     // Chess analyses kept, and ChessBase archives unpacked to be read.
     ("chess", &["chess", "cbv"], true),
+    // Files chosen inside archives in pick mode, for the program that asked (`pick::on_disk`).
+    ("picked", &["picked"], false),
 ];
 
 /// What `--disk clear` takes besides the rows' ids.

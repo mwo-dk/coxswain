@@ -215,16 +215,20 @@ pub fn changes_files(a: Action) -> bool {
     )
 }
 
-/// A file inside an archive is unpacked to the cache, and that path is what is chosen; any other
-/// path is returned as it is. The cache folder is the picker's own, left for the caller to read.
+/// A file inside an archive is unpacked to the cache (`picked/<run>/<n>/`), and that path is what
+/// is chosen; any other path is returned as it is. Left for the caller to read: a run's copies go
+/// a day after it ended (`archive::run_folder`, and at each start), or by Disk use's *Clear*.
 pub fn on_disk(path: &Path) -> io::Result<PathBuf> {
     let Some((archive, inner)) = crate::archive::split(path).filter(|(_, i)| !i.is_empty()) else { return Ok(path.to_path_buf()) };
-    let base = crate::dirs::cache_dir().ok_or_else(|| io::Error::other("no cache folder"))?.join("picked");
-    let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
-    let dest = base.join(format!("{}-{stamp}", std::process::id()));
+    // A folder each, so two chosen files of the same name both stay.
+    static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let dest = crate::archive::run_folder(PICKED, false)?.join(N.fetch_add(1, std::sync::atomic::Ordering::Relaxed).to_string());
     std::fs::create_dir_all(&dest)?;
     crate::archive::copy_out(&archive, &inner, &dest, None, false)
 }
+
+/// The cache's folder of files chosen inside archives.
+pub(crate) const PICKED: &str = "picked";
 
 #[cfg(test)]
 mod tests {
@@ -333,5 +337,28 @@ mod tests {
         for a in [Open, Parent, Mark, MarkAll, View, Quit, Help, Menu, Refresh, SortName, TogglePreview, Search, CopyPath, ClipCopy] {
             assert!(!changes_files(a), "{a:?}");
         }
+    }
+
+    /// Two files of one name chosen inside an archive both come back, each in its own folder
+    /// under this run's in the cache's `picked/`, which Disk use lists and the start sweeps.
+    #[test]
+    fn files_in_archives_land_in_the_runs_picked_folder() {
+        let d = std::env::temp_dir().join(format!("coxswain-pick-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let zip = d.join("two.zip");
+        let mut z = zip::ZipWriter::new(std::fs::File::create(&zip).unwrap());
+        for (name, text) in [("a/x.txt", b"one"), ("b/x.txt", b"two")] {
+            z.start_file(name, zip::write::SimpleFileOptions::default()).unwrap();
+            z.write_all(text).unwrap();
+        }
+        z.finish().unwrap();
+        let (a, b) = (on_disk(&zip.join("a").join("x.txt")).unwrap(), on_disk(&zip.join("b").join("x.txt")).unwrap());
+        assert_eq!((std::fs::read(&a).unwrap(), std::fs::read(&b).unwrap()), (b"one".to_vec(), b"two".to_vec()));
+        let run = crate::helper::folder().unwrap().join(PICKED).join(crate::spill::run());
+        assert!(a.starts_with(&run) && b.starts_with(&run), "{a:?} {b:?}");
+        // A plain file is chosen as it is.
+        assert_eq!(on_disk(&zip).unwrap(), zip);
+        std::fs::remove_dir_all(&d).unwrap();
     }
 }
