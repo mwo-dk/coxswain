@@ -550,4 +550,4 @@ position changes, then stops, and the same while a game is analysed. Nothing run
 off and no game is being analysed.
 
 ---
-[← Previous: Game pieces in the terminal](game-pieces.md) · [Next: Go games →](go.md)
+[← Previous: Game pieces in the terminal](game-pieces.md) · [Next: Chess: position index and opening tree →](chess-positions.md)

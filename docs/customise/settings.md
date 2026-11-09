@@ -59,7 +59,7 @@ flowchart LR
    | `coxswain-gui --settings=<area>` | That area: `overview`, `search`, `previews`, `games`, `looks`, `behaviour`, `keys`, `privacy` |
    | `coxswain-gui --settings=<option>` | The option's area, with its group unfolded, scrolled to it and lit up for a moment: `search_meaning` (the *Meaning* group), `ask_model` (*Ask*), `language`, `search_cloud`, `check_updates` … (the names in [Settings and config.toml](#settings-and-configtoml)) |
    | `coxswain-gui --settings=models`, `--settings=disk`, `--settings=disk_yours` | *Built-in models* under Finding files, *Disk use* under Privacy and updates, unfolded; `disk_yours` scrolled to its *Your own files* |
-   | `coxswain-gui --settings=preview_tools`, `--settings=chess_engines` | *Preview tools* under Previews, *Chess engines* under Games |
+   | `coxswain-gui --settings=preview_tools`, `--settings=chess_engines`, `--settings=chess_positions` | *Preview tools* under Previews, *Chess engines* and *Position index* under Games |
    | Any other name, such as 1.x's `meaning`, `ask`, `news` or `cloud` | Overview |
 
    The terminal app opens its own Settings the same ways: [In the terminal app](#in-the-terminal-app).
@@ -223,7 +223,7 @@ it has. The chess options are in [Games](#games) since coxswain 2.35.0.
 
 ![The terminal app's Settings at Games, Classic blue: the headings Board, Chess engines and Game review in yellow, the known engines with (•) Stockfish and the others not installed, [ Test engine ], then how long the engine thinks; the cursor on Chess board, its explanation and [chess] board at the bottom](../screenshots/tui-settings-games.png)
 
-The [chess](../previews/chess.md) options, in both apps, in four groups. The board's colours
+The [chess](../previews/chess.md) options, in both apps, in five groups. The board's colours
 are Go's, draughts', xiangqi's and shogi's too; they have no options of their own yet. These
 were under *Previews* before coxswain 2.35.0; `--settings=chess_engines` and every option's
 name open them here now.
@@ -264,6 +264,13 @@ name open them here now.
 | Option | Does | Key |
 |---|---|---|
 | *Opening book* | A path to a Polyglot `.bin` book whose moves the chess board shows; empty: *The first book next to the game file* (`chess_book`, [Opening books](../previews/chess.md#opening-books)) | `[chess] book` |
+
+**Position index**
+
+| Option | Does | Key |
+|---|---|---|
+| *Position index for every games table* | Builds each games table's position index (the opening tree) in the background when it is opened (`chess_position_index`, [Chess: position index and opening tree](../previews/chess-positions.md#settings-and-configtoml)) | `[chess] position_index` |
+| *Position index depth* | *15 moves*, *30 moves* or *The whole game* (`chess_position_depth`) | `[chess] position_depth` |
 
 ## Looks
 

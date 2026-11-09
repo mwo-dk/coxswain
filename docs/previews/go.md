@@ -195,4 +195,4 @@ broken character shows as �, the rest as written.
 Not yet: Coxswain shows games but does not play.
 
 ---
-[← Previous: Chess: playing on and the engine](chess-play.md) · [Next: Draughts games →](draughts.md)
+[← Previous: Chess: position index and opening tree](chess-positions.md) · [Next: Draughts games →](draughts.md)

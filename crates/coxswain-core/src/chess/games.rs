@@ -729,6 +729,9 @@ pub struct Query {
     pub to: Option<u16>,
     /// Both players rated at least this.
     pub elo: Option<u16>,
+    /// Only the games that reach this position (a FEN), by the position index (`positions`);
+    /// empty for any.
+    pub position: String,
     pub sort: Sort,
     pub desc: bool,
 }
@@ -808,6 +811,8 @@ pub struct Library {
     _held: Option<super::cbv::Held>,
     /// The names' order (`Table::ranks`), with how many names there were then.
     ranks: Mutex<Option<(u32, Arc<Vec<u32>>)>>,
+    /// The last block of `GAMES` unpacked, by its place: games read in order unpack each once.
+    last_block: Mutex<Option<(u64, Arc<Vec<u8>>)>>,
 }
 
 impl Drop for Library {
@@ -871,7 +876,7 @@ impl Library {
         let games = games.map(Mutex::new);
         let table = Arc::new(table);
         let _held = (cbh && super::cbv::is_cbv(path)).then(|| super::cbv::hold(path));
-        let lib = |shared, size| Library { path: path.to_path_buf(), format, shared, games, table: table.clone(), read: read.clone(), size, stop: stop.clone(), source, scid: scid.clone(), archived: streamed, _held, ranks: Mutex::new(None) };
+        let lib = |shared, size| Library { path: path.to_path_buf(), format, shared, games, table: table.clone(), read: read.clone(), size, stop: stop.clone(), source, scid: scid.clone(), archived: streamed, _held, ranks: Mutex::new(None), last_block: Mutex::new(None) };
         if let Some(done) = kept {
             {
                 let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
@@ -979,8 +984,23 @@ impl Library {
         let openings = if opening.is_empty() { vec![] } else { self.table.matching(&opening) };
         let result = result_code(q.result.trim());
         let hit = |ids: &Vec<bool>, i: u32| ids.get(i as usize).copied().unwrap_or(false);
-        let pass = |r: &Rec| {
-            (player.is_empty() || hit(&players, r.white) || hit(&players, r.black))
+        // The games that reach the position: none of them without an index.
+        let within = (!q.position.trim().is_empty()).then(|| super::positions::games_at(self, q.position.trim()).unwrap_or_default());
+        // No index, or a stale one: no games, without reading the rows.
+        if within.as_ref().is_some_and(|w| w.is_empty()) {
+            return vec![];
+        }
+        if let Some(w) = &within
+            && q.sort == Sort::Number
+            && *q == (Query { position: q.position.clone(), ..all.clone() })
+        {
+            // Those games in the file's order: nothing else to read.
+            let ids = w.iter().copied().filter(|&i| i < count);
+            return if q.desc { ids.rev().collect() } else { ids.collect() };
+        }
+        let pass = |i: u32, r: &Rec| {
+            within.as_ref().is_none_or(|w| w.binary_search(&i).is_ok())
+                && (player.is_empty() || hit(&players, r.white) || hit(&players, r.black))
                 && (opening.is_empty() || hit(&openings, r.opening) || eco_text(r.eco).to_lowercase().starts_with(&opening))
                 && (q.result.trim().is_empty() || r.result == result)
                 && q.from.is_none_or(|y| r.date / 10000 >= y as u32)
@@ -1008,7 +1028,7 @@ impl Library {
         let mut ids: Vec<u32> = if q.sort == Sort::Number {
             let mut ids = vec![];
             let _ = self.table.each(count, |i, r| {
-                if pass(r) {
+                if pass(i, r) {
                     ids.push(i);
                 }
             });
@@ -1017,7 +1037,7 @@ impl Library {
             // The key above the game's number: sorted, equal keys stay in the file's order.
             let mut keyed: Vec<u64> = vec![];
             let _ = self.table.each(count, |i, r| {
-                if pass(r) {
+                if pass(i, r) {
                     keyed.push((key(r) as u64) << 32 | i as u64);
                 }
             });
@@ -1047,7 +1067,7 @@ impl Library {
         Some(line_of(&self.table, &self.rec(i)?))
     }
 
-    fn rec(&self, i: u32) -> Option<Rec> {
+    pub(crate) fn rec(&self, i: u32) -> Option<Rec> {
         self.table.get(i, self.count().0)
     }
 
@@ -1081,12 +1101,7 @@ impl Library {
         }
         if self.archived {
             // `offset`: the block, `len`: the game's place in it.
-            let mut f = self.games.as_ref().ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))?.lock().unwrap_or_else(|e| e.into_inner());
-            f.seek(SeekFrom::Start(offset))?;
-            let mut n = [0u8; 4];
-            f.read_exact(&mut n)?;
-            let mut raw = vec![];
-            lzma_rust2::Lzma2Reader::new((&mut *f).take(u32::from_le_bytes(n) as u64), DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
+            let raw = self.block(offset)?;
             return Ok(text(&game_in_block(&raw, len as usize).ok_or_else(|| io::Error::from(io::ErrorKind::UnexpectedEof))?).into_owned());
         }
         if let Some(pgn) = archived_pgn(&self.path) {
@@ -1955,6 +1970,44 @@ pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32,
         flush(&text(&h.text), &mut n, &mut rows);
         true
     })
+}
+
+/// What the position index (`positions`) reads of the table.
+impl Library {
+    /// The block of `GAMES` at `offset`, unpacked; the last one is kept.
+    fn block(&self, offset: u64) -> io::Result<Arc<Vec<u8>>> {
+        if let Some((at, raw)) = self.last_block.lock().unwrap_or_else(|e| e.into_inner()).as_ref()
+            && *at == offset
+        {
+            return Ok(raw.clone());
+        }
+        // The table's own handle on `GAMES`: a prune that removes the folder leaves it readable.
+        let mut f = self.games.as_ref().ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))?.lock().unwrap_or_else(|e| e.into_inner());
+        f.seek(SeekFrom::Start(offset))?;
+        let mut n = [0u8; 4];
+        f.read_exact(&mut n)?;
+        let mut raw = vec![];
+        lzma_rust2::Lzma2Reader::new((&mut *f).take(u32::from_le_bytes(n) as u64), DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
+        drop(f);
+        let raw = Arc::new(raw);
+        *self.last_block.lock().unwrap_or_else(|e| e.into_inner()) = Some((offset, raw.clone()));
+        Ok(raw)
+    }
+
+    /// The stamp of the database the table was read from (`table::stamp`).
+    pub(crate) fn stamp(&self) -> &str {
+        self.table.stamp()
+    }
+
+    /// The name `id` of the table; empty for none.
+    pub(crate) fn name(&self, id: u32) -> String {
+        self.table.name(id)
+    }
+
+    /// The first `count` rows, in order.
+    pub(crate) fn each_rec(&self, count: u32, each: impl FnMut(u32, &Rec)) -> io::Result<()> {
+        self.table.each(count, each)
+    }
 }
 
 #[cfg(test)]
