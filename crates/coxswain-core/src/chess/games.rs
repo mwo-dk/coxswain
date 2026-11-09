@@ -1772,6 +1772,11 @@ impl Library {
         Ok(raw)
     }
 
+    /// The stamp of the database the table was read from (`table::stamp`).
+    pub(crate) fn stamp(&self) -> &str {
+        self.table.stamp()
+    }
+
     /// The name `id` of the table; empty for none.
     pub(crate) fn name(&self, id: u32) -> String {
         self.table.name(id)

@@ -106,7 +106,10 @@ old one's depth, as soon as the table is open, whether or not *Position index fo
 table* is on. Until it is done, the tree is still shown from the old index, marked *out of date,
 built again in the background; its games open from the tree once that is done*: its numbers of
 games, the White · draw · Black per cent, the average Elo, the years and the best players are
-those of the database before it changed. Its games are not opened from it: *List them* is not
+those of the database before it changed. When the file changed other than by growing, the best
+players are not shown, nor the per cent, Elo and years of a position that fewer than 32 games
+reach: those are read from the games' rows, which now hold other games. Its games are not
+opened from it: *List them* is not
 there (**l** in the terminal app says why), and a games list cut to a position shows no games,
 since the old index's game numbers would now point at other games. When the new index is done,
 it takes the old one's place, the old one is removed, and *List them* is back. A PGN file that
@@ -118,7 +121,8 @@ the last old one again. Any other change reads every game again.
 An index takes about 9 bytes for each position of each game it reads, so about 0.5 KB a game at
 30 moves. It is kept in the cache folder's `positions/`, apart from the games tables. The games
 tables' limit of 4 GB does not count it, and nothing prunes it: it stays until you remove it,
-or until its database file is gone from a folder that is still there (a disk that is not plugged
+or until its database file is gone from a folder that is still there, which *Disk use* finds when
+it lists them (a disk that is not plugged
 in keeps its indexes; an empty folder where a network share or a disk is mounted does not).
 
 *Settings → Privacy and updates → Disk use* (`coxswain --disk`) has a row for each index,
@@ -199,7 +203,7 @@ castling rights and an en passant capture, not by the moves that led there.
 
 *Clear everything that can be built again* leaves it, since building it again takes minutes. Its
 own row in *Disk use* removes it, and so does *Remove* (**I** in the terminal app) in the games
-list. It also goes when its database file is gone.
+list. It also goes when its database file is gone, the next time *Disk use* lists the indexes.
 
 #### What happens when I add games to my PGN file?
 
