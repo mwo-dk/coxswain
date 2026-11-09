@@ -1,1 +1,0 @@
-| **The accent buttons under a preview read cleanly.** *Render*, *Settings…*, *Download* and the page buttons now use the app's own text size, and semibold in a dark theme like the other accent buttons, instead of small regular letters, where the dark text on the accent colour looked smeared. | [The preview pane](previews/README.md#what-the-pane-shows) |

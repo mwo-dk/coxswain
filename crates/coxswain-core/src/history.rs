@@ -157,8 +157,9 @@ pub(crate) fn records_within(mut c: Command, sep: u8, budget: Duration, mut f: i
     Ok(watch.join().unwrap_or(false) || cut)
 }
 
-/// Ends `child` (and what it started) when the `Ticking` reader of its output got nothing for
-/// `limit`, or once the sender is dropped; the thread says whether it was the limit.
+/// Ends `child` (and what it started) when the `Ticking` reader of its output has waited for
+/// `limit` without getting anything, or once the sender is dropped; the thread says whether it
+/// was the limit. Time spent elsewhere (writing what was read to a slow disk) is not silence.
 fn quiet_watch(
     mut child: std::process::Child,
     start: std::time::Instant,
@@ -175,8 +176,7 @@ fn quiet_watch(
                 }
                 return false;
             }
-            let quiet = start.elapsed().saturating_sub(Duration::from_millis(last.load(std::sync::atomic::Ordering::Relaxed)));
-            if quiet > limit {
+            if quiet(start.elapsed(), last.load(std::sync::atomic::Ordering::Relaxed)) > limit {
                 crate::tools::kill_tree(&mut child);
                 return true;
             }
@@ -185,7 +185,20 @@ fn quiet_watch(
     (done, watch)
 }
 
-/// A reader that notes when it last got something, in milliseconds from `start`.
+/// `Ticking::last` while no read is under way.
+const NOT_WAITING: u64 = u64::MAX;
+
+/// How long the reader has been waiting for the program at `now`, from its `last` note.
+fn quiet(now: Duration, last: u64) -> Duration {
+    if last == NOT_WAITING {
+        Duration::ZERO
+    } else {
+        now.saturating_sub(Duration::from_millis(last))
+    }
+}
+
+/// A reader that notes when its read under way began, in milliseconds from `start`, or
+/// `NOT_WAITING` between reads, so only the program's silence counts, never our own work.
 struct Ticking<R> {
     r: R,
     start: std::time::Instant,
@@ -194,9 +207,10 @@ struct Ticking<R> {
 
 impl<R: Read> Read for Ticking<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let n = self.r.read(buf)?;
         self.last.store(self.start.elapsed().as_millis() as u64, std::sync::atomic::Ordering::Relaxed);
-        Ok(n)
+        let n = self.r.read(buf);
+        self.last.store(NOT_WAITING, std::sync::atomic::Ordering::Relaxed);
+        n
     }
 }
 
@@ -955,7 +969,8 @@ pub(crate) fn git_write_tree(at: &At, rev: &str, to: &Path) -> io::Result<()> {
     drop(done);
     let late = watch.join().unwrap_or(false);
     let _ = feed.join();
-    if late {
+    // A copy that got everything is whole, even when the watch ended git just after.
+    if late && r.is_err() {
         return Err(io::Error::new(io::ErrorKind::TimedOut, "took too long"));
     }
     r
@@ -1565,6 +1580,28 @@ pub(crate) mod tests {
         let (_out, done, watch) = run(crate::test_limit(Duration::from_secs(60)));
         drop(done);
         assert!(!watch.join().unwrap(), "told to stop");
+    }
+
+    /// Only a read under way counts as the program's silence: between reads (while what was
+    /// read is written to a slow disk) the watch sees no silence, however long that takes.
+    #[test]
+    fn our_own_writing_is_not_silence() {
+        let last = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let load = |l: &Arc<std::sync::atomic::AtomicU64>| l.load(std::sync::atomic::Ordering::Relaxed);
+        let hour = Duration::from_secs(3600);
+        assert_eq!(quiet(hour, load(&last)), hour, "waiting from the start");
+        // The inner read sees the wait noted while it is under way.
+        struct Peek(Arc<std::sync::atomic::AtomicU64>);
+        impl Read for Peek {
+            fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+                assert_ne!(self.0.load(std::sync::atomic::Ordering::Relaxed), NOT_WAITING, "a read under way is waiting");
+                buf[0] = b'x';
+                Ok(1)
+            }
+        }
+        let mut t = Ticking { r: Peek(last.clone()), start: std::time::Instant::now(), last: last.clone() };
+        assert_eq!(t.read(&mut [0u8; 4]).unwrap(), 1);
+        assert_eq!(quiet(hour, load(&last)), Duration::ZERO, "an hour after the read, nothing is waiting");
     }
 
     /// A record longer than any line worth keeping (a diff line of a file without line

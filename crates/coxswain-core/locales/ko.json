@@ -4387,6 +4387,7 @@
  "viewer.keys_follow": "F 따라가기 · E 오류에서 멈춤 · & 필터",
  "viewer.following": "따라가는 중: 새 줄이 기록되는 대로 표시됩니다 · F로 멈춤",
  "viewer.not_following": "따라가기 중지됨",
+ "viewer.archive_still": "압축 파일 안의 파일은 읽는 동안 바뀌지 않으므로 따라갈 내용이 없습니다",
  "viewer.stopped_at_error": "{line}번째 줄의 오류에서 따라가기를 멈췄습니다",
  "viewer.level_all": "모든 수준",
  "viewer.level_warn": "경고와 오류",

@@ -4398,6 +4398,7 @@
  "viewer.keys_follow": "F 跟随 · E 遇错停止 · & 筛选",
  "viewer.following": "跟随中：新行一写入就显示 · F 停止",
  "viewer.not_following": "未跟随",
+ "viewer.archive_still": "压缩包内的文件在读取期间不会变化，所以没有可跟随的内容",
  "viewer.stopped_at_error": "在第 {line} 行遇到错误，已停止跟随",
  "viewer.level_all": "所有级别",
  "viewer.level_warn": "警告和错误",

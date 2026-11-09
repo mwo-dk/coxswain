@@ -11,7 +11,7 @@
   // is shown as text, never HTML.
   import { untrack } from "svelte";
   import { ui } from "./app.svelte.js";
-  import { invoke, basename, parent, keysToBoard, browseKey, chessFormat, viewEnd, size } from "./lib.js";
+  import { invoke, LOCKED, basename, parent, keysToBoard, browseKey, chessFormat, viewEnd, size } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
 
   let { path, full = false, onfail = () => {} } = $props();
@@ -188,6 +188,7 @@
       rows = r.rows;
       first = from;
       error = r.progress.error ?? "";
+      if (error.includes(LOCKED)) unlock(p);
       // A file of one game opens on its board, once it is read to its end (`enter`).
       if (lonePath !== p && r.progress.done) {
         lonePath = p;
@@ -202,6 +203,26 @@
     }
   }
   let lonePath = null;
+  // A large PGN in a locked archive is read as it unpacks and the table stops with the archive's
+  // error: the password is asked for as it is for a preview, then the file is read again.
+  async function unlock(p) {
+    if (full || ui.modal) return;
+    const again = await invoke("archive_has_password", { path: p });
+    if (ui.modal) return;
+    ui.modal = {
+      kind: "input",
+      feature: "archive_passwords",
+      secret: true,
+      title: t("archive.locked_title"),
+      label: t(again ? "archive.locked_again" : "archive.locked_label"),
+      value: "",
+      ok: t("verb.unlock"),
+      run: (password) =>
+        invoke("archive_password", { path: p, password })
+          .then(() => invoke("chess_close", { path: p }))
+          .then(() => fetchRows()),
+    };
+  }
 
   // The table, again when the filter changes, and twice a second while the file is read.
   $effect(() => {
