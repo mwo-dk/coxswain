@@ -356,6 +356,8 @@ impl Viewer {
             if chess::positions::outdated(lib) {
                 let path = lib.path.clone();
                 self.pos_index_asked = Some(Instant::now());
+                // A build from the old table would be out of date at once.
+                chess::positions::stop(&path);
                 if let Ok(l) = Library::open(&path) {
                     self.lib = Some(Arc::new(l));
                     self.counted = usize::MAX;
