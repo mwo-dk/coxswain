@@ -23,11 +23,14 @@ const base64 = (s) => {
 const escape = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 /** File bytes through the asset protocol; refuses files too big to preview. */
-export async function bytes(path, max = 25 * 1024 * 1024) {
+export async function bytes(path, max = 25 * 1024 * 1024, inside = false) {
+  // A file inside an archive comes from memory, as it is unpacked (`asset.rs`, at most 64 MB).
+  const url = convertFileSrc(path) + (inside ? "?inside" : "");
   // The size first, so a file too big is never read.
-  const head = await fetch(convertFileSrc(path), { method: "HEAD" });
+  const head = await fetch(url, { method: "HEAD" });
+  if (!head.ok) throw new Error(`${head.status} ${head.statusText}`);
   if (Number(head.headers.get("content-length")) > max) throw new Error(t("render.too_large"));
-  const r = await fetch(convertFileSrc(path));
+  const r = await fetch(url);
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   if (Number(r.headers.get("content-length")) > max) throw new Error(t("render.too_large"));
   return r.arrayBuffer();
@@ -145,16 +148,16 @@ export function highlightOff(src, lang) {
 // ------------------------------------------------------------ documents
 
 /** Word .docx as HTML (text, headings, lists, tables, embedded images). */
-export async function renderDocx(path) {
+export async function renderDocx(path, inside = false) {
   const { default: mammoth } = await import("mammoth");
-  const r = await mammoth.convertToHtml({ arrayBuffer: await bytes(path) });
+  const r = await mammoth.convertToHtml({ arrayBuffer: await bytes(path, undefined, inside) });
   return clean(r.value);
 }
 
 /** A workbook (xlsx, xls, ods, csv, tsv): sheet names, and rows per sheet on demand. */
-export async function readSheet(path) {
+export async function readSheet(path, inside = false) {
   const XLSX = await import("xlsx");
-  const wb = XLSX.read(await bytes(path), { type: "array", sheetRows: 201, dense: true });
+  const wb = XLSX.read(await bytes(path, undefined, inside), { type: "array", sheetRows: 201, dense: true });
   return {
     names: wb.SheetNames,
     rows: (name) => XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: "" }),
@@ -162,8 +165,8 @@ export async function readSheet(path) {
 }
 
 /** A Jupyter notebook: markdown cells, highlighted code, and text, image and HTML outputs. */
-export async function renderNotebook(path) {
-  const nb = JSON.parse(new TextDecoder().decode(await bytes(path)));
+export async function renderNotebook(path, inside = false) {
+  const nb = JSON.parse(new TextDecoder().decode(await bytes(path, undefined, inside)));
   const lang = nb.metadata?.kernelspec?.language ?? nb.metadata?.language_info?.name ?? "python";
   const join = (v) => (Array.isArray(v) ? v.join("") : (v ?? ""));
   const parts = [];
@@ -279,9 +282,9 @@ export async function renderGraphviz(src) {
 /** A PowerPoint deck's slides as HTML, drawn in the browser at once (layout, text, pictures,
  *  tables; not every font, effect or chart). LibreOffice, where there is one, follows with an
  *  exact rendering. */
-export async function renderPptx(path) {
+export async function renderPptx(path, inside = false) {
   const [{ pptxToHtml }, { default: JSZip }] = await Promise.all([import("@jvmr/pptx-to-html"), import("jszip")]);
-  const slides = await pptxToHtml(await mendPptx(JSZip, await bytes(path)), { width: 960, height: 540, scaleToFit: true, letterbox: false });
+  const slides = await pptxToHtml(await mendPptx(JSZip, await bytes(path, undefined, inside)), { width: 960, height: 540, scaleToFit: true, letterbox: false });
   return slides.map(clean);
 }
 
@@ -388,9 +391,9 @@ export async function renderAsciidoc(src) {
 }
 
 /** A Parquet file: its column schema, row count and the first 200 rows as a table. */
-export async function readParquet(path) {
+export async function readParquet(path, inside = false) {
   const [{ parquetMetadata, parquetReadObjects }, { compressors }] = await Promise.all([import("hyparquet"), import("hyparquet-compressors")]);
-  const file = await bytes(path, 500 * 1024 * 1024);
+  const file = await bytes(path, 500 * 1024 * 1024, inside);
   const meta = parquetMetadata(file);
   const objs = await parquetReadObjects({ file, rowEnd: 200, compressors });
   const cols = objs.length ? Object.keys(objs[0]) : meta.schema.slice(1).map((s) => s.name);

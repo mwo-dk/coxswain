@@ -42,9 +42,15 @@
   /** A PGN family file inside an archive: its games are read as it is unpacked
    *  (`chess::games::streams`, no copy); ChessBase, SCID, positions, books and Go come from a copy. */
   const chessInside = $derived(inside && !inHistory && /\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa)$/i.test(raw.name) && !copied.includes(raw.path));
+  /** Slide decks this page draws itself (`renderPptx`); other Office files go to LibreOffice. */
+  const DECKS = ["pptx", "pptm", "ppsx", "potx"];
+  const deck = (f) => previewKind(f) === "office" && DECKS.includes(ext(f));
   /** What the kind's viewer needs (`viewers::reads`): a stream or the whole file, read from
-   *  memory as the archive unpacks it, or else a copy. */
-  const direct = $derived(inside && !inHistory && (viewerReads(previewKind(raw)) === "stream" || (viewerReads(previewKind(raw)) === "whole" && raw.size <= MAX_WHOLE)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
+   *  memory as the archive unpacks it, or else a copy. A deck is read whole. */
+  const reads = (f) => (deck(f) ? "whole" : viewerReads(previewKind(f)));
+  /** The most of a file read whole: what its reader takes (`bytes`, 25 MB), else `MAX_WHOLE`. */
+  const most = (f) => (["docx", "sheet", "notebook"].includes(previewKind(f)) || deck(f) ? 25 * 1024 * 1024 : MAX_WHOLE);
+  const direct = $derived(inside && !inHistory && (reads(raw) === "stream" || (reads(raw) === "whole" && raw.size <= most(raw))) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
   /** `path` as the web view asks for it: from memory when it is read so. */
   const src = (path) => convertFileSrc(path) + (direct ? "?inside" : "");
   // Off the files read from memory: the last one unpacked (up to 64 MB) is let go.
@@ -248,9 +254,6 @@
           [truncated, binary] = [trunc, bin];
           return void (sniffed = { path: cur.path, kind: "office" });
         }
-        // Provenance and BOMs are read by readers that need a file: from a copy.
-        const special = !bin && /\.(json|jsonl|ndjson|xml)$/i.test(cur.name) && (looksLikeProvenance(s) || looksLikeBom(s));
-        if (unpacked && special) return void needsCopy(cur.path);
         // A DhtmlXQ xiangqi game (`chess::sniff`): on its board, unless the source is asked for.
         if (!bin && k === "text" && !src && looksLikeDhtml(cur.name, s)) {
           ui.book = cur.path;
@@ -316,23 +319,29 @@
     const was = untrack(() => rich);
     if (was?.face) document.fonts.delete(was.face);
     rich = null;
-    const deck = k === "office" && ["pptx", "pptm", "ppsx", "potx"].includes(ext(cur));
+    const deck = k === "office" && DECKS.includes(ext(cur));
+    // Inside an archive: from memory (`?inside`), else from a copy after all.
+    const unpacked = direct;
+    const read = (render) => render(cur.path, unpacked).catch((err) => {
+      if (unpacked) needsCopy(cur.path);
+      throw err;
+    });
     if (!["docx", "notebook", "sheet", "font", "parquet", "drawio"].includes(k) && !deck) return;
     const timer = setTimeout(async () => {
       let r;
       try {
-        if (k === "docx") r = { html: await renderDocx(cur.path) };
-        else if (k === "notebook") r = { html: await renderNotebook(cur.path) };
-        else if (k === "font") r = await loadFont(cur.path, direct).catch((err) => { if (direct) needsCopy(cur.path); throw err; });
-        else if (k === "parquet") r = { parquet: await readParquet(cur.path) };
-        else if (deck) r = { slides: await renderPptx(cur.path) };
+        if (k === "docx") r = { html: await read(renderDocx) };
+        else if (k === "notebook") r = { html: await read(renderNotebook) };
+        else if (k === "font") r = await read(loadFont);
+        else if (k === "parquet") r = { parquet: await read(readParquet) };
+        else if (deck) r = { slides: await read(renderPptx) };
         else if (k === "drawio") {
           // The file, or the diagram inside a .drawio.svg or .drawio.png (export::drawio_xml).
           const xml = await invoke("drawio_xml", { path: cur.path });
           r = xml ? { drawio: xml, pages: drawioPages(xml) } : { error: t("preview.drawio_none") };
         }
 
-        else r = { sheet: await readSheet(cur.path) };
+        else r = { sheet: await read(readSheet) };
       } catch (err) {
         r = { error: String(err?.message ?? err) };
       }
@@ -875,7 +884,7 @@
       {:else if diffing}
         {#if html}<pre class="mono code"><code class="hljs">{@html html}</code></pre>{/if}
       {:else if kind === "bom" && !source}
-        <BomView path={e.path} />
+        <BomView path={e.path} onfail={() => direct && needsCopy(raw.path)} />
       {:else if kind === "chess"}
         <ChessView path={e.path} onfail={() => inside && needsCopy(raw.path)} />
       {:else if kind === "netron"}
@@ -885,7 +894,7 @@
       {:else if kind === "go"}
         <GoView path={e.path} />
       {:else if kind === "provenance" && !source && !statement}
-        <ProvenanceView path={e.path} />
+        <ProvenanceView path={e.path} onfail={() => direct && needsCopy(raw.path)} />
       {:else if kind === "provenance" && !source}
         {#if tree !== undefined}<div class="tree">{@render node(null, tree, 0)}</div>{:else}<p class="more">{t("provenance.reading")}</p>{/if}
       {:else if kind === "bom" || kind === "provenance"}
