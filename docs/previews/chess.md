@@ -359,8 +359,10 @@ his or her games there, all of them ([A player in a game
 database](../search/ask.md#how-much-it-reads)).
 
 A store made before this release reads each game file over 4 MB once more, in the
-background, a minute at a time, to make its table: only those files, and nothing the store
-keeps of them is read or made again (their text and their vectors stay).
+background, to make its table: only those files, and nothing the store keeps of them is read or
+made again (their text and their vectors stay). It runs after the new files of a scan are read,
+and stops for the next scan after a minute, between files: a file it has begun is read to its
+end, however long that takes.
 
 ## ChessBase databases
 
