@@ -817,7 +817,11 @@ pub(crate) mod fd {
                     // unseen; closing it needs a link by handle (linkat AT_EMPTY_PATH), Linux only.
                     let inode = |i: Option<Id>| i.map(|i| (i.0, i.1));
                     if now.is_some() && inode(now) != inode(was) {
-                        let _ = fs::remove_file(to);
+                        // Its link here taken away again only while it is in the bin too: `to`
+                        // may hold a file saved since, after another program put this one back.
+                        if inode(id(from)) == inode(now) {
+                            let _ = fs::remove_file(to);
+                        }
                         return Err(io::Error::new(
                             io::ErrorKind::NotFound,
                             crate::t!("err.not_in_trash"),
