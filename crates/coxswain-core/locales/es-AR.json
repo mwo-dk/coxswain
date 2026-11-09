@@ -4219,6 +4219,8 @@
  "disk.work.cost": "nada; una ejecución que trabaja ahora conserva su carpeta",
  "disk.chess.what": "Análisis de ajedrez guardados, las tablas de partidas de los archivos de partidas abiertos y archivos de ChessBase descomprimidos para leerlos.",
  "disk.chess.cost": "una partida se vuelve a analizar, un archivo de partidas se vuelve a leer, un archivo comprimido se vuelve a descomprimir al abrirlo",
+ "disk.picked.what": "Archivos elegidos dentro de archivos comprimidos en el modo de selección (coxswain --pick), descomprimidos para el programa que los pidió; los de una ejecución se borran un día después de que termina.",
+ "disk.picked.cost": "un programa que recibió uno de estos archivos ya no puede leerlo",
  "feature.virus_scan.a1": "No. Analiza solo cuando apretás {scan_viruses}, en un contenedor sin red, con tus archivos de solo lectura. La única descarga es la base de datos de virus de ClamAV desde database.clamav.net, antes de un análisis cuando tiene más de un día.",
  "feature.virus_scan.a2": "Nada hasta que elijas: dejarlo, mandarlo a la papelera o moverlo a la carpeta de cuarentena (coxswain/quarantine en tu carpeta de datos), donde no se puede ejecutar. Nunca se borra nada por su cuenta.",
  "feature.virus_scan.a3": "Podman o docker, y Analizar en busca de virus con ClamAV activado en Configuración ({settings}) → Vistas previas. La imagen de ClamAV (unos 80 MB) se descarga en el primer análisis, después de que la pregunta previa lo haya avisado.",

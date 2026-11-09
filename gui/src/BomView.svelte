@@ -9,7 +9,8 @@
 
   const MARK = { added: "＋", worsened: "▲", improved: "▼" };
 
-  let { path, full = false } = $props();
+  /** `onfail`: told when the file cannot be read (inside an archive, the preview reads a copy). */
+  let { path, full = false, onfail = () => {} } = $props();
 
   let view = $state(null);
   let error = $state("");
@@ -49,7 +50,7 @@
         zoom = 0;
         if (selected >= v.rows.length) selected = 0;
       } catch (err) {
-        if (p === path) error = String(err);
+        if (p === path) (error = String(err)), onfail(String(err));
       }
     }, 60);
     return () => clearTimeout(timer);

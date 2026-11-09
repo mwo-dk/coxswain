@@ -54,6 +54,7 @@
  "disk.inside.cost": "rien; un assistant qui lit une archive en ce moment garde son dossier",
  "disk.log.cost": "la trace de ce que l’assistant a fait disparaît; il est vidé, pas supprimé",
  "disk.model.cost": "téléchargé à nouveau quand il le faut; celui qui est utilisé cède la place au choix recommandé",
+ "disk.picked.what": "Fichiers choisis dans des archives en mode sélection (coxswain --pick), décompressés pour le programme qui les a demandés; ceux d’une exécution sont supprimés un jour après sa fin.",
  "disk.quarantine.cost": "pas retirés ici : ce sont vos fichiers; supprimez-les dans un panneau quand vous êtes sûr, ou recopiez-en un",
  "disk.replace.cost": "les rechercher-remplacer des applications terminées ne peuvent plus être annulés; une application ouverte garde les siens",
  "disk.report.cloud": "Seulement dans le nuage",

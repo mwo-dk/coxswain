@@ -105,8 +105,16 @@ pub(crate) fn sniff_file(
         && head(&first)
 }
 
-/// The text of the file at `path`, or `Err` with its size when it is over `MAX_SIZE`.
+/// The text of the file at `path`, or `Err` with its size when it is over `MAX_SIZE`. A file
+/// inside an archive is read as it is unpacked, into memory: no copy on the disk.
 pub(crate) fn read_capped(path: &Path) -> std::io::Result<Result<String, u64>> {
+    if !path.exists() && crate::archive::split(path).is_some() {
+        let (bytes, more) = crate::archive::head(path, MAX_SIZE)?;
+        if more {
+            return Ok(Err(crate::archive::entry_size(path)?.max(MAX_SIZE + 1)));
+        }
+        return Ok(Ok(String::from_utf8_lossy(&bytes).into_owned()));
+    }
     let file = std::fs::File::open(path)?;
     let size = file.metadata()?.len();
     if size > MAX_SIZE {

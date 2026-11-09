@@ -4128,6 +4128,8 @@
  "disk.work.cost": "ingenting; ei køyring som arbeider no, held på mappa si",
  "disk.chess.what": "Lagra sjakkanalysar, partitabellane til opna partifiler og ChessBase-arkiv pakka ut for å lesast.",
  "disk.chess.cost": "eit parti blir analysert på nytt, ei partifil lesen på nytt, eit arkiv pakka ut på nytt når det blir opna",
+ "disk.picked.what": "Filer valde inne i arkiv i veljarmodus (coxswain --pick), pakka ut for programmet som bad om dei; filene til ei køyring vert fjerna ein dag etter at ho slutta.",
+ "disk.picked.cost": "eit program som fekk ei av desse filene, kan ikkje lenger lese ho",
  "feature.virus_scan.a1": "Nei. Han skannar berre når du trykkjer {scan_viruses}, i ein container utan nettverk, med filene dine skriveverna. Den einaste nedlastinga er virusdatabasen til ClamAV frå database.clamav.net, før ei skanning når han er meir enn ein dag gammal.",
  "feature.virus_scan.a2": "Ingenting før du vel: la ho vere, legg ho i papirkorga, eller flytt ho til karantenemappa (coxswain/quarantine i datamappa di), der ho ikkje kan køyrast. Ingenting blir nokon gong sletta av seg sjølv.",
  "feature.virus_scan.a3": "Podman eller docker, og Skann etter virus slått på i Innstillingar ({settings}) → Førehandsvisingar. Imaget til ClamAV (om lag 80 MB) blir henta ved første skanning, når spørsmålet før har sagt frå om det.",

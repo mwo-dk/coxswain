@@ -4219,6 +4219,8 @@
  "disk.work.cost": "nekas; palaišana, kas strādā tagad, patur savu mapi",
  "disk.chess.what": "Saglabātās šaha analīzes, atvērto partiju failu partiju tabulas un lasīšanai atpakotie ChessBase arhīvi.",
  "disk.chess.cost": "partija tiek analizēta no jauna, partiju fails nolasīts no jauna, arhīvs, to atverot, atpakots no jauna",
+ "disk.picked.what": "Izvēles režīmā (coxswain --pick) arhīvos izvēlētie faili, atarhivēti programmai, kas tos pieprasīja; vienas palaišanas faili tiek dzēsti dienu pēc tās beigām.",
+ "disk.picked.cost": "programma, kas saņēma kādu no šiem failiem, to vairs nevar nolasīt",
  "feature.virus_scan.a1": "Nē. Tas pārbauda tikai tad, kad nospiežat {scan_viruses}, konteinerā bez tīkla, un jūsu faili ir tikai lasāmi. Vienīgā lejupielāde ir ClamAV vīrusu datubāze no database.clamav.net, pirms pārbaudes, kad tā ir vecāka par dienu.",
  "feature.virus_scan.a2": "Nekas, kamēr neizvēlaties: atstāt, ielikt atkritnē vai pārvietot uz karantīnas mapi (coxswain/quarantine jūsu datu mapē), kur to nevar palaist. Nekas nekad netiek dzēsts pats no sevis.",
  "feature.virus_scan.a3": "Podman vai docker un ieslēgts Pārbaudīt, vai nav vīrusu sadaļā Iestatījumi ({settings}) → Priekšskatījumi. ClamAV attēls (apmēram 80 MB) tiek lejupielādēts pirmajā pārbaudē, kad iepriekšējais jautājums to ir paziņojis.",

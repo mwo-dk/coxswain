@@ -219,7 +219,8 @@ pub fn by_name(name: &str, is_dir: bool) -> &'static str {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Read {
-    /// Its bytes as the archive unpacks them: text and logs, paged.
+    /// Its bytes as the archive unpacks them, with no cap of the preview's own: text and logs,
+    /// paged; a BOM or provenance file, read by its reader up to that reader's cap.
     Stream,
     /// The whole file in memory, up to `MAX_WHOLE`: what the desktop app's web view draws itself.
     Whole,
@@ -234,8 +235,9 @@ pub const MAX_WHOLE: u64 = 64 * 1024 * 1024;
 /// does (`chess::games::streams`); the rest of their kind come from a copy.
 pub fn reads(kind: &str) -> Read {
     match kind {
-        "text" | "markdown" | "data" | "log" | "jsonl" => Read::Stream,
-        "image" | "pdf" | "audio" | "video" | "font" => Read::Whole,
+        "text" | "markdown" | "data" | "log" | "jsonl" | "bom" | "provenance" => Read::Stream,
+        // Documents, workbooks and notebooks: their page reader takes at most 25 MB (`renderers.js`).
+        "image" | "pdf" | "audio" | "video" | "font" | "docx" | "sheet" | "notebook" | "parquet" => Read::Whole,
         _ => Read::Copy,
     }
 }

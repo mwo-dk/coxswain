@@ -84,6 +84,8 @@ const OWN: &[(&str, &[&str], bool)] = &[
     ),
     // Chess analyses kept, and ChessBase archives unpacked to be read.
     ("chess", &["chess", "cbv"], true),
+    // Files chosen inside archives in pick mode, for the program that asked (`pick::on_disk`).
+    ("picked", &["picked"], false),
 ];
 
 /// What `--disk clear` takes besides the rows' ids.
@@ -119,10 +121,11 @@ pub fn items(cfg: &Config, loaded: &crate::models::Loaded, images: bool) -> Vec<
                 names
                     .iter()
                     .map(|n| cache.join(n))
-                    .filter(|p| p.exists() || p.ends_with(names[0]))
+                    .filter(|p| p.exists() || (p.ends_with(names[0]) && *id != "picked"))
                     .collect()
             };
-            if *id == "inside" && paths.is_empty() {
+            // Shown only when there are some.
+            if paths.is_empty() {
                 continue;
             }
             let name = match *id {

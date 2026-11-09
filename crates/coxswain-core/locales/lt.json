@@ -4219,6 +4219,8 @@
  "disk.work.cost": "nieko; dabar dirbantis paleidimas pasilieka savo aplanką",
  "disk.chess.what": "Išsaugotos šachmatų analizės, atvertų partijų failų partijų lentelės ir skaitymui išpakuoti ChessBase archyvai.",
  "disk.chess.cost": "partija analizuojama iš naujo, partijų failas perskaitomas iš naujo, archyvas atidarant išpakuojamas iš naujo",
+ "disk.picked.what": "Pasirinkimo režimu (coxswain --pick) archyvuose pasirinkti failai, išskleisti juos paprašiusiai programai; vieno paleidimo failai pašalinami praėjus dienai po jo pabaigos.",
+ "disk.picked.cost": "programa, gavusi vieną iš šių failų, nebegalės jo perskaityti",
  "feature.virus_scan.a1": "Ne. Tikrina tik kai paspaudžiate {scan_viruses}, konteineryje be tinklo, o jūsų failai tik skaitomi. Vienintelis atsisiuntimas yra ClamAV virusų duomenų bazė iš database.clamav.net, prieš tikrinimą, kai ji senesnė nei para.",
  "feature.virus_scan.a2": "Nieko, kol nepasirenkate: palikti, perkelti į šiukšlinę arba perkelti į karantino aplanką (coxswain/quarantine jūsų duomenų aplanke), kur jo negalima paleisti. Niekas niekada neištrinama savaime.",
  "feature.virus_scan.a3": "Podman ar docker ir įjungto Tikrinti dėl virusų skiltyje Parametrai ({settings}) → Peržiūros. ClamAV atvaizdas (apie 80 MB) atsisiunčiamas per pirmą tikrinimą, kai prieš tai užduotas klausimas tai pasakė.",

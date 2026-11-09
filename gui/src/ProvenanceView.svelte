@@ -8,7 +8,8 @@
   import { invoke, basename, parent, previewKind, size, date } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
 
-  let { path, full = false } = $props();
+  /** `onfail`: told when the file cannot be read (inside an archive, the preview reads a copy). */
+  let { path, full = false, onfail = () => {} } = $props();
 
   let view = $state(null);
   let error = $state("");
@@ -44,7 +45,7 @@
         view = v;
         if (at >= v.entries.length) at = 0;
       } catch (err) {
-        if (p === path) (error = String(err)), (view = null);
+        if (p === path) (error = String(err)), (view = null), onfail(String(err));
       }
     }, 60);
     return () => clearTimeout(timer);

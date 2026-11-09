@@ -47,6 +47,7 @@ system; this page is about the room they take and getting it back.
 | `peek/` | Files copied out of archives to be previewed or viewed, and archives inside archives you opened (`nested/`), and what compressed tars and container images hold and the places they can be unpacked from (`archive-index/`) | Copied again the next time | Yes |
 | `scratch/` (with `media/`, `geo/`, `ocr/`, `export/`, `clamscan/`, `drag/`, `provenance/`) | The work of conversions, searchable PDFs, virus scans, exports and drags, one folder per run | Nothing: only runs that ended are cleared, a run working now keeps its folder | Yes |
 | `chess/` (with `cbv/`) | Chess analyses kept (the newest 1000 games, and in `chess/positions/` the newest 3000 positions), the [games tables](../previews/chess.md#large-databases) of game files opened (52 bytes a game; 4 GB in all at most) and ChessBase archives unpacked to be read (up to 16 GB each) | A game is analysed again, a game file read again when opened, an archive unpacked again; an archive a running app has open stays | Yes |
+| `picked/` | Files chosen inside an archive in [pick mode](pick-mode.md#what-path-comes-back-for-a-file-inside-an-archive) (`coxswain --pick`), unpacked for the program that asked; shown when there are some, and a run's go a day after it ended | A program that was given one of these files can no longer read it | No |
 | `inside-…/` | Left-overs of the search helper reading files inside archives; shown only when there are some | Nothing. A folder a running helper is using now is kept | Yes |
 | `libreoffice-profile/` (and `libreoffice-index-profile/`) | LibreOffice's own profiles for previews and for reading old Office files | Made again the next time LibreOffice runs | Yes |
 | `clamav/` | ClamAV's virus database, for [Scan for viruses](../files/virus-scan.md); shown when there is one | Fetched again from database.clamav.net before the next virus scan | Yes |
@@ -180,7 +181,7 @@ Built again on their own: 12.9 MB, coxswain --disk clear rebuildable
 | Command | Does |
 |---|---|
 | `coxswain --disk clear store` | Empties the search store, through the helper when one runs: *search.db cleared: 284 KB freed.* |
-| `coxswain --disk clear index` (`previews`, `peek`, `inside`, `libreoffice`, `log`, `clamav`, `work`, `chess`) | Clears that row |
+| `coxswain --disk clear index` (`previews`, `peek`, `inside`, `libreoffice`, `log`, `clamav`, `work`, `chess`, `picked` when there are some) | Clears that row |
 | `coxswain --disk clear qwen3-4b-a06e946b` | A model, by the name in the first column; the same as `coxswain --models delete`, which asks *[y/N]* for the one in use |
 | `coxswain --disk clear tectonic`, `coxswain --disk clear images`, `coxswain --disk clear docker.io/pandoc/core:latest` | Prints *This goes:* with the exact path or image and its size, then asks *[y/N]* |
 | `coxswain --disk clear replace`, `coxswain --disk clear sync:.coxswain-sync-…` | Your own files: prints *This goes:* with the exact path and its size, then asks *[y/N]*. `quarantine` and `kicad-settings` are refused: delete those files yourself |

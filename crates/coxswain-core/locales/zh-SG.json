@@ -4048,6 +4048,8 @@
  "disk.work.cost": "没有代价；正在进行的运行会保留其文件夹",
  "disk.chess.what": "保存的国际象棋分析、已打开棋谱文件的对局表，以及为读取而解压的 ChessBase 存档。",
  "disk.chess.cost": "对局会重新分析，棋谱文件会重新读取，存档在打开时会重新解压",
+ "disk.picked.what": "在选择模式（coxswain --pick）中从压缩文件内选出的文件，为提出请求的程序解压；每次运行的文件在其结束一天后删除。",
+ "disk.picked.cost": "收到其中某个文件的程序将无法再读取它",
  "feature.virus_scan.a1": "不会。只有在你按 {scan_viruses} 时才扫描，在无网络的容器中进行，你的文件为只读。唯一的下载是来自 database.clamav.net 的 ClamAV 病毒库，在扫描前若已超过一天才会下载。",
  "feature.virus_scan.a2": "在你选择之前什么都不做：保留它、移到回收站，或移到隔离文件夹（你的数据目录中的 coxswain/quarantine），在那里无法运行。绝不会自动删除任何文件。",
  "feature.virus_scan.a3": "需要 Podman 或 docker，并在设置（{settings}）→“预览”中开启“用 ClamAV 扫描病毒”。第一次扫描时，会在先询问过后拉取 ClamAV 的镜像（约 80 MB）。",
