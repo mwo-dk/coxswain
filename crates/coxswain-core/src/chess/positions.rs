@@ -1252,6 +1252,8 @@ pub fn build(lib: Arc<Library>, depth: u32) {
     if !can(&lib) {
         return;
     }
+    // One there keeps its depth when built again; Settings' depth is for a new one.
+    let depth = opened(&lib.path).map_or(depth, |i| i.depth());
     let path = lib.path.clone();
     let lib_path = path.clone();
     REMOVED.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(HashMap::new).remove(&path);
