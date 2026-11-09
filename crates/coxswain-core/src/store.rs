@@ -642,9 +642,11 @@ impl Store {
         for id in away {
             look(pick(&format!("{PICK} AND f.id = ?3 LIMIT ?4"), id)?, &mut still)?;
         }
+        // `.away` first: stopped between the two, the pass starts again from the first file.
+        // (A new `tag` for `key` must clear these two, or it starts where this one ended.)
         if !still.is_empty() {
-            self.set_tag(&at, &i64::MAX.to_string())?;
-            return self.set_tag(&away_at, &still.iter().map(i64::to_string).collect::<Vec<_>>().join(" "));
+            self.set_tag(&away_at, &still.iter().map(i64::to_string).collect::<Vec<_>>().join(" "))?;
+            return self.set_tag(&at, &i64::MAX.to_string());
         }
         self.db.lock().unwrap().execute("DELETE FROM meta WHERE key IN (?1, ?2)", [&at, &away_at])?;
         self.set_tag(key, tag)

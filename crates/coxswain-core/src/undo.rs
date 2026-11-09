@@ -754,14 +754,16 @@ fn run_items(
     // Files of one folder of a 7z or a compressed tar: unpacked in one pass, not each from the
     // archive's start (a game database unpacked beside its archive).
     if op == Op::Copy
+        && cfs::writable(dst).is_ok()
         && let Some((archive, names)) = crate::archive::one_pass(items, dst)
     {
         at(0);
-        let r = crate::archive::copy_out_files(&archive, &names, dst, password);
+        let (wrote, r) = crate::archive::copy_out_files(&archive, &names, dst, password);
         let mut done = 0;
         for p in items {
             let to = cfs::target(p, dst);
-            if fs::symlink_metadata(&to).is_ok() {
+            // What the pass wrote, never a file that came meanwhile.
+            if wrote.contains(&to) {
                 rec.done(p, &to);
                 done += 1;
             } else if let Err(e) = &r {
