@@ -250,11 +250,13 @@
   let treeSeq = 0;
   const indexReady = $derived(index?.ready);
   const indexGames = $derived(index?.games);
+  const indexStale = $derived(index?.stale);
   $effect(() => {
     const f = fen;
     const p = path;
     void indexReady;
     void indexGames;
+    void indexStale;
     const s = ++treeSeq;
     if (!treeOn || !f || draughts || shogi || bridge) return void (tree = null);
     invoke("chess_tree", { path: p, fen: f }).then(
@@ -1080,7 +1082,7 @@
         {/if}
         {#if treeOn}
           {#if tree}
-            <p class="meta">{t("chess.tree_title", { n: tree.games })}{#if tree.stale} · {t("chess.index_stale")}{/if}{#if tree.games} <button title={t("chess.tree_games_tip")} onclick={gamesHere}>{t("chess.tree_games")}</button>{/if}</p>
+            <p class="meta">{t("chess.tree_title", { n: tree.games })}{#if tree.stale} · {t("chess.index_stale")}{/if}{#if tree.games && tree.opens} <button title={t("chess.tree_games_tip")} onclick={gamesHere}>{t("chess.tree_games")}</button>{/if}</p>
             {#if !tree.moves.length}<p class="meta">{tree.games && tree.depth ? t("chess.tree_past", { depth: depthName(tree.depth) }) : t("chess.tree_no_moves")}</p>
             {:else}
               <table class="book tree">
