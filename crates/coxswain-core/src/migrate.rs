@@ -88,15 +88,15 @@ pub const SWITCHES: &[(Option<&str>, &str, &str)] = &[(None, "bom_viewer", "bom"
 /// module in `[modules] off` (kept there if it is already). `true`, the default, just goes:
 /// every module is on unless turned off.
 fn switches(doc: &mut DocumentMut, said: &mut Vec<String>) {
+    // Put above the first table once all are moved, `[modules]` too when it is the only one.
+    let mut notes = String::new();
     for &(table, key, module) in SWITCHES {
         let t = match table {
             None => Some(doc.as_table_mut() as &mut dyn TableLike),
             Some(t) => doc.get_mut(t).and_then(Item::as_table_like_mut),
         };
         let Some(old) = t.and_then(|t| take(t, key, table.is_none())) else { continue };
-        if let Some(note) = old.1 {
-            keep_note(doc, note);
-        }
+        notes.push_str(old.1.as_deref().unwrap_or(""));
         // A `[preview]` with nothing left in it is not written as an empty header.
         if let Some(t) = table.and_then(|t| doc.get_mut(t)).and_then(Item::as_table_mut).filter(|t| t.iter().all(|(_, i)| !i.is_value())) {
             t.set_implicit(true);
@@ -110,6 +110,9 @@ fn switches(doc: &mut DocumentMut, said: &mut Vec<String>) {
             // `[modules] off` is there but no list: said, for the user to do.
             said.push(format!("{name} = false (add \"{module}\" to [modules] off yourself)"));
         }
+    }
+    if !notes.is_empty() {
+        keep_note(doc, notes);
     }
 }
 
@@ -263,6 +266,9 @@ max_results = 500
         assert_eq!(rewrite("[preview]\ntimeout = 60\n").unwrap(), None);
         let (new, _) = rewrite("provenance_viewer = false\n[modules]\noff = [\"games\", \"provenance\"]\n").unwrap().unwrap();
         assert_eq!(crate::config::Config::parse(&new).unwrap().modules.off, ["games", "provenance"]);
+        // A heading over the only key of a file with no table: kept above the new [modules].
+        let (new, _) = rewrite("# mine\nbom_viewer = false\n").unwrap().unwrap();
+        assert!(new.starts_with("# mine\n"), "{new}");
         // [modules] off of another type: nothing lost without a word.
         let (new, said) = rewrite("bom_viewer = false\n[modules]\noff = \"games\"\n").unwrap().unwrap();
         assert_eq!(said, ["bom_viewer = false (add \"bom\" to [modules] off yourself)"], "{new}");
