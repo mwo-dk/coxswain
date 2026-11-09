@@ -11,7 +11,7 @@ on a move plays it and the tree follows; **List them** cuts the games list to th
 the position. Both apps have it. It is off until you ask for it: building an index reads every
 game once and takes room on the disk.
 
-<!-- screenshot: gui-chess-tree.png: the desktop app (Cyber) on a game of a database with a position index, Tree on, the opening tree of the position after 1.e4 c5 2.Nf3 with Black's replies, games, the White · draw · Black bars, average Elo, years and best players -->
+![The desktop app's game view on a club database with a position index, Tree on: after 1.e4 c5 2.Nf3, 1733 games reach the position, and Black's replies d6, e6 and Nc6 each show their games, a White · draw · Black bar with per cents, the average Elo, the years 1996–2025 and the best-rated player, with List them above](../screenshots/gui-chess-tree.png)
 
 <!-- screenshot: tui-chess-tree.png: the terminal app (Classic blue) on a game of a database with a position index, t pressed, the opening tree of the position after 1.e4 c5 2.Nf3 in place of the moves, a move chosen, with the tree's keys -->
 
