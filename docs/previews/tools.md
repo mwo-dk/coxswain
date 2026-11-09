@@ -12,7 +12,7 @@ kept in a cache, so each file is made once.
 ![Three previews: a PlantUML sequence diagram under the engine buttons "plantuml" (chosen) and "container" (greyed), a Graphviz graph and an AsciiDoc guide](../screenshots/gui-previews-tools.png)
 *The engine buttons at the top of a tool preview: here the installed `plantuml` is used; the container is greyed, as there is no podman or docker to run it.*
 
-![Settings, Previews, Preview tools: a row per kind of file, LaTeX, Typst, Office documents and the others, each with what is installed and its version, its container image with its size and Pull and Remove, Used now, the choice Default, Installed program, Container or Off, and Try](../screenshots/previews-tools-settings.png)
+![Settings, Previews, Preview tools: a row per kind of file, LaTeX, Typst, Office documents and the others, each with what is installed and its version, its container image with its size (Not pulled here, with no podman or docker), Used now, the choice Default, Installed program, Container or Off, and Try](../screenshots/previews-tools-settings.png)
 *Settings → Previews → Preview tools: which program makes each kind of preview, and the choice per kind.*
 
 ## Contents

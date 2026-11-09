@@ -146,7 +146,7 @@ the exact path or image name before the second click.
 *Disk use*: each row shows its name, size and what clearing costs; the bottom says what it holds,
 what clearing costs and its path, and the key line *Enter: show in panel · Delete: clear*.
 
-![The terminal app's Settings at Privacy and updates: Disk use with search.db, index.bin (under the cursor), previews/, peek/, libreoffice-profile/, helper.log, clamav/, scratch/, chess/, then the built-in models multilingual-e5-small, Qwen3 1.7B and two of Qwen3 14B, the rows Clear everything that can be built again and Also the built-in models not in use (8.8 GB), then Your own files, kept aside by Coxswain with quarantine/](../screenshots/tui-settings-disk.png)
+![The terminal app's Settings at Privacy and updates: Disk use with search.db, index.bin (under the cursor), previews/, peek/, libreoffice-profile/, helper.log, clamav/, scratch/, chess/, then the built-in models Qwen3 14B, multilingual-e5-small, Qwen3 1.7B and an older Qwen3 14B, the rows Clear everything that can be built again (2.5 MB), Also the built-in models not in use (8.9 GB) and Also what Coxswain caused outside its folder (5.1 MB), then Outside Coxswain's folder, caused by it with Tectonic and Typst](../screenshots/tui-settings-disk.png)
 
 | Key | Does |
 |---|---|
