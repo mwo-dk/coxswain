@@ -604,13 +604,18 @@ the line above the table says how far the reading is. A solid 7z cannot be unpac
 middle, so the table also keeps the text of each game, packed, in its folder in the cache
 (`chess/tables/`): under a quarter of the PGN file's size, as games are packed in blocks of 256 KB (LZMA2),
 the tags of a block's games next to each other, then their moves without the move numbers
-(written back as they were when a game opens) (Lumbra's Gigabase: 12 GB of PGN, 2.8 GB in the cache with the table). Opening a game reads it from there,
+(written back as they were when a game opens) (Lumbra's Gigabase: 12 GB of PGN, 2.7 GB in the cache with the table).
+The blocks are packed hard (LZMA2 preset 6, tuned for text), which makes them about a tenth
+smaller than a quicker packing would, at six times the work; so each block is packed on a thread
+of its own, as many at once as the machine has cores (up to eight). The packed file is the same on
+every machine, whatever its number of cores. Opening a game reads it from there,
 in about 2 ms. Opened again with the archive unchanged, the table is taken as it is and
 the archive is not read. Past 4 GB of tables in all the oldest go first, so a table as large as this one stays
 only while it is the newest one (a table on screen keeps opening its games until its window closes, even when another window or app removes its folder meanwhile); saving a line from the game into the archive changes the archive,
 and the table is then read again. **Measured** (Lumbra's Gigabase, a 2.5 GB 7z of one 12 GB PGN file, on a desktop with an SSD):
-12,294,960 games, the first rows after 0.5 s, all read in 9 minutes (packing the games sets the
-pace), 73 MB of memory at most, opened again in 10 ms.
+12,294,960 games, the first rows after 0.7 s, all read in 7 minutes on eight cores and 12 on four
+(packing the games sets the pace; with two cores it takes about two and a half times as long as
+on four), 134 MB of memory at most, opened again in 10 ms.
 
 A PGN file in a **locked 7z** asks for the password first, the box the other locked archives
 use ([Archive passwords](../files/archive-passwords.md)): **Enter** (or **F3**) on it, or the
@@ -645,6 +650,15 @@ game's text, packed, in the cache (under a quarter of the PGN file's size), beca
 give a game from its middle. See [A large PGN file in an archive](#a-large-pgn-file-in-an-archive).
 Close the games window and the reading stops; the table is kept for 30 days (while it is the newest, if it is over 4 GB), **Clear** on the
 *chess/* row of Disk use removes it.
+
+#### Why does reading a huge PGN in an archive take longer on a two-core machine?
+
+Its games' text is packed hard, so it takes a tenth less room in the cache, and that packing is
+six times the work of a quicker one. With four cores or more the work is shared and the reading is
+faster than with the quicker packing; with two it is about 2.3 times slower. It happens once, the
+first time the file is read, in the background: you can filter and open games while it runs. The
+packed file is the same on every machine, so a table is never made again because the machine
+changed, and a table already kept, packed the quicker way, is taken as it is and not read again.
 
 #### Can it open a database of millions of games?
 
