@@ -172,7 +172,7 @@ Every line, level and option, with what it shows, its key and its default:
 
 ## Previews
 
-![The desktop app's Settings at Previews, in the Cyber theme: Previews outlined among the areas on the left, then the group General with How previews are made, Timeout (seconds) 120 and Previews made so far with Clear, the group Documents with Build LaTeX by itself ticked, E-books with calibre and Export draw.io diagrams with their cost badges, and the start of Container images](../screenshots/settings-previews.png)
+![The desktop app's Settings at Previews, in the Cyber theme: Previews outlined among the areas on the left, Modules below it, then the group General with How previews are made, Timeout (seconds) 120 and Previews made so far with Clear, the group Documents with Build LaTeX by itself ticked and Export draw.io diagrams with their cost badges, then Container images with Container runtime podman, else docker and the LaTeX image](../screenshots/settings-previews.png)
 
 ![The desktop app's Settings at Previews, in the Cyber theme, scrolled to Preview tools: the line Neither podman nor docker is installed, then the LaTeX row with Installed: tectonic, Container: docker.io/texlive/texlive:latest, Not pulled (2.8 GB), Used now: tectonic, the choice Default and Try; under it the Typst row with Installed: none, the Install it: line with Copy, Not pulled (29 MB); then Office documents, PostScript and XPS, and Diagrams](../screenshots/previews-tools-settings.png)
 
@@ -340,7 +340,7 @@ active pane, made first when it is not there yet ([Scripts](../commands/scripts.
 
 ## Privacy and updates
 
-![Settings at Privacy and updates: Check for a new version, What can leave this machine, History from servers with file:///home/demo/repos/balloon and its Forget link, the closed heading Disk use with its total, Where things are kept with a Show in panel link for each path, Open config.toml and the version](../screenshots/settings-privacy.png)
+![Settings at Privacy and updates: Check for a new version, What can leave this machine, History from servers with None yet: opening a Subversion or CVS history asks first, the closed heading Disk use with its total, Where things are kept with a Show in panel link for each path, Open config.toml and the version](../screenshots/settings-privacy.png)
 
 | Part | Does | Key |
 |---|---|---|

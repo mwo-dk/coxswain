@@ -306,6 +306,15 @@ scene("panels-quick-search.png", args=["/home/demo/projects/rocket", "/home/demo
 scene("tui-clouds.png", args=["/home/demo", "/home/demo/projects"], keys=START + ["M-F1"])
 scene("tui-config-mistakes.png", args=["/home/demo", "/home/demo"], keys=["wait:1"], guide=False,
       config='# Coxswain\ntheme = 3\n# 7 lines\ncheck_updates = false\n\n[search]\nmax_results = "many"\n')
+# Settings at an area or option (`--settings=`), the guide not shown.
+def at(section):
+    return ["--settings=" + section] + RIGHT
+scene("tui-settings.png", args=at("search"), size=(80, 24), guide=False, keys=["wait:2", "Down*5"])
+scene("tui-settings-find.png", args=at("search"), size=(80, 24), guide=False, keys=["wait:2", "/", "type:engine", "wait:1"])
+scene("tui-settings-disk.png", args=at("disk"), guide=False, keys=["wait:3", "Down"])
+scene("tui-settings-games.png", args=at("games"), guide=False, keys=["wait:2"])
+scene("tui-settings-looks.png", args=at("looks"), guide=False, keys=["wait:2", "Down"])
+scene("tui-settings-themes.png", args=at("tui_theme"), guide=False, keys=["wait:2", "Enter", "wait:1"])
 scene("tui-settings-modules.png", keys=START + ["F12", "wait:1", "Right", "Right", "Right", "wait:1", "Down*14"],
       config='modules.off = ["games"]\n')
 scene("tui-search.png", keys=START + ["M-F7", "type:*.rs|*.toml src/", "wait:3"])

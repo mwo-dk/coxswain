@@ -18,7 +18,7 @@ downloads the model again.*).
 Models a server runs (Ollama, Lemonade, LM Studio) are not listed: the server keeps and loads
 them itself (`ollama list`, `ollama rm`).
 
-![Settings → Finding files → Details → Built-in models in the desktop app: Qwen3 14B, in use, for Ask · 8.4 GB · in use · not loaded · last used 2026-10-07, with its folder, Show in panel and Delete; multilingual-e5-small, in use, for search by meaning · 465 MB; Qwen3 1.7B, an unfinished download · 977 KB · not in use; Qwen3 14B, an older version · 2.9 MB · not in use; then Delete all not in use (3.8 MB)](../screenshots/settings-models.png)
+![Settings → Finding files → Details → Built-in models in the desktop app: Qwen3 14B, in use, for Ask · 8.4 GB · in use · not loaded · last used 2026-10-07, with its folder, Show in panel and Delete; multilingual-e5-small, for search by meaning · 465 MB · not in use; Qwen3 1.7B, an unfinished download · 977 KB · not in use; Qwen3 14B, an older version · 2.9 MB · not in use; then Delete all not in use (469 MB)](../screenshots/settings-models.png)
 
 ## Contents
 
