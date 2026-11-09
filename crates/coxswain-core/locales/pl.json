@@ -4674,6 +4674,7 @@
  "viewer.keys_follow": "F śledź · E zatrzymaj na błędach · & filtr",
  "viewer.following": "Śledzenie: nowe wiersze pojawiają się w miarę zapisywania · F kończy",
  "viewer.not_following": "Śledzenie zakończone",
+ "viewer.archive_still": "Plik w archiwum nie zmienia się podczas czytania, więc nie ma czego śledzić",
  "viewer.stopped_at_error": "Śledzenie zatrzymane na błędzie w wierszu {line}",
  "viewer.level_all": "Wszystkie poziomy",
  "viewer.level_warn": "Ostrzeżenia i błędy",

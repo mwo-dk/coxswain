@@ -346,6 +346,11 @@ impl Lines {
         &self.path
     }
 
+    /// Whether the lines are of a file inside an archive, which does not change as it is read.
+    pub fn is_entry(&self) -> bool {
+        matches!(self.reader.file, Src::Entry(_))
+    }
+
     /// Look for lines written since: on from the end, or from the start again when the file
     /// was rotated or cut short. Nothing while the lines are still being found.
     pub fn grow(&mut self) -> Grew {
@@ -1139,7 +1144,8 @@ impl View {
     }
 
     /// The file `path` inside an archive, viewed as it is unpacked, a block at a time, no copy
-    /// made; going back to a line unpacks again from the start of the entry. A locked file
+    /// made; going back to a line unpacks again, from a kept place before it where the archive has
+    /// them (a tar, `archive::stream_at`), else from the start of the entry. A locked file
     /// fails (read a copy then, `archive::peek`).
     pub fn open_in_archive(path: &Path) -> std::io::Result<Option<View>> {
         let file = crate::entry_file::EntryFile::open(path)?;
@@ -1158,6 +1164,11 @@ impl View {
 
     pub fn reader(&self) -> &Reader {
         self.lines.reader()
+    }
+
+    /// Whether this is a file inside an archive: it never grows, so there is nothing to follow.
+    pub fn is_entry(&self) -> bool {
+        self.lines.is_entry()
     }
 
     pub fn shape(&self) -> &Shape {

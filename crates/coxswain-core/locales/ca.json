@@ -4576,6 +4576,7 @@
  "viewer.keys_follow": "F seguir · E aturar-se als errors · & filtre",
  "viewer.following": "Seguint: les línies noves apareixen a mesura que s'escriuen · F ho atura",
  "viewer.not_following": "Ja no se segueix",
+ "viewer.archive_still": "Un fitxer dins d'un arxiu no canvia mentre es llegeix, així que no hi ha res a seguir",
  "viewer.stopped_at_error": "S'ha deixat de seguir en un error a la línia {line}",
  "viewer.level_all": "Tots els nivells",
  "viewer.level_warn": "Avisos i errors",

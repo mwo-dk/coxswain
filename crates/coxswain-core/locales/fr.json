@@ -4576,6 +4576,7 @@
  "viewer.keys_follow": "F suivre · E arrêter aux erreurs · & filtre",
  "viewer.following": "Suivi : les nouvelles lignes s’affichent à mesure qu’elles sont écrites · F arrête",
  "viewer.not_following": "Suivi arrêté",
+ "viewer.archive_still": "Un fichier dans une archive ne change pas pendant sa lecture, il n'y a donc rien à suivre",
  "viewer.stopped_at_error": "Suivi arrêté sur une erreur à la ligne {line}",
  "viewer.level_all": "Tous les niveaux",
  "viewer.level_warn": "Avertissements et erreurs",

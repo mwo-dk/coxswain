@@ -4478,6 +4478,7 @@
  "viewer.keys_follow": "F jälgi · E peatu vigadel · & filter",
  "viewer.following": "Jälgitakse: uued read ilmuvad kirjutamise ajal · F lõpetab",
  "viewer.not_following": "Ei jälgita",
+ "viewer.archive_still": "Arhiivis olev fail ei muutu lugemise ajal, seega pole midagi jälgida",
  "viewer.stopped_at_error": "Jälgimine peatus veal real {line}",
  "viewer.level_all": "Kõik tasemed",
  "viewer.level_warn": "Hoiatused ja vead",

@@ -4478,6 +4478,7 @@
  "viewer.keys_follow": "F folgen · E bei Fehlern anhalten · & Filter",
  "viewer.following": "Folgen: neue Zeilen erscheinen, sobald sie geschrieben werden · F hält an",
  "viewer.not_following": "Folgen beendet",
+ "viewer.archive_still": "Eine Datei in einem Archiv ändert sich beim Lesen nicht, also gibt es nichts zu verfolgen",
  "viewer.stopped_at_error": "Folgen bei einem Fehler in Zeile {line} angehalten",
  "viewer.level_all": "Alle Stufen",
  "viewer.level_warn": "Warnungen und Fehler",

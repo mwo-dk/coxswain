@@ -4478,6 +4478,7 @@
  "viewer.keys_follow": "F följ · E stanna vid fel · & filter",
  "viewer.following": "Följer: nya rader visas medan de skrivs · F slutar",
  "viewer.not_following": "Följer inte längre",
+ "viewer.archive_still": "En fil i ett arkiv ändras inte medan den läses, så det finns inget att följa",
  "viewer.stopped_at_error": "Slutade följa vid ett fel på rad {line}",
  "viewer.level_all": "Alla nivåer",
  "viewer.level_warn": "Varningar och fel",

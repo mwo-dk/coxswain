@@ -4478,6 +4478,7 @@
  "viewer.keys_follow": "F følg · E stopp ved feil · & filter",
  "viewer.following": "Følger: nye linjer vises etter hvert som de skrives · F stopper",
  "viewer.not_following": "Følger ikke lenger",
+ "viewer.archive_still": "En fil i et arkiv endrer seg ikke mens den leses, så det er ingenting å følge",
  "viewer.stopped_at_error": "Sluttet å følge ved en feil på linje {line}",
  "viewer.level_all": "Alle nivåer",
  "viewer.level_warn": "Advarsler og feil",

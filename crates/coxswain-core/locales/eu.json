@@ -4478,6 +4478,7 @@
  "viewer.keys_follow": "F jarraitu · E gelditu erroreetan · & iragazkia",
  "viewer.following": "Jarraitzen: lerro berriak idatzi ahala agertzen dira · F gelditzen da",
  "viewer.not_following": "Ez da jarraitzen",
+ "viewer.archive_still": "Artxibo baten barruko fitxategia ez da aldatzen irakurtzen ari den bitartean, beraz ez dago jarraitzeko ezer",
  "viewer.stopped_at_error": "Jarraipena errore batean gelditu da, {line}. lerroan",
  "viewer.level_all": "Maila guztiak",
  "viewer.level_warn": "Abisuak eta erroreak",

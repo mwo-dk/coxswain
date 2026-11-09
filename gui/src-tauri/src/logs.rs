@@ -34,6 +34,8 @@ pub struct Opened {
     widths: Vec<usize>,
     /// Stack traces folded at the start (a log up to `logs::FOLD_AT_OPEN`).
     fold: bool,
+    /// A file inside an archive: it does not change while it is read, so there is nothing to follow.
+    still: bool,
 }
 
 /// Open `path` in a log view; `None` when it is no text read by lines (binary, UTF-16).
@@ -50,6 +52,7 @@ pub async fn log_open(path: PathBuf) -> Res<Option<Opened>> {
             columns: if view.format.has_fields() { view.columns.iter().map(|(c, _)| c.clone()).collect() } else { vec![] },
             widths: if view.format.has_fields() { view.columns.iter().map(|(_, w)| *w).collect() } else { vec![] },
             fold: view.shape().fold,
+            still: view.is_entry(),
         };
         OPEN.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_default().insert(id, view);
         Ok(Some(opened))
