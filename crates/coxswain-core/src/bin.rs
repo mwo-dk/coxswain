@@ -1813,6 +1813,11 @@ mod tests {
             io::ErrorKind::NotFound
         );
         assert_eq!(fs::read_to_string(&from).unwrap(), "another's", "still in the bin");
+        assert_eq!(
+            fs::read_to_string(&to).unwrap(),
+            "another's",
+            "its link at the place is left"
+        );
     }
 
     /// An item whose name is not UTF-8 (another program's put of a Latin-1 file) is listed,

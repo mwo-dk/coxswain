@@ -159,7 +159,8 @@ PutFail(a) ==
    move_new: hard_link(files/<n>, to), which fails when `to` exists by then or the item is gone
    (r_link); the file now at `to` the one found (its dev, ino: the link changes its change
    time), else another program's put since, which stays in the bin, its link at `to` left
-   (#901), and files/<n> still the file now at `to` (r_unlink_check); remove_file(files/<n>) (r_unlink); either gone or another's by then: move_new says false and the info file stays,
+   (#901), and files/<n> still the file now at `to` (r_unlink_check); remove_file(files/<n>)
+   (r_unlink); either gone or another's by then: move_new says false and the info file stays,
    the other program's to remove; the info file still the one found (r_info_check);
    remove_file(info) (r_info). *)
 RestoreStart(a, n, free) ==
