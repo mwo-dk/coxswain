@@ -88,7 +88,7 @@ moment later (podman or docker is asked about each image by its exact name).
   too; the size on the button follows. The first click lists exactly what goes (*This goes:
   /home/me/.cache/coxswain/search.db, …*) and turns the button into *Clear these? Click again*.
 
-![Disk use scrolled down: Typst 3.9 MB under Outside Coxswain's folder, the group Your own files, kept aside by Coxswain with quarantine/ 334 KB and only Show in panel, the box Also the built-in models not in use left alone, the box Also what Coxswain caused outside its folder (5.4 MB) ticked, the line This goes: with each path (scratch and chess among them, tectonic and typst last), and the button Clear these? Click again](../screenshots/settings-disk-clear-all.png)
+![Disk use scrolled down: Tectonic 1.4 MB and Typst 3.7 MB under Outside Coxswain's folder, the group Your own files, kept aside by Coxswain with quarantine/ 326 KB and only Show in panel, the box Also the built-in models not in use (8.9 GB) left alone, the box Also what Coxswain caused outside its folder (5.1 MB) ticked, the line This goes: with each path (search.db, index.bin and peek first, Tectonic and typst last), and the button Clear these? Click again](../screenshots/settings-disk-clear-all.png)
 
 How each is cleared:
 
@@ -146,7 +146,7 @@ the exact path or image name before the second click.
 *Disk use*: each row shows its name, size and what clearing costs; the bottom says what it holds,
 what clearing costs and its path, and the key line *Enter: show in panel · Delete: clear*.
 
-![The terminal app's Settings at Privacy and updates: Disk use with search.db, index.bin (under the cursor), previews/, peek/, libreoffice-profile/, helper.log, clamav/, scratch/, chess/, then the built-in models multilingual-e5-small, Qwen3 1.7B and two of Qwen3 14B, the rows Clear everything that can be built again (43.3 MB), Also the built-in models not in use (8.8 GB) and Also what Coxswain caused outside its folder (5.4 MB), then Outside Coxswain's folder with Tectonic and Typst](../screenshots/tui-settings-disk.png)
+![The terminal app's Settings at Privacy and updates: Disk use with search.db, index.bin (under the cursor), previews/, peek/, libreoffice-profile/, helper.log, clamav/, scratch/, chess/, then the built-in models multilingual-e5-small, Qwen3 1.7B and two of Qwen3 14B, the rows Clear everything that can be built again and Also the built-in models not in use (8.8 GB), then Your own files, kept aside by Coxswain with quarantine/](../screenshots/tui-settings-disk.png)
 
 | Key | Does |
 |---|---|
