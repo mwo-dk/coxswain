@@ -17,10 +17,12 @@ sandbox while it runs, so it lets only a few calls through and changes two thing
 
 - only what the app asks to see and run: `run`, `kill`, `info`, `version`, `images`, `ps`,
   `inspect` and `image inspect`/`exists`/`ls`; never a pull or a removal, which would change the
-  user's own image store (pull what the pictures need yourself, and remove it after);
-- `run` gets `--pull=never`: an image that is not there fails rather than being pulled;
-- a mount's source under /home/demo (the sandbox's home) becomes the same folder in
-  <demo-home>; a mount of anything else, or a `-v`, is refused.
+  user's own image store (pull what the pictures need yourself, and remove after only what you pulled);
+- `run` takes only the options the app gives (`RUN_FLAGS`, `RUN_VALUES`), up to the image, and
+  gets `--pull=never` (any other `--pull` is refused): an image that is not there fails rather
+  than being pulled; `kill` takes one container's name;
+- a bind mount's source under /home/demo (the sandbox's home) becomes the same folder in
+  <demo-home>; any other mount, or a `-v`, is refused.
 
 The socket must be where the sandbox sees it: cap.py binds its own XDG_RUNTIME_DIR
 (<tmp>/coxswain-cap-<uid>) into the sandbox at the same path.
@@ -31,7 +33,7 @@ The socket must be where the sandbox sees it: cap.py binds its own XDG_RUNTIME_D
 Stop the relay by its own PID when done.
 """
 
-import json, os, signal, socket, subprocess, sys, threading
+import csv, io, json, os, signal, socket, subprocess, sys, threading
 
 SANDBOX_HOME = "/home/demo"
 
@@ -46,6 +48,42 @@ def client():
 
 ALLOWED = {"run", "kill", "info", "version", "images", "ps", "inspect"}
 IMAGE_ALLOWED = {"inspect", "exists", "ls"}
+# `run`'s options as the app gives them (images.rs `sealed`, `TIGHT`, `user`; ebook.rs,
+# searchable.rs, viruses.rs …), up to the image: those alone, with what each may say.
+RUN_FLAGS = {"--rm", "-i", "--network=none", "--read-only", "--cap-drop=ALL", "--pull=never"}
+RUN_PREFIXES = ("--memory=", "--pids-limit=")
+RUN_VALUES = {
+    "--name": lambda v: not v.startswith("-"),
+    "--security-opt": lambda v: v in ("label=disable", "no-new-privileges"),
+    "--tmpfs": lambda v: v.startswith("/tmp:") and "," not in v.split(":", 1)[0],
+    "--user": lambda v: not v.startswith("-"),
+    "-e": lambda v: "=" in v and not v.startswith("-"),
+    "--entrypoint": lambda v: not v.startswith("-"),
+    "-w": lambda v: v.startswith("/"),
+    "--mount": None,
+}
+
+
+def mount(value, demo):
+    """A `--mount` of a folder under /home/demo, as `images::bind` writes it, with its source in
+    `demo`; or the reason it is refused. Read as podman reads it: CSV fields."""
+    fields = next(csv.reader([value]))
+    kinds = [f for f in fields if f.split("=", 1)[0] == "type"]
+    sources = [f for f in fields if f.split("=", 1)[0] in ("source", "src")]
+    known = ("type", "source", "src", "target", "dst", "destination", "readonly", "ro")
+    if kinds != ["type=bind"] or len(sources) != 1 or any(f.split("=", 1)[0] not in known for f in fields):
+        return None
+    src = sources[0].split("=", 1)[1]
+    if not (src == SANDBOX_HOME or src.startswith(SANDBOX_HOME + "/")):
+        return None
+    # shortcut: the app owns the demo home and could swap a folder for a link after this check;
+    # fine for our own app, not for one we do not trust.
+    real = os.path.realpath(demo + src[len(SANDBOX_HOME):])
+    if real != demo and not real.startswith(demo + "/"):
+        return None
+    out = io.StringIO()
+    csv.writer(out, lineterminator="").writerow([f if f not in sources else "source=" + real for f in fields])
+    return out.getvalue()
 
 
 def outside(args, demo):
@@ -53,24 +91,36 @@ def outside(args, demo):
     verb = args[0] if args else ""
     if verb not in ALLOWED and not (verb == "image" and args[1:2] and args[1] in IMAGE_ALLOWED):
         return f"podman-relay: {' '.join(args[:2])} is not let through"
-    out = []
-    for a in args:
-        if a in ("-v", "--volume") or a.startswith(("-v=", "--volume=")):
-            return "podman-relay: -v is not let through; the app mounts with --mount"
-        if "source=" in a:
-            # bind(): `type=bind,"source=/home/demo/…",target=/src`, the source one quoted field.
-            head, _, rest = a.partition('"source=')
-            src, quote, tail = rest.partition('"')
-            if not quote or (tail and not tail.startswith(",")) or "source=" in head or not (src == SANDBOX_HOME or src.startswith(SANDBOX_HOME + "/")):
-                return f"podman-relay: a mount outside {SANDBOX_HOME} is not let through: {a}"
-            real = os.path.realpath(demo + src[len(SANDBOX_HOME):])
-            if real != demo and not real.startswith(demo + "/"):
-                return f"podman-relay: {src} leads outside the demo home"
-            a = f'{head}"source={real.replace(chr(34), chr(34) * 2)}"{tail}'
-        out.append(a)
-    if verb == "run":
-        out.insert(1, "--pull=never")
-    return out
+    if verb == "kill":
+        if len(args) != 2 or args[1].startswith("-"):
+            return "podman-relay: kill takes one container's name"
+        return list(args)
+    if verb != "run":
+        return list(args)
+    out, i = ["run", "--pull=never"], 1
+    while i < len(args) and args[i].startswith("-"):
+        a = args[i]
+        if a in RUN_FLAGS or a.startswith(RUN_PREFIXES):
+            if a != "--pull=never":
+                out.append(a)
+            i += 1
+            continue
+        flag, eq, value = a.partition("=")
+        if flag not in RUN_VALUES or (not eq and i + 1 >= len(args)):
+            return f"podman-relay: run {a} is not let through"
+        if not eq:
+            value, i = args[i + 1], i + 1
+        if flag == "--mount":
+            value = mount(value, demo)
+            if value is None:
+                return f"podman-relay: only a bind mount of a folder under {SANDBOX_HOME} is let through: {a}"
+        elif not RUN_VALUES[flag](value):
+            return f"podman-relay: run {flag} {value} is not let through"
+        out += [flag, value]
+        i += 1
+    if i >= len(args):
+        return "podman-relay: run without an image"
+    return out + args[i:]
 
 
 def handle(conn, demo):
@@ -99,7 +149,9 @@ def handle(conn, demo):
                 p.send_signal(signal.SIGTERM)
         threading.Thread(target=watch, daemon=True).start()
         try:
-            conn.sendall(str(p.wait()).encode())
+            code = p.wait()
+            # Ended by a signal: as a shell says it, 128 + the signal.
+            conn.sendall(str(code if code >= 0 else 128 - code).encode())
         except OSError:
             pass
 
@@ -122,15 +174,35 @@ def check():
     """`podman-relay.py check`: what is let through, and how."""
     demo = os.path.realpath(os.environ.get("TMPDIR", "/tmp"))
     m = lambda src: ["run", "--mount", f'type=bind,"source={src}",target=/src', "img"]
-    assert outside(m("/home/demo/.cache/x"), demo) == ["run", "--pull=never", "--mount", f'type=bind,"source={demo}/.cache/x",target=/src', "img"]
-    for bad in (m("/etc"), m("/home/demo/../../etc"), m('/home/demo/a""/../../../etc'), m("/home/demox"), ["run", "-v", "/:/x", "img"], ["pull", "img"], ["image", "rm", "img"], ["system", "reset"]):
+    assert outside(m("/home/demo/.cache/x"), demo) == ["run", "--pull=never", "--mount", f"type=bind,source={demo}/.cache/x,target=/src", "img"]
+    odd = outside(m('/home/demo/a,b""c'), demo)
+    assert odd[3] == f'type=bind,"source={demo}/a,b""c",target=/src', odd
+    app = ["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", "n", "--read-only", "--tmpfs", "/tmp:rw,size=1g",
+           "--memory=3g", "--pids-limit=256", "--cap-drop=ALL", "--security-opt", "no-new-privileges", "--mount", 'type=bind,"source=/home/demo/x",target=/src,readonly',
+           "--user", "0:0", "-e", "HOME=/tmp", "-w", "/src", "img", "--skip-text", "-v", "/src/a.pdf"]
+    got = outside(app, demo)
+    assert isinstance(got, list) and got[-4:] == ["img", "--skip-text", "-v", "/src/a.pdf"], got
+    for bad in (m("/etc"), m("/home/demo/../../etc"), m('/home/demo/a""/../../../etc'), m("/home/demox"),
+                ["run", "-v", "/:/x", "img"], ["run", "-v/:/x", "img"], ["run", "-iv", "/:/x", "img"], ["run", "--volume=/:/x", "img"],
+                ["run", "--mount", "type=bind,src=/,dst=/host", "img"], ["run", "--mount=type=glob,src=/home/demo/*,dst=/k", "img"],
+                ["run", "--mount", 'type=bind,"source=/home/demo/x",target=/src,src=/etc', "img"], ["run", "--mount", "type=volume,src=v,dst=/v", "img"],
+                ["run", "--rootfs", "/", "cat", "/x"], ["run", "--env-file", "/etc/passwd", "img"], ["run", "--cidfile", "/tmp/x", "img"],
+                ["run", "--privileged", "img"], ["run", "--device", "/dev/sda", "img"], ["run", "--volumes-from", "c", "img"], ["run", "--pid=host", "img"],
+                ["run", "--pull=always", "img"], ["run", "--pull", "always", "img"], ["run", "--network=host", "img"], ["run", "--security-opt", "seccomp=unconfined", "img"],
+                ["run", "--rm"], ["kill", "--all"], ["kill", "-a"], ["kill", "--cidfile", "/x"], ["kill", "a", "b"],
+                ["--url", "x", "run", "img"], ["pull", "img"], ["image", "rm", "img"], ["image", "pull", "img"], ["system", "reset"]):
         assert isinstance(outside(bad, demo), str), bad
+    assert outside(["run", "--pull=never", "img"], demo) == ["run", "--pull=never", "img"]
+    assert outside(["kill", "n"], demo) == ["kill", "n"]
     assert outside(["image", "inspect", "img"], demo) == ["image", "inspect", "img"]
     print("podman-relay: check passed")
 
 
 if __name__ == "__main__":
-    if sys.argv[1:2] == ["check"]:
+    # Inside the sandbox, as /usr/bin/podman, every call is relayed.
+    if os.path.basename(sys.argv[0]) == "podman":
+        client()
+    elif sys.argv[1:2] == ["check"]:
         check()
     elif sys.argv[1:2] == ["serve"]:
         serve(sys.argv[2], sys.argv[3])

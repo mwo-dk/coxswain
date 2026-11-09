@@ -296,7 +296,8 @@ process namespace: stopping it stops all it started, the search helper too. See 
 - Never run podman or docker inside the sandbox. A picture of a screen that needs a container
   tool (draw.io, Kroki, OCRmyPDF) uses `docs/screenshots/podman-relay.py`: it runs the user's
   podman outside the sandbox, for an app inside that calls it through the relay (see its top);
-  it never pulls, so pull the images the pictures need first and remove them by id after.
+  it never pulls, so pull the images the pictures need first and afterwards remove, by id,
+  only those you pulled.
 - Keys may be sent (`wtype`) only to the sandbox window, and only after checking that it has
   the focus. Never type into other windows, and never stop Coxswain processes by name: stop the
   sandbox's own processes.
