@@ -4757,7 +4757,7 @@
  "chess.index_stop_tip": "Peatab indeksi ehitamise; sellest ei jäeta midagi",
  "chess.index_ready": "Seisundite indeks: {depth}, {size}",
  "chess.index_depth": "{n} käiku",
- "chess.index_stale": "aegunud, ehitatakse taustal uuesti",
+ "chess.index_stale": "aegunud, ehitatakse taustal uuesti; selle partiid avanevad puust, kui see on valmis",
  "chess.index_remove": "Eemalda",
  "chess.index_remove_tip": "Eemaldab selle andmebaasi seisundite indeksi ja vabastab selle ruumi kettal",
  "chess.index_removed": "Seisundite indeks eemaldatud",

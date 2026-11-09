@@ -4659,7 +4659,7 @@
  "chess.index_stop_tip": "색인 만들기를 멈춥니다. 아무것도 남지 않습니다",
  "chess.index_ready": "포지션 색인: {depth}, {size}",
  "chess.index_depth": "{n}수",
- "chess.index_stale": "오래됨, 백그라운드에서 다시 만듭니다",
+ "chess.index_stale": "오래됨, 백그라운드에서 다시 만듭니다. 끝나면 트리에서 대국을 열 수 있습니다",
  "chess.index_remove": "제거",
  "chess.index_remove_tip": "이 데이터베이스의 포지션 색인을 지우고 디스크 공간을 비웁니다",
  "chess.index_removed": "포지션 색인을 지웠습니다",

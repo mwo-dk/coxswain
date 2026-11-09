@@ -4855,7 +4855,7 @@
  "chess.index_stop_tip": "Ferma la costruzione dell’indice; non se ne tiene nulla",
  "chess.index_ready": "Indice delle posizioni: {depth}, {size}",
  "chess.index_depth": "{n} mosse",
- "chess.index_stale": "non aggiornato, ricostruito in background",
+ "chess.index_stale": "non aggiornato, ricostruito in background; le sue partite si aprono dall’albero quando ha finito",
  "chess.index_remove": "Rimuovi",
  "chess.index_remove_tip": "Rimuove l’indice delle posizioni di questo database e libera il suo spazio sul disco",
  "chess.index_removed": "Indice delle posizioni rimosso",

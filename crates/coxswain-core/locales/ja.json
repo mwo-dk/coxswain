@@ -4659,7 +4659,7 @@
  "chess.index_stop_tip": "インデックスの作成を止めます。何も残りません",
  "chess.index_ready": "局面インデックス: {depth}、{size}",
  "chess.index_depth": "{n} 手",
- "chess.index_stale": "古くなっています。バックグラウンドで作り直します",
+ "chess.index_stale": "古くなっています。バックグラウンドで作り直します。終わるとツリーから対局を開けます",
  "chess.index_remove": "削除",
  "chess.index_remove_tip": "このデータベースの局面インデックスを削除し、ディスクの容量を空けます",
  "chess.index_removed": "局面インデックスを削除しました",

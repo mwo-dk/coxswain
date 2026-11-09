@@ -4855,7 +4855,7 @@
  "chess.index_stop_tip": "Aptur rādītāja veidošanu; nekas no tā netiek saglabāts",
  "chess.index_ready": "Pozīciju rādītājs: {depth}, {size}",
  "chess.index_depth": "{n} gājieni",
- "chess.index_stale": "novecojis, fonā tiek veidots no jauna",
+ "chess.index_stale": "novecojis, fonā tiek veidots no jauna; tā partijas no koka atveras, kad tas ir gatavs",
  "chess.index_remove": "Noņemt",
  "chess.index_remove_tip": "Noņem šīs datubāzes pozīciju rādītāju un atbrīvo tā vietu diskā",
  "chess.index_removed": "Pozīciju rādītājs noņemts",
