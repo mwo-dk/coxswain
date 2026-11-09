@@ -794,6 +794,10 @@ pub struct Library {
     /// `Pgn`, or `Pdn` for draughts.
     pub format: super::Format,
     shared: Arc<Mutex<Shared>>,
+    /// `GAMES`, held open from the start for `archived`: a prune (in this app or another) that
+    /// removes the table's folder while it is on screen leaves its games readable. Before `table`,
+    /// so it is closed first: a folder with open files cannot go on Windows.
+    games: Option<Mutex<File>>,
     table: Arc<Table>,
     read: Arc<AtomicU64>,
     size: u64,
@@ -848,15 +852,31 @@ impl Library {
         let extra = if streamed { format!("{limits:?} {GAMES_FORM}") } else { format!("{limits:?}") };
         let (mut table, mut kept) = Table::open(path, &extra)?;
         // A table of a PGN out of an archive whose games' text is gone is read anew.
-        if streamed && kept.is_some() && !table.dir().join(GAMES).exists() {
+        // Only a missing file is taken for gone: a refused open (a virus scanner) never throws a table away.
+        let held = |t: &Table| match File::open(t.dir().join(GAMES)) {
+            Ok(f) => Ok(Some(f)),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e),
+        };
+        let mut games = if streamed { held(&table)? } else { None };
+        if streamed && kept.is_some() && games.is_none() {
             let dir = table.dir().to_path_buf();
             drop(table);
             crate::spill::gone(&dir);
             (table, kept) = Table::open(path, &extra)?;
+            games = held(&table)?;
+            if kept.is_some() && games.is_none() {
+                return Err(io::Error::from(io::ErrorKind::NotFound));
+            }
         }
+        // A new table's: made empty here, filled by `from_archive` through its own handle.
+        if streamed && games.is_none() {
+            games = Some(std::fs::OpenOptions::new().read(true).write(true).create(true).truncate(true).open(table.dir().join(GAMES))?);
+        }
+        let games = games.map(Mutex::new);
         let table = Arc::new(table);
         let _held = (cbh && super::cbv::is_cbv(path)).then(|| super::cbv::hold(path));
-        let lib = |shared, size| Library { path: path.to_path_buf(), format, shared, table: table.clone(), read: read.clone(), size, stop: stop.clone(), source, scid: scid.clone(), archived: streamed, _held, ranks: Mutex::new(None), last_block: Mutex::new(None) };
+        let lib = |shared, size| Library { path: path.to_path_buf(), format, shared, games, table: table.clone(), read: read.clone(), size, stop: stop.clone(), source, scid: scid.clone(), archived: streamed, _held, ranks: Mutex::new(None), last_block: Mutex::new(None) };
         if let Some(done) = kept {
             {
                 let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
@@ -1902,12 +1922,14 @@ impl Library {
         {
             return Ok(raw.clone());
         }
-        let mut f = File::open(self.table.dir().join(GAMES))?;
+        // The table's own handle on `GAMES`: a prune that removes the folder leaves it readable.
+        let mut f = self.games.as_ref().ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))?.lock().unwrap_or_else(|e| e.into_inner());
         f.seek(SeekFrom::Start(offset))?;
         let mut n = [0u8; 4];
         f.read_exact(&mut n)?;
         let mut raw = vec![];
-        lzma_rust2::Lzma2Reader::new(f.take(u32::from_le_bytes(n) as u64), DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
+        lzma_rust2::Lzma2Reader::new((&mut *f).take(u32::from_le_bytes(n) as u64), DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
+        drop(f);
         let raw = Arc::new(raw);
         *self.last_block.lock().unwrap_or_else(|e| e.into_inner()) = Some((offset, raw.clone()));
         Ok(raw)
@@ -2290,6 +2312,13 @@ mod tests {
         wait(&anew);
         assert_eq!(anew.text(5999).unwrap(), TWO[TWO.find("[Event \"London").unwrap()..]);
         assert!(old.join("done").exists(), "the older table stays");
+        // A prune (here or in another app) removes the folder of the table on screen: its games
+        // still open (on Windows the folder cannot go while its files are open).
+        let dir = anew.table.dir().to_path_buf();
+        crate::spill::gone(&dir);
+        #[cfg(unix)]
+        assert!(!dir.exists());
+        assert_eq!(anew.text(2501).unwrap(), TWO[TWO.find("[Event \"London").unwrap()..].to_string());
     }
 
     /// A game's moves lose their move numbers in the table and get them back as they were, also
