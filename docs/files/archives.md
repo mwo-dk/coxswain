@@ -199,8 +199,8 @@ through an installed 7-Zip instead, read-only, like a disk image
 - **Logs, JSON Lines and long texts are paged through as they are unpacked**: a log or JSON
   Lines file in either app, a text over 512 KB in the desktop app and a text over 16 MB in the
   terminal app open in the log view (the terminal app's viewer) with every line, nothing
-  written to the disk and a few megabytes in memory. Going back to a line far above unpacks the
-  file again from its start ([Logs](../previews/logs.md#logs-inside-an-archive)).
+  written to the disk and a few megabytes in memory. Going back to a line far above unpacks
+  again from a place kept before it in a tar, else from the file's start ([Logs](../previews/logs.md#logs-inside-an-archive)).
 - **Games are read as they are unpacked**: a PGN file (also packed), a draughts, shogi or bridge
   file and a DhtmlXQ game open in the games window with no copy on the disk, and an opening book,
   an EPD or FEN file and a Go file up to 64 MB are unpacked into memory whole and read there

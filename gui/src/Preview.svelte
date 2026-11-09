@@ -82,7 +82,11 @@
     );
   }
   /** Asks for the password of the archive at `path`, then does `then` again. */
-  function unlock(path = peeked.from, then = () => peek(path)) {
+  function unlock(
+    path = peeked.from,
+    // A large PGN in a locked 7z is read as it unpacks once the password is known, not from a copy.
+    then = () => invoke("chess_streams", { path }).then((ok) => (ok ? ((copied = copied.filter((c) => c !== path)), (peeked = { from: "", to: "", error: "" })) : peek(path))),
+  ) {
     ui.modal = {
       kind: "input",
       feature: "archive_passwords",
