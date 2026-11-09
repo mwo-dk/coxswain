@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { ui, tab, item, keyOf, lineHistory, openHistory, openGitView, switchBranch, newBranch, remoteRun, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
   import { pageUrl, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, calendar, contacts, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, viewerReads, MAX_WHOLE, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -40,19 +40,22 @@
    *  (`asset.rs`, `MAX_INSIDE`), a player's ranges from one unpacking. */
   let copied = $state([]);
   /** A PGN family file inside an archive: its games are read as it is unpacked
-   *  (`chess::games::streams`, no copy); ChessBase, SCID, positions, books and Go come from a copy. */
-  const chessInside = $derived(inside && !inHistory && /\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa)$/i.test(raw.name) && !copied.includes(raw.path));
-  const DIRECT = ["text", "markdown", "data", "image", "log", "jsonl", "bom", "provenance"];
-  /** Read whole into memory, up to 64 MB: drawn by the web view, or by a reader in this page
-   *  (`renderers.js`) or the core that takes the bytes (an old picture's PNG, `pictures`). */
-  const DRAWN = ["pdf", "audio", "video", "font", "docx", "sheet", "notebook", "parquet", "picture"];
+   *  (`chess::games::streams`, no copy); positions and a Go file up to 64 MB are unpacked into
+   *  memory whole (`games::in_memory`), as a book is (a `.bin`, told by `chess_is_book` below);
+   *  ChessBase and SCID come from a copy. */
+  const chessInside = $derived(
+    inside && !inHistory && (/\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa|epd|fen)$/i.test(raw.name) || (/\.sgf$/i.test(raw.name) && raw.size <= MAX_WHOLE)) && !copied.includes(raw.path),
+  );
   /** Slide decks this page draws itself (`renderPptx`); other Office files go to LibreOffice. */
   const DECKS = ["pptx", "pptm", "ppsx", "potx"];
   const deck = (f) => previewKind(f) === "office" && DECKS.includes(ext(f));
-  /** The most of each read into memory: what its reader takes (`bytes`, 25 MB), else 64 MB. */
-  const most = (f) => (["docx", "sheet", "notebook"].includes(previewKind(f)) || deck(f) ? 25 : 64) * 1024 * 1024;
-  const drawn = (f) => (DRAWN.includes(previewKind(f)) || deck(f)) && f.size <= most(f);
-  const direct = $derived(inside && !inHistory && (DIRECT.includes(previewKind(raw)) || drawn(raw)) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
+  /** What the kind's viewer needs (`viewers::reads`): a stream or the whole file, read from
+   *  memory as the archive unpacks it, or else a copy. A deck is read whole. */
+  const reads = (f) => (deck(f) ? "whole" : viewerReads(previewKind(f)));
+  /** The most of a file read whole: what its reader takes (`bytes`, 25 MB), else `MAX_WHOLE`. */
+  const most = (f) => (["docx", "sheet", "notebook"].includes(previewKind(f)) || deck(f) ? 25 * 1024 * 1024 : MAX_WHOLE);
+  // A `.bin` (maybe an opening book, told by `chess_is_book` below) is read from memory up to 64 MB.
+  const direct = $derived(inside && !inHistory && (reads(raw) === "stream" || (reads(raw) === "whole" && raw.size <= most(raw))) && !(/\.bin$/i.test(raw.name) && raw.size > MAX_WHOLE) && !copied.includes(raw.path));
   /** A locked file read from memory whose password is wanted: asked for here, then read again
    *  (`tries`, which also makes the web view ask anew). The password is proved before anything
    *  shows: the core reads the file to its checksum first (`archive::head`). */
@@ -81,12 +84,14 @@
   /** `path` gets its copy after all. */
   const needsCopy = (path) => !copied.includes(path) && (copied = [...copied.slice(-50), path]);
   /** Reading `path` from memory failed: locked (the core answers 401, `LOCKED`), its password
-   *  is asked for here; anything else gets its copy. `status`: the answer, when known. */
-  async function failed(path, status) {
+   *  is asked for here; anything else gets its copy. `status`: the answer, when known. `media`:
+   *  a song or video served but not played (a codec the web view lacks) gets its copy too, whose
+   *  player then offers a frame or waveform. */
+  async function failed(path, status, media = false) {
     status ??= await fetch(convertFileSrc(path) + insideQuery(), { method: "HEAD" }).then((r) => r.status, () => 0);
     if (raw?.path !== path) return;
     if (status === 401) lockedAt = path;
-    else if (status !== 200) needsCopy(path);
+    else if (status !== 200 || media) needsCopy(path);
   }
   let peeked = $state({ from: "", to: "", error: "" });
   $effect(() => {
@@ -103,7 +108,11 @@
     );
   }
   /** Asks for the password of the archive at `path`, then does `then` again. */
-  function unlock(path = peeked.from, then = () => peek(path)) {
+  function unlock(
+    path = peeked.from,
+    // A large PGN in a locked 7z is read as it unpacks once the password is known, not from a copy.
+    then = () => invoke("chess_streams", { path }).then((ok) => (ok ? ((copied = copied.filter((c) => c !== path)), (peeked = { from: "", to: "", error: "" })) : peek(path))),
+  ) {
     ui.modal = {
       kind: "input",
       feature: "archive_passwords",
@@ -928,7 +937,7 @@
         {#if facts.length}<dl class="facts">{#each facts as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}</dl>{/if}
         {#key e.path}<NetronView path={e.path} dir={e.is_dir} />{/key}
       {:else if kind === "go"}
-        <GoView path={e.path} />
+        <GoView path={e.path} onfail={() => inside && needsCopy(raw.path)} />
       {:else if kind === "provenance" && !source && !statement}
         <ProvenanceView path={e.path} onfail={(err) => direct && (err.includes(LOCKED) ? (lockedAt = raw.path) : needsCopy(raw.path))} />
       {:else if kind === "provenance" && !source}
@@ -1131,11 +1140,11 @@
         <div class="media">
           <!-- svelte-ignore a11y_media_has_caption -->
           <!-- A codec the web view lacks: a frame of it instead, with MP4 offered (`media`). -->
-          <video src={src(e.path)} controls preload="metadata" poster={still?.path === e.path ? convertFileSrc(still.file) : undefined} onerror={() => (direct ? failed(e.path) : (sniffed = { path: e.path, kind: "video_other" }))}></video>
+          <video src={src(e.path)} controls preload="metadata" poster={still?.path === e.path ? convertFileSrc(still.file) : undefined} onerror={() => (direct ? failed(e.path, undefined, true) : (sniffed = { path: e.path, kind: "video_other" }))}></video>
         </div>
       {:else if kind === "audio"}
         {#if still?.path === e.path}<div class="media wave"><img src={convertFileSrc(still.file)} alt={t("media.waveform")} /></div>{/if}
-        <div class="media"><audio src={src(e.path)} controls preload="metadata" onerror={() => (direct ? failed(e.path) : (sniffed = { path: e.path, kind: "audio_other" }))}></audio></div>
+        <div class="media"><audio src={src(e.path)} controls preload="metadata" onerror={() => (direct ? failed(e.path, undefined, true) : (sniffed = { path: e.path, kind: "audio_other" }))}></audio></div>
       {:else if kind === "pdf"}
         <!-- Make PDF searchable: offered on every PDF, said why on one without text (a scan). -->
         {#if !direct}<p class="more">{#if scanned === e.path}{t("preview.scanned")} {/if}<button class="render" onclick={() => makeSearchable([e.path])}>{t("action.searchable_pdf")}</button> <kbd>{ui.cfg.actions.searchable_pdf?.[1] ?? ""}</kbd></p>{/if}

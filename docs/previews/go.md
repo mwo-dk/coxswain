@@ -176,8 +176,9 @@ Any size: the list is read as the file streams by, one game at a time, and fills
 #### Can I look at the games in a 7z of thousands of SGF files?
 
 Yes: **Enter** on the archive opens it like a folder, and each `.sgf` file in it shows on the
-board as on disk, from a copy made when it is looked at: in the desktop app's preview pane, and
-in the terminal app with **F3** or **Alt+K**. That works inside another archive too
+board as on disk, unpacked into memory when it is looked at, with no copy on the disk (a file
+over 64 MB, or a locked one, from a copy in the cache folder): in the desktop app's preview
+pane, and in the terminal app with **F3** or **Alt+K**. That works inside another archive too
 (a zip of 7z files), and for a 7z split into parts (`games.7z.001`, `.002` …), opened from its
 first part. In an archive of 400,000 games, a game shows in under half a second
 ([Archives as folders](../files/archives.md#limits)).
@@ -195,4 +196,4 @@ broken character shows as �, the rest as written.
 Not yet: Coxswain shows games but does not play.
 
 ---
-[← Previous: Chess: playing on and the engine](chess-play.md) · [Next: Draughts games →](draughts.md)
+[← Previous: Chess: position index and opening tree](chess-positions.md) · [Next: Draughts games →](draughts.md)

@@ -115,8 +115,9 @@ own kinds should check the path it gets.
 - Cancelling, or closing the terminal or the window, prints nothing and exits `1`; a `FILE` left by an earlier run is not touched, so read the exit status first.
 - A file chosen **inside an archive** is first unpacked into the cache folder (`picked/` in
   [the cache](where-things-are-kept.md)), and the path of that copy is what comes back, since the
-  other program cannot read into an archive. Those copies are not deleted by Coxswain: the other
-  program owns them, and [Disk use](disk-use.md) lists the cache. A folder inside an archive
+  other program cannot read into an archive. The copies of a run stay for a day after it ended,
+  so the other program can read them, and then go at the next start of either app or the search
+  helper; *picked/* in [Disk use](disk-use.md#the-rows) shows them and clears them at once. A folder inside an archive
   cannot be chosen. An archive itself (a `.zip`) is opened by **Enter**; mark it with the *Mark* key to choose it.
 - With `--save`, the path of the new file: the folder you were in and the name you typed.
 - Nothing is sent anywhere: the paths go to your file or the program that started Coxswain.
@@ -176,7 +177,9 @@ The program gave `--filter`, and those files have another extension, so they can
 #### What path comes back for a file inside an archive?
 
 A copy: Coxswain unpacks the file into its cache (`picked/`, a folder of its own per run) and
-gives that path. The copy stays until you delete it or clear the cache.
+gives that path. The copy stays for a day after that run ended, so the program can read it,
+then goes at the next start of either app or the search helper. **Clear** on the *picked/* row
+of [Disk use](disk-use.md#the-rows) (or `coxswain --disk clear picked`) removes them at once.
 
 ---
 [← Previous: Command-line flags](command-line-flags.md) · [Next: Configuration: every key →](configuration.md)

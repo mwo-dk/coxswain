@@ -42,7 +42,7 @@ Debian or RPM package and a Windows cabinet open like folders too, read-only
 | **F6** | Moves out: copies out, then takes them out of the archive. With a new name, or a folder in the same archive, it **renames** or moves within the archive | Adds the files, then deletes the originals |
 | **F7** | Makes a folder inside the archive | |
 | **F8**, **Shift+F8** | **Takes out** of the archive, after a question: there is no trash inside an archive | |
-| **Enter** on a file | Games (a PGN, SCID or ChessBase database, SGF …) open in the games window (a PGN family file as it is unpacked, the others from a copy); an archive inside opens like a folder; any other file: the status line says it must be copied out first ([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)) | |
+| **Enter** on a file | Games (a PGN, SCID or ChessBase database, SGF …) open in the games window (a PGN family file as it is unpacked, an opening book, positions and a Go file up to 64 MB in memory, the others from a copy); an archive inside opens like a folder; any other file: the status line says it must be copied out first ([What Enter and F3 do](../commands/opening-files.md#what-enter-and-f3-do)) | |
 | **Space** | The preview pane shows the file: a copy of it is made when the cursor rests on it | |
 | **F3** (terminal app) | Views the file: a text, a log or a long file is read out of the archive into the built-in viewer, a copy of it goes to a `viewer` of your own; a games file (PGN, SGF, PDN, KIF, CSA, PBN, EPD, FEN, a Polyglot book, a DhtmlXQ xiangqi game, a SCID or ChessBase database with the files beside it, a `.cbv`) opens in the games view, as outside the archive | |
 | **Ctrl+E** on an archive | [Extracts](pack-and-extract.md) it into a new folder | |
@@ -215,11 +215,12 @@ through an installed 7-Zip instead, read-only, like a disk image
 - **Logs, JSON Lines and long texts are paged through as they are unpacked**: a log or JSON
   Lines file in either app, a text over 512 KB in the desktop app and a text over 16 MB in the
   terminal app open in the log view (the terminal app's viewer) with every line, nothing
-  written to the disk and a few megabytes in memory. Going back to a line far above unpacks the
-  file again from its start ([Logs](../previews/logs.md#logs-inside-an-archive)).
+  written to the disk and a few megabytes in memory. Going back to a line far above unpacks
+  again from a place kept before it in a tar, else from the file's start ([Logs](../previews/logs.md#logs-inside-an-archive)).
 - **Games are read as they are unpacked**: a PGN file (also packed), a draughts, shogi or bridge
-  file and a DhtmlXQ game open in the games window with no copy on the disk
-  ([Chess](../previews/chess.md)).
+  file and a DhtmlXQ game open in the games window with no copy on the disk, and an opening book,
+  an EPD or FEN file and a Go file up to 64 MB are unpacked into memory whole and read there
+  ([Chess](../previews/chess.md#using-it)).
 - **Other files inside are previewed and viewed from a copy**, each for a reason:
   - a program of its own needs a file: an Office file LibreOffice draws (`.doc`, `.odt` …) and
     every file when you set a `viewer` of your own in the terminal app (in the terminal app a
@@ -394,8 +395,8 @@ panel title says `[archive]` instead of a tint and a badge, and there is no prev
 
 Yes. Put the cursor on it with the preview pane open (**Space** in the desktop app), or press
 **F3** in the terminal app. A text file or a picture is read straight out of the archive, into
-memory: the preview pane shows its first 512 KB (a picture, PDF, song, video, font, Word
-document, workbook, notebook or PowerPoint deck up to 25 MB, a Parquet file up to 64 MB,
+memory: the preview pane shows its first 512 KB (a picture, PDF, song, video, font or Parquet
+file up to 64 MB, a Word document, workbook, notebook or PowerPoint deck up to 25 MB,
 whole), the terminal
 app's viewer its first 16 MB, and nothing is written to the disk. A provenance file or a BOM
 opens in its viewer the same way, in both apps. A log, JSON Lines file or longer text

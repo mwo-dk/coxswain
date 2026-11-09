@@ -25,7 +25,7 @@ const MAX_RANGE: u64 = 1000 * 1024;
 const MAX_WHOLE: u64 = 512 * 1024 * 1024;
 
 /// The most a file inside an archive is served: it is unpacked into memory whole.
-const MAX_INSIDE: u64 = 64 * 1024 * 1024;
+const MAX_INSIDE: u64 = coxswain_core::viewers::MAX_WHOLE;
 
 /// The archive's size and time when a file of it was unpacked.
 type Stamp = (u64, Option<std::time::SystemTime>);

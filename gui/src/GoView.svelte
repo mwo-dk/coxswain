@@ -14,7 +14,7 @@
   import { invoke, basename, keysToBoard } from "./lib.js";
   import { t } from "./i18n.svelte.js";
 
-  let { path, full = false } = $props();
+  let { path, full = false, onfail = () => {} } = $props();
 
   let looks = $state(null);
   let error = $state("");
@@ -69,7 +69,11 @@
       if (r.progress.error) error = r.progress.error;
       if (r.progress.done && r.progress.games === 1 && !game && !ui.goAt) openGame(0);
     } catch (e) {
-      if (seq === rowsSeq) error = String(e);
+      if (seq === rowsSeq) {
+        error = String(e);
+        // Not to be read from inside its archive (locked): the caller reads a copy instead.
+        onfail();
+      }
     }
   }
 
