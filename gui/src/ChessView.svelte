@@ -11,7 +11,7 @@
   // is shown as text, never HTML.
   import { untrack } from "svelte";
   import { ui } from "./app.svelte.js";
-  import { invoke, LOCKED, basename, parent, keysToBoard, browseKey, chessFormat, viewEnd } from "./lib.js";
+  import { invoke, LOCKED, basename, parent, keysToBoard, browseKey, chessFormat, viewEnd, size } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
 
   let { path, full = false, onfail = () => {} } = $props();
@@ -60,7 +60,7 @@
   let flip = $state(false);
   let error = $state("");
   // The table.
-  let query = $state({ player: "", opening: "", result: "", from: null, to: null, elo: null, sort: "number", desc: false });
+  let query = $state({ player: "", opening: "", result: "", from: null, to: null, elo: null, position: "", sort: "number", desc: false });
   let total = $state(0);
   let progress = $state(null);
   let rows = $state([]);
@@ -98,6 +98,11 @@
   let review = $state(null);
   // Find this position (chess_position_games): the games found, null before asking.
   let posGames = $state(null);
+  // The position index (chess_index_status, docs/previews/chess-positions.md): where it stands;
+  // the opening tree of the position shown while the Tree is on (t), null without an index.
+  let index = $state(null);
+  let treeOn = $state(false);
+  let tree = $state(null);
 
   $effect(() => {
     const theme = ui.theme;
@@ -235,6 +240,81 @@
   });
 
   const visible = $derived(rows);
+
+  // A list cut to a position, again when its index comes, goes out of date or is built again.
+  $effect(() => {
+    void indexReady;
+    void indexGames;
+    void indexStale;
+    if (query.position) untrack(fetchRows);
+  });
+
+  // The position index's state: once the table is read, then every second while it is built.
+  const indexable = $derived(format === "pgn");
+  let indexSeq = 0;
+  async function fetchIndex() {
+    const p = path;
+    const s = ++indexSeq;
+    try {
+      const st = await invoke("chess_index_status", { path: p });
+      if (p === path && s === indexSeq) index = st;
+    } catch {
+      /* the table says why */
+    }
+  }
+  const tableRead = $derived(!!progress?.done);
+  $effect(() => {
+    void path;
+    if (!indexable || !tableRead) return void (index = null);
+    untrack(fetchIndex);
+    const timer = setInterval(() => (index?.building != null || index?.stale) && fetchIndex(), 1000);
+    return () => clearInterval(timer);
+  });
+  async function indexAct(act) {
+    await invoke("chess_index", { path, act }).catch((e) => (said = String(e)));
+    if (act === "remove") query.position = "";
+    fetchIndex();
+  }
+  /** "≈ 3.2 GB, ≈ 4 min": what a build takes, said before it starts. */
+  const estimate = (st) => t("chess.index_estimate", { size: size(st.estimate_bytes), minutes: Math.max(1, Math.round(st.estimate_seconds / 60)) });
+  const depthName = (d) => (d ? t("chess.index_depth", { n: d }) : t("settings.chess_depth_all"));
+
+  // The opening tree, again for each position shown while it is on; again when the index came.
+  let treeSeq = 0;
+  const indexReady = $derived(index?.ready);
+  const indexGames = $derived(index?.games);
+  const indexStale = $derived(index?.stale);
+  $effect(() => {
+    const f = fen;
+    const p = path;
+    void indexReady;
+    void indexGames;
+    void indexStale;
+    const s = ++treeSeq;
+    if (!treeOn || !f || draughts || shogi || bridge) return void (tree = null);
+    invoke("chess_tree", { path: p, fen: f }).then(
+      (tr) => {
+        if (s !== treeSeq) return;
+        tree = tr && { ...tr, fen: f };
+        // The index went out of date (or came back) since it was last asked: its line, its
+        // rebuild (asking starts it) and the list follow.
+        if (tr && index && tr.stale !== index.stale) fetchIndex();
+      },
+      () => {},
+    );
+  });
+  /** A move of the tree played: as a click on the board would (xiangqi's are not played). */
+  function playTree(m) {
+    // A tree of the position before, still shown while the new one is asked for: not played.
+    if (tree?.fen !== fen) return;
+    const l = legal.find((x) => x.uci === m.uci);
+    if (l) playMove(l);
+  }
+  /** The games list cut to the games that reach the position shown. */
+  function gamesHere() {
+    query.position = fen;
+    back();
+  }
 
   // One request a frame, however many scroll events it brings.
   let scrollFrame = 0;
@@ -757,6 +837,7 @@
     else if (e.key === "g" && format === "pgn" && !other) reviewAct(review && !review.done ? "stop" : "start");
     else if (e.key === "w" && format === "pgn" && !other) saveReview();
     else if (e.key === "p" && !other) findPosition();
+    else if (e.key === "t" && table && indexable) treeOn = !treeOn;
     else if (e.key === "c" && played) played = null;
     else if (e.key === "Escape" && (picked != null || promo)) (picked = null), (promo = null);
     else if (e.key === "PageDown" && table) nextGame(1);
@@ -978,6 +1059,7 @@
           {#if !other}<button title={t("chess.notation_tip")} onclick={() => (letters = !letters)}>{#if letters}{pieces.join("")}{:else}<span class="fig">♔♘</span>{/if}</button>{/if}
           {#if !other}<button title={t("chess.engine_tip")} class:on={analysis} onclick={() => (analysis = !analysis)}>{t("chess.engine_btn")}</button>{/if}
           {#if !other}<button title={t("chess.position_tip")} onclick={findPosition}>{t("chess.position_btn")}</button>{/if}
+          {#if table && indexable}<button title={t("chess.tree_tip")} class:on={treeOn} onclick={() => (treeOn = !treeOn)}>{t("chess.tree_btn")}</button>{/if}
           {#if format === "pgn" && !other}
             <button title={t("chess.review_tip")} class:on={review && !review.done} onclick={() => reviewAct(review && !review.done ? "stop" : "start")}>{review && !review.done ? t("chess.review_stop") : t("chess.review_btn")}</button>
             {#if review?.plies.length}<button title={t("chess.review_save_tip")} onclick={saveReview}>{t("chess.review_save")}</button>{/if}
@@ -1036,6 +1118,33 @@
           </table>
         {:else if book}
           <p class="meta book-line">{#if book.moves.length}{t("chess.book", { name: book.name, moves: "" })}{#each book.moves.slice(0, 8) as m, k (m.uci)}{k ? " · " : ""}{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each} {m.share.toFixed(0)} %{/each}{:else}{t("chess.book_out", { name: book.name })}{/if}</p>
+        {/if}
+        {#if treeOn}
+          {#if tree}
+            <p class="meta">{t("chess.tree_title", { n: tree.games })}{#if tree.stale} · {t("chess.index_stale")}{/if}{#if tree.games && tree.opens} <button title={t("chess.tree_games_tip")} onclick={gamesHere}>{t("chess.tree_games")}</button>{/if}</p>
+            {#if !tree.moves.length}<p class="meta">{tree.games && tree.depth ? t("chess.tree_past", { depth: depthName(tree.depth) }) : t("chess.tree_no_moves")}</p>
+            {:else}
+              <table class="book tree">
+                <thead><tr><th>{t("chess.tree_move")}</th><th class="n">{t("chess.tree_games_col")}</th><th class="n" title={t("chess.tree_score_tip")}>{t("chess.tree_score")}</th><th class="n">{t("chess.col_elo")}</th><th>{t("chess.tree_years")}</th><th>{t("chess.tree_best")}</th></tr></thead>
+                <tbody>
+                  {#each tree.moves as m (m.uci)}
+                    <tr>
+                      <td>{#if xiangqi}{m.san}{:else}<button class="mv" title={t("chess.tree_play_tip")} onclick={() => playTree(m)}>{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button>{/if}</td>
+                      <td class="n">{m.games}</td>
+                      <td class="n score"><span class="bar3" title={t("chess.tree_score_of", { white: m.white, draws: m.draws, black: m.black })}><i class="w" style:width="{m.white}%"></i><i class="d" style:width="{m.draws}%"></i><i class="b" style:width="{m.black}%"></i></span> {m.white} · {m.draws} · {m.black}</td>
+                      <td class="n">{m.elo ?? ""}</td>
+                      <td>{m.first ? (m.first === m.last ? m.first : `${m.first}–${m.last}`) : ""}</td>
+                      <td>{m.best ? `${m.best[0]} (${m.best[1]})` : ""}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {/if}
+          {:else if index?.building != null}
+            <p class="meta">{t("chess.index_building", { percent: Math.floor(index.building * 100) })}</p>
+          {:else}
+            <p class="meta">{t("chess.tree_none")} {#if index?.can}<button title={t("chess.index_build_tip")} onclick={() => indexAct("build")}>{t("chess.index_build")} ({estimate(index)})</button>{/if}</p>
+          {/if}
         {/if}
         {#if engine}
           <p class="meta engine">{#if engine.thinking}{t("chess.engine_thinking")}{:else if engine.error}{engine.error}{:else}{t("chess.engine", { name: engine.a.engine, depth: engine.a.depth })}{#if engine.a.review} · {t("chess.engine_from_review")}{/if}{#if engine.a.lines.length === 1} · {t("chess.engine_line_key")}{:else if engine.a.lines.length} · {t("chess.engine_lines_keys", { n: engine.a.lines.length })}{/if}{/if}</p>
@@ -1099,7 +1208,7 @@
             {/each}
           </ul>
         {/if}
-        <p class="meta keys">{bridge ? t("bridge.keys_game_gui") : other ? t("draughts.keys_game_gui") : format === "pgn" ? t("chess.keys_game_gui") : format === "book" ? t("chess.keys_book_gui") : t("chess.keys_position_gui")}</p>
+        <p class="meta keys">{bridge ? t("bridge.keys_game_gui") : other ? `${t("draughts.keys_game_gui")}${xiangqi ? ` ${t("chess.keys_tree_gui")}` : ""}` : format === "pgn" ? `${t("chess.keys_game_gui")} ${t("chess.keys_tree_gui")}` : format === "book" ? t("chess.keys_book_gui") : t("chess.keys_position_gui")}</p>
       </div>
     </div>
   {:else if table}
@@ -1121,6 +1230,23 @@
     <p class="meta">
       {t("chess.games", { shown: total, total: progress?.games ?? 0 })}{#if progress && !progress.done} · {t("chess.reading", { percent: pct })}{/if}{#if progress?.capped} · {t("chess.capped", { n: progress.games })}{/if}
     </p>
+    {#if index?.can}
+      <p class="meta index">
+        {#if index.building != null}
+          {t("chess.index_building", { percent: Math.floor(index.building * 100) })}{#if index.ready} · {t("chess.index_old_in_use")}{/if}
+          <button title={t("chess.index_stop_tip")} onclick={() => indexAct("stop")}>{t("chess.index_stop")}</button>
+        {:else if index.ready}
+          {t("chess.index_ready", { depth: depthName(index.depth), size: size(index.bytes) })}{#if index.stale} · {t("chess.index_stale")}{/if}
+          <button title={t("chess.index_remove_tip")} onclick={() => indexAct("remove")}>{t("chess.index_remove")}</button>
+        {:else}
+          <button title={t("chess.index_build_tip")} onclick={() => indexAct("build")}>{t("chess.index_build")} ({estimate(index)})</button>
+        {/if}
+        {#if index.error} · {index.error}{/if}
+      </p>
+    {/if}
+    {#if query.position}
+      <p class="meta">{t("chess.index_filtered")}{#if index?.stale} · {t("chess.index_stale")}{/if} <button title={t("chess.index_filtered_clear")} onclick={() => (query.position = "")}>{t("chess.index_filtered_clear")}</button></p>
+    {/if}
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div class="list chess-keys" tabindex="0" role="grid" aria-label={basename(path)} bind:this={listEl} bind:clientHeight={height} {onscroll} onkeydown={onListKey}>
       <table>
@@ -1582,6 +1708,33 @@
   .book {
     border-collapse: collapse;
     margin-block: 4px;
+  }
+  .tree th {
+    text-align: start;
+    font-weight: normal;
+    opacity: 0.75;
+  }
+  .tree .score {
+    white-space: nowrap;
+  }
+  .bar3 {
+    display: inline-flex;
+    width: 4em;
+    height: 0.6em;
+    vertical-align: middle;
+    border: 1px solid var(--border-fg);
+  }
+  .bar3 i {
+    display: block;
+  }
+  .bar3 .w {
+    background: #f4f4f4;
+  }
+  .bar3 .d {
+    background: #9e9e9e;
+  }
+  .bar3 .b {
+    background: #212121;
   }
   .book td {
     padding: 0 8px 0 0;
