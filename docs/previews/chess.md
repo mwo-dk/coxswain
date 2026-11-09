@@ -615,7 +615,7 @@ the tags of a block's games next to each other, then their moves without the mov
 (written back as they were when a game opens) (Lumbra's Gigabase: 12 GB of PGN, 2.8 GB in the cache with the table). Opening a game reads it from there,
 in about 2 ms. Opened again with the archive unchanged, the table is taken as it is and
 the archive is not read. Past 4 GB of tables in all the oldest go first, so a table as large as this one stays
-only while it is the newest one; saving a line from the game into the archive changes the archive,
+only while it is the newest one (a table on screen keeps opening its games until its window closes, even when another window or app removes its folder meanwhile); saving a line from the game into the archive changes the archive,
 and the table is then read again. **Measured** (Lumbra's Gigabase, a 2.5 GB 7z of one 12 GB PGN file, on a desktop with an SSD):
 12,294,960 games, the first rows after 0.5 s, all read in 9 minutes (packing the games sets the
 pace), 73 MB of memory at most, opened again in 10 ms.
