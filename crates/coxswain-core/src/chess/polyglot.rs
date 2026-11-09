@@ -89,15 +89,28 @@ fn book_move(b: &Board, mv: u16) -> Option<Move> {
 
 /// A book file open for reading.
 pub struct Book {
-    file: std::fs::File,
+    /// The file, or inside an archive its bytes in memory (`games::whole`).
+    file: Box<dyn Source>,
+    len: u64,
     entries: u64,
 }
 
+trait Source: Read + Seek + Send {}
+impl<T: Read + Seek + Send> Source for T {}
+
 impl Book {
     pub fn open(path: &Path) -> std::io::Result<Book> {
+        if super::games::in_archive(path) {
+            return Ok(Book::of(super::games::whole(path)?));
+        }
         let file = crate::fs::open_regular(path)?;
-        let entries = file.metadata()?.len() / 16;
-        Ok(Book { file, entries })
+        let len = file.metadata()?.len();
+        Ok(Book { file: Box::new(file), len, entries: len / 16 })
+    }
+
+    fn of(bytes: impl AsRef<[u8]> + Send + 'static) -> Book {
+        let len = bytes.as_ref().len() as u64;
+        Book { file: Box::new(std::io::Cursor::new(bytes)), len, entries: len / 16 }
     }
 
     /// How many entries it has.
@@ -184,24 +197,42 @@ pub fn is_book(path: &Path) -> bool {
     if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("bin")) {
         return false;
     }
-    let Ok(mut book) = Book::open(path) else { return false };
-    let n = book.entries;
-    if n == 0 || book.file.metadata().map_or(true, |m| m.len() % 16 != 0) {
-        return false;
-    }
-    let sample: Vec<u64> = (0..n.min(64)).chain(n.saturating_sub(64).max(64)..n).collect();
-    let mut last = None;
-    let mut keys = 0u64;
-    for i in sample {
-        let Some((key, mv, ..)) = book.read(i) else { return false };
-        let (from, to, promo) = ((mv >> 6) & 63, mv & 63, (mv >> 12) & 7);
-        if from == to || promo > 4 || mv >> 15 != 0 || last.is_some_and(|l| key < l) {
+    // Inside an archive, a `.bin` of another kind is not unpacked whole to tell: its size and its
+    // first entries first.
+    if super::games::in_archive(path) {
+        if !crate::archive::entry_size(path).is_ok_and(|n| n % 16 == 0 && n <= super::games::IN_MEMORY) {
             return false;
         }
-        keys |= key;
-        last = Some(key);
+        // A locked one or one in a disk image has no head to read: told from the whole (a locked
+        // one without its password is refused at once).
+        if crate::archive::streamable(path) && !crate::archive::head(path, 64 * 16).is_ok_and(|(first, _)| Book::of(first).sane()) {
+            return false;
+        }
     }
-    keys != 0
+    Book::open(path).is_ok_and(|mut b| b.sane())
+}
+
+impl Book {
+    /// Whole 16-byte entries, the first and last keys in order and their moves moves.
+    fn sane(&mut self) -> bool {
+        let n = self.entries;
+        if n == 0 || self.len % 16 != 0 {
+            return false;
+        }
+        let sample: Vec<u64> = (0..n.min(64)).chain(n.saturating_sub(64).max(64)..n).collect();
+        let mut last = None;
+        let mut keys = 0u64;
+        for i in sample {
+            let Some((key, mv, ..)) = self.read(i) else { return false };
+            let (from, to, promo) = ((mv >> 6) & 63, mv & 63, (mv >> 12) & 7);
+            if from == to || promo > 4 || mv >> 15 != 0 || last.is_some_and(|l| key < l) {
+                return false;
+            }
+            keys |= key;
+            last = Some(key);
+        }
+        keys != 0
+    }
 }
 
 /// The book for a game file: the file itself when it is a book, else the one Settings names

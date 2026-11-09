@@ -1899,11 +1899,17 @@ pub struct ChessConfig {
     /// The engines' own UCI options (`Threads`, `Hash`, `UCI_Elo` …), by engine name without
     /// its version (`[chess.engines.Stockfish]`): sent to it when it offers them.
     pub engines: std::collections::BTreeMap<String, std::collections::BTreeMap<String, toml::Value>>,
+    /// Build a position index (the opening tree) for every games table opened, in the
+    /// background. Off: only for a database whose table's *Build position index* is pressed.
+    pub position_index: bool,
+    /// How far into each game the position index reads: `15` or `30` moves, or `all` (the whole
+    /// game).
+    pub position_depth: String,
 }
 
 impl Default for ChessConfig {
     fn default() -> Self {
-        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new(), pieces: "auto".into(), analysis: false, engine: String::new(), engine_time: 1000, engine_lines: 3, review_time: 500, engine_limit: "time".into(), engine_depth: 20, engine_nodes: 1_000_000, review_limit: "time".into(), review_depth: 14, review_nodes: 300_000, engines: Default::default() }
+        ChessConfig { notation: "figurines".into(), board: "theme".into(), book: String::new(), pieces: "auto".into(), analysis: false, engine: String::new(), engine_time: 1000, engine_lines: 3, review_time: 500, engine_limit: "time".into(), engine_depth: 20, engine_nodes: 1_000_000, review_limit: "time".into(), review_depth: 14, review_nodes: 300_000, engines: Default::default(), position_index: false, position_depth: "30".into() }
     }
 }
 

@@ -2221,11 +2221,13 @@ impl App {
     /// F3 on a file inside an archive: in the viewer, no copy made. A log, JSON Lines or a text
     /// over 16 MB is paged through as it is unpacked (a locked one from a copy), provenance and a
     /// BOM open in their viewers from memory, the rest of the text is held in memory (its first
-    /// 16 MB); games, a viewer of one's own and a locked file are read from a copy (its password
-    /// asked for).
+    /// 16 MB); ChessBase and SCID, a viewer of one's own and a locked log or long text to page
+    /// through are read from a copy (its password asked for); a locked file up to 16 MB is shown
+    /// from memory once its password is given.
     fn peek(&mut self, path: PathBuf) {
         use coxswain_core::enter;
-        // A PGN family file or a DhtmlXQ game: its games read as it is unpacked.
+        // A PGN family file or a DhtmlXQ game: its games read as it is unpacked; an opening
+        // book, positions or a Go file in memory.
         if (enter::view(&path, enter::Place::Archive) == enter::View::Games || enter::may_be_games(&path)) && coxswain_core::chess::games::streams(&path) {
             return self.chess(&path, None);
         }
@@ -2247,8 +2249,9 @@ impl App {
             if more && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
                 return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
             }
-            // A log that cannot be paged (locked, or no text) is read from a copy, as it was.
-            if !log {
+            // A log that cannot be paged (locked, or no text) is read from a copy when it is
+            // longer than the viewer holds, as it was; a shorter one from memory.
+            if !log || !more {
                 let v = viewer::Viewer::bytes(&path, &bytes, more, labels);
                 return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
             }
@@ -2306,7 +2309,8 @@ impl App {
             _ => {}
         }
         if let Some((archive, _)) = inside {
-            // A `.bin` that may be an opening book: told by a copy's bytes.
+            // A `.bin` that may be an opening book: told by its bytes, in memory up to 64 MB,
+            // else by a copy's.
             if enter::may_be_games(&e.path) && coxswain_core::chess::games::streams(&e.path) {
                 return self.chess(&e.path, None);
             }
@@ -2623,8 +2627,9 @@ impl App {
     /// A chess file full screen: a PGN file's games (at the game of a Find hit's snippet), an EPD or
     /// FEN file's positions.
     fn chess(&mut self, path: &Path, hit: Option<String>) {
-        // Inside an archive: PGN family files and DhtmlXQ games as they are unpacked, the rest
-        // (ChessBase, SCID, an opening book, positions, Go) from a copy, as F3 views any file there.
+        // Inside an archive: PGN family files and DhtmlXQ games as they are unpacked, an opening
+        // book, positions and Go in memory (`games::in_memory`), the rest (ChessBase, SCID, a
+        // locked file, a book or Go file over 64 MB) from a copy.
         let copy;
         let path = if !path.exists() && coxswain_core::archive::split(path).is_some() && !coxswain_core::chess::games::streams(path) {
             match coxswain_core::archive::peek(path) {

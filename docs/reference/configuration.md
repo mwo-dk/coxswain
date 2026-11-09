@@ -390,6 +390,8 @@ How [chess games](../previews/chess.md), [Go games](../previews/go.md), [draught
 | `review_time` | integer | `500` | How long the engine thinks about each position when a whole game is analysed (**g**), in milliseconds (100 to 10000) ([Analysing a whole game](../previews/chess-play.md#analysing-a-whole-game)) |
 | `review_depth` | integer | `14` | Half-moves deep for each position of a whole game, by depth (1 to 99) |
 | `review_nodes` | integer | `300000` | Positions searched for each position of a whole game, by nodes |
+| `position_index` | boolean | `false` | Build a position index (the opening tree) of every games table opened, in the background; off: only a table whose *Build position index* is pressed gets one ([Chess: position index and opening tree](../previews/chess-positions.md)) |
+| `position_depth` | string | `"30"` | How far into each game the position index reads: `"15"`, `"30"` or `"all"` (the whole game) |
 
 `[chess.engines."<engine>"]`, one table for each engine by its name without its version
 (`[chess.engines.Stockfish]`, `[chess.engines.Lc0]`): the engine's own UCI options, `name = value`
@@ -474,6 +476,8 @@ An area's own name opens it too: `overview`, `search`, `previews`, `modules`, `g
 | | *Whole-game depth* | `chess_review_depth` | `[chess] review_depth` |
 | | *Whole-game positions* | `chess_review_nodes` | `[chess] review_nodes` |
 | *Games → Opening book* | *Opening book* | `chess_book` | `[chess] book` |
+| *Games → Position index* | *Position index for every games table* | `chess_position_index` | `[chess] position_index` |
+| | *Position index depth* | `chess_position_depth` | `[chess] position_depth` |
 | *Modules* | A checkbox per module | `modules_off` | `[modules] off` |
 | *Looks* | *Language* | `language` | `language` |
 | | *Theme of the desktop app* (*For*: *Desktop app*) | `theme` | `[gui] theme` |
