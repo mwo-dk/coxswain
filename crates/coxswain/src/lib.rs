@@ -2211,8 +2211,9 @@ impl App {
     /// F3 on a file inside an archive: in the viewer, no copy made. A log, JSON Lines or a text
     /// over 16 MB is paged through as it is unpacked (a locked one from a copy), provenance and a
     /// BOM open in their viewers from memory, the rest of the text is held in memory (its first
-    /// 16 MB); ChessBase and SCID, a viewer of one's own and a locked file are read from a copy
-    /// (its password asked for).
+    /// 16 MB); ChessBase and SCID, a viewer of one's own and a locked log or long text to page
+    /// through are read from a copy (its password asked for); a locked file up to 16 MB is shown
+    /// from memory once its password is given.
     fn peek(&mut self, path: PathBuf) {
         use coxswain_core::enter;
         // A PGN family file or a DhtmlXQ game: its games read as it is unpacked; an opening
@@ -2238,8 +2239,9 @@ impl App {
             if more && let Ok(Some(v)) = viewer::Viewer::in_archive(&path, labels) {
                 return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
             }
-            // A log that cannot be paged (locked, or no text) is read from a copy, as it was.
-            if !log {
+            // A log that cannot be paged (locked, or no text) is read from a copy when it is
+            // longer than the viewer holds, as it was; a shorter one from memory.
+            if !log || !more {
                 let v = viewer::Viewer::bytes(&path, &bytes, more, labels);
                 return self.dialog = Some(Dialog::View { v: Box::new(v), back: None });
             }

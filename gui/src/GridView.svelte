@@ -9,6 +9,17 @@
 
   /** @type {{ t: any, active: boolean, onfocus: Function }} */
   let { t, active, onfocus } = $props();
+  /** A picture's tile: the file itself, or inside an archive a small PNG of it made in memory as
+   *  the archive unpacks it (`?thumb`, no copy on the disk). */
+  const pic = (e) => convertFileSrc(e.path) + (t.archive ? `?thumb&v=${e.modified}-${e.size}` : "");
+  /** Tiles whose picture could not be read (locked, too large, no picture): their icon instead. */
+  let broken = $state(new Set());
+  const fail = (e) => (broken = new Set([...broken, e.path]));
+  // Another folder, or the same listed again (a password given): every tile tried anew.
+  $effect(() => {
+    t.items;
+    broken = new Set();
+  });
   let grid = $state();
   let tiles = $state();
   let cols = $state(1);
@@ -113,8 +124,10 @@
       >
         <div class="thumb">
           <!-- A picture only in the cloud is not drawn: that would download it. -->
-          {#if previewKind(e) === "image" && !e.online}
-            <img src={convertFileSrc(e.path)} alt="" loading="lazy" decoding="async" draggable="false" />
+          {#if broken.has(e.path)}
+            {@render icon(e)}
+          {:else if previewKind(e) === "image" && !e.online}
+            <img src={pic(e)} alt="" loading="lazy" decoding="async" draggable="false" onerror={() => fail(e)} />
           {:else if previewKind(e) === "picture" && !e.online}
             <!-- An old picture: a small PNG the core makes once and keeps (old_picture). -->
             {#await invoke("old_picture", { path: e.path, page: 0, side: 256 }) then r}
@@ -141,7 +154,7 @@
             <!-- A .drawio.svg or .drawio.png shows itself; a .drawio file its first page, drawn
                  once by draw.io when its exports are on (drawio_thumbnail). -->
             {#if /\.(svg|png)$/i.test(e.name)}
-              <img src={convertFileSrc(e.path)} alt="" loading="lazy" decoding="async" draggable="false" />
+              <img src={pic(e)} alt="" loading="lazy" decoding="async" draggable="false" onerror={() => fail(e)} />
             {:else if ui.cfg.settings.drawio}
               {#await invoke("drawio_thumbnail", { path: e.path }) then file}
                 {#if file}<img src={convertFileSrc(file)} alt="" decoding="async" draggable="false" />{:else}{@render icon(e)}{/if}

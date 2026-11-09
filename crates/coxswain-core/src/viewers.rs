@@ -230,8 +230,9 @@ pub const MAX_WHOLE: u64 = 64 * 1024 * 1024;
 pub fn reads(kind: &str) -> Read {
     match kind {
         "text" | "markdown" | "data" | "log" | "jsonl" | "bom" | "provenance" => Read::Stream,
-        // Documents, workbooks and notebooks: their page reader takes at most 25 MB (`renderers.js`).
-        "image" | "pdf" | "audio" | "video" | "font" | "docx" | "sheet" | "notebook" | "parquet" => Read::Whole,
+        // Documents, workbooks and notebooks: their page reader takes at most 25 MB (`renderers.js`);
+        // an old picture is decoded by the core (`pictures`).
+        "image" | "picture" | "pdf" | "audio" | "video" | "font" | "docx" | "sheet" | "notebook" | "parquet" => Read::Whole,
         _ => Read::Copy,
     }
 }

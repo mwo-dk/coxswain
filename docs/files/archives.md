@@ -196,6 +196,12 @@ through an installed 7-Zip instead, read-only, like a disk image
   from the archive (a player's seeking too, from one unpacking), and **F3** in the
   terminal app shows a file's first 16 MB in the viewer (*Showing the first 16 MB.* on its
   status line when there is more), whatever the file's size.
+- **Old pictures, comic pages and thumbnails are made from memory too**: an old picture (TIFF,
+  TGA, PCX, Photoshop, JPEG XL …, [Old formats](../previews/old-formats.md)) up to 64 MB is
+  decoded from the bytes the archive unpacks, and only its PNG for the preview is kept in the
+  cache, as for one on the disk; a comic's page is read into memory when it is shown; and in the
+  desktop app's thumbnails view ([Views](../panels/views.md)) a picture's tile is a small PNG
+  made in memory, one picture at a time.
 - **Documents, workbooks, notebooks, slide decks and Parquet files are read into memory too**:
   the desktop app's preview pane shows a Word document (`.docx`), a workbook (`.xlsx`, `.ods`,
   `.csv` …), a Jupyter notebook and a PowerPoint deck (`.pptx`) up to 25 MB, the most their
@@ -215,13 +221,24 @@ through an installed 7-Zip instead, read-only, like a disk image
   file and a DhtmlXQ game open in the games window with no copy on the disk, and an opening book,
   an EPD or FEN file and a Go file up to 64 MB are unpacked into memory whole and read there
   ([Chess](../previews/chess.md#using-it)).
-- **Other files inside are previewed and viewed from a copy** (an Office file LibreOffice
-  draws, such as `.doc` or `.odt`, old picture formats, a document, workbook, notebook or deck
-  over 25 MB (whose reader refuses it there too), a Parquet file, PDF, song, video or font over
-  64 MB, a SCID or ChessBase database, an opening book or a Go file over 64 MB,
-  a locked file once its password is given, every PDF, song, video and font in the
-  terminal app, whose readers and players need a file, and every file when you set a
-  `viewer` of your own in the terminal app), not opened or edited: **Enter** and **F4** say on
+- **Other files inside are previewed and viewed from a copy**, each for a reason:
+  - a program of its own needs a file: an Office file LibreOffice draws (`.doc`, `.odt` …) and
+    every file when you set a `viewer` of your own in the terminal app (in the terminal app a
+    PDF, song, video or font has no reader of its own: **F3** shows its bytes in hex from
+    memory, and **F5** copies it out for a program);
+  - too large to hold in memory: an old picture, a Parquet file, a PDF, song, video or font
+    over 64 MB (the preview holds the file whole, a player's seeking included), and a document,
+    workbook, notebook or deck over 25 MB (whose reader refuses it there too); an old picture
+    inside a disk image too, as 7-Zip reads such a file whole;
+  - read in pieces from several files: a SCID or ChessBase database and a `.cbv`, and read by
+    jumping about in it, an opening book or a Go file over 64 MB (a smaller one is held in
+    memory, [Chess](../previews/chess.md));
+  - locked, where paging would show lines before the checksum at the end proves the password: a
+    locked log, JSON Lines file or long text to page through, and a locked file over 64 MB (a
+    locked file the preview or the viewer holds in memory is read from the archive:
+    [Passwords](archive-passwords.md#is-a-locked-file-copied-to-the-disk-to-be-looked-at)).
+
+  These are not opened or edited: **Enter** and **F4** say on
   the status line that **F5** copies the file out, since changes to a copy would be lost. The
   copy is made in the cache folder (`coxswain/peek/`, readable by you alone), one at
   a time, and removed when the next is made; copies left by an app that ended go after a day.

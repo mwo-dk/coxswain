@@ -104,7 +104,33 @@ fn kind(path: &Path) -> Option<Kind> {
     sniff(k, &head[..n]).then_some(k)
 }
 
+/// The most bytes of a picture inside an archive read into memory, as it is unpacked: no copy
+/// is made on the disk.
+pub const INSIDE_MAX: u64 = 64 << 20;
+
+/// A path through an archive, not a file on the disk.
+fn inside(path: &Path) -> bool {
+    !path.exists() && crate::archive::split(path).is_some()
+}
+
+trait BufReadSeek: std::io::BufRead + std::io::Seek {}
+impl<T: std::io::BufRead + std::io::Seek> BufReadSeek for T {}
+
+/// The picture's bytes to read: the file, or inside an archive its bytes in memory
+/// (`INSIDE_MAX` at most).
+fn open(path: &Path) -> Result<Box<dyn BufReadSeek>, String> {
+    if inside(path) {
+        return Ok(Box::new(Cursor::new(read_all(path)?)));
+    }
+    Ok(Box::new(BufReader::new(File::open(path).map_err(|e| e.to_string())?)))
+}
+
 fn read_head(path: &Path, head: &mut [u8]) -> Option<usize> {
+    if inside(path) {
+        let (b, _) = crate::archive::head(path, head.len() as u64).ok()?;
+        head[..b.len()].copy_from_slice(&b);
+        return Some(b.len());
+    }
     let mut f = File::open(path).ok()?;
     let mut n = 0;
     while n < head.len() {
@@ -217,6 +243,13 @@ fn limits() -> image::Limits {
 
 /// The whole file, if it is no larger than `MAX_FILE`.
 fn read_all(path: &Path) -> Result<Vec<u8>, String> {
+    if inside(path) {
+        let (bytes, more) = crate::archive::head(path, INSIDE_MAX).map_err(|e| e.to_string())?;
+        if more {
+            return Err(t!("pictures.file_too_large", "size" => format!("{} MB", INSIDE_MAX >> 20)));
+        }
+        return Ok(bytes);
+    }
     let mut bytes = vec![];
     File::open(path)
         .and_then(|f| f.take(MAX_FILE + 1).read_to_end(&mut bytes))
@@ -252,13 +285,13 @@ fn decode_kind(path: &Path, k: Kind, page: usize) -> Result<Picture, String> {
             Ok(Picture { image, pages })
         }
         Kind::Lib(fmt) => {
-            let mut r = image::ImageReader::with_format(BufReader::new(File::open(path).map_err(|e| e.to_string())?), fmt);
+            let mut r = image::ImageReader::with_format(open(path)?, fmt);
             r.limits(limits());
             let d = r.into_decoder().map_err(|e| unreadable(&e))?;
             one(lib(d)?)
         }
         Kind::Jxl => {
-            let d = jxl_oxide::integration::JxlDecoder::new(BufReader::new(File::open(path).map_err(|e| e.to_string())?))
+            let d = jxl_oxide::integration::JxlDecoder::new(open(path)?)
                 .map_err(|e| unreadable(&e))?;
             one(lib(d)?)
         }
@@ -371,26 +404,27 @@ fn info_kind(path: &Path, k: Kind) -> Option<Info> {
     match k {
         Kind::Lib(ImageFormat::Tiff) => {
             // The header and the directories only, read with seeks: not the pictures.
-            let mut f = BufReader::new(File::open(path).ok()?);
-            let len = f.get_ref().metadata().ok()?.len();
+            let mut f = open(path).ok()?;
+            let len = std::io::Seek::seek(&mut f, std::io::SeekFrom::End(0)).ok()?;
+            std::io::Seek::rewind(&mut f).ok()?;
             let pages = tiff_pages_in(&mut f, len).len();
             let mut i = from(&|| {
-                let d = image::codecs::tiff::TiffDecoder::new(BufReader::new(File::open(path).ok()?)).ok()?;
+                let d = image::codecs::tiff::TiffDecoder::new(open(path).ok()?).ok()?;
                 Some((d.dimensions(), d.color_type()))
             })?;
             i.pages = Some(pages.max(1));
             Some(i)
         }
         Kind::Lib(fmt) => from(&|| {
-            let r = image::ImageReader::with_format(BufReader::new(File::open(path).ok()?), fmt);
+            let r = image::ImageReader::with_format(open(path).ok()?, fmt);
             let d = r.into_decoder().ok()?;
             Some((d.dimensions(), d.color_type()))
         }),
         Kind::Jxl => from(&|| {
-            let d = jxl_oxide::integration::JxlDecoder::new(BufReader::new(File::open(path).ok()?)).ok()?;
+            let d = jxl_oxide::integration::JxlDecoder::new(open(path).ok()?).ok()?;
             Some((d.dimensions(), d.color_type()))
         }),
-        Kind::Psd => psd::info(&mut BufReader::new(File::open(path).ok()?)),
+        Kind::Psd => psd::info(&mut open(path).ok()?),
         Kind::Iff | Kind::Pcx | Kind::Xpm | Kind::Xbm => {
             let bytes = read_all(path).ok()?;
             let mut i = match k {
@@ -438,6 +472,27 @@ pub fn png(path: &Path, page: usize, side: u32, to: &Path) -> Result<usize, Stri
     Ok(pages)
 }
 
+/// A picture's bytes (PNG, JPEG, GIF, WebP, BMP, or one the `image` crate reads by its first
+/// bytes) as a PNG no wider or taller than `side` pixels, made in memory: a grid's tile of a
+/// picture inside an archive. `None` for bytes it does not read; within `MAX_PIXELS`, no panic.
+pub fn thumbnail(bytes: &[u8], side: u32) -> Option<Vec<u8>> {
+    std::panic::catch_unwind(|| {
+        let mut r = image::ImageReader::new(Cursor::new(bytes)).with_guessed_format().ok()?;
+        r.limits(limits());
+        let d = r.into_decoder().ok()?;
+        let (w, h) = d.dimensions();
+        check_size(w.into(), h.into()).ok()?;
+        let image = DynamicImage::from_decoder(d).ok()?;
+        let image = if image.width().max(image.height()) > side { image.thumbnail(side, side) } else { image };
+        let mut out = Vec::new();
+        let enc = image::codecs::png::PngEncoder::new_with_quality(&mut out, image::codecs::png::CompressionType::Fast, image::codecs::png::FilterType::Adaptive);
+        image.write_with_encoder(enc).ok()?;
+        Some(out)
+    })
+    .ok()
+    .flatten()
+}
+
 /// PackBits (Apple's, and Amiga's ByteRun1): from `src` at `at` until `out` holds `want` bytes
 /// more or `src` ends. A run that would pass `want` is cut there.
 pub(crate) fn unpack_bits(src: &[u8], at: &mut usize, out: &mut Vec<u8>, want: usize) {
@@ -469,6 +524,37 @@ pub(crate) mod tests {
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d
+    }
+
+    /// An old picture inside a zip is decoded, its facts read and its PNG made from the bytes
+    /// the zip unpacks, with no copy of it on the disk; a web picture's bytes make a grid tile
+    /// in memory, and bytes that are no picture none.
+    #[test]
+    fn a_picture_inside_an_archive_is_read_from_memory() {
+        let d = folder("inside");
+        let ppm = d.join("a.ppm");
+        std::fs::write(&ppm, b"P6\n4 2\n255\n\xff\0\0\0\xff\0\0\0\xff\xff\xff\xff\xff\0\0\0\xff\0\0\0\xff\xff\xff\xff").unwrap();
+        let zip = d.join("pics.zip");
+        crate::archive::create(&zip, std::slice::from_ref(&ppm)).unwrap();
+        let inner = zip.join("a.ppm");
+        let peek = crate::helper::folder().unwrap().join(format!("peek-{:?}", std::thread::current().id())).join(crate::spill::run());
+        let copies = || std::fs::read_dir(&peek).map_or(0, |r| r.count());
+        let before = copies();
+        assert!(readable(&inner), "told by its first bytes, from the zip");
+        let p = decode(&inner, 0).unwrap();
+        assert_eq!((p.image.width(), p.image.height(), p.pages), (4, 2, 1));
+        assert_eq!(facts(&inner), facts(&ppm));
+        let out = d.join("a.png");
+        png(&inner, 0, 2048, &out).unwrap();
+        assert!(out.is_file());
+        assert_eq!(copies(), before, "no copy of it on the disk");
+        // A grid's tile: a PNG of at most the side asked for.
+        let mut big = Vec::new();
+        DynamicImage::ImageRgba8(RgbaImage::new(600, 300)).write_to(&mut Cursor::new(&mut big), ImageFormat::Png).unwrap();
+        let tile = image::load_from_memory(&thumbnail(&big, 256).unwrap()).unwrap();
+        assert_eq!((tile.width(), tile.height()), (256, 128));
+        assert!(thumbnail(b"no picture at all", 256).is_none());
+        let _ = std::fs::remove_dir_all(d);
     }
 
     /// Every way of cutting and spoiling `bytes`: the reader must not panic on any, nor take long.

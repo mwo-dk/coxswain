@@ -179,7 +179,9 @@ fn made(out: &Path, file: &Path) -> bool {
 
 /// The name of `cache_dir`'s folder: a hash of the file as it is now and how it is made.
 pub(crate) fn cache_name(path: &Path, main: &Path, tool: &str, engine: &str) -> Res<String> {
-    let meta = std::fs::metadata(path).map_err(|e| e.to_string())?;
+    // A file inside an archive (an old picture read from memory) is as new as its archive.
+    let on = coxswain_core::archive::split(path).filter(|_| !path.exists()).map_or_else(|| path.to_path_buf(), |(a, _)| a);
+    let meta = std::fs::metadata(on).map_err(|e| e.to_string())?;
     let mut h = std::collections::hash_map::DefaultHasher::new();
     (path, meta.len(), meta.modified().ok(), tool, engine).hash(&mut h);
     // A chapter, a picture or the bibliography changed: that is a new document too.

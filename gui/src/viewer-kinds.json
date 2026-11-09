@@ -649,7 +649,7 @@
     "office": "copy",
     "parquet": "whole",
     "pdf": "whole",
-    "picture": "copy",
+    "picture": "whole",
     "pikchr": "copy",
     "plantuml": "copy",
     "plist": "copy",
