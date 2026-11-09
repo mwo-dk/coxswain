@@ -4485,6 +4485,7 @@
  "viewer.keys_follow": "F følg · E stop ved fejl · & filter",
  "viewer.following": "Følger: nye linjer vises, når de skrives · F stopper",
  "viewer.not_following": "Følger ikke længere",
+ "viewer.archive_still": "En fil i et arkiv ændrer sig ikke, mens den læses, så der er intet at følge",
  "viewer.stopped_at_error": "Stoppede med at følge ved en fejl på linje {line}",
  "viewer.level_all": "Alle niveauer",
  "viewer.level_warn": "Advarsler og fejl",

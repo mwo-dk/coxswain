@@ -1,7 +1,6 @@
 use super::*;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
-use std::io::Write as _;
 
 struct Dir(PathBuf);
 

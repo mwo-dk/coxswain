@@ -84,7 +84,7 @@
         level = "";
         filter = applied = "";
         columns = true;
-        follow = untrack(() => ui.followLog === p);
+        follow = !o.still && untrack(() => ui.followLog === p);
         if (follow) ui.followLog = "";
         if (o.log) invoke("hint_once", { id: "log_view" }).then((b) => (hint = b), () => {});
         refresh();
@@ -184,7 +184,13 @@
     said = t(on ? "viewer.fold_on" : "viewer.fold_off");
     reshape();
   }
+  /** A file inside an archive does not change while it is read: F and E say so and do nothing. */
+  function isStill() {
+    if (info?.still) said = t("viewer.archive_still");
+    return !!info?.still;
+  }
   function setFollow(on) {
+    if (isStill()) return;
     follow = on;
     said = t(on ? "viewer.following" : "viewer.not_following");
     if (on) {
@@ -193,6 +199,7 @@
     }
   }
   function setPause(on) {
+    if (isStill()) return;
     pause = on;
     said = t(on ? "viewer.pause_on" : "viewer.pause_off");
   }
@@ -268,8 +275,10 @@
       {#if info.log}
         <button class:on={fold} onclick={() => setFold(!fold)} title={t("logs.fold_tip")}>{t("logs.fold")}</button>
       {/if}
-      <button class:on={follow} onclick={() => setFollow(!follow)} title={t("logs.follow_tip")}>{follow ? "● " : ""}{t("logs.follow")}</button>
-      <label class="pause" title={t("logs.pause_tip")}><input type="checkbox" checked={pause} onchange={(e) => setPause(e.currentTarget.checked)} />{t("logs.pause")}</label>
+      {#if !info.still}
+        <button class:on={follow} onclick={() => setFollow(!follow)} title={t("logs.follow_tip")}>{follow ? "● " : ""}{t("logs.follow")}</button>
+        <label class="pause" title={t("logs.pause_tip")}><input type="checkbox" checked={pause} onchange={(e) => setPause(e.currentTarget.checked)} />{t("logs.pause")}</label>
+      {/if}
     </div>
     <p class="status">
       <span>{info.log ? t(`logs.format.${info.format}`) : t("viewer.plain")} · {counted}</span>

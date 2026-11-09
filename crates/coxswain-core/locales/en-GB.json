@@ -4496,6 +4496,7 @@
  "viewer.keys_follow": "F follow · E stop at errors · & filter",
  "viewer.following": "Following: new lines show as they are written · F stops",
  "viewer.not_following": "Not following",
+ "viewer.archive_still": "A file inside an archive does not change while it is read, so there is nothing to follow",
  "viewer.stopped_at_error": "Stopped following at an error on line {line}",
  "viewer.level_all": "All levels",
  "viewer.level_warn": "Warnings and errors",
