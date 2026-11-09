@@ -204,7 +204,7 @@ pub const KINDS: &[Kind] = &[
         tools: &[tool("kicad", &["kicad-cli"], "kicad-cli", "kicad"), tool("kicad_thumb", &["kicad-cli"], "kicad-cli", "kicad")],
         sample: None,
     },
-    // E-books, once `[preview] ebooks` turns them on (`ebook`).
+    // E-books (`ebook`).
     Kind { id: "ebooks", docs: "documents.md", exts: &[crate::ebook::FORMATS], tools: &[tool("calibre", &["ebook-convert"], "calibre", "calibre")], sample: None },
     Kind {
         id: "maps",

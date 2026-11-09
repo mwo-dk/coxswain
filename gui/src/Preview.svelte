@@ -978,9 +978,6 @@
         {:else if conv.engines[0]?.id === "off:"}
           <!-- Off for this kind in Settings → Previews → Preview tools. -->
           <p class="more">{conv.engines[0].note} <button class="render" onclick={() => (ui.modal = { kind: "settings", section: "preview_tools" })}>{t("preview.settings")}</button></p>
-        {:else if conv.tool === "calibre" && !ui.cfg.settings.ebooks}
-          <!-- E-books only turned off: nothing to install. -->
-          <p class="more">{conv.engines[0]?.note} <button class="render" onclick={() => (ui.modal = { kind: "settings", section: "ebooks" })}>{t("preview.settings")}</button></p>
         {:else if wouldOf(conv)}
           <!-- Nothing shows it without an install or a download: what would, with both ways. -->
           {@const w = wouldOf(conv)}

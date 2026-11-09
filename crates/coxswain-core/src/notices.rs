@@ -418,15 +418,6 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             ..Notice::new("7zip", text, Some("disk_images"))
         });
     }
-    // E-books are turned on, but neither calibre nor podman or docker is there to read them. Once.
-    if cfg.preview.ebooks
-        && let Err(why) = crate::ebook::how(&cfg.preview)
-    {
-        all.push(Notice {
-            copy: crate::tools::install("calibre"),
-            ..Notice::new("ebooks", why, Some("ebooks"))
-        });
-    }
     // The chess view asks an engine about each position, but none is installed: what to install.
     if cfg.chess.analysis
         && let Err(text) = crate::chess::play::engine_for(cfg)

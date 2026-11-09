@@ -998,7 +998,6 @@
         <details class="group" id="opt-documents" open>
           <summary>{t("settings.group.documents")}</summary>
           {@render check("latex_auto")}
-          {@render check("ebooks")}
           {@render check("drawio")}
         </details>
         <details class="group" id="opt-images" open>
@@ -1261,8 +1260,6 @@
             {#if !termListed}<input id="in-terminal_other" value={s.terminal} spellcheck="false" placeholder="footclient -D {"{dir}"}" onchange={(e) => set("terminal", e.currentTarget.value.trim())} />{/if}
           {/snippet}
           {@render field("terminal", terminal)}
-          {@render check("bom_viewer")}
-          {@render check("provenance_viewer")}
         </details>
       {:else if area === "keys"}
         <!-- ------------------------------------------------ Keys -->

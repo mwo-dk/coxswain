@@ -113,10 +113,10 @@ impl Opt {
         crate::i18n::tr(&format!("setting.{}.hint", self.name), &[])
     }
 
-    /// The `[search]` options the helper reads when it starts, and `[preview] ebooks` (calibre
-    /// reads e-books for the search): a change restarts it. Ask's are read by the app itself.
+    /// The `[search]` options the helper reads when it starts: a change restarts it. Ask's are
+    /// read by the app itself.
     pub fn restarts_helper(&self) -> bool {
-        (self.path[0] == "search" && !self.name.starts_with("ask_")) || self.name == "ebooks"
+        self.path[0] == "search" && !self.name.starts_with("ask_")
     }
 
     /// Optional in config.toml: empty means the key is taken out (the default applies).
@@ -218,7 +218,6 @@ pub const OPTIONS: &[Opt] = &[
         &[Network, Disk],
     ),
     opt("image_prune", &["preview", "image_prune"], Previews, &[]),
-    opt("ebooks", &["preview", "ebooks"], Previews, &[Disk, Cpu, Network]),
     opt("virus_scan", &["preview", "virus_scan"], Previews, &[Disk, Network]),
     opt("preview_timeout", &["preview", "timeout"], Previews, &[]),
     opt("modules_off", &["modules", "off"], Modules, &[]),
@@ -265,8 +264,6 @@ pub const OPTIONS: &[Opt] = &[
     opt("editor", &["editor"], Behaviour, &[]),
     opt("viewer", &["viewer"], Behaviour, &[]),
     opt("terminal", &["terminal"], Behaviour, &[]),
-    opt("bom_viewer", &["bom_viewer"], Behaviour, &[]),
-    opt("provenance_viewer", &["provenance_viewer"], Behaviour, &[]),
     opt("check_updates", &["check_updates"], Privacy, &[Network]),
 ];
 
@@ -304,7 +301,7 @@ pub const GROUPS: &[Group] = &[
     group(Search, "meaning", Some("settings.group.meaning"), &["search_meaning", "meaning_engine", "meaning_url", "meaning_model", "meaning_key_env", "meaning_device", "long_files", "long_files_everything", "long_files_sample"]),
     group(Search, "ask", Some("settings.group.ask"), &["ask_model", "ask_code_model", "ask_think", "ask_context"]),
     group(Previews, "previews_general", Some("settings.group.general"), &["preview_prefer", "preview_timeout"]),
-    group(Previews, "documents", Some("settings.group.documents"), &["latex_auto", "ebooks", "drawio"]),
+    group(Previews, "documents", Some("settings.group.documents"), &["latex_auto", "drawio"]),
     group(Previews, "images", Some("settings.group.images"), &["preview_container", "latex_image", "image_updates", "image_prune"]),
     group(Previews, "safety", Some("settings.group.safety"), &["virus_scan"]),
     group(Modules, "module_switches", None, &["modules_off"]),
@@ -317,7 +314,7 @@ pub const GROUPS: &[Group] = &[
     group(Looks, "looks_gui", Some("settings.theme_gui"), &["theme", "font", "mono_font", "icon_font", "font_size", "line_height"]),
     group(Behaviour, "panels", Some("settings.group.panels"), &["show_hidden", "confirm_delete", "right_click", "typing", "hints", "folder_sizes", "disk_images", "repos_order"]),
     group(Behaviour, "git", Some("settings.group.git"), &["git_last_commit", "git_tool", "git_prefer_git"]),
-    group(Behaviour, "programs", Some("settings.group.programs"), &["editor", "viewer", "terminal", "bom_viewer", "provenance_viewer"]),
+    group(Behaviour, "programs", Some("settings.group.programs"), &["editor", "viewer", "terminal"]),
     group(Privacy, "updates", None, &["check_updates"]),
 ];
 

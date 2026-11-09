@@ -108,7 +108,7 @@
  "feature.bin.a1": "Abre la papelera desde la barra lateral (en la app de terminal, desde {goto_left}) o con {bin}, marca el archivo y usa {bin_restore}. Vuelve a su carpeta, que se crea de nuevo si ya no está.",
  "feature.bin.a3": "macOS no deja que las apps devuelvan un archivo. Con acceso total al disco, Coxswain lista la papelera y elimina definitivamente; para restaurar, usa Devolver en el Finder.",
  "feature.cbom.a2": "Una carpeta muestra la peor calificación de lo que contiene, así que una sola clave DSA la pone en rojo. Pon el cursor sobre ella: el cuadro de detalles nombra el activo responsable.",
- "feature.cbom.a3": "En el visor, s muestra la fuente del BOM en el visor integrado (o en el programa que indique viewer). Para que {view} muestre siempre la fuente, pon bom_viewer = false, o desmárcalo en Configuración → Comportamiento.",
+ "feature.cbom.a3": "En el visor, s muestra la fuente del BOM en el visor integrado (o en el programa que indique viewer).",
  "feature.change_keys.a1": "En config.toml, en [keys]. Configuración → Teclas → Abrir config.toml en la app de escritorio, o la fila Cambia las teclas en config.toml, en [keys] en la app de terminal, lo abre ahí. Después reinicia la app.",
  "feature.change_keys.a2": "Pon las dos en la lista, como search = [\"Alt+F7\", \"Ctrl+F\", \"Ctrl+P\"]. Listar una acción reemplaza todas sus teclas predeterminadas.",
  "feature.checksums.a1": "Pon el cursor sobre él y presiona Enter, o elige Verificar sumas de verificación en el menú de acciones ({action_menu}). Un diálogo dice cuántos archivos están OK, cambiados o faltan, y los elementos que contienen un archivo cambiado quedan marcados.",

@@ -71,10 +71,6 @@ pub async fn preview_engines(tool: String, ctx: tauri::State<'_, crate::Ctx>) ->
 }
 
 fn engines(cfg: &PreviewConfig, tool: &str) -> Vec<Engine> {
-    // E-books are off until Settings turns them on: nothing runs, the pane says where.
-    if tool == coxswain_core::ebook::TOOL && !cfg.ebooks {
-        return vec![Engine { id: "local:ebook-convert".into(), label: "calibre".into(), available: false, note: t!("ebook.off"), needs_pull: false, install: None, image: None, size: None }];
-    }
     use coxswain_core::preview_tools;
     let pref = preview_tools::choice(cfg, tool);
     // Off for this kind (Settings → Previews → Preview tools): nothing runs.

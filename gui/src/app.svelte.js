@@ -818,7 +818,7 @@ async function planEbook(paths, to) {
     return void (ui.status = String(err));
   }
   const title = t("action.convert_ebook");
-  if (plan.missing) return void (ui.modal = { kind: "message", title, text: plan.missing, settings: ui.cfg.settings.ebooks ? (ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews") : "ebooks", feature: "ebooks" });
+  if (plan.missing) return void (ui.modal = { kind: "message", title, text: plan.missing, settings: ui.cfg.settings.preview_container === "off" ? "preview_container" : "previews", feature: "ebooks" });
   if (!plan.books.length) return void (ui.status = t("ebook.none"));
   const what = plan.books.length === 1 ? t("ebook.confirm_one", { name: basename(plan.books[0]), target: plan.targets[0] }) : t("ebook.confirm_many", { n: plan.books.length, format: to.toUpperCase() });
   ui.modal = { kind: "confirm", title, text: `${what} ${t("ebook.no_drm")} ${plan.about}`, ok: t("ebook.go"), safe: true, run: () => runEbook(plan.books, to), feature: "ebooks" };

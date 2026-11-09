@@ -1,6 +1,7 @@
 //! Version 2.0 gave a few things in config.toml the word the apps use for them: marking, not
 //! selecting; folders, not directories; the name index's folders under the names Settings has.
 //! 2.33 chose the preview tools per kind of file (`[preview] prefer_tool` → `[preview.tools]`).
+//! 2.37 made the viewers modules (`[modules] off`): three older switches went into them.
 //! On start, both apps rewrite an older config once, its comments and order kept, and a notice
 //! says what changed.
 
@@ -44,6 +45,7 @@ pub fn rewrite(text: &str) -> Result<Option<(String, Vec<String>)>, String> {
         });
     }
     prefer_tool(&mut doc, &mut said);
+    switches(&mut doc, &mut said);
     Ok((!said.is_empty()).then(|| (doc.to_string(), said)))
 }
 
@@ -77,6 +79,45 @@ fn prefer_tool(doc: &mut DocumentMut, said: &mut Vec<String>) {
         }
     }
     said.push("[preview] prefer_tool → tools".into());
+}
+
+/// (table, old switch, its module): the switches 2.37 folded into modules.
+pub const SWITCHES: &[(Option<&str>, &str, &str)] = &[(None, "bom_viewer", "bom"), (None, "provenance_viewer", "provenance"), (Some("preview"), "ebooks", "ebooks")];
+
+/// 2.37 turned the older switches into modules: each goes, and one that was `false` puts its
+/// module in `[modules] off` (kept there if it is already). `true`, the default, just goes:
+/// every module is on unless turned off.
+fn switches(doc: &mut DocumentMut, said: &mut Vec<String>) {
+    let mut off = vec![];
+    for &(table, key, module) in SWITCHES {
+        let t = match table {
+            None => Some(doc.as_table_mut() as &mut dyn TableLike),
+            Some(t) => doc.get_mut(t).and_then(Item::as_table_like_mut),
+        };
+        let Some(old) = t.and_then(|t| t.remove(key)) else { continue };
+        let name = table.map_or(key.to_string(), |t| format!("[{t}] {key}"));
+        if old.as_bool() == Some(false) {
+            off.push(module);
+            said.push(format!("{name} = false → [modules] off = [\"{module}\"]"));
+        } else {
+            said.push(format!("{name} (removed)"));
+        }
+    }
+    if off.is_empty() {
+        return;
+    }
+    if !doc.contains_key("modules") {
+        doc.insert("modules", Item::Table(toml_edit::Table::new()));
+    }
+    let Some(modules) = doc.get_mut("modules").and_then(Item::as_table_like_mut) else { return };
+    let list = modules.entry("off").or_insert(toml_edit::value(toml_edit::Array::new()));
+    if let Some(list) = list.as_array_mut() {
+        for id in off {
+            if !list.iter().any(|v| v.as_str() == Some(id)) {
+                list.push(id);
+            }
+        }
+    }
 }
 
 /// Every key of `t` in its place, the old ones under their new names with their comments. Where
@@ -162,6 +203,33 @@ max_results = 500
         let inline = "[preview]\nprefer_tool = { ocrmypdf = \"container\" }\n";
         let cfg = crate::config::Config::parse(&rewrite(inline).unwrap().unwrap().0).unwrap();
         assert_eq!(cfg.preview.tools["ocr"], "container");
+    }
+
+    #[test]
+    fn migrate_the_old_switches_to_modules_once() {
+        // false: its module off; true or absent: nothing but the key gone.
+        let old = "# mine\nbom_viewer = false\nprovenance_viewer = true\n\n[preview]\nebooks = false  # no calibre\ntimeout = 60\n";
+        let (new, said) = rewrite(old).unwrap().unwrap();
+        assert_eq!(said, ["bom_viewer = false → [modules] off = [\"bom\"]", "provenance_viewer (removed)", "[preview] ebooks = false → [modules] off = [\"ebooks\"]"]);
+        let cfg = crate::config::Config::parse(&new).unwrap();
+        assert_eq!(cfg.modules.off, ["bom", "ebooks"]);
+        assert_eq!(cfg.preview.timeout, 60);
+        for gone in ["bom_viewer", "provenance_viewer", "ebooks ="] {
+            assert!(!new.contains(gone), "{gone} left:\n{new}");
+        }
+        assert!(new.starts_with("# mine\n"), "{new}");
+        assert_eq!(rewrite(&new).unwrap(), None, "once");
+
+        // true and absent turn nothing off; a module turned off already stays once.
+        let (new, _) = rewrite("bom_viewer = true\n[preview]\nebooks = true\n").unwrap().unwrap();
+        assert!(crate::config::Config::parse(&new).unwrap().modules.off.is_empty(), "{new}");
+        assert!(!new.contains("modules"), "{new}");
+        assert_eq!(rewrite("[preview]\ntimeout = 60\n").unwrap(), None);
+        let (new, _) = rewrite("provenance_viewer = false\n[modules]\noff = [\"games\", \"provenance\"]\n").unwrap().unwrap();
+        assert_eq!(crate::config::Config::parse(&new).unwrap().modules.off, ["games", "provenance"]);
+        // On one line too.
+        let (new, _) = rewrite("preview = { ebooks = false }\n").unwrap().unwrap();
+        assert_eq!(crate::config::Config::parse(&new).unwrap().modules.off, ["ebooks"], "{new}");
     }
 
     #[test]

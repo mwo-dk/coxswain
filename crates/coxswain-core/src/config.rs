@@ -1587,9 +1587,6 @@ pub struct PreviewConfig {
     pub image_updates: String,
     /// Remove an image of `images` that no preview used for 90 days (desktop app).
     pub image_prune: bool,
-    /// E-books calibre reads (MOBI, Kindle, FictionBook, LIT, Palm): previews, their text for
-    /// search, and *Convert e-book*; an installed calibre first, else `images.calibre`.
-    pub ebooks: bool,
     /// Export draw.io diagrams (PNG, SVG, PDF) and draw their thumbnails with draw.io: the
     /// installed desktop app, else its container image, which is large. Off by default.
     pub drawio: bool,
@@ -1610,7 +1607,6 @@ impl Default for PreviewConfig {
             latex_auto: true,
             image_updates: "off".into(),
             image_prune: false,
-            ebooks: false,
             drawio: false,
             virus_scan: false,
         }
@@ -1819,12 +1815,6 @@ pub struct Config {
     /// *Open a terminal here*: a terminal's name as Settings lists it (`ghostty`, `wt`), or a
     /// command, `{dir}` the folder. Unset: `terminals::open` says which.
     pub terminal: Option<String>,
-    /// F3 on a CycloneDX BOM opens the terminal app's BOM viewer (F3 again shows the source).
-    /// Off, F3 opens it in the viewer like any file.
-    pub bom_viewer: bool,
-    /// F3 on build provenance (an in-toto attestation) opens the terminal app's provenance viewer
-    /// (F3 again shows the source). Off, F3 opens it in the viewer like any file.
-    pub provenance_viewer: bool,
     pub confirm_delete: bool,
     /// What a right-click on a row does: `mark` it (Norton Commander) or open the action
     /// `menu` (a file explorer). Ctrl+right-click does the other one in the desktop app.
@@ -1967,8 +1957,6 @@ impl Default for Config {
             editor: None,
             viewer: None,
             terminal: None,
-            bom_viewer: true,
-            provenance_viewer: true,
             confirm_delete: true,
             right_click: String::new(),
             typing: String::new(),

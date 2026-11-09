@@ -1979,13 +1979,9 @@ impl App {
                         return self.module_off(m);
                     }
                     let kind = any;
-                    // An e-book calibre reads, when e-books are on: its title, authors and text.
+                    // An e-book calibre reads: its title, authors and text.
                     if kind == "ebook" {
-                        if self.cfg.preview.ebooks {
-                            return self.ebook_view(e);
-                        }
-                        // Off: shown as it is, and where to turn its text on.
-                        self.status = Some(format!("{} ({})", t!("ebook.off"), t!("searchable.settings_key", "key" => self.key_label(Action::Settings))));
+                        return self.ebook_view(e);
                     }
                     // An old picture, a tracker module, a model, a workbook, an Outlook message: what
                     // it holds, as text. Also a local model known only by its bytes (a store's blob).
@@ -2007,7 +2003,7 @@ impl App {
                     }
                     // A statement whose provenance does not open may still carry a CycloneDX BOM.
                     let mut bom = kind == "bom";
-                    if kind == "provenance" && self.cfg.provenance_viewer {
+                    if kind == "provenance" {
                         let other = Some(self.panels[self.active ^ 1].dir.clone());
                         match provenance::Viewer::open(&e, other) {
                             Ok(v) => return self.dialog = Some(Dialog::Provenance(Box::new(v))),
@@ -2031,9 +2027,8 @@ impl App {
                     if matches!(kind, "chess" | "go") {
                         return self.chess(&e, None);
                     }
-                    // With provenance off, a statement that carries a CycloneDX predicate is a BOM.
-                    bom |= kind == "provenance" && !self.cfg.provenance_viewer && coxswain_core::bom::sniff(&e);
-                    if bom && self.cfg.bom_viewer {
+                    // A statement whose provenance did not open, with the BOM module off: as text.
+                    if bom && coxswain_core::modules::on("bom") {
                         match bom::Viewer::open(&e) {
                             Ok(v) => return self.dialog = Some(Dialog::Bom(Box::new(v))),
                             // Not readable as a BOM after all: the pager shows it as it is.
