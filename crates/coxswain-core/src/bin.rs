@@ -1538,10 +1538,7 @@ mod tests {
         for op in 0..3 {
             let at = d.join(format!("{op}"));
             let origin = at.join("home/a.txt");
-            let b = bin(
-                &at,
-                &[("a.txt", &origin.to_string_lossy(), "2026-10-01T12:00:00")],
-            );
+            let b = bin(&at, &[("a.txt", &origin.to_string_lossy(), "2026-10-01T12:00:00")]);
             let bins = [b.clone()];
             let a = b.dir.join("files/a.txt");
             MIDWAY.set(Some(other(b.dir.clone(), true)));
@@ -1552,18 +1549,12 @@ mod tests {
             };
             MIDWAY.set(None);
             assert!(not_in_bin(&r), "{op}: {r:?}");
-            assert!(
-                !origin.exists(),
-                "{op}: the new file is not restored in its place"
-            );
+            assert!(!origin.exists(), "{op}: the new file is not restored in its place");
             new_one_stays(&b);
         }
         // Only gone (another program's delete, its info file next): done, and its info file
         // is the other program's to remove.
-        let b = bin(
-            &d.join("gone"),
-            &[("a.txt", "/x/a.txt", "2026-10-01T12:00:00")],
-        );
+        let b = bin(&d.join("gone"), &[("a.txt", "/x/a.txt", "2026-10-01T12:00:00")]);
         MIDWAY.set(Some(other(b.dir.clone(), false)));
         let r = delete_in(std::slice::from_ref(&b), &[b.dir.join("files/a.txt")]);
         MIDWAY.set(None);
@@ -1578,10 +1569,8 @@ mod tests {
         let d = crate::fs::Scratch::named("bin-empty-linear");
         let empty = |n: usize| {
             let names: Vec<String> = (0..n).map(|i| format!("f{i}")).collect();
-            let items: Vec<(&str, &str, &str)> = names
-                .iter()
-                .map(|n| (n.as_str(), "/x/f", "2026-10-01T12:00:00"))
-                .collect();
+            let items: Vec<(&str, &str, &str)> =
+                names.iter().map(|n| (n.as_str(), "/x/f", "2026-10-01T12:00:00")).collect();
             let b = bin(&d, &items);
             assert_eq!(empty_in(std::slice::from_ref(&b)).done, n);
         };
