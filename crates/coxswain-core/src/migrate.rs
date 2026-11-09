@@ -94,7 +94,11 @@ fn switches(doc: &mut DocumentMut, said: &mut Vec<String>) {
             None => Some(doc.as_table_mut() as &mut dyn TableLike),
             Some(t) => doc.get_mut(t).and_then(Item::as_table_like_mut),
         };
-        let Some(old) = t.and_then(|t| t.remove(key)) else { continue };
+        let Some(old) = t.and_then(|t| take(t, key)) else { continue };
+        if let Some(note) = old.1 {
+            keep_note(doc, table, note);
+        }
+        let old = old.0;
         let name = table.map_or(key.to_string(), |t| format!("[{t}] {key}"));
         if old.as_bool() == Some(false) {
             off.push(module);
@@ -117,6 +121,37 @@ fn switches(doc: &mut DocumentMut, said: &mut Vec<String>) {
                 list.push(id);
             }
         }
+    }
+}
+
+/// `key` taken out of `t`, with the comment above it when it has one: that goes to the key
+/// after it, or, with none, back to the caller (`keep_note`).
+fn take(t: &mut dyn TableLike, key: &str) -> Option<(Item, Option<String>)> {
+    let names: Vec<String> = t.iter().map(|(k, _)| k.to_string()).collect();
+    let at = names.iter().position(|n| n == key)?;
+    let note = t.key(key).and_then(|k| k.leaf_decor().prefix()).and_then(|p| p.as_str()).filter(|p| p.contains('#')).map(str::to_string);
+    let item = t.remove(key)?;
+    let Some(note) = note else { return Some((item, None)) };
+    match names.get(at + 1).and_then(|n| t.key_mut(n)) {
+        Some(mut next) => {
+            let was = next.leaf_decor().prefix().and_then(|p| p.as_str()).unwrap_or("").to_string();
+            next.leaf_decor_mut().set_prefix(format!("{note}{was}"));
+            Some((item, None))
+        }
+        None => Some((item, Some(note))),
+    }
+}
+
+/// A comment whose key went last in its table: at the top level (a file's own heading) above the
+/// first table; in `[preview]` it was about that key alone and goes with it.
+fn keep_note(doc: &mut DocumentMut, table: Option<&str>, note: String) {
+    if table.is_some() {
+        return;
+    }
+    let first = doc.iter().filter(|(_, i)| i.is_table()).map(|(k, _)| k.to_string()).min_by_key(|k| doc.get(k).and_then(Item::as_table).and_then(|t| t.position()).unwrap_or(isize::MAX));
+    if let Some(t) = first.and_then(|k| doc.get_mut(&k)).and_then(Item::as_table_mut) {
+        let was = t.decor().prefix().and_then(|p| p.as_str()).unwrap_or("").to_string();
+        t.decor_mut().set_prefix(format!("{note}{was}"));
     }
 }
 
