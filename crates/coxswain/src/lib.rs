@@ -2269,7 +2269,7 @@ impl App {
     }
 
     /// Provenance or a BOM inside an archive, told by its name or its first bytes (`head`), in
-    /// its viewer when that is on, as on the disk: `None` for any other file, and for one that
+    /// its viewer when its module is on, as on the disk: `None` for any other file, and for one that
     /// does not read as one after all (the status line says why).
     fn inside_viewer(&mut self, path: &Path, head: &[u8]) -> Option<Dialog> {
         use coxswain_core::{bom as cbom, provenance as cprov};
@@ -2277,13 +2277,13 @@ impl App {
         let ends = |xs: &[&str]| xs.iter().any(|x| name.ends_with(x));
         let prov = cprov::sniff_name(&name) || (ends(&[".json", ".jsonl", ".ndjson"]) && cprov::sniff_head(head));
         let is_bom = cbom::sniff_name(&name) || (ends(&[".json", ".xml"]) && cbom::sniff_head(head));
-        if prov && self.cfg.provenance_viewer {
+        if prov && coxswain_core::modules::on("provenance") {
             match provenance::Viewer::open(path, Some(self.panels[self.active ^ 1].dir.clone())) {
                 Ok(v) => return Some(Dialog::Provenance(Box::new(v))),
                 Err(err) => self.status = Some(err.to_string()),
             }
         }
-        if is_bom && self.cfg.bom_viewer {
+        if is_bom && coxswain_core::modules::on("bom") {
             match bom::Viewer::open(path) {
                 Ok(v) => return Some(Dialog::Bom(Box::new(v))),
                 Err(err) => self.status = Some(err.to_string()),
