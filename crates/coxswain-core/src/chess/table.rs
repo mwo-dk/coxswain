@@ -260,6 +260,11 @@ impl Table {
         Ok((Table::new(&dir, true, &stamp, extra, &source)?, None))
     }
 
+    /// The stamp of the database it was read from.
+    pub(crate) fn stamp(&self) -> &str {
+        &self.stamp
+    }
+
     fn kept(dir: &Path, stamp: &str, extra: &str, source: &Path) -> io::Result<Table> {
         let inner = Inner { rows: Mutex::new(File::open(dir.join("rows"))?), writer: Mutex::new(None), names: Mutex::new(connect(&dir.join("names.db"), false)?) };
         Ok(Table { dir: dir.to_path_buf(), inner: Some(inner), whole: AtomicBool::new(true), temp: false, stamp: stamp.into(), extra: extra.into(), source: source.into() })

@@ -216,6 +216,14 @@
 
   const visible = $derived(rows);
 
+  // A list cut to a position, again when its index comes, goes out of date or is built again.
+  $effect(() => {
+    void indexReady;
+    void indexGames;
+    void indexStale;
+    if (query.position) untrack(fetchRows);
+  });
+
   // The position index's state: once the table is read, then every second while it is built.
   const indexable = $derived(format === "pgn");
   let indexSeq = 0;
@@ -260,7 +268,13 @@
     const s = ++treeSeq;
     if (!treeOn || !f || draughts || shogi || bridge) return void (tree = null);
     invoke("chess_tree", { path: p, fen: f }).then(
-      (tr) => s === treeSeq && (tree = tr && { ...tr, fen: f }),
+      (tr) => {
+        if (s !== treeSeq) return;
+        tree = tr && { ...tr, fen: f };
+        // The index went out of date (or came back) since it was last asked: its line, its
+        // rebuild (asking starts it) and the list follow.
+        if (tr && index && tr.stale !== index.stale) fetchIndex();
+      },
       () => {},
     );
   });
@@ -1206,7 +1220,7 @@
       </p>
     {/if}
     {#if query.position}
-      <p class="meta">{t("chess.index_filtered")} <button title={t("chess.index_filtered_clear")} onclick={() => (query.position = "")}>{t("chess.index_filtered_clear")}</button></p>
+      <p class="meta">{t("chess.index_filtered")}{#if index?.stale} · {t("chess.index_stale")}{/if} <button title={t("chess.index_filtered_clear")} onclick={() => (query.position = "")}>{t("chess.index_filtered_clear")}</button></p>
     {/if}
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div class="list chess-keys" tabindex="0" role="grid" aria-label={basename(path)} bind:this={listEl} bind:clientHeight={height} {onscroll} onkeydown={onListKey}>

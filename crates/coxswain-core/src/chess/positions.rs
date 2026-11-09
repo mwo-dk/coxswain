@@ -765,7 +765,10 @@ fn per_cent(n: u32, of: u32) -> u32 {
 
 fn tree_of<K: Kind>(k: &K, idx: &Index, lib: &Library, fen: &str) -> io::Result<Tree> {
     let Some(b) = k.start(Some(fen)) else { return Ok(Tree::default()) };
-    let rec = |g: u32| lib.rec(g);
+    // The games' rows are read only when they are the index's games: of the same table, or of
+    // a file that only grew. Else a stale index gives what it keeps, without the rows'.
+    let rows = fresh(idx, lib) || grown(idx, &lib.path);
+    let rec = |g: u32| if rows { lib.rec(g) } else { None };
     let sums = idx.sums(k.key(&b), &|g| rec(g).map(|r| Info::of(&r)))?;
     let games = sums.last().filter(|s| s.code == REACH).map_or(0, |s| s.games);
     let mut moves: Vec<TreeMove> = sums
@@ -833,6 +836,13 @@ fn tail(path: &Path, size: u64) -> String {
         return String::new();
     }
     blake3::hash(&b).to_hex()[..32].to_string()
+}
+
+/// The file at `path` only grew since `idx` was made of it: its games before the last one are
+/// the same, by the same numbers.
+fn grown(idx: &Index, path: &Path) -> bool {
+    let size = std::fs::metadata(path).map_or(0, |m| m.len());
+    idx.done.table_form == super::table::FORM && grows(path) && size > idx.done.size && !idx.done.tail.is_empty() && tail(path, idx.done.size) == idx.done.tail
 }
 
 /// A plain PGN file, read where it is: one that grew can keep its old entries.
@@ -926,7 +936,7 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
 /// of `old` for its games before `keep`.
 fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, job: &Job, stamp: &str) -> io::Result<Done> {
     let count = lib.progress().games as u32;
-    let from = old.map_or(0, |(_, keep)| keep);
+    let from = old.map_or(0, |(_, keep)| keep).min(count);
     job.of.store(((count - from) as u64).div_ceil(256), Ordering::Relaxed);
     let runs_dir = dir.join("runs");
     std::fs::create_dir_all(&runs_dir)?;
@@ -1045,7 +1055,9 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
         b.extend_from_slice(&k.to_le_bytes());
         b.extend_from_slice(&at.to_le_bytes());
     }
-    std::fs::write(dir.join("blocks"), b)?;
+    let mut f = File::create(dir.join("blocks"))?;
+    f.write_all(&b)?;
+    f.sync_all()?;
     let _ = std::fs::remove_dir_all(&runs_dir);
     let size = std::fs::metadata(&lib.path).map_or(0, |m| m.len());
     let done = Done { form: FORM, source: lib.path.clone(), stamp: stamp.to_string(), depth, games: count, entries, size, tail: if grows(&lib.path) { tail(&lib.path, size) } else { String::new() }, table_form: super::table::FORM.to_string(), made: now() };
@@ -1206,7 +1218,7 @@ pub fn status(lib: &Library, depth: u32) -> Status {
     let mut s = Status { can: true, ..Status::default() };
     if let Some(i) = opened(path) {
         (s.ready, s.depth, s.bytes, s.games) = (true, i.depth(), i.bytes(), i.games());
-        s.stale = !fresh(&i, path);
+        s.stale = !fresh(&i, lib);
     }
     if let Some(j) = job(path) {
         match j.phase.load(Ordering::Relaxed) {
@@ -1263,7 +1275,9 @@ pub fn build(lib: Arc<Library>, depth: u32) {
         if let Some(e) = lib.progress().error {
             return Err(io::Error::other(e));
         }
-        let stamp = super::table::stamp(&path);
+        // The stamp of the table the games are read from, not of the file now: a table read
+        // before the file changed would give another file's game numbers.
+        let stamp = lib.stamp().to_string();
         *j.stamp.lock().unwrap_or_else(|e| e.into_inner()) = stamp.clone();
         let root = folder().ok_or_else(|| io::Error::other("no cache folder"))?;
         static N: AtomicU64 = AtomicU64::new(0);
@@ -1271,11 +1285,7 @@ pub fn build(lib: Arc<Library>, depth: u32) {
         std::fs::create_dir_all(&dir)?;
         let old = opened(&path);
         // Kept: the old games but the last (a game cut short at the end may have grown).
-        let keep = old.as_ref().and_then(|o| {
-            let size = std::fs::metadata(&path).ok()?.len();
-            let same = o.done.depth == depth && o.done.table_form == super::table::FORM && grows(&path) && size > o.done.size && !o.done.tail.is_empty() && tail(&path, o.done.size) == o.done.tail;
-            same.then(|| o.done.games.saturating_sub(1))
-        });
+        let keep = old.as_ref().filter(|o| o.done.depth == depth && grown(o, &path)).map(|o| o.done.games.saturating_sub(1));
         let made = build_in(&lib, depth, &dir, old.as_deref().zip(keep), &j, &stamp);
         if made.is_err() {
             let _ = std::fs::remove_dir_all(&dir);
@@ -1312,8 +1322,10 @@ pub fn build(lib: Arc<Library>, depth: u32) {
         let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)).unwrap_or_else(|_| Err(io::Error::other("the build failed")));
         // Removed while it ran: what it held open is let go now, so its folders can go.
         if job.removed.load(Ordering::Relaxed) {
-            for (dir, _) in folders(&source) {
-                crate::spill::gone(&dir);
+            // An index built again since (Build after Remove) is in use: it stays.
+            let live = OPEN.lock().unwrap_or_else(|e| e.into_inner()).as_ref().and_then(|o| o.get(&source)).map(|i| i.dir.clone());
+            for (dir, _) in folders(&source).into_iter().filter(|(d, _)| Some(d) != live.as_ref()) {
+                gone(&dir);
             }
         }
         match r {
@@ -1339,6 +1351,10 @@ pub fn keep_up(lib: &Arc<Library>, cfg: &crate::config::ChessConfig) {
         return;
     }
     let path = &lib.path;
+    // A table of the file before it changed: the app reads it again first.
+    if lib.stamp() != self::stamp(path) {
+        return;
+    }
     if let Some(j) = job(path) {
         // Under way, or tried for the database as it is now.
         let stamp = j.stamp.lock().unwrap_or_else(|e| e.into_inner()).clone();
@@ -1347,7 +1363,7 @@ pub fn keep_up(lib: &Arc<Library>, cfg: &crate::config::ChessConfig) {
         }
     }
     match opened(path) {
-        Some(i) if !fresh(&i, path) => build(lib.clone(), i.depth()),
+        Some(i) if !fresh(&i, lib) => build(lib.clone(), i.depth()),
         Some(_) => {}
         None if cfg.position_index => {
             let removed = REMOVED.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert_with(HashMap::new).get(path).cloned();
@@ -1383,9 +1399,18 @@ pub fn remove(path: &Path) -> u64 {
     let mut freed = 0;
     for (dir, _) in folders(path) {
         freed += crate::fs::dir_size(&dir).0;
-        crate::spill::gone(&dir);
+        gone(&dir);
     }
     freed
+}
+
+/// An index folder removed. One still held open (Windows: a look in flight) cannot be moved
+/// away: its `done` goes, so it is no index any more, and the folder goes once its run ended.
+fn gone(dir: &Path) {
+    crate::spill::gone(dir);
+    if dir.exists() {
+        let _ = std::fs::remove_file(dir.join("done"));
+    }
 }
 
 /// The opening tree of the position `fen` in `lib`'s games; none without an index.
@@ -1399,21 +1424,27 @@ pub fn tree(lib: &Library, fen: &str) -> Option<Tree> {
         _ => tree_of(&Chess, &idx, lib, fen),
     }
     .ok()?;
-    t.stale = !fresh(&idx, &lib.path);
+    t.stale = !fresh(&idx, lib);
     t.opens = !t.stale;
     Some(t)
 }
 
 /// The index is of the database as it is now. A stale one still gives its counts, but never its
 /// game numbers: they are of the database before it changed, and would open other games.
-fn fresh(idx: &Index, path: &Path) -> bool {
-    idx.done.stamp == stamp(path)
+fn fresh(idx: &Index, lib: &Library) -> bool {
+    idx.done.stamp == lib.stamp() && idx.done.stamp == stamp(&lib.path)
+}
+
+/// The games of `lib`'s index may be listed and opened: it is there and not stale. A list cut
+/// to a position, kept by an app, is made again when this changes.
+pub fn opens(lib: &Library) -> bool {
+    opened(&lib.path).is_some_and(|i| fresh(&i, lib))
 }
 
 /// The games of `lib` that reach the position `fen`, in the file's order; none without an
 /// index, or while it is stale (`fresh`).
 pub fn games_at(lib: &Library, fen: &str) -> Option<Vec<u32>> {
-    let idx = opened(&lib.path).filter(|i| fresh(i, &lib.path))?;
+    let idx = opened(&lib.path).filter(|i| fresh(i, lib))?;
     idx.reaching(key_of(lib, fen)?).ok()
 }
 
