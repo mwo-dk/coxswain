@@ -4135,6 +4135,8 @@
  "disk.work.cost": "mitte midagi; praegu töötav käivitus jätab oma kausta alles",
  "disk.chess.what": "Salvestatud maleanalüüsid, avatud partiifailide partiitabelid ja lugemiseks lahti pakitud ChessBase'i arhiivid.",
  "disk.chess.cost": "partiid analüüsitakse uuesti, partiifail loetakse uuesti, arhiiv pakitakse avamisel uuesti lahti",
+ "disk.picked.what": "Valikurežiimis (coxswain --pick) arhiivide seest valitud failid, lahti pakitud programmile, mis neid küsis; ühe käivituse failid kustutatakse päev pärast selle lõppu.",
+ "disk.picked.cost": "programm, mis sai mõne neist failidest, ei saa seda enam lugeda",
  "feature.virus_scan.a1": "Ei. See kontrollib ainult siis, kui vajutad {scan_viruses}, võrguta konteineris, sinu failid ainult loetavad. Ainus allalaadimine on ClamAV-i viirusteandmebaas aadressilt database.clamav.net, enne kontrolli, kui see on üle päeva vana.",
  "feature.virus_scan.a2": "Mitte midagi, kuni sa valid: jäta alles, pane prügikasti või teisalda karantiinikausta (coxswain/quarantine sinu andmekaustas), kus seda ei saa käivitada. Midagi ei kustutata kunagi iseenesest.",
  "feature.virus_scan.a3": "Podmani või dockerit ning sisse lülitatud Kontrolli viirusi ClamAV-ga Sätetes ({settings}) → Eelvaated. ClamAV-i tõmmis (umbes 80 MB) laaditakse esimesel kontrollil, kui eelnev küsimus on seda öelnud.",
