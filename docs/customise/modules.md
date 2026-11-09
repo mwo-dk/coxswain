@@ -6,7 +6,8 @@ Coxswain shows many kinds of file in their own way: a PDF as its pages, a game o
 spreadsheet as a table, a diagram drawn. Each of those viewers belongs to a **module**, and you
 can turn off the modules you do not want loaded, in both apps. A file whose module is off is
 shown as text or hex, like any file with no viewer of its own. All modules are on until you
-turn one off, so nothing changes until you do.
+turn one off, so nothing changes until you do, and a module a later version brings comes on by
+itself: Coxswain keeps the list of modules you turned off, not of those you turned on.
 
 ![The desktop app's Settings at Modules, in the Cyber theme: Modules outlined between Previews and Games on the left; on the right each module with its checkbox, its endings, what it uses and Show me, the ones that may download a container image with a downloads badge, and Chess games unticked](../screenshots/gui-settings-modules.png)
 *Settings at Modules with Chess games turned off, opened with `coxswain-gui --settings=modules`.*
@@ -18,6 +19,7 @@ turn one off, so nothing changes until you do.
 - [What you see when a module is off](#what-you-see-when-a-module-is-off)
 - [What stays whatever is off](#what-stays-whatever-is-off)
 - [config.toml](#configtoml)
+- [The older switches](#the-older-switches)
 - [Questions](#questions)
 
 ## How to use it
@@ -60,7 +62,9 @@ in as much as by the next file.
 | [Build provenance](../previews/provenance.md) | `provenance` | In-toto attestations, Sigstore bundles | x509-parser |
 | [Disk images](../files/disk-images.md) | `disk_images` | The facts of `.iso`, `.vhd`, `.vmdk` and other disk images | 7-Zip |
 
-Each module is named in Settings after its entry in F1 → Features (*E-books: MOBI, Kindle, FictionBook*, *Disk images, CHM and CBR* …), in your language; the first column links its page. No module
+Each module is named in Settings after its entry in F1 → Features (*E-books: MOBI, Kindle, FictionBook*, *Disk images, CHM and CBR* …), in your language; the first column links its page.
+*Chess games* covers every board game Coxswain shows: chess, Go, draughts, shogi, xiangqi and
+bridge. No module
 sends your files anywhere; the ones that may download a container image say so, and what can
 leave the machine is listed under [Settings → Privacy and updates](settings.md#privacy-and-updates).
 
@@ -80,9 +84,10 @@ leave the machine is listed under [Settings → Privacy and updates](settings.md
 
 Folders, archives and everything inside them, text and code, logs, data files (JSON, YAML,
 TOML), Markdown and hex belong to no module: they are what every file falls back to. Find reads
-what it reads either way: a module decides only what the apps show, not what search reads.
-Actions on files (*Convert video or audio*, *Export the model*, *Make searchable* …) stay in the
-action menu too.
+what it reads either way: a module decides only what the apps show (the preview, **F3**,
+**Enter** on games and disk images, *Open games*, Find's game hits), not what search reads.
+Actions on files (*Convert video or audio*, *Convert e-book*, *Export the model*, *Make
+searchable* …) stay in the action menu too.
 
 ## config.toml
 
@@ -95,6 +100,22 @@ off = ["games", "neural_networks"]
 A name Coxswain does not know is left alone: Settings writes only the names it knows when you
 next change a module there. Both apps read `[modules]` when they start and after every change
 in Settings. See [Configuration: every key](../reference/configuration.md#modules).
+
+## The older switches
+
+Three settings of earlier versions turned one viewer off each. They are modules now, and the
+settings are gone from Settings, `config.toml` and the docs:
+
+| Earlier setting | Now |
+|---|---|
+| `bom_viewer` (*CBOM viewer on F3*) | The module `bom`, *Cryptography bills of materials* |
+| `provenance_viewer` (*Provenance viewer on F3*) | The module `provenance`, *Build provenance* |
+| `[preview] ebooks` (*E-books with calibre*) | The module `ebooks`, *E-books* |
+
+The first time a version with modules starts, it moves them over by itself, once: a setting you
+had set to `false` puts its module in `[modules] off`; one set to `true`, or never set, just goes,
+and its module is on. Your comments and the rest of the file stay as they were, and a notice
+names what was changed.
 
 The release builds have every module. They are all in one program; turning one off means it is
 not used, not that it is left out of the build.
@@ -127,6 +148,16 @@ the program your system gives it. Turn the module on again to open it on Coxswai
 
 Not yet: every build has every module, and turning one off means it is not used. Leaving
 modules out when building from source is planned.
+
+#### What happened to bom_viewer, provenance_viewer and ebooks?
+
+They became the modules *Cryptography bills of materials* (`bom`), *Build provenance*
+(`provenance`) and *E-books* (`ebooks`). On its first start a version with modules took them out
+of your `config.toml` by itself: one you had set to `false` turned its module off (it is in
+`[modules] off` now); one set to `true`, or not set, left its module on. See
+[The older switches](#the-older-switches). E-books need calibre as before: with the module on, a
+book's preview offers to install it or to download its image, and nothing is downloaded until you
+ask.
 
 #### Where do I see which module a kind of file belongs to?
 

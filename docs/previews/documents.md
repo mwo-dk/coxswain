@@ -154,7 +154,7 @@ reading order (the first 4 MB of text). Their contents are searchable in both ap
 The pane is for a quick look. It skips the cover and title pages and shows the first chapter
 that has real text, so you see what the book is about. Press **Enter** to read it in your
 e-book reader. A chapter longer than a megabyte shows its first megabyte. MOBI, Kindle, FictionBook, LIT and Palm books are shown the same way through
-calibre, with their cover too, once you turn that on ([E-books](ebooks.md)).
+calibre, with their cover too, once calibre is installed or its image pulled ([E-books](ebooks.md)).
 
 #### Why does a PostScript file need Ghostscript?
 

@@ -4,7 +4,7 @@
 
 Some formats need a real program: a TeX distribution, Typst, LibreOffice, Ghostscript, PlantUML,
 D2 and the other diagram programs, pandoc, DuckDB, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, and
-calibre for [e-books](ebooks.md) when turned on.
+calibre for [e-books](ebooks.md).
 Coxswain uses one that is installed, or runs it in a [container](containers.md) (podman or
 docker), so nothing has to be installed for a preview you only need now and then. Results are
 kept in a cache, so each file is made once.
@@ -75,7 +75,7 @@ What each makes and when it runs by itself:
 | Maps | SVG map | At once |
 | 3D models | A picture of the part (an SVG outline of a flat model) | At once |
 | KiCad | PDF of the sheets or layers; a board in 3D as its thumbnail | At once |
-| E-books | Cover, title, authors and first chapter, only with *E-books with calibre* on ([E-books](ebooks.md)) | After 0.4 s |
+| E-books | Cover, title, authors and first chapter ([E-books](ebooks.md)) | After 0.4 s |
 | Searchable PDFs | A searchable copy, only when [Make PDF searchable](../files/searchable-pdf.md) is asked for | – |
 | Transcripts (Whisper) | No preview: the transcript [Transcribe](../search/transcripts.md) makes when asked; *Off* counts as *Default* there | – |
 | Other formats (Tika) | No preview: the text [search](../search/tika.md) reads, when `[search] tika` is on; its row has no choice, only its image's **Pull** and **Remove** | – |
@@ -308,7 +308,6 @@ latex_auto = true        # build LaTeX by itself when shown and changed
 image_updates = "off"    # "weekly", "monthly": the desktop app pulls the pulled images again
 image_prune = false      # remove an image no preview, Make PDF searchable or Scan for viruses used for 90 days
 virus_scan = false       # Scan for viruses with ClamAV (Alt+I), only when asked
-ebooks = false           # e-books through calibre: previews, search, Convert e-book
 
 [preview.tools]          # per kind of file, overrides prefer: "local", "container", "off"
 office = "local"
@@ -324,7 +323,6 @@ latex = "docker.io/texlive/texlive:latest"   # or :latest-medium, about 960 MB t
 | *Container runtime* | `container` | *podman, else docker* (`auto`, default), podman, docker, *No containers* (`off`) |
 | *LaTeX image* | `images.latex` | `docker.io/texlive/texlive:latest` |
 | *Build LaTeX by itself* | `latex_auto` | on |
-| *E-books with calibre* | `ebooks` | off ([E-books](ebooks.md)) |
 | *Timeout (seconds)* | `timeout` | 10 to 3600, `120` |
 | *Previews made so far* | – | The cache size, **Clear** |
 | *Preview tools* | `tools.*`, `images.*` | A row per kind: what is installed, its image with **Pull** and **Remove**, what is used, the choice, **Try** ([above](#preview-tools-in-settings)) |
@@ -354,8 +352,7 @@ open the result with **Enter**. The tools it does run are OCRmyPDF, for
 [Export from KiCad](kicad.md#export-from-kicad), calibre for [e-books](ebooks.md) (**F3** on a
 book, *Convert e-book*), ClamAV, for [Scan for viruses](../files/virus-scan.md)
 (**Alt+I**), and ffprobe and GDAL for a video's and
-geodata's facts in **Properties**, with the same images and preferences; of `[preview]` it
-also reads `ebooks`; and the search helper runs Apache Tika's and whisper.cpp's for it when
+geodata's facts in **Properties**, with the same images and preferences; and the search helper runs Apache Tika's and whisper.cpp's for it when
 [Read other formats with Apache Tika](../search/tika.md) or
 [Transcribe speech with Whisper](../search/transcripts.md) is on.
 

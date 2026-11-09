@@ -3,18 +3,19 @@
 # E-books: MOBI, Kindle, FictionBook, LIT and Palm
 
 EPUB has a reader built into Coxswain ([Documents](documents.md#formats)); most other e-book
-formats need [calibre](https://calibre-ebook.com/). With *E-books with calibre* turned on,
+formats need [calibre](https://calibre-ebook.com/). With calibre installed or its image pulled,
 Coxswain shows MOBI, Kindle (`.azw`, `.azw3`), FictionBook (`.fb2`), Microsoft Reader (`.lit`)
 and Palm (`.pdb`) books with their cover, title and authors and their first pages, finds their
 words in [Find](../search/text.md), and *Convert e-book* makes an EPUB, AZW3 or PDF of them
 next to the original. calibre runs as installed, else from a container image with no network.
-It is off by default: the image is large. Both apps; the cover is the desktop app's.
+The image is large, so it is downloaded only when you ask. Both apps; the cover is the desktop
+app's.
 
 ![The desktop app with the-rocket-garden.fb2 under the cursor in Documents/Books: the preview pane shows its cover, the title The Rocket Garden, the author Ada Lovelace, a Convert e-book button and the first chapter, Chapter 1: Launch window; the engine buttons ebook-convert and container are at the top of the pane](../screenshots/ebook-preview.png)
 
 ## Contents
 
-- [Turning it on](#turning-it-on)
+- [The E-books module](#the-e-books-module)
 - [What it needs](#what-it-needs)
 - [The preview](#the-preview)
 - [Convert e-book](#convert-e-book)
@@ -25,28 +26,19 @@ It is off by default: the image is large. Both apps; the cover is the desktop ap
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
 
-## Turning it on
+## The E-books module
 
-1. Open *Settings → Previews* (**Ctrl+,** in the desktop app, **F12** in the terminal app;
-   `coxswain-gui --settings=ebooks` opens it at the option).
-2. Tick *E-books with calibre*. Its line says what you get and what it costs: *Previews, text for
-   search and Convert e-book for MOBI, Kindle (AZW, AZW3), FictionBook, LIT and Palm books, made
-   by calibre: installed, else in a container without network. Its image is large (1.3 GB to
-   download, 3.6 GB on disk); with text search on, turning this on pulls it. Books locked with
-   DRM are left alone.*
-3. With [text search](../search/text.md) on and no calibre installed, the search helper pulls
-   calibre's image at once, in the background, and then reads your e-books. With text search
-   off, the image is pulled the first time a preview or a conversion asks for it, after a click.
-   If the search helper's pull fails for no network, it is tried again by itself (after 5
-   minutes, then 10, 20, 40, then hourly); the *calibre* line at the top of *Settings → Finding
-   files* says why and when, with **Retry now** and **Details** (the runtime's own error); see
-   [Apache Tika](../search/tika.md#what-you-see), which works the same way.
+Book previews belong to the module *E-books* (`ebooks`), which is on unless you turn it off in
+*Settings → Modules* (**Ctrl+,** or **F12** in the desktop app, **F12** in the terminal app;
+`coxswain-gui --settings=modules` opens it there). With it off, a book's preview and **F3** show
+the file as text or hex, and the first time the status line says *Shown as text: E-books: MOBI,
+Kindle, FictionBook is off.* ([Modules](../customise/modules.md)). The module decides only what is
+shown: *Convert e-book* and the search use calibre either way.
 
-![Settings in the desktop app at Previews: the option E-books with calibre ticked, with its badges disk space, processor time and downloads, and the line under it naming the formats, the image's size and that books locked with DRM are left alone](../screenshots/ebook-settings.png)
-
-While it is off, a book's preview says *E-books are turned off: Settings → Previews → E-books
-with calibre* with a **Settings → Previews** button that opens Settings at the option, and **F3** in the
-terminal app shows the file as it is, with the same line on the status line.
+Earlier versions had a setting of its own, *E-books with calibre* (`[preview] ebooks`), off by
+default. It is gone: on its first start a version with modules took it out of `config.toml`, and
+turned the module off only where it was set to `false` ([The older
+switches](../customise/modules.md#the-older-switches)).
 
 ## What it needs
 
@@ -59,17 +51,16 @@ tools* (`[preview.tools] ebooks`), else *How previews are made* (`[preview] pref
 | Its container | podman or docker runs `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest, with no network and none of your folders ([How calibre runs](#how-calibre-runs)) | Not on FreeBSD, the other BSDs and illumos: the image is a Linux one, so install calibre there instead. Linux, macOS and Windows with podman or docker |
 
 The image is about 1.3 GB to download and 3.6 GB on disk, so it is pulled only when you said so:
-by turning the option on with text search on, by **Pull** in *Settings → Previews → Preview
-tools*, or by a preview's or a conversion's first run after a click that names the size. It
+by **Pull** in *Settings → Previews → Preview tools*, or by a preview's or a conversion's first
+run after a click that names the size. The search never pulls it. It
 is [LinuxServer.io's calibre image](https://docs.linuxserver.io/images/docker-calibre/), the one
 calibre build that an organisation rebuilds for every calibre release (weekly), for amd64 and
 arm64, GPL-3.0 like calibre. calibre publishes no image of its own; the smaller ones on Docker
 Hub are kept by single people and fall behind. Coxswain uses only the calibre in it, never the
 desktop the image is made to serve.
 
-With the option on and neither calibre nor podman or docker there, a notice says so once on the
-status line, with the install line and **Copy**. With neither, the preview's engine buttons are greyed out and the pane says what to install,
-with **Copy**; *Convert e-book* says *E-books need calibre. Install it (sudo apt install
+With neither calibre nor podman or docker there, the preview's engine buttons are greyed out and
+the pane says what to install, with **Copy**; *Convert e-book* says *E-books need calibre. Install it (sudo apt install
 calibre), or run it in a container: …* and what keeps the container from running.
 
 ## The preview
@@ -128,16 +119,18 @@ e-book makes it an EPUB, AZW3 or PDF*. *Convert e-book* has no key of its own: g
 
 ## Search
 
-With *E-books with calibre* on, [text search](../search/text.md) on and calibre able to run, the
-search helper reads each book through calibre, at the lowest priority, and keeps its title,
+With [text search](../search/text.md) on and calibre installed or its image pulled, the search
+helper reads each book through calibre, at the lowest priority, and keeps its title,
 authors and chapters: Find (**Alt+F7**) and *Find in files* (**Shift+F7**) find their words, and
 [search by meaning](../search/meaning.md) gets their passages when it is on. A book takes a
 second or two; a library of a thousand books is read in the background over half an hour or so,
 on mains power faster than on battery.
 
-This reader has its own version (`readers.ebooks` in the search store). Turning e-books on reads
-only the MOBI, AZW, AZW3, FB2, LIT and PDB files again, once; nothing else is read or embedded
-anew. A later change to what calibre gives of a book reads only these files again.
+The helper looks for calibre when it starts: an image pulled from a preview or a conversion is
+used from its next start (the next time you log in, or after a change to *Finding files*). This
+reader has its own version (`readers.ebooks` in the search store). calibre becoming able to run
+reads only the MOBI, AZW, AZW3, FB2, LIT and PDB files again, once; nothing else is read or
+embedded anew. A later change to what calibre gives of a book reads only these files again.
 
 ## Books locked with DRM
 
@@ -174,17 +167,14 @@ stopped and its container killed.
 
 ## Settings and config.toml
 
-| Settings → Previews | config.toml | Default |
+| Settings | config.toml | Default |
 |---|---|---|
-| *E-books with calibre* | `[preview] ebooks` | `false` |
+| *Modules* → *E-books* (previews only) | `[modules] off` without `"ebooks"` | On |
 | *Preview tools* → *E-books (calibre)*, else *How previews are made* | `[preview.tools] ebooks` (`"local"`, `"container"`, `"off"`), `[preview] prefer` | `"auto"`: installed first, else the container |
 | *Preview tools* → *E-books (calibre)* (Pull, Remove) | `[preview.images] calibre` | `"docker.io/linuxserver/calibre:9.16.0@sha256:48c8a5ba…"`; `""` never uses a container. An image you set must have `sh`, `ebook-convert`, `ebook-meta` and `tar` on its `PATH` |
 | *Keep images up to date*, *Remove images not used for 90 days* | `[preview] image_updates`, `image_prune` | Off. The default image is pinned by its digest, so an update keeps it; a newer Coxswain moves the pin |
 | *Timeout (seconds)* | `[preview] timeout` | `120` |
 | *Keys* | `[keys] convert_ebook` | none |
-
-Changing *E-books with calibre* restarts the search helper, which reads the setting when it
-starts.
 
 ## In the terminal app
 
@@ -201,9 +191,9 @@ has no preview pane, so there is no cover.
 
 #### Why does a MOBI or Kindle book show nothing?
 
-E-books are off until you turn on *E-books with calibre* in *Settings → Previews*. Then calibre
-runs as installed, else in podman or docker; its image is 1.3 GB to download, once. The pane
-says which of these is missing.
+calibre is not there yet: install it, or let the pane download its image (1.3 GB, once, after a
+click that names the size). The pane says which of these is missing. If the pane shows the file
+as text, the *E-books* module is off: turn it on in *Settings → Modules*.
 
 #### Can Coxswain read a book with DRM?
 
@@ -221,7 +211,7 @@ nothing is overwritten, and a stopped or failed run leaves no file. The action m
 calibre brings its own Python, Qt and a web engine for PDFs: 3.6 GB on disk. Install calibre
 instead and no image is needed; Coxswain uses it first.
 
-#### Does turning it on read all my books again?
+#### Does installing calibre read all my books again?
 
 Only the e-books: the MOBI, AZW, AZW3, FB2, LIT and PDB files, once. Nothing else in the search
 store is read or embedded again ([Search](#search)).
@@ -230,6 +220,13 @@ store is read or embedded again ([Search](#search)).
 
 They have readers built into Coxswain, which need nothing: EPUB in [Documents](documents.md),
 `.cbz` and `.cbr` comics in [Old pictures and files](old-formats.md).
+
+#### Where did *E-books with calibre* go?
+
+It became the *E-books* module, on unless you turn it off in *Settings → Modules*. If you had it
+set to `false`, the module was turned off for you once; turn it on there to see books again
+([What happened to bom_viewer, provenance_viewer and
+ebooks?](../customise/modules.md#what-happened-to-bom_viewer-provenance_viewer-and-ebooks)).
 
 #### Does anything leave my machine?
 

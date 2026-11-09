@@ -163,7 +163,8 @@ pub fn on_start() -> Result<(), String> {
         crate::t!("notice.migrate_failed", "path" => path.display(), "why" => e, "changes" => said.join(", "))
     })?;
     let mut st = crate::state::AppState::load();
-    st.migrated.extend(said);
+    // The last rewrite only: an earlier one's notice was shown then.
+    st.migrated = said;
     st.save().map_err(|e| e.to_string())
 }
 

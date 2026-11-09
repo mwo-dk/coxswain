@@ -12,9 +12,8 @@ edits photos, GDAL's draws and converts geodata, OpenSCAD's makes models into pi
 and 3MF, KiCad's shows and exports schematics and boards, Asciidoctor's builds
 [PDFs of AsciiDoc](../files/asciidoc-pdf.md) and draw.io's [exports diagrams](../files/drawio-export.md)
 (opt-in), and ClamAV's [scans for viruses](../files/virus-scan.md) when you ask. Apache Tika's [reads other formats for search](../search/tika.md) when you turn it on,
-and calibre's reads [e-books](ebooks.md) when you turn them on. A container gets no network (only ClamAV's database update has it, and it sees nothing but
-the database) and sees your files read-only. Nothing is downloaded until you click, except calibre's image, which
-turning on *E-books with calibre* with text search on pulls ([E-books](ebooks.md#turning-it-on)).
+and calibre's reads [e-books](ebooks.md). A container gets no network (only ClamAV's database update has it, and it sees nothing but
+the database) and sees your files read-only. Nothing is downloaded until you click.
 
 ![The desktop app in the Cyber theme: flight7.tex under the cursor in projects/paper, and the preview pane with the engine buttons podman texlive:latest (lit) and tectonic, and under them Rendering with podman texlive:latest… and Pulling docker.io/texlive/texlive:latest… with podman's progress line, the bar at the bottom of the pane running](../screenshots/previews-container-pull.png)
 
@@ -50,7 +49,7 @@ turning on *E-books with calibre* with text search on pulls ([E-books](ebooks.md
 | Key | Desktop app | Terminal app |
 |---|---|---|
 | **Space** / **F3** | Shows or hides the pane | – |
-| **Ctrl+,** | Settings → *Previews*, with *Preview tools* (**Pull**, **Remove**), *Keep images up to date* and *Remove images not used for 90 days* | **F12** → *Previews*: the runtime, the LaTeX image, *E-books with calibre*, *Preview tools* (**P** pulls the image of the kind under the cursor, **Delete** removes it) and the two image options; Apache Tika's image is pulled by the search helper when [its option](../search/tika.md) is ticked |
+| **Ctrl+,** | Settings → *Previews*, with *Preview tools* (**Pull**, **Remove**), *Keep images up to date* and *Remove images not used for 90 days* | **F12** → *Previews*: the runtime, the LaTeX image, *Preview tools* (**P** pulls the image of the kind under the cursor, **Delete** removes it) and the two image options; Apache Tika's image is pulled by the search helper when [its option](../search/tika.md) is ticked |
 
 ## The images
 
@@ -75,7 +74,7 @@ a little larger or smaller.
 | `ghcr.io/mwo-dk/coxswain-stockfish:latest` (default for the chess engine) | Stockfish for the chess view's best lines and whole-game analysis when none is installed ([The engine](chess-play.md#the-engine)) | about 70 MB | about 80 MB | Light while you look at a position; a whole game analysed keeps one core busy for about a minute |
 | `docker.io/openscad/openscad:trixie.2026-10-19` (default for OpenSCAD, pinned to its digest) | A picture of each `.scad` model's part, with thumbnails ([OpenSCAD models](openscad.md)), and Export 3D model as STL or 3MF | about 241 MB | about 635 MB | Light to heavy: most models take a second with Manifold; a large one with many curves keeps the processor busy for a while |
 | `docker.io/apache/tika:4.1.0` (pinned to its digest, for [Read other formats with Apache Tika](../search/tika.md)) | The words of OneNote, XPS, CHM, Outlook data files, MHTML, Hangul and Access files for Find, and of older Office files when LibreOffice is not installed | about 190 MB | about 440 MB | Its server runs only while such files are read and stops after 5 idle minutes: about 350 MB of memory, a fraction of a second of processor time per file |
-| `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest (default for calibre, only with [E-books with calibre](ebooks.md) on) | MOBI, Kindle (AZW, AZW3), FictionBook, LIT and Palm books shown with their cover, title, authors and first pages, their words in Find, and *Convert e-book* to EPUB, AZW3 or PDF | about 1.3 GB | about 3.6 GB | A second or two of processor time per book, a few more for a PDF; reading a library for search runs in the background at the lowest priority |
+| `docker.io/linuxserver/calibre:9.16.0`, pinned by its digest (default for calibre, for [e-books](ebooks.md)) | MOBI, Kindle (AZW, AZW3), FictionBook, LIT and Palm books shown with their cover, title, authors and first pages, their words in Find, and *Convert e-book* to EPUB, AZW3 or PDF | about 1.3 GB | about 3.6 GB | A second or two of processor time per book, a few more for a PDF; reading a library for search runs in the background at the lowest priority |
 | `docker.io/kicad/kicad:9.0.9` (default for KiCad, pinned to its digest; amd64 only) | KiCad schematics and boards shown as PDF, with thumbnails ([KiCad](kicad.md)), and Export from KiCad: PDF, SVG, a bill of materials, Gerbers | about 476 MB | about 1.7 GB | Light: a second or two per schematic or board; the download is the cost |
 | `ghcr.io/ggml-org/whisper.cpp:main` (pinned to its digest, for [Transcripts of speech](../search/transcripts.md)) | The speech of recordings and videos you choose, written down for Find and the preview, when no whisper.cpp is installed | about 505 MB | about 1.1 GB | Only while it transcribes: half the processor, about 10 minutes for an hour of sound with the small model on a recent processor |
 | `docker.io/asciidoctor/docker-asciidoctor:latest` (default for Asciidoctor) | [Build PDF of AsciiDoc](../files/asciidoc-pdf.md): a PDF of an `.adoc` document next to it, when you ask; the preview needs no image | about 665 MB | about 1.5 GB | A few seconds of processor time per document, only when you ask |
@@ -170,13 +169,12 @@ the image is not counted.
 
 ## Pulling and removing images
 
-- **The search helper's pulls try again by themselves.** The images of Apache Tika and of calibre
-  for e-book search are pulled in the background; one that fails for no network is tried again
+- **The search helper's pull tries again by itself.** Apache Tika's image is pulled in the
+  background when you turn it on; a pull that fails for no network is tried again
   after 5, 10, 20 and 40 minutes, then every hour, and at once when the network is back. The
   line in *Settings → Finding files* has **Retry now** and **Details** (the runtime's own error).
   The other images are pulled when you ask, and a failure stops that job with its error.
-- **The first run pulls the image,** and only after a click (calibre's also when you turn on
-  [e-books](ebooks.md) with text search on). The engine button's note says so
+- **The first run pulls the image,** and only after a click. The engine button's note says so
   beforehand (*First run pulls docker.io/texlive/texlive:latest (about 2.8 GB)*, or *First run
   pulls docker.io/plantuml/plantuml:latest (about 141 MB)*; an image you set yourself shows no
   size), and while it downloads the preview shows
@@ -341,7 +339,7 @@ pulling it itself. **Properties** (**Alt+Enter**) reads a video's facts
 with an installed ffprobe, else in ffmpeg's image when it is pulled, never pulling it, and
 geodata's with GDAL the same way. Its
 `config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,
-`tools`, `ebooks`, `drawio`, `virus_scan` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre, Asciidoctor, draw.io and ClamAV images (and its helper `images.tika`). Its **F12** → *Previews* shows
+`tools`, `drawio`, `virus_scan` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre, Asciidoctor, draw.io and ClamAV images (and its helper `images.tika`). Its **F12** → *Previews* shows
 [*Preview tools*](tools.md#preview-tools-in-settings), a line per kind, where **P** pulls a kind's image and **Delete**
 removes it, and *Keep images up to date* and *Remove images not used for 90 days*, so you can
 set them from there; the desktop app is what updates and removes unused images, while it runs. Its Disk use rows for the

@@ -48,7 +48,7 @@ pictures need a program you install: see [Scans, pictures and older Office files
 Apache Tika in a container when you turn it on. OneNote, XPS, CHM, Outlook `.pst` and `.ost`,
 MHTML, Hangul and Access files are read only with Tika ([Other formats with Apache Tika](tika.md)).
 MOBI, Kindle (`.azw`, `.azw3`), FictionBook, LIT and Palm e-books are read through calibre when
-you turn on *Settings → Previews → E-books with calibre*: their title, authors and chapters
+it is installed or its image pulled: their title, authors and chapters
 ([E-books](../previews/ebooks.md#search)).
 
 ## What you see
@@ -188,7 +188,7 @@ scan, once the disk is back; until then it keeps its text.
 
 No. The readers only read, in Coxswain itself, and touch no network. Only the optional programs of
 [Scans](scans.md) are started, and only when installed, and calibre for
-[e-books](../previews/ebooks.md#search) when you turn them on.
+[e-books](../previews/ebooks.md#search) when it is there.
 
 #### A file that failed to read: is it tried again?
 

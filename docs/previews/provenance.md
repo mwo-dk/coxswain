@@ -51,8 +51,8 @@ same view in a window.
   the base64. **Source** shows the file as it is.
 
 **Terminal app.** **F3** on a provenance file opens the viewer full screen; **F3** there (or
-`s`) shows the source in the built-in viewer, as F3 does on any file. `provenance_viewer = false`
-shows the source straight away. At 100 columns or more the three columns sit side by side; narrower, they are stacked.
+`s`) shows the source in the built-in viewer, as F3 does on any file. With the module *Build provenance* off (Settings →
+[Modules](../customise/modules.md)) F3 shows the source straight away. At 100 columns or more the three columns sit side by side; narrower, they are stacked.
 
 | Key | Does |
 |---|---|
@@ -183,11 +183,10 @@ same repository is one change, not a removal and an addition.
 
 | Where | Key | Default | Does |
 |---|---|---|---|
-| `config.toml`, top level; Settings → *Behaviour* (both apps) → *Provenance viewer on F3 (terminal app)* | `provenance_viewer` | `true` | The terminal app's **F3** on provenance opens the provenance viewer; `false` opens the built-in viewer as for any file |
+| Settings → *Modules* → *Build provenance* (both apps) | `[modules] off` without `"provenance"` | On | Provenance is shown in the provenance viewer (**F3**, the preview); off, as text like any file. It was `provenance_viewer` before modules ([The older switches](../customise/modules.md#the-older-switches)) |
 
-The desktop app itself has no setting for it: the preview pane always shows provenance, and the
-**Flow / Statement / Source** switch remembers your choice. See also
-[Configuration: every key](../reference/configuration.md#top-level-keys).
+The preview pane's **Flow / Statement / Source** switch remembers your choice. See also
+[Configuration: every key](../reference/configuration.md#modules).
 
 ## Questions
 
@@ -235,7 +234,7 @@ fetched from the network. Use one of the verifiers in
 #### How do I get the old F3 back in the terminal app?
 
 In the viewer, **F3** again (or `s`) shows the file in the built-in viewer; **Esc** there comes
-back. To make F3 always show the source, set `provenance_viewer = false` in `config.toml`.
+back. To make F3 always show the source, turn off the module *Build provenance* in *Settings → Modules*.
 
 ---
 [← Previous: Cryptography bills of materials](bom.md) · [Next: Chess games →](chess.md)

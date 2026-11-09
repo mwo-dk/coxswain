@@ -193,7 +193,6 @@ it has. The chess options are in [Games](#games) since coxswain 2.35.0.
 | Option | Does | Key |
 |---|---|---|
 | *Build LaTeX by itself* | Off: LaTeX waits for **Build PDF** ([LaTeX projects](../previews/latex.md)) | `[preview] latex_auto` |
-| *E-books with calibre* | Off by default. On: previews, text for search and *Convert e-book* for MOBI, Kindle, FictionBook, LIT and Palm books, by calibre installed or its 1.3 GB image ([E-books](../previews/ebooks.md)) | `[preview] ebooks` |
 | *Export draw.io diagrams* | Off by default: PNG, SVG and PDF of a diagram and its grid thumbnail, by draw.io's container image (about 560 MB), with podman or docker ([Export draw.io diagram](../files/drawio-export.md)) | `[preview] drawio` |
 
 **Container images**
@@ -315,8 +314,6 @@ where Jujutsu is too*) and *Programs* (*Editor*, the viewers and *Terminal*).
 | *Editor* | The program **F4** opens a file in. Empty: the system's choice in the desktop app, `$VISUAL` or `$EDITOR` in the terminal app ([View and edit](../commands/view-and-edit.md)) | `editor` |
 | *Viewer (terminal app)* | The program **F3** shows a file in, in the terminal app. Empty: the [built-in viewer](../commands/view-and-edit.md#the-built-in-viewer), which highlights code; **p** there hands the file to `$PAGER`, else `less` | `viewer` |
 | *Terminal* | What *Open a terminal here* (**F2**, **t**) opens, and *Open in your git tool* when it opens a terminal. *Automatic: …* names what opens unset (Terminal on a Mac, Windows' *Default terminal application*, else `$TERMINAL` or the first found); then the terminals found here; *Another command…* takes a command of your own, `{dir}` being the folder ([Choosing the terminal](../commands/user-menu.md#choosing-the-terminal)) | `terminal` |
-| *CBOM viewer on F3 (terminal app)* | **F3** on a CycloneDX bill of materials opens the CBOM viewer ([CBOM viewer](../previews/bom.md)) | `bom_viewer` |
-| *Provenance viewer on F3 (terminal app)* | **F3** on build provenance (SLSA, in-toto, a Sigstore bundle) opens the provenance viewer ([Build provenance](../previews/provenance.md)) | `provenance_viewer` |
 
 ## Keys
 
