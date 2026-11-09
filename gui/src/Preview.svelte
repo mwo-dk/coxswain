@@ -40,8 +40,12 @@
    *  (`asset.rs`, `MAX_INSIDE`), a player's ranges from one unpacking. */
   let copied = $state([]);
   /** A PGN family file inside an archive: its games are read as it is unpacked
-   *  (`chess::games::streams`, no copy); ChessBase, SCID, positions, books and Go come from a copy. */
-  const chessInside = $derived(inside && !inHistory && /\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa)$/i.test(raw.name) && !copied.includes(raw.path));
+   *  (`chess::games::streams`, no copy); positions and a Go file up to 64 MB are unpacked into
+   *  memory whole (`games::in_memory`), as a book is (a `.bin`, told by `chess_is_book` below);
+   *  ChessBase and SCID come from a copy. */
+  const chessInside = $derived(
+    inside && !inHistory && (/\.(pgn|pgn\.gz|pgn\.zst|pdn|pbn|kif|kifu|csa|epd|fen)$/i.test(raw.name) || (/\.sgf$/i.test(raw.name) && raw.size <= MAX_WHOLE)) && !copied.includes(raw.path),
+  );
   /** Slide decks this page draws itself (`renderPptx`); other Office files go to LibreOffice. */
   const DECKS = ["pptx", "pptm", "ppsx", "potx"];
   const deck = (f) => previewKind(f) === "office" && DECKS.includes(ext(f));
@@ -50,7 +54,8 @@
   const reads = (f) => (deck(f) ? "whole" : viewerReads(previewKind(f)));
   /** The most of a file read whole: what its reader takes (`bytes`, 25 MB), else `MAX_WHOLE`. */
   const most = (f) => (["docx", "sheet", "notebook"].includes(previewKind(f)) || deck(f) ? 25 * 1024 * 1024 : MAX_WHOLE);
-  const direct = $derived(inside && !inHistory && (reads(raw) === "stream" || (reads(raw) === "whole" && raw.size <= most(raw))) && !/\.bin$/i.test(raw.name) && !copied.includes(raw.path));
+  // A `.bin` (maybe an opening book, told by `chess_is_book` below) is read from memory up to 64 MB.
+  const direct = $derived(inside && !inHistory && (reads(raw) === "stream" || (reads(raw) === "whole" && raw.size <= most(raw))) && !(/\.bin$/i.test(raw.name) && raw.size > MAX_WHOLE) && !copied.includes(raw.path));
   /** `path` as the web view asks for it: from memory when it is read so. */
   const src = (path) => convertFileSrc(path) + (direct ? "?inside" : "");
   // Off the files read from memory: the last one unpacked (up to 64 MB) is let go.
@@ -892,7 +897,7 @@
         {#if facts.length}<dl class="facts">{#each facts as [k, v] (k)}<dt>{k}</dt><dd>{v}</dd>{/each}</dl>{/if}
         {#key e.path}<NetronView path={e.path} dir={e.is_dir} />{/key}
       {:else if kind === "go"}
-        <GoView path={e.path} />
+        <GoView path={e.path} onfail={() => inside && needsCopy(raw.path)} />
       {:else if kind === "provenance" && !source && !statement}
         <ProvenanceView path={e.path} onfail={() => direct && needsCopy(raw.path)} />
       {:else if kind === "provenance" && !source}

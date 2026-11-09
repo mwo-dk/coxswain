@@ -143,7 +143,11 @@
       } else if (chessFormat(basename(p)) === "epd") {
         invoke("chess_positions", { path: p }).then(
           (v) => p === path && ((positions = v), showPosition(0)),
-          (e) => (error = String(e)),
+          (e) => {
+            error = String(e);
+            // Not to be read from inside its archive (locked): the caller reads a copy instead.
+            onfail();
+          },
         );
       }
     });
