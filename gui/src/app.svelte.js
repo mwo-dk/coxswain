@@ -956,9 +956,10 @@ export function stopWork() {
  *  (`coxswain_core::export`): the question (what it writes, which program runs, the first pull
  *  and its size), then the run, the status line saying how far it is with a Stop button. The
  *  action again while it runs stops it. */
-export function makeExport(adoc, op = adoc ? "adoc_pdf" : "", paths = targets()) {
+export async function makeExport(adoc, op = adoc ? "adoc_pdf" : "", paths = null) {
   const action = adoc ? "adoc_pdf" : "drawio_export";
   if (ui.exporting) return stopExport();
+  paths ??= await targets();
   const files = paths.filter((p) => (adoc ? /\.(adoc|asciidoc)$/i.test(p) : isDrawio(basename(p))));
   if (!files.length) return void (ui.status = t(adoc ? "export.none_adoc" : "export.none_drawio"));
   const ask = async (op) => {
@@ -1019,7 +1020,8 @@ export function stopExport() {
 export async function scanViruses(tb = tab()) {
   if (ui.viruses) return stopViruses();
   if (subject(tb).place !== "disk") return void (ui.status = t("viruses.none"));
-  const paths = targets(tb).length ? targets(tb) : [tb.dir];
+  const chosen = await targets(tb);
+  const paths = chosen.length ? chosen : [tb.dir];
   let plan;
   try {
     plan = await invoke("viruses_plan", { paths });
@@ -1298,7 +1300,7 @@ export async function init() {
   setPictureEndings(ui.cfg.picture_endings);
   setMediaEndings(ui.cfg.media_endings);
   setGeoEndings(ui.cfg.geo_endings);
-  setViewerRules(ui.cfg.viewer_rules);
+  setViewerRules(ui.cfg.viewer_rules, ui.cfg.viewer_reads);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;

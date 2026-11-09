@@ -702,7 +702,7 @@ pub(crate) fn while_programs_start<T>(f: impl FnOnce() -> T) -> T {
 
 /// A history is read-only: nothing goes into it, nothing is made or taken out there. So are a
 /// ZFS snapshot, the lists of snapshots and of a package's files, and a disk image.
-fn writable(path: &Path) -> io::Result<()> {
+pub(crate) fn writable(path: &Path) -> io::Result<()> {
     let denied = |key: &str| {
         Err(io::Error::new(
             io::ErrorKind::PermissionDenied,

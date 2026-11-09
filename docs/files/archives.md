@@ -209,8 +209,8 @@ through an installed 7-Zip instead, read-only, like a disk image
 - **Logs, JSON Lines and long texts are paged through as they are unpacked**: a log or JSON
   Lines file in either app, a text over 512 KB in the desktop app and a text over 16 MB in the
   terminal app open in the log view (the terminal app's viewer) with every line, nothing
-  written to the disk and a few megabytes in memory. Going back to a line far above unpacks the
-  file again from its start ([Logs](../previews/logs.md#logs-inside-an-archive)).
+  written to the disk and a few megabytes in memory. Going back to a line far above unpacks
+  again from a place kept before it in a tar, else from the file's start ([Logs](../previews/logs.md#logs-inside-an-archive)).
 - **Games are read as they are unpacked**: a PGN file (also packed), a draughts, shogi or bridge
   file and a DhtmlXQ game open in the games window with no copy on the disk
   ([Chess](../previews/chess.md)).
@@ -381,8 +381,8 @@ panel title says `[archive]` instead of a tint and a badge, and there is no prev
 
 Yes. Put the cursor on it with the preview pane open (**Space** in the desktop app), or press
 **F3** in the terminal app. A text file or a picture is read straight out of the archive, into
-memory: the preview pane shows its first 512 KB (a picture, PDF, song, video, font, Word
-document, workbook, notebook or PowerPoint deck up to 25 MB, a Parquet file up to 64 MB,
+memory: the preview pane shows its first 512 KB (a picture, PDF, song, video, font or Parquet
+file up to 64 MB, a Word document, workbook, notebook or PowerPoint deck up to 25 MB,
 whole), the terminal
 app's viewer its first 16 MB, and nothing is written to the disk. A provenance file or a BOM
 opens in its viewer the same way, in both apps. A log, JSON Lines file or longer text
