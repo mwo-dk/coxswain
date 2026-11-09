@@ -13,7 +13,7 @@ game once and takes room on the disk.
 
 ![The desktop app's game view on a club database with a position index, Tree on: after 1.e4 c5 2.Nf3, 1733 games reach the position, and Black's replies d6, e6 and Nc6 each show their games, a White · draw · Black bar with per cents, the average Elo, the years 1996–2025 and the best-rated player, with List them above](../screenshots/gui-chess-tree.png)
 
-<!-- screenshot: tui-chess-tree.png: the terminal app (Classic blue) on a game of a database with a position index, t pressed, the opening tree of the position after 1.e4 c5 2.Nf3 in place of the moves, a move chosen, with the tree's keys -->
+![The terminal app's game view on a club database with a position index, t pressed: after 1.e4 c5 2.Nf3, the opening tree in place of the moves, 1733 games reach the position, Black's replies d6, e6 and Nc6 with their games, White · draw · Black per cents, average Elo, years and best player, e6 chosen, and the tree's keys below](../screenshots/tui-chess-tree.png)
 
 - [Building the index](#building-the-index)
 - [The opening tree](#the-opening-tree)
