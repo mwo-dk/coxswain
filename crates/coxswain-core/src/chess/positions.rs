@@ -1353,8 +1353,8 @@ pub fn keep_up(lib: &Arc<Library>, cfg: &crate::config::ChessConfig) {
         return;
     }
     let path = &lib.path;
-    // A table of the file before it changed: the app reads it again first.
-    if lib.stamp() != self::stamp(path) {
+    // A table of the file before it changed: the app reads it again first (`outdated`).
+    if outdated(lib) {
         return;
     }
     if let Some(j) = job(path) {
@@ -1435,6 +1435,12 @@ pub fn tree(lib: &Library, fen: &str) -> Option<Tree> {
 /// game numbers: they are of the database before it changed, and would open other games.
 fn fresh(idx: &Index, lib: &Library) -> bool {
     idx.done.stamp == lib.stamp() && idx.done.stamp == stamp(&lib.path)
+}
+
+/// `lib`'s table is of its file before it changed: an app reads it again (`Library::open`),
+/// and the index is built again from that.
+pub fn outdated(lib: &Library) -> bool {
+    lib.stamp() != stamp(&lib.path)
 }
 
 /// The games of `lib`'s index may be listed and opened: it is there and not stale. A list cut
