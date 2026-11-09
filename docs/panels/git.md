@@ -355,7 +355,8 @@ one too. A FIFO elsewhere in the repository (a ref, a pack) is not looked for: t
 the filter check, the config view, the preview's diff, a commit and its diff in the history (**Ctrl+G**), a file read
 from a commit and the checks before a switch are ended after two minutes instead, a blame after
 one minute, a copy out of the history (**F5** in a commit) when git has given nothing for two
-minutes, and a branch switch itself after thirty minutes, since one ended halfway leaves a
+minutes while Coxswain waits for it (time spent writing to a slow disk does not count, and a
+copy that got everything is kept), and a branch switch itself after thirty minutes, since one ended halfway leaves a
 half-changed work tree. When git cannot say within its two minutes which filters the
 repository sets, no git runs there: as with a FIFO, there is no git line and no switch.
 
