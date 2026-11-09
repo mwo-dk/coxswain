@@ -751,6 +751,29 @@ fn run_items(
         };
     }
     let mut failed = vec![];
+    // Files of one folder of a 7z or a compressed tar: unpacked in one pass, not each from the
+    // archive's start (a game database unpacked beside its archive).
+    if op == Op::Copy
+        && let Some((archive, names)) = crate::archive::one_pass(items, dst)
+    {
+        at(0);
+        let r = crate::archive::copy_out_files(&archive, &names, dst, password);
+        let mut done = 0;
+        for p in items {
+            let to = cfs::target(p, dst);
+            if fs::symlink_metadata(&to).is_ok() {
+                rec.done(p, &to);
+                done += 1;
+            } else if let Err(e) = &r {
+                failed.push((p.clone(), io::Error::new(e.kind(), e.to_string())));
+            }
+        }
+        return match r {
+            Err(e) if crate::stop::is(&e) => Ran { failed: vec![], rec, stopped: stopped(done) },
+            Err(_) if crate::stop::asked() => Ran { failed, rec, stopped: stopped(done) },
+            _ => Ran { failed, rec, stopped: None },
+        };
+    }
     for (i, p) in items.iter().enumerate() {
         if crate::stop::asked() {
             return Ran { stopped: stopped(i - failed.len()), failed, rec };
