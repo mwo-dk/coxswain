@@ -4542,7 +4542,8 @@ mod tests {
         assert!(b.unpacked());
         assert!(b.missing().is_empty());
         // Undone as a copy is (not run here: it goes to the bin).
-        assert_eq!(ran.rec.touched().len(), 3);
+        let touched = ran.rec.touched();
+        assert_eq!(touched.iter().filter(|p| p.parent() == Some(b.folder.as_path())).count(), 3, "{touched:?}");
         // A file of the same name and another size there: the next folder.
         std::fs::write(b.folder.join("club.sg5"), "mine").unwrap();
         let c = beside_past(&path, 0).unwrap();
