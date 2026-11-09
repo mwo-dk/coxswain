@@ -346,6 +346,18 @@ impl Viewer {
         }
         // The position index: built when Settings says so or when it is out of date.
         if p.done && matches!(lib.format, Format::Pgn | Format::Xiangqi) && self.pos_index_asked.is_none_or(|t| t.elapsed().as_millis() >= 1000) {
+            // The file changed: its table is read again, as the desktop app does, and the index
+            // is built again from that one.
+            if chess::positions::outdated(lib) {
+                let path = lib.path.clone();
+                self.pos_index_asked = Some(Instant::now());
+                if let Ok(l) = Library::open(&path) {
+                    self.lib = Some(Arc::new(l));
+                    self.counted = usize::MAX;
+                    self.tree_of = None;
+                }
+                return;
+            }
             chess::positions::keep_up(lib, &self.chess);
             let st = chess::positions::status(lib, chess::positions::depth_of(&self.chess.position_depth));
             // A new index came: the trees and the list cut to a position are asked again.
