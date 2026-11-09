@@ -181,7 +181,7 @@ Built again on their own: 12.9 MB, coxswain --disk clear rebuildable
 | Command | Does |
 |---|---|
 | `coxswain --disk clear store` | Empties the search store, through the helper when one runs: *search.db cleared: 284 KB freed.* |
-| `coxswain --disk clear index` (`previews`, `peek`, `inside`, `libreoffice`, `log`, `clamav`, `work`, `chess`, `picked`) | Clears that row |
+| `coxswain --disk clear index` (`previews`, `peek`, `inside`, `libreoffice`, `log`, `clamav`, `work`, `chess`, `picked` when there are some) | Clears that row |
 | `coxswain --disk clear qwen3-4b-a06e946b` | A model, by the name in the first column; the same as `coxswain --models delete`, which asks *[y/N]* for the one in use |
 | `coxswain --disk clear tectonic`, `coxswain --disk clear images`, `coxswain --disk clear docker.io/pandoc/core:latest` | Prints *This goes:* with the exact path or image and its size, then asks *[y/N]* |
 | `coxswain --disk clear replace`, `coxswain --disk clear sync:.coxswain-sync-…` | Your own files: prints *This goes:* with the exact path and its size, then asks *[y/N]*. `quarantine` and `kicad-settings` are refused: delete those files yourself |
