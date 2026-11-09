@@ -4858,7 +4858,7 @@
  "chess.index_stop_tip": "Zastaví sestavování indexu; nic z něj se neuchová",
  "chess.index_ready": "Index pozic: {depth}, {size}",
  "chess.index_depth": "{n} tahů",
- "chess.index_stale": "zastaralý, znovu se sestavuje na pozadí",
+ "chess.index_stale": "zastaralý, znovu se sestavuje na pozadí; jeho partie se ze stromu otevřou, až to skončí",
  "chess.index_remove": "Odebrat",
  "chess.index_remove_tip": "Odebere index pozic této databáze a uvolní jeho místo na disku",
  "chess.index_removed": "Index pozic odebrán",

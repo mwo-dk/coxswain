@@ -313,6 +313,9 @@ fn a_grown_file_reads_only_its_new_games() {
     assert!(st.ready && st.stale);
     let t = tree(&lib, pgn::START).unwrap();
     assert!(t.stale && t.games == 50);
+    // Its counts are shown, but its game numbers are of the file before it grew: none given.
+    assert!(!t.opens);
+    assert_eq!(games_at(&lib, pgn::START), None);
     keep_up(&lib, &crate::config::ChessConfig::default());
     let j = job(&p).unwrap();
     let until = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(30));
@@ -322,7 +325,8 @@ fn a_grown_file_reads_only_its_new_games() {
     }
     assert_eq!(j.walked.load(Ordering::Relaxed), 3, "the last old game and the two new ones");
     let t = tree(&lib, pgn::START).unwrap();
-    assert!(!t.stale);
+    assert!(!t.stale && t.opens);
+    assert_eq!(games_at(&lib, pgn::START).map(|g| g.len()), Some(52));
     assert_eq!((t.games, t.moves.iter().map(|m| (m.san.as_str(), m.games)).collect::<Vec<_>>()), (52, vec![("e4", 50), ("d4", 2)]));
     assert_eq!(folders(&p).len(), 1, "the old index went");
     // Changed in its middle: read again whole.

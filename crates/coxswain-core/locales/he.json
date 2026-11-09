@@ -4855,7 +4855,7 @@
  "chess.index_stop_tip": "עוצר את בניית האינדקס; שום דבר ממנו לא נשמר",
  "chess.index_ready": "אינדקס עמדות: {depth}, {size}",
  "chess.index_depth": "{n} מסעים",
- "chess.index_stale": "לא עדכני, נבנה מחדש ברקע",
+ "chess.index_stale": "לא עדכני, נבנה מחדש ברקע; המשחקים שלו נפתחים מהעץ כשהבנייה תסתיים",
  "chess.index_remove": "הסרה",
  "chess.index_remove_tip": "מסיר את אינדקס העמדות של מסד נתונים זה ומפנה את מקומו בדיסק",
  "chess.index_removed": "אינדקס העמדות הוסר",

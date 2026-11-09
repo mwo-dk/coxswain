@@ -4855,7 +4855,7 @@
  "chess.index_stop_tip": "Sustabdo rodyklės kūrimą; nieko iš jos neišsaugoma",
  "chess.index_ready": "Pozicijų rodyklė: {depth}, {size}",
  "chess.index_depth": "{n} ėjimų",
- "chess.index_stale": "pasenusi, iš naujo kuriama fone",
+ "chess.index_stale": "pasenusi, iš naujo kuriama fone; jos partijos iš medžio atsidarys, kai tai baigsis",
  "chess.index_remove": "Šalinti",
  "chess.index_remove_tip": "Pašalina šios duomenų bazės pozicijų rodyklę ir atlaisvina jos vietą diske",
  "chess.index_removed": "Pozicijų rodyklė pašalinta",

@@ -4757,7 +4757,7 @@
  "chess.index_stop_tip": "Indizearen eraikuntza gelditzen du; ez da ezer gordetzen",
  "chess.index_ready": "Posizio-indizea: {depth}, {size}",
  "chess.index_depth": "{n} jokaldi",
- "chess.index_stale": "zaharkituta, atzeko planoan berriro eraikitzen",
+ "chess.index_stale": "zaharkituta, atzeko planoan berriro eraikitzen; bere partidak zuhaitzetik irekiko dira amaitzean",
  "chess.index_remove": "Kendu",
  "chess.index_remove_tip": "Datu-base honen posizio-indizea kentzen du eta diskoan duen lekua askatzen du",
  "chess.index_removed": "Posizio-indizea kenduta",

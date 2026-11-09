@@ -4953,7 +4953,7 @@
  "chess.index_stop_tip": "Zatrzymuje budowanie indeksu; nic z niego nie zostaje",
  "chess.index_ready": "Indeks pozycji: {depth}, {size}",
  "chess.index_depth": "{n} ruchów",
- "chess.index_stale": "nieaktualny, budowany ponownie w tle",
+ "chess.index_stale": "nieaktualny, budowany ponownie w tle; jego partie otworzą się z drzewa, gdy to się skończy",
  "chess.index_remove": "Usuń",
  "chess.index_remove_tip": "Usuwa indeks pozycji tej bazy i zwalnia jego miejsce na dysku",
  "chess.index_removed": "Usunięto indeks pozycji",

@@ -4855,7 +4855,7 @@
  "chess.index_stop_tip": "Arrête la construction de l’index ; rien n’en est gardé",
  "chess.index_ready": "Index des positions : {depth}, {size}",
  "chess.index_depth": "{n} coups",
- "chess.index_stale": "périmé, reconstruit en arrière-plan",
+ "chess.index_stale": "périmé, reconstruit en arrière-plan ; ses parties s’ouvrent depuis l’arbre une fois terminé",
  "chess.index_remove": "Supprimer",
  "chess.index_remove_tip": "Supprime l’index des positions de cette base et libère sa place sur le disque",
  "chess.index_removed": "Index des positions supprimé",

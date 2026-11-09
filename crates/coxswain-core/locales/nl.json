@@ -4757,7 +4757,7 @@
  "chess.index_stop_tip": "Stopt het bouwen van de index; er wordt niets van bewaard",
  "chess.index_ready": "Stellingenindex: {depth}, {size}",
  "chess.index_depth": "{n} zetten",
- "chess.index_stale": "verouderd, wordt op de achtergrond opnieuw gebouwd",
+ "chess.index_stale": "verouderd, wordt op de achtergrond opnieuw gebouwd; de partijen openen vanuit de boom zodra dat klaar is",
  "chess.index_remove": "Verwijderen",
  "chess.index_remove_tip": "Verwijdert de stellingenindex van deze database en maakt zijn ruimte op de schijf vrij",
  "chess.index_removed": "Stellingenindex verwijderd",

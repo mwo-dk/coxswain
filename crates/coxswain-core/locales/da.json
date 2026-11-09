@@ -4757,7 +4757,7 @@
  "chess.index_stop_tip": "Stopper opbygningen af indekset; intet af det gemmes",
  "chess.index_ready": "Stillingsindeks: {depth}, {size}",
  "chess.index_depth": "{n} træk",
- "chess.index_stale": "forældet, bygges igen i baggrunden",
+ "chess.index_stale": "forældet, bygges igen i baggrunden; dets partier åbnes fra træet, når det er færdigt",
  "chess.index_remove": "Fjern",
  "chess.index_remove_tip": "Fjerner databasens stillingsindeks og frigør dets plads på disken",
  "chess.index_removed": "Stillingsindeks fjernet",

@@ -4855,7 +4855,7 @@
  "chess.index_stop_tip": "Atura la construcció de l'índex; no se'n guarda res",
  "chess.index_ready": "Índex de posicions: {depth}, {size}",
  "chess.index_depth": "{n} jugades",
- "chess.index_stale": "desactualitzat, es reconstrueix en segon pla",
+ "chess.index_stale": "desactualitzat, es reconstrueix en segon pla; les seves partides s’obren des de l’arbre quan acabi",
  "chess.index_remove": "Elimina",
  "chess.index_remove_tip": "Elimina l'índex de posicions d'aquesta base de dades i n'allibera l'espai al disc",
  "chess.index_removed": "Índex de posicions eliminat",
