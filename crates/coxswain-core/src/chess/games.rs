@@ -320,9 +320,9 @@ fn moves(line: &str, head: &mut Head, in_brace: &mut bool, depth: &mut u32, full
 }
 
 /// Counts the bytes read through it, for the progress.
-struct Counted<R> {
-    inner: R,
-    read: Arc<AtomicU64>,
+pub(crate) struct Counted<R> {
+    pub(crate) inner: R,
+    pub(crate) read: Arc<AtomicU64>,
 }
 
 impl<R: Read> Read for Counted<R> {
@@ -383,20 +383,22 @@ pub(crate) fn is_dhtml(path: &Path) -> bool {
 }
 
 /// Whether `path` is a file inside an archive (not on the disk): its games are read as it is
-/// unpacked (`entry_file`), nothing copied. ChessBase and SCID databases, which are read in
-/// pieces from several files, and opening books are not: those are read from a copy.
+/// unpacked (`entry_file`) or whole in memory (`in_memory`), nothing copied. ChessBase and SCID
+/// databases, which are read in pieces from several files, are not: those are read from a copy.
 pub fn in_archive(path: &Path) -> bool {
     !path.exists() && crate::archive::split(path).is_some()
 }
 
 /// Whether the games of `path` can be read from inside its archive without a copy: a PGN family
-/// file by its name (also packed), and a DhtmlXQ game by its first bytes.
+/// file by its name (also packed) and a DhtmlXQ game by its first bytes, as it is unpacked; an
+/// opening book, an EPD or FEN file and a Go file whole in memory (`in_memory`).
 pub fn streams(path: &Path) -> bool {
-    streams_with(path, Limits::default().keep)
+    unpacks(path, Limits::default().keep) || in_memory(path)
 }
 
-/// `streams`, a plain PGN over `keep` bytes being the one kept in the table (`Limits::keep`).
-fn streams_with(path: &Path, keep: u64) -> bool {
+/// `streams` as the archive unpacks the file: a PGN family file, a DhtmlXQ game; a plain PGN over
+/// `keep` bytes being the one kept in the table (`Limits::keep`).
+fn unpacks(path: &Path, keep: u64) -> bool {
     if !in_archive(path) || super::scid::is_scid(path) || super::cbh::is_cbh(path) {
         return false;
     }
@@ -406,6 +408,54 @@ fn streams_with(path: &Path, keep: u64) -> bool {
         return false;
     }
     matches!(super::format(path), Some(super::Format::Pgn | super::Format::Pdn | super::Format::Pbn | super::Format::Kif | super::Format::Csa)) || is_dhtml(path)
+}
+
+/// Inside an archive, an opening book or a Go file up to this size is unpacked into memory whole
+/// and read there: their readers jump about in the file (a book's binary search, a Go game read
+/// at its place in the file), which an unpacker cannot do. 64 MB, as a picture or a document the
+/// desktop app's preview holds in memory; a larger one is read from a copy, as before.
+pub const IN_MEMORY: u64 = if cfg!(test) { 1 << 20 } else { 64 << 20 };
+
+/// Whether the file inside an archive at `path` is games read whole in memory, with no copy: an
+/// opening book or a Go file up to `IN_MEMORY`, an EPD or FEN file of any size (only its first
+/// 16 MB are read, `read_positions`). Not a locked one (its password is asked for, and a copy
+/// read) nor one in a disk image.
+pub fn in_memory(path: &Path) -> bool {
+    if !in_archive(path) || !crate::archive::streamable(path) {
+        return false;
+    }
+    match super::format(path) {
+        Some(super::Format::Epd) => true,
+        Some(super::Format::Sgf) => crate::archive::entry_size(path).is_ok_and(|n| n <= IN_MEMORY),
+        None => super::polyglot::is_book(path),
+        _ => false,
+    }
+}
+
+/// The whole of the file inside an archive at `path`, up to `IN_MEMORY`, unpacked into memory
+/// and kept while its archive is as it was: a book is asked for its moves at each position shown.
+/// One file is kept; the next one takes its place.
+pub(crate) fn whole(path: &Path) -> io::Result<Arc<[u8]>> {
+    type Stamp = (u64, Option<std::time::SystemTime>);
+    static KEPT: Mutex<Option<(PathBuf, Stamp, Arc<[u8]>)>> = Mutex::new(None);
+    let (archive, inner) = crate::archive::split(path).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, path.display().to_string()))?;
+    let m = std::fs::metadata(&archive)?;
+    let stamp = (m.len(), m.modified().ok());
+    let kept = || KEPT.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((p, s, bytes)) = kept().as_ref()
+        && p == path
+        && *s == stamp
+    {
+        return Ok(bytes.clone());
+    }
+    // Unpacked without the lock: another file's book lookups do not wait for this one.
+    let (bytes, more) = crate::archive::head(path, IN_MEMORY)?;
+    if more {
+        return Err(crate::archive::too_large(&inner));
+    }
+    let bytes: Arc<[u8]> = bytes.into();
+    *kept() = Some((path.to_path_buf(), stamp, bytes.clone()));
+    Ok(bytes)
 }
 
 /// The file at `path` to read from its start: on the disk, or inside an archive as it is
@@ -729,6 +779,9 @@ pub struct Query {
     pub to: Option<u16>,
     /// Both players rated at least this.
     pub elo: Option<u16>,
+    /// Only the games that reach this position (a FEN), by the position index (`positions`);
+    /// empty for any.
+    pub position: String,
     pub sort: Sort,
     pub desc: bool,
 }
@@ -808,6 +861,8 @@ pub struct Library {
     _held: Option<super::cbv::Held>,
     /// The names' order (`Table::ranks`), with how many names there were then.
     ranks: Mutex<Option<(u32, Arc<Vec<u32>>)>>,
+    /// The last block of `GAMES` unpacked, by its place: games read in order unpack each once.
+    last_block: Mutex<Option<(u64, Arc<Vec<u8>>)>>,
 }
 
 impl Drop for Library {
@@ -827,7 +882,7 @@ impl Library {
     pub fn open_with(path: &Path, limits: Limits) -> io::Result<Library> {
         let inside = in_archive(path);
         let size = if inside { crate::archive::entry_size(path)? } else { std::fs::metadata(path)?.len() };
-        if inside && !streams_with(path, limits.keep) {
+        if inside && !unpacks(path, limits.keep) {
             return Err(io::Error::new(io::ErrorKind::Unsupported, path.display().to_string()));
         }
         let read = Arc::new(AtomicU64::new(0));
@@ -871,7 +926,7 @@ impl Library {
         let games = games.map(Mutex::new);
         let table = Arc::new(table);
         let _held = (cbh && super::cbv::is_cbv(path)).then(|| super::cbv::hold(path));
-        let lib = |shared, size| Library { path: path.to_path_buf(), format, shared, games, table: table.clone(), read: read.clone(), size, stop: stop.clone(), source, scid: scid.clone(), archived: streamed, _held, ranks: Mutex::new(None) };
+        let lib = |shared, size| Library { path: path.to_path_buf(), format, shared, games, table: table.clone(), read: read.clone(), size, stop: stop.clone(), source, scid: scid.clone(), archived: streamed, _held, ranks: Mutex::new(None), last_block: Mutex::new(None) };
         if let Some(done) = kept {
             {
                 let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
@@ -979,8 +1034,23 @@ impl Library {
         let openings = if opening.is_empty() { vec![] } else { self.table.matching(&opening) };
         let result = result_code(q.result.trim());
         let hit = |ids: &Vec<bool>, i: u32| ids.get(i as usize).copied().unwrap_or(false);
-        let pass = |r: &Rec| {
-            (player.is_empty() || hit(&players, r.white) || hit(&players, r.black))
+        // The games that reach the position: none of them without an index.
+        let within = (!q.position.trim().is_empty()).then(|| super::positions::games_at(self, q.position.trim()).unwrap_or_default());
+        // No index, or a stale one: no games, without reading the rows.
+        if within.as_ref().is_some_and(|w| w.is_empty()) {
+            return vec![];
+        }
+        if let Some(w) = &within
+            && q.sort == Sort::Number
+            && *q == (Query { position: q.position.clone(), ..all.clone() })
+        {
+            // Those games in the file's order: nothing else to read.
+            let ids = w.iter().copied().filter(|&i| i < count);
+            return if q.desc { ids.rev().collect() } else { ids.collect() };
+        }
+        let pass = |i: u32, r: &Rec| {
+            within.as_ref().is_none_or(|w| w.binary_search(&i).is_ok())
+                && (player.is_empty() || hit(&players, r.white) || hit(&players, r.black))
                 && (opening.is_empty() || hit(&openings, r.opening) || eco_text(r.eco).to_lowercase().starts_with(&opening))
                 && (q.result.trim().is_empty() || r.result == result)
                 && q.from.is_none_or(|y| r.date / 10000 >= y as u32)
@@ -1008,7 +1078,7 @@ impl Library {
         let mut ids: Vec<u32> = if q.sort == Sort::Number {
             let mut ids = vec![];
             let _ = self.table.each(count, |i, r| {
-                if pass(r) {
+                if pass(i, r) {
                     ids.push(i);
                 }
             });
@@ -1017,7 +1087,7 @@ impl Library {
             // The key above the game's number: sorted, equal keys stay in the file's order.
             let mut keyed: Vec<u64> = vec![];
             let _ = self.table.each(count, |i, r| {
-                if pass(r) {
+                if pass(i, r) {
                     keyed.push((key(r) as u64) << 32 | i as u64);
                 }
             });
@@ -1047,7 +1117,7 @@ impl Library {
         Some(line_of(&self.table, &self.rec(i)?))
     }
 
-    fn rec(&self, i: u32) -> Option<Rec> {
+    pub(crate) fn rec(&self, i: u32) -> Option<Rec> {
         self.table.get(i, self.count().0)
     }
 
@@ -1081,12 +1151,7 @@ impl Library {
         }
         if self.archived {
             // `offset`: the block, `len`: the game's place in it.
-            let mut f = self.games.as_ref().ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))?.lock().unwrap_or_else(|e| e.into_inner());
-            f.seek(SeekFrom::Start(offset))?;
-            let mut n = [0u8; 4];
-            f.read_exact(&mut n)?;
-            let mut raw = vec![];
-            lzma_rust2::Lzma2Reader::new((&mut *f).take(u32::from_le_bytes(n) as u64), DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
+            let raw = self.block(offset)?;
             return Ok(text(&game_in_block(&raw, len as usize).ok_or_else(|| io::Error::from(io::ErrorKind::UnexpectedEof))?).into_owned());
         }
         if let Some(pgn) = archived_pgn(&self.path) {
@@ -1957,6 +2022,44 @@ pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32,
     })
 }
 
+/// What the position index (`positions`) reads of the table.
+impl Library {
+    /// The block of `GAMES` at `offset`, unpacked; the last one is kept.
+    fn block(&self, offset: u64) -> io::Result<Arc<Vec<u8>>> {
+        if let Some((at, raw)) = self.last_block.lock().unwrap_or_else(|e| e.into_inner()).as_ref()
+            && *at == offset
+        {
+            return Ok(raw.clone());
+        }
+        // The table's own handle on `GAMES`: a prune that removes the folder leaves it readable.
+        let mut f = self.games.as_ref().ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))?.lock().unwrap_or_else(|e| e.into_inner());
+        f.seek(SeekFrom::Start(offset))?;
+        let mut n = [0u8; 4];
+        f.read_exact(&mut n)?;
+        let mut raw = vec![];
+        lzma_rust2::Lzma2Reader::new((&mut *f).take(u32::from_le_bytes(n) as u64), DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
+        drop(f);
+        let raw = Arc::new(raw);
+        *self.last_block.lock().unwrap_or_else(|e| e.into_inner()) = Some((offset, raw.clone()));
+        Ok(raw)
+    }
+
+    /// The stamp of the database the table was read from (`table::stamp`).
+    pub(crate) fn stamp(&self) -> &str {
+        self.table.stamp()
+    }
+
+    /// The name `id` of the table; empty for none.
+    pub(crate) fn name(&self, id: u32) -> String {
+        self.table.name(id)
+    }
+
+    /// The first `count` rows, in order.
+    pub(crate) fn each_rec(&self, count: u32, each: impl FnMut(u32, &Rec)) -> io::Result<()> {
+        self.table.each(count, each)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2096,6 +2199,54 @@ mod tests {
         // A file that is no game, and one in a disk image or locked, is not read so.
         assert!(Library::open(&zip.join("notes.txt")).is_err());
         assert_eq!(copies(), before, "no copy was made on the disk");
+    }
+
+    /// An opening book, an EPD file and a Go file inside a zip are read whole in memory: their
+    /// moves, positions and games, with no byte written to the peek folder; a Go file over
+    /// `IN_MEMORY` is not read so (a copy is), nor is a `.bin` that is no book.
+    #[test]
+    fn books_positions_and_go_inside_an_archive_are_read_in_memory() {
+        let d = tempdir::Dir::new();
+        let src = d.0.join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        super::super::polyglot::tests::book(&src);
+        std::fs::write(src.join("mates.epd"), "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - bm e5;\n8/8/8/8/8/8/8/K6k w - - id \"two\";\n").unwrap();
+        let one = "(;GM[1]FF[4]SZ[9]PB[Black]PW[White];B[ee];W[cc])\n";
+        std::fs::write(src.join("games.sgf"), one.repeat(3)).unwrap();
+        // Past `IN_MEMORY`: a copy, as before.
+        std::fs::write(src.join("big.sgf"), one.repeat((IN_MEMORY as usize) / one.len() + 1)).unwrap();
+        std::fs::write(src.join("firmware.bin"), [0xffu8; 4096]).unwrap();
+        let zip = d.0.join("games.zip");
+        let names = ["tiny.bin", "mates.epd", "games.sgf", "big.sgf", "firmware.bin"];
+        crate::archive::create(&zip, &names.map(|n| src.join(n))).unwrap();
+        // Every byte under this thread's peek folders (`archive::peek_folder`), never wiped here.
+        let base = crate::helper::folder().unwrap().join(format!("peek-{:?}", std::thread::current().id()));
+        fn bytes(p: &Path) -> u64 {
+            std::fs::read_dir(p).map_or(0, |r| r.flatten().map(|e| if e.path().is_dir() { bytes(&e.path()) } else { e.metadata().map_or(0, |m| m.len()) }).sum())
+        }
+        let before = bytes(&base);
+        let (bin, epd, sgf) = (zip.join("tiny.bin"), zip.join("mates.epd"), zip.join("games.sgf"));
+        assert!(in_memory(&bin) && in_memory(&epd) && in_memory(&sgf) && streams(&bin) && streams(&sgf));
+        assert!(!in_memory(&zip.join("big.sgf")) && !in_memory(&zip.join("firmware.bin")));
+        assert_eq!(super::super::sniff(&bin), Some(super::super::Format::Book));
+        let s = super::super::polyglot::summary(&bin).unwrap();
+        assert_eq!((s.entries, s.moves[0].san.as_str()), (5, "e4"));
+        assert_eq!(super::super::polyglot::moves_at(&bin, &s.moves[0].fen)[0].san, "c5");
+        let p = super::super::read_positions(&epd).unwrap();
+        assert_eq!((p.len(), p[1].about.contains("two")), (2, true));
+        let c = crate::go::Collection::open(&sgf).unwrap();
+        let limit = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(60));
+        while !c.progress().done {
+            assert!(std::time::Instant::now() < limit, "games never listed");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert_eq!(c.progress().games, 3);
+        assert_eq!(c.game(2).unwrap().info.black, "Black");
+        assert_eq!(bytes(&base), before, "nothing written to the disk");
+        // What a copy would have written, as before: the whole entry.
+        let copy = crate::archive::peek(&sgf).unwrap();
+        assert_eq!(bytes(&base) - before, one.len() as u64 * 3);
+        assert!(copy.starts_with(&base));
     }
 
     mod tempdir {

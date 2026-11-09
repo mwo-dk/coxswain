@@ -33,7 +33,7 @@ entry, the command line says what **Enter** does there: *Enter: Open games*.
 | A folder, or `..` | Goes into it | Goes into it |
 | An archive (`.zip`, `.tar.gz`, `.7z` and the others), a disk or container image, a mailbox | Opens it as a folder ([What Enter and F3 do](#what-enter-and-f3-do)) | Same |
 | Games, positions, an opening book | Opens them in the games window, a file of one game on its board | Opens them full screen, the same way |
-| A file inside an archive | Games (a PGN family file as it is unpacked, the others from a copy) and archives as above; any other file: status line *photos.zip is an archive: F5 copies this file out of it* | Same |
+| A file inside an archive | Games (a PGN family file as it is unpacked, a book, positions and a Go file in memory, SCID and ChessBase from a copy) and archives as above; any other file: status line *photos.zip is an archive: F5 copies this file out of it* | Same |
 | A program (a file with the executable bit on the BSDs, illumos, Linux and macOS; `.exe`, `.bat`, `.cmd`, `.ps1`, `.com` on Windows) | Opened like any other file, in its default application | Run in the terminal as `./name`, in the panel's folder, then `-- press Enter --` |
 | A list of checksums (`SHA256SUMS`, `SHA512SUMS`, `B3SUMS`, a `.sha256`, `.sha512` or `.b3` file) | Checks every file it names: OK, changed or missing ([Checksums](../files/checksums.md#checking-a-list)); **F3** shows its text | Same |
 | The first part of a split file (`name.001`) | Offers *Join parts* into `name`, checked against `name.sha256` ([Split and join](../files/split-and-join.md#joining-the-parts)) | Same |
@@ -47,7 +47,8 @@ The default application is the one your desktop picks: `xdg-open` on Linux, `ope
 
 The same in both apps, on the disk, inside an archive and inside an archive inside another
 (eight deep). Inside an archive a text, a log, a picture and a PGN family file are read as the
-archive unpacks them; any other file is opened from a copy Coxswain takes out of it into its
+archive unpacks them, and an opening book, an EPD or FEN file and a Go file up to 64 MB are
+unpacked into memory; any other file is opened from a copy Coxswain takes out of it into its
 cache folder. The archive is never changed.
 
 | What | Enter (both apps) | F3 (terminal app) | Preview pane (desktop app, **Space** or **F3**) | The command line says |
@@ -59,7 +60,7 @@ cache folder. The archive is never changed.
 | A mailbox (`.mbox`) | Its messages as `.eml` files, read-only | Its text | Its text | *Enter: Open mailbox* |
 | Games: `.pgn`, `.pgn.gz`, `.pgn.zst` (chess or xiangqi), a SCID `.si4` or `.si5`, a ChessBase `.cbh` or `.cbv`, `.sgf`, `.pdn`, `.pbn`, `.kif`, `.kifu`, `.csa`, a DhtmlXQ xiangqi game | The games: their table, a file of one game on its board ([Chess games](../previews/chess.md), [Go](../previews/go.md), [Draughts](../previews/draughts.md), [Xiangqi](../previews/xiangqi.md), [Shogi](../previews/shogi.md), [Bridge](../previews/bridge.md)). Inside an archive a SCID or ChessBase database comes out with the files beside it | The same as **Enter** | The table of games | *Enter: Open games* |
 | Positions: `.epd`, `.fen` | Its positions on the board | The same | The same | *Enter: Open positions* |
-| A Polyglot opening book (a `.bin` file that is one, by its bytes) | The book's moves on the board | The same | The same | *Enter: Open opening book* (inside an archive *Enter: Open opening book, if it is one*: **Enter** looks at a copy first) |
+| A Polyglot opening book (a `.bin` file that is one, by its bytes) | The book's moves on the board | The same | The same | *Enter: Open opening book* (inside an archive *Enter: Open opening book, if it is one*: **Enter** looks at its bytes first) |
 | A list of checksums, the first part of a split file (`name.001`), a program | Checked; *Join parts* offered; run (terminal app) or handed to the desktop | Its text or bytes | Its preview | — |
 | Any other file | Opened in its default application; inside an archive the status line says to copy it out with **F5** | The viewer: its text, or its bytes in hex | Its preview | — |
 

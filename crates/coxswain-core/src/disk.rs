@@ -165,6 +165,23 @@ pub fn items(cfg: &Config, loaded: &crate::models::Loaded, images: bool) -> Vec<
             in_use: false,
         });
     }
+    // Each games table's position index, a row of its own: built only when asked, so never in
+    // *Clear everything that can be built again*.
+    for k in crate::chess::positions::kept() {
+        let file = k.source.file_name().unwrap_or_default().to_string_lossy().into_owned();
+        v.push(Item {
+            id: format!("positions:{}", k.dir.file_name().unwrap_or_default().to_string_lossy()),
+            name: format!("positions/{file}"),
+            what: t!("disk.positions.what", "file" => k.source.display()),
+            cost: t!("disk.positions.cost"),
+            bytes: k.bytes,
+            paths: vec![k.dir],
+            kind: Kind::Own,
+            rebuildable: false,
+            clear: true,
+            in_use: false,
+        });
+    }
     for e in crate::models::list(&cfg.search, loaded) {
         v.push(Item {
             id: e.id.clone(),
@@ -372,6 +389,12 @@ pub fn clear(item: &Item, cfg: &Config, helper: &Client) -> Result<u64, String> 
                 .cloned()
                 .collect();
             gone(&left)?;
+        }
+        // Its build stopped and the index this run has open let go first.
+        (Kind::Own, id) if id.starts_with("positions:") => {
+            for p in &item.paths {
+                crate::chess::positions::remove_folder(p);
+            }
         }
         // The helper writes to it: emptied, not deleted.
         (Kind::Own, "log") => {
