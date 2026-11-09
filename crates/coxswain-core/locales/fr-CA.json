@@ -26,6 +26,7 @@
  "chess.engine_tip": "Demander ici au moteur d’échecs installé (Stockfish) ses meilleurs coups et son évaluation (a); il tourne sur cet ordinateur",
  "chess.engines_hint": "Moteurs UCI que Coxswain connaît. Les Réglages regardent seulement si chacun est installé; aucun ne tourne avant que vous appuyiez sur Tester le moteur. Tout autre moteur : son chemin sous Moteur d’échecs.",
  "chess.index_build_tip": "Lit chaque partie une fois et garde ses positions, pour l’arbre des ouvertures et les parties qui atteignent une position. En arrière-plan; Espace disque le liste.",
+ "chess.index_stale": "périmé, reconstruit en arrière-plan; ses parties s’ouvrent depuis l’arbre une fois terminé",
  "chess.index_stop_tip": "Arrête la construction de l’index; rien n’en est gardé",
  "chess.keys_game_gui": "Cliquez sur l’échiquier, puis ← → pas · ↓ ↑ entrer dans une variante et en sortir · Home End · a moteur · b meilleur coup · p chercher la position · g analyser la partie · w enregistrer annotée · f retourner · n notation · PgUp PgDn autre partie · Esc parties. Un clic sur un coup l’affiche; un clic sur une pièce, puis sur une case, joue à partir d’ici.",
  "chess.line_none": "Rien n’a encore été joué : jouez d’abord un coup (un clic sur une pièce, puis sur une case; m dans l’app terminal)",
