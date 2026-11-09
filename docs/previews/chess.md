@@ -605,7 +605,7 @@ middle, so the table also keeps the text of each game, packed, in its folder in 
 (`chess/tables/`): under a quarter of the PGN file's size, as games are packed in blocks of 256 KB (LZMA2),
 the tags of a block's games next to each other, then their moves without the move numbers
 (written back as they were when a game opens) (Lumbra's Gigabase: 12 GB of PGN, 2.7 GB in the cache with the table).
-The blocks are packed hard (LZMA2's normal mode, tuned for text), which makes them about a tenth
+The blocks are packed hard (LZMA2 preset 6, tuned for text), which makes them about a tenth
 smaller than a quicker packing would, at six times the work; so each block is packed on a thread
 of its own, as many at once as the machine has cores (up to eight). The packed file is the same on
 every machine, whatever its number of cores. Opening a game reads it from there,
@@ -615,7 +615,7 @@ only while it is the newest one; saving a line from the game into the archive ch
 and the table is then read again. **Measured** (Lumbra's Gigabase, a 2.5 GB 7z of one 12 GB PGN file, on a desktop with an SSD):
 12,294,960 games, the first rows after 0.7 s, all read in 7 minutes on eight cores and 12 on four
 (packing the games sets the pace; with two cores it takes about two and a half times as long as
-on four), 130 MB of memory at most, opened again in 10 ms.
+on four), 134 MB of memory at most, opened again in 10 ms.
 
 A PGN file in a **locked 7z** asks for the password first, the box the other locked archives
 use ([Archive passwords](../files/archive-passwords.md)): **Enter** (or **F3**) on it, or the
