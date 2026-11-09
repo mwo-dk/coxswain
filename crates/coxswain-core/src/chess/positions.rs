@@ -1435,6 +1435,12 @@ fn fresh(idx: &Index, lib: &Library) -> bool {
     idx.done.stamp == lib.stamp() && idx.done.stamp == stamp(&lib.path)
 }
 
+/// The games of `lib`'s index may be listed and opened: it is there and not stale. A list cut
+/// to a position, kept by an app, is made again when this changes.
+pub fn opens(lib: &Library) -> bool {
+    opened(&lib.path).is_some_and(|i| fresh(&i, lib))
+}
+
 /// The games of `lib` that reach the position `fen`, in the file's order; none without an
 /// index, or while it is stale (`fresh`).
 pub fn games_at(lib: &Library, fen: &str) -> Option<Vec<u32>> {

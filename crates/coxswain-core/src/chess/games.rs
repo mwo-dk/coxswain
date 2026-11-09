@@ -955,6 +955,10 @@ impl Library {
         let hit = |ids: &Vec<bool>, i: u32| ids.get(i as usize).copied().unwrap_or(false);
         // The games that reach the position: none of them without an index.
         let within = (!q.position.trim().is_empty()).then(|| super::positions::games_at(self, q.position.trim()).unwrap_or_default());
+        // No index, or a stale one: no games, without reading the rows.
+        if within.as_ref().is_some_and(|w| w.is_empty()) {
+            return vec![];
+        }
         if let Some(w) = &within
             && q.sort == Sort::Number
             && *q == (Query { position: q.position.clone(), ..all.clone() })
