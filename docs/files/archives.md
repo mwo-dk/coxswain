@@ -230,8 +230,7 @@ through an installed 7-Zip instead, read-only, like a disk image
     memory, and **F5** copies it out for a program);
   - too large to hold in memory: an old picture, a Parquet file, a PDF, song, video or font
     over 64 MB (the preview holds the file whole, a player's seeking included), and a document,
-    workbook, notebook or deck over 25 MB (whose reader refuses it there too); an old picture
-    inside a disk image too, as 7-Zip reads such a file whole;
+    workbook, notebook or deck over 25 MB (whose reader refuses it there too);
   - drawn by GDAL, which reads a file: a GeoTIFF of heights or measurements that the picture
     reader cannot draw ([Geodata](../previews/geodata.md));
   - read in pieces from several files: a SCID or ChessBase database and a `.cbv`, and read by

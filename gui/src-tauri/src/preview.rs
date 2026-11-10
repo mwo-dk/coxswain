@@ -111,7 +111,7 @@ fn picture_in(previews: &Path, path: &Path, page: usize, side: u32) -> Res<Optio
         return shown(hit);
     }
     // Inside an archive: unpacked once here. A locked file is read again even when kept, which
-    // proves its password; one too large for memory, or in a disk image, is read from a copy.
+    // proves its password; one over 64 MB (`asset::MAX_INSIDE`) is read from a copy.
     let bytes = match &split {
         Some((archive, _)) => match crate::asset::inside(path, archive, side > 256, locked) {
             Ok(Some(b)) => Some(b),
