@@ -25,7 +25,7 @@ const MAX_RANGE: u64 = 1000 * 1024;
 const MAX_WHOLE: u64 = 512 * 1024 * 1024;
 
 /// The most a file inside an archive is served: it is unpacked into memory whole.
-const MAX_INSIDE: u64 = coxswain_core::viewers::MAX_WHOLE;
+pub(crate) const MAX_INSIDE: u64 = coxswain_core::viewers::MAX_WHOLE;
 
 /// The archive's size and time when a file of it was unpacked.
 type Stamp = (u64, Option<std::time::SystemTime>);
@@ -39,7 +39,7 @@ static INSIDE: std::sync::Mutex<Option<(PathBuf, Stamp, std::sync::Arc<Vec<u8>>)
 /// from (`preview::file_facts`), from the same unpacking. `None` for a file on disk.
 pub fn inside_file(path: &Path) -> Option<std::sync::Arc<Vec<u8>>> {
     let (archive, _) = coxswain_core::archive::split(path).filter(|_| !path.exists())?;
-    inside(path, &archive, true).ok().flatten()
+    inside(path, &archive, true, false).ok().flatten()
 }
 
 /// The preview has left the files inside archives: the one kept unpacked goes.
@@ -50,14 +50,16 @@ pub fn inside_forget() {
 
 /// The bytes of `path`, a file inside `archive`, from memory (`archive::head`): the kept ones
 /// while the archive has not changed. `None` when it is larger than `MAX_INSIDE`. `keep`: kept
-/// for the next request (a player's ranges); a comic's page or a grid's tile is not.
-fn inside(path: &Path, archive: &Path, keep: bool) -> std::io::Result<Option<std::sync::Arc<Vec<u8>>>> {
+/// for the next request (a player's ranges, a picture's facts); a comic's page or a grid's tile
+/// is not. `fresh`: unpacked again even when kept, so a locked file's password is proved.
+pub(crate) fn inside(path: &Path, archive: &Path, keep: bool, fresh: bool) -> std::io::Result<Option<std::sync::Arc<Vec<u8>>>> {
     let m = std::fs::metadata(archive)?;
     let stamp = (m.len(), m.modified().ok());
     let mut kept = INSIDE.lock().unwrap_or_else(|e| e.into_inner());
     if let Some((p, s, bytes)) = kept.as_ref()
         && p == path
         && *s == stamp
+        && !fresh
     {
         return Ok(Some(bytes.clone()));
     }
@@ -85,7 +87,7 @@ const THUMB_AS_IS: usize = 8 << 20;
 fn thumb(path: &Path, archive: &Path) -> std::io::Result<Option<(String, Vec<u8>)>> {
     static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
-    let Some(bytes) = inside(path, archive, false)? else { return Ok(None) };
+    let Some(bytes) = inside(path, archive, false, false)? else { return Ok(None) };
     if let Some(png) = coxswain_core::pictures::thumbnail(&bytes, THUMB_SIDE) {
         return Ok(Some(("image/png".into(), png)));
     }
@@ -190,7 +192,7 @@ pub fn respond(req: &Request<Vec<u8>>, unasked: impl Fn(&Path) -> bool) -> Respo
             && !path.exists()
             && let Some((archive, _)) = coxswain_core::archive::split(&path)
         {
-            let Some(bytes) = inside(&path, &archive, !has("once"))? else {
+            let Some(bytes) = inside(&path, &archive, !has("once"), false)? else {
                 return Ok(status(StatusCode::PAYLOAD_TOO_LARGE));
             };
             let len = bytes.len() as u64;

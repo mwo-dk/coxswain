@@ -328,6 +328,9 @@ export const isHistory = (p) => p.split(/[\\/]/).some((s) => MARKERS.includes(s)
 export const historyOf = (p) => p.slice(0, p.search(/[\\/]@history([\\/]|$)/));
 /** What the core says when an archive is locked and wants its password (archive::LOCKED). */
 export const LOCKED = "locked: a password is needed";
+/** What an old picture's error starts with when a copy of it on the disk would show it: too large
+ *  for memory, or a GeoTIFF only GDAL draws (pictures::NEEDS_COPY). */
+export const NEEDS_COPY = "needs a copy";
 
 export { looksLikeBom, looksLikeProvenance } from "./sniff.js";
 
