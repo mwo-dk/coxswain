@@ -2863,11 +2863,23 @@ pub fn entry_size(path: &Path) -> io::Result<u64> {
     entry_of(path).map(|(_, _, it, _)| it.size)
 }
 
+thread_local! {
+    /// Times `head` unpacked a file on this thread (`heads`).
+    static HEADS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// How many times `head` unpacked a file on this thread: tests count a preview's unpackings.
+#[doc(hidden)]
+pub fn heads() -> usize {
+    HEADS.with(|n| n.get())
+}
+
 /// The first `max` bytes of the file `path` inside an archive, read as it is unpacked with
 /// nothing written to the disk (an archive inside it read in place, or through its copy as
 /// browsing does), and whether it has more: the preview's and the viewer's text and pictures.
 /// A locked one wants its password (`LOCKED`) unless it was given in this run.
 pub fn head(path: &Path, max: u64) -> io::Result<(Vec<u8>, bool)> {
+    HEADS.with(|n| n.set(n.get() + 1));
     let (archive, inner, it, _held) = entry_of(path)?;
     // 7-Zip reads a disk image's file whole: a part of it is no head, so the caller copies it.
     if kind(&archive) == Some(Kind::Disk) && it.size > max {

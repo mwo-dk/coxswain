@@ -14,6 +14,7 @@ pub(crate) mod pcx;
 mod psd;
 mod xpm;
 
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::{BufReader, Cursor, Read};
 use std::path::Path;
@@ -86,7 +87,10 @@ pub fn named(path: &Path) -> bool {
 /// The file is one of these pictures: by its name, and its first bytes say so too (a `.hdr` of
 /// another program is not). Only the first bytes are read.
 pub fn readable(path: &Path) -> bool {
-    kind(path).is_some()
+    if inside(path) {
+        return crate::archive::head(path, 64).is_ok_and(|(b, _)| kind(path, Src::Mem(&b)).is_some());
+    }
+    kind(path, Src::File(path)).is_some()
 }
 
 /// A picture a web view shows as it is, or one of these: a page of a comic.
@@ -97,10 +101,10 @@ pub fn is_page(path: &Path) -> bool {
 
 /// The reader for the file: by its name, and its first bytes say so too. A `.hdr` that is a
 /// header of another kind (ENVI, Analyze) or an `.ff` that is no farbfeld is none.
-fn kind(path: &Path) -> Option<Kind> {
+fn kind(path: &Path, src: Src) -> Option<Kind> {
     let k = kind_by_name(path)?;
     let mut head = [0u8; 64];
-    let n = read_head(path, &mut head)?;
+    let n = read_head(src, &mut head)?;
     sniff(k, &head[..n]).then_some(k)
 }
 
@@ -113,24 +117,51 @@ fn inside(path: &Path) -> bool {
     !path.exists() && crate::archive::split(path).is_some()
 }
 
+/// Where a picture's bytes are read from: its file, or all of them in memory (a picture inside
+/// an archive, unpacked once and handed on, so one preview unpacks it once).
+#[derive(Clone, Copy)]
+enum Src<'a> {
+    File(&'a Path),
+    Mem(&'a [u8]),
+}
+
+/// `f` with the picture at `path`: its file, or inside an archive its bytes, unpacked once.
+fn with_src<T>(path: &Path, f: impl FnOnce(Src) -> Result<T, String>) -> Result<T, String> {
+    if inside(path) {
+        return f(Src::Mem(&unpack(path)?));
+    }
+    f(Src::File(path))
+}
+
+/// The bytes of a picture inside an archive, `INSIDE_MAX` at most.
+fn unpack(path: &Path) -> Result<Vec<u8>, String> {
+    let (bytes, more) = crate::archive::head(path, INSIDE_MAX).map_err(|e| e.to_string())?;
+    if more {
+        return Err(t!("pictures.file_too_large", "size" => format!("{} MB", INSIDE_MAX >> 20)));
+    }
+    Ok(bytes)
+}
+
 trait BufReadSeek: std::io::BufRead + std::io::Seek {}
 impl<T: std::io::BufRead + std::io::Seek> BufReadSeek for T {}
 
-/// The picture's bytes to read: the file, or inside an archive its bytes in memory
-/// (`INSIDE_MAX` at most).
-fn open(path: &Path) -> Result<Box<dyn BufReadSeek>, String> {
-    if inside(path) {
-        return Ok(Box::new(Cursor::new(read_all(path)?)));
+/// The picture's bytes to read, as a reader.
+fn open<'a>(src: Src<'a>) -> Result<Box<dyn BufReadSeek + 'a>, String> {
+    match src {
+        Src::Mem(b) => Ok(Box::new(Cursor::new(b))),
+        Src::File(path) => Ok(Box::new(BufReader::new(File::open(path).map_err(|e| e.to_string())?))),
     }
-    Ok(Box::new(BufReader::new(File::open(path).map_err(|e| e.to_string())?)))
 }
 
-fn read_head(path: &Path, head: &mut [u8]) -> Option<usize> {
-    if inside(path) {
-        let (b, _) = crate::archive::head(path, head.len() as u64).ok()?;
-        head[..b.len()].copy_from_slice(&b);
-        return Some(b.len());
-    }
+fn read_head(src: Src, head: &mut [u8]) -> Option<usize> {
+    let path = match src {
+        Src::Mem(b) => {
+            let n = b.len().min(head.len());
+            head[..n].copy_from_slice(&b[..n]);
+            return Some(n);
+        }
+        Src::File(path) => path,
+    };
     let mut f = File::open(path).ok()?;
     let mut n = 0;
     while n < head.len() {
@@ -242,14 +273,11 @@ fn limits() -> image::Limits {
 }
 
 /// The whole file, if it is no larger than `MAX_FILE`.
-fn read_all(path: &Path) -> Result<Vec<u8>, String> {
-    if inside(path) {
-        let (bytes, more) = crate::archive::head(path, INSIDE_MAX).map_err(|e| e.to_string())?;
-        if more {
-            return Err(t!("pictures.file_too_large", "size" => format!("{} MB", INSIDE_MAX >> 20)));
-        }
-        return Ok(bytes);
-    }
+fn read_all(src: Src) -> Result<Cow<[u8]>, String> {
+    let path = match src {
+        Src::Mem(b) => return Ok(Cow::Borrowed(b)),
+        Src::File(path) => path,
+    };
     let mut bytes = vec![];
     File::open(path)
         .and_then(|f| f.take(MAX_FILE + 1).read_to_end(&mut bytes))
@@ -257,49 +285,56 @@ fn read_all(path: &Path) -> Result<Vec<u8>, String> {
     if bytes.len() as u64 > MAX_FILE {
         return Err(t!("pictures.file_too_large", "size" => format!("{} MB", MAX_FILE >> 20)));
     }
-    Ok(bytes)
+    Ok(Cow::Owned(bytes))
 }
 
 /// Page `page` (from 0) of the picture, and how many it has. A page past the last is the last.
 pub fn decode(path: &Path, page: usize) -> Result<Picture, String> {
-    let k = kind(path).ok_or_else(|| t!("pictures.not_this"))?;
-    // The crates' readers are other people's code: a panic in one is an error here.
-    std::panic::catch_unwind(|| decode_kind(path, k, page))
-        .unwrap_or_else(|_| Err(t!("pictures.unreadable", "why" => "panic")))
+    with_src(path, |src| decode_in(path, src, page)?.ok_or_else(|| t!("pictures.not_this")))
 }
 
-fn decode_kind(path: &Path, k: Kind, page: usize) -> Result<Picture, String> {
+/// `decode`; `None` when the first bytes say it is no picture of its kind.
+fn decode_in(path: &Path, src: Src, page: usize) -> Result<Option<Picture>, String> {
+    let Some(k) = kind(path, src) else { return Ok(None) };
+    // The crates' readers are other people's code: a panic in one is an error here.
+    std::panic::catch_unwind(|| decode_kind(src, k, page))
+        .unwrap_or_else(|_| Err(t!("pictures.unreadable", "why" => "panic")))
+        .map(Some)
+}
+
+fn decode_kind(src: Src, k: Kind, page: usize) -> Result<Picture, String> {
     let unreadable = |e: &dyn std::fmt::Display| t!("pictures.unreadable", "why" => e);
     let one = |image: RgbaImage| Ok(Picture { image, pages: 1 });
     match k {
         Kind::Lib(ImageFormat::Tiff) => {
-            let mut bytes = read_all(path)?;
+            let mut bytes = read_all(src)?;
             let ifds = tiff_pages(&bytes);
             let pages = ifds.len().max(1);
-            // The header is made to point at the page asked for: `image` reads the first.
-            if let Some(&at) = ifds.get(page.min(pages - 1)) {
-                point_at(&mut bytes, at);
+            // The header is made to point at the page asked for: `image` reads the first. Bytes
+            // in memory are copied only for a later page.
+            if let Some(&at) = ifds.get(page.min(pages - 1)).filter(|_| page.min(pages - 1) > 0) {
+                point_at(bytes.to_mut(), at);
             }
             let d = image::codecs::tiff::TiffDecoder::new(Cursor::new(bytes)).map_err(|e| unreadable(&e))?;
             let image = lib(d)?;
             Ok(Picture { image, pages })
         }
         Kind::Lib(fmt) => {
-            let mut r = image::ImageReader::with_format(open(path)?, fmt);
+            let mut r = image::ImageReader::with_format(open(src)?, fmt);
             r.limits(limits());
             let d = r.into_decoder().map_err(|e| unreadable(&e))?;
             one(lib(d)?)
         }
         Kind::Jxl => {
-            let d = jxl_oxide::integration::JxlDecoder::new(open(path)?)
+            let d = jxl_oxide::integration::JxlDecoder::new(open(src)?)
                 .map_err(|e| unreadable(&e))?;
             one(lib(d)?)
         }
-        Kind::Iff => one(iff::decode(&read_all(path)?)?),
-        Kind::Pcx => one(pcx::decode(&read_all(path)?)?),
-        Kind::Xpm => one(xpm::decode_xpm(&read_all(path)?)?),
-        Kind::Xbm => one(xpm::decode_xbm(&read_all(path)?)?),
-        Kind::Psd => one(psd::decode(&read_all(path)?)?),
+        Kind::Iff => one(iff::decode(&read_all(src)?)?),
+        Kind::Pcx => one(pcx::decode(&read_all(src)?)?),
+        Kind::Xpm => one(xpm::decode_xpm(&read_all(src)?)?),
+        Kind::Xbm => one(xpm::decode_xbm(&read_all(src)?)?),
+        Kind::Psd => one(psd::decode(&read_all(src)?)?),
     }
 }
 
@@ -391,11 +426,16 @@ pub(crate) fn info(path: &Path) -> Option<Info> {
     if crate::cloud::unasked(path) {
         return None;
     }
-    let k = kind(path)?;
-    std::panic::catch_unwind(|| info_kind(path, k)).ok().flatten()
+    kind_by_name(path)?;
+    with_src(path, |src| {
+        let Some(k) = kind(path, src) else { return Ok(None) };
+        Ok(std::panic::catch_unwind(|| info_kind(src, k)).ok().flatten())
+    })
+    .ok()
+    .flatten()
 }
 
-fn info_kind(path: &Path, k: Kind) -> Option<Info> {
+fn info_kind(src: Src, k: Kind) -> Option<Info> {
     let format = format_name(k);
     let from = |d: &dyn Fn() -> Option<((u32, u32), image::ColorType)>| {
         let ((w, h), c) = d()?;
@@ -404,29 +444,29 @@ fn info_kind(path: &Path, k: Kind) -> Option<Info> {
     match k {
         Kind::Lib(ImageFormat::Tiff) => {
             // The header and the directories only, read with seeks: not the pictures.
-            let mut f = open(path).ok()?;
+            let mut f = open(src).ok()?;
             let len = std::io::Seek::seek(&mut f, std::io::SeekFrom::End(0)).ok()?;
             std::io::Seek::rewind(&mut f).ok()?;
             let pages = tiff_pages_in(&mut f, len).len();
             let mut i = from(&|| {
-                let d = image::codecs::tiff::TiffDecoder::new(open(path).ok()?).ok()?;
+                let d = image::codecs::tiff::TiffDecoder::new(open(src).ok()?).ok()?;
                 Some((d.dimensions(), d.color_type()))
             })?;
             i.pages = Some(pages.max(1));
             Some(i)
         }
         Kind::Lib(fmt) => from(&|| {
-            let r = image::ImageReader::with_format(open(path).ok()?, fmt);
+            let r = image::ImageReader::with_format(open(src).ok()?, fmt);
             let d = r.into_decoder().ok()?;
             Some((d.dimensions(), d.color_type()))
         }),
         Kind::Jxl => from(&|| {
-            let d = jxl_oxide::integration::JxlDecoder::new(open(path).ok()?).ok()?;
+            let d = jxl_oxide::integration::JxlDecoder::new(open(src).ok()?).ok()?;
             Some((d.dimensions(), d.color_type()))
         }),
-        Kind::Psd => psd::info(&mut open(path).ok()?),
+        Kind::Psd => psd::info(&mut open(src).ok()?),
         Kind::Iff | Kind::Pcx | Kind::Xpm | Kind::Xbm => {
-            let bytes = read_all(path).ok()?;
+            let bytes = read_all(src).ok()?;
             let mut i = match k {
                 Kind::Iff => iff::info(&bytes),
                 Kind::Pcx => pcx::info(&bytes),
@@ -458,10 +498,26 @@ pub fn facts(path: &Path) -> Option<Vec<(String, String)>> {
     Some(out)
 }
 
+/// What an error of `png` starts with when a copy of the picture on the disk would show it where
+/// its bytes in memory did not: too large to read into memory, or a GeoTIFF that only GDAL draws
+/// (from a file). Any other error (a spoiled picture, too many pixels) a copy would only repeat.
+pub const NEEDS_COPY: &str = "needs a copy";
+
+/// `why` as an error a copy of the picture would mend (`NEEDS_COPY`).
+pub fn needs_copy(why: impl std::fmt::Display) -> String {
+    format!("{NEEDS_COPY}: {why}")
+}
+
 /// Page `page` of the picture as a PNG at `to`, made no wider or taller than `side` pixels;
-/// how many pages it has.
-pub fn png(path: &Path, page: usize, side: u32, to: &Path) -> Result<usize, String> {
-    let Picture { image, pages } = decode(path, page)?;
+/// how many pages it has. `bytes`: the picture's bytes, already in memory (one inside an
+/// archive, unpacked once for the whole preview); without them it is read here. `None`: its
+/// first bytes say it is no picture of its kind (a `.hdr` of another program).
+pub fn png(path: &Path, bytes: Option<&[u8]>, page: usize, side: u32, to: &Path) -> Result<Option<usize>, String> {
+    let picture = match bytes {
+        Some(b) => decode_in(path, Src::Mem(b), page).map_err(|e| if crate::geo::geotiff_tags(b) { needs_copy(e) } else { e }),
+        None => with_src(path, |src| decode_in(path, src, page)),
+    };
+    let Some(Picture { image, pages }) = picture? else { return Ok(None) };
     let image = DynamicImage::ImageRgba8(image);
     let image = if image.width().max(image.height()) > side { image.thumbnail(side, side) } else { image };
     let tmp = to.with_extension("part");
@@ -469,7 +525,7 @@ pub fn png(path: &Path, page: usize, side: u32, to: &Path) -> Result<usize, Stri
     let enc = image::codecs::png::PngEncoder::new_with_quality(w, image::codecs::png::CompressionType::Fast, image::codecs::png::FilterType::Adaptive);
     image.write_with_encoder(enc).map_err(|e| e.to_string())?;
     std::fs::rename(&tmp, to).map_err(|e| e.to_string())?;
-    Ok(pages)
+    Ok(Some(pages))
 }
 
 /// A picture's bytes (PNG, JPEG, GIF, WebP, BMP, or one the `image` crate reads by its first
@@ -545,7 +601,7 @@ pub(crate) mod tests {
         assert_eq!((p.image.width(), p.image.height(), p.pages), (4, 2, 1));
         assert_eq!(facts(&inner), facts(&ppm));
         let out = d.join("a.png");
-        png(&inner, 0, 2048, &out).unwrap();
+        assert_eq!(png(&inner, None, 0, 2048, &out), Ok(Some(1)));
         assert!(out.is_file());
         assert_eq!(copies(), before, "no copy of it on the disk");
         // A grid's tile: a PNG of at most the side asked for.
@@ -554,6 +610,42 @@ pub(crate) mod tests {
         let tile = image::load_from_memory(&thumbnail(&big, 256).unwrap()).unwrap();
         assert_eq!((tile.width(), tile.height()), (256, 128));
         assert!(thumbnail(b"no picture at all", 256).is_none());
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// A TIFF inside an archive is unpacked once for its picture, once for its facts, and not
+    /// at all for a PNG made from bytes handed in. A spoiled one's error is no call for a copy
+    /// (a copy would fail the same); a spoiled GeoTIFF's is, since GDAL reads it from a file.
+    #[test]
+    fn a_picture_inside_an_archive_is_unpacked_once() {
+        let d = folder("unpacked-once");
+        let tif = d.join("a.tif");
+        DynamicImage::ImageRgba8(RgbaImage::new(3, 2)).save_with_format(&tif, ImageFormat::Tiff).unwrap();
+        // A directory with no entries, and one whose only entry is GeoTIFF's key directory.
+        let spoiled = d.join("spoiled.tif");
+        std::fs::write(&spoiled, b"II\x2a\x00\x08\x00\x00\x00\x00\x00").unwrap();
+        let geo = d.join("geo.tif");
+        std::fs::write(&geo, [&b"II\x2a\x00\x08\x00\x00\x00\x01\x00"[..], &34735u16.to_le_bytes(), &[0u8; 10]].concat()).unwrap();
+        let zip = d.join("pics.zip");
+        crate::archive::create(&zip, &[tif, spoiled, geo]).unwrap();
+        let inner = zip.join("a.tif");
+        let unpacked = |f: &dyn Fn()| {
+            let before = crate::archive::heads();
+            f();
+            crate::archive::heads() - before
+        };
+        assert_eq!(unpacked(&|| assert_eq!(decode(&inner, 0).unwrap().image.dimensions(), (3, 2))), 1);
+        assert_eq!(unpacked(&|| assert!(facts(&inner).is_some())), 1);
+        let out = d.join("a.png");
+        assert_eq!(unpacked(&|| assert_eq!(png(&inner, None, 0, 2048, &out), Ok(Some(1)))), 1);
+        let bytes = crate::archive::head(&inner, INSIDE_MAX).unwrap().0;
+        assert_eq!(unpacked(&|| assert_eq!(png(&inner, Some(&bytes), 0, 2048, &out), Ok(Some(1)))), 0);
+        let bytes = crate::archive::head(&zip.join("spoiled.tif"), INSIDE_MAX).unwrap().0;
+        let e = png(&zip.join("spoiled.tif"), Some(&bytes), 0, 2048, &out).unwrap_err();
+        assert!(!e.starts_with(NEEDS_COPY), "{e}");
+        let bytes = crate::archive::head(&zip.join("geo.tif"), INSIDE_MAX).unwrap().0;
+        assert!(png(&zip.join("geo.tif"), Some(&bytes), 0, 2048, &out).unwrap_err().starts_with(NEEDS_COPY));
+        assert_eq!(png(&zip.join("a.tif"), Some(b"not a TIFF"), 0, 2048, &out), Ok(None), "no picture of its kind");
         let _ = std::fs::remove_dir_all(d);
     }
 
@@ -641,7 +733,7 @@ pub(crate) mod tests {
         let f = facts(&p).unwrap();
         assert!(f.iter().any(|(_, v)| v == "2"), "{f:?}");
         let out = d.join("out.png");
-        assert_eq!(png(&p, 1, 2048, &out).unwrap(), 2);
+        assert_eq!(png(&p, None, 1, 2048, &out).unwrap(), Some(2));
         assert!(std::fs::read(&out).unwrap().starts_with(b"\x89PNG"));
         // A directory that points at itself ends the list.
         let mut looped = bytes.clone();

@@ -70,56 +70,64 @@ pub async fn old_picture(path: PathBuf, page: usize, side: u32) -> Res<Option<Ol
     crate::blocking(move || picture_in(&crate::convert::previews_dir()?, &path, page, side)).await
 }
 
-/// `old_picture`, with the preview cache at `previews`.
+/// `old_picture`, with the preview cache at `previews`. Inside an archive the picture is
+/// unpacked once, and kept for its facts (`asset::inside_file`). An error a copy of it on the
+/// disk would mend says so (`pictures::NEEDS_COPY`).
 fn picture_in(previews: &Path, path: &Path, page: usize, side: u32) -> Res<Option<OldPicture>> {
     static THUMBS: std::sync::Mutex<()> = std::sync::Mutex::new(());
     static PREVIEW: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    {
-        let side = side.clamp(64, 4096);
-        // A locked file's preview is shown from the cache only once its password is proved again
-        // (read to its checksum), so a picture once unlocked is not shown without it; a listing
-        // that cannot be read (a 7z with locked names) counts as locked.
-        if !path.exists()
-            && let Some((archive, inner)) = coxswain_core::archive::split(path)
-            && coxswain_core::archive::locked_at(&archive, &inner).unwrap_or(true)
-        {
+    let side = side.clamp(64, 4096);
+    let split = coxswain_core::archive::split(path).filter(|_| !path.exists());
+    // A locked file's preview is shown from the cache only once its password is proved again
+    // (read to its checksum), so a picture once unlocked is not shown without it; a listing
+    // that cannot be read (a 7z with locked names) counts as locked.
+    let locked = split.as_ref().is_some_and(|(archive, inner)| coxswain_core::archive::locked_at(archive, inner).unwrap_or(true));
+    let shown = |hit: OldPicture| -> Res<Option<OldPicture>> {
+        if locked {
             coxswain_core::archive::head(path, 64).map_err(|e| e.to_string())?;
         }
-        let cached = |side: u32| -> Res<(PathBuf, PathBuf, Option<OldPicture>)> {
-            let out = previews.join(crate::convert::cache_name(path, path, "picture", &format!("{page}-{side}"))?);
-            coxswain_core::spill::used(&out);
-            let (file, count) = (out.join("picture.png"), out.join("pages.txt"));
-            let pages = std::fs::read_to_string(&count).ok().and_then(|s| s.trim().parse().ok());
-            let hit = pages.filter(|_| file.is_file()).map(|pages| OldPicture { file: file.clone(), pages });
-            Ok((out, file, hit))
-        };
-        if side <= 256
-            && let (_, _, Some(hit)) = cached(2048)?
-        {
-            return Ok(Some(hit));
-        }
-        let (out, file, hit) = cached(side)?;
-        if hit.is_some() {
-            return Ok(hit);
-        }
-        if !coxswain_core::pictures::readable(path) {
-            // Inside an archive, not read at all (locked, in a disk image) is no answer that it
-            // is no picture: said, so the preview asks the password or reads a copy.
-            if !path.exists() && coxswain_core::archive::split(path).is_some() {
-                coxswain_core::archive::head(path, 64).map_err(|e| e.to_string())?;
-            }
-            return Ok(None);
-        }
-        let _one = if side <= 256 { &THUMBS } else { &PREVIEW }.lock().unwrap_or_else(|e| e.into_inner());
-        // Made meanwhile by the one before in line.
-        if let (_, _, Some(hit)) = cached(side)? {
-            return Ok(Some(hit));
-        }
-        std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
-        let pages = coxswain_core::pictures::png(path, page, side, &file)?;
-        let _ = std::fs::write(out.join("pages.txt"), pages.to_string());
-        Ok(Some(OldPicture { file, pages }))
+        Ok(Some(hit))
+    };
+    let cached = |side: u32| -> Res<(PathBuf, PathBuf, Option<OldPicture>)> {
+        let out = previews.join(crate::convert::cache_name(path, path, "picture", &format!("{page}-{side}"))?);
+        coxswain_core::spill::used(&out);
+        let (file, count) = (out.join("picture.png"), out.join("pages.txt"));
+        let pages = std::fs::read_to_string(&count).ok().and_then(|s| s.trim().parse().ok());
+        let hit = pages.filter(|_| file.is_file()).map(|pages| OldPicture { file: file.clone(), pages });
+        Ok((out, file, hit))
+    };
+    if side <= 256
+        && let (_, _, Some(hit)) = cached(2048)?
+    {
+        return shown(hit);
     }
+    if let (_, _, Some(hit)) = cached(side)? {
+        return shown(hit);
+    }
+    let _one = if side <= 256 { &THUMBS } else { &PREVIEW }.lock().unwrap_or_else(|e| e.into_inner());
+    // Made meanwhile by the one before in line.
+    let (out, file, hit) = cached(side)?;
+    if let Some(hit) = hit {
+        return shown(hit);
+    }
+    // Inside an archive: unpacked once here. A locked file is read again even when kept, which
+    // proves its password; one too large for memory, or in a disk image, is read from a copy.
+    let bytes = match &split {
+        Some((archive, _)) => match crate::asset::inside(path, archive, side > 256, locked) {
+            Ok(Some(b)) => Some(b),
+            Ok(None) => return Err(coxswain_core::pictures::needs_copy(t!("pictures.file_too_large", "size" => format!("{} MB", crate::asset::MAX_INSIDE >> 20)))),
+            Err(e) if e.to_string() == coxswain_core::archive::LOCKED => return Err(e.to_string()),
+            Err(e) => return Err(coxswain_core::pictures::needs_copy(e)),
+        },
+        None => None,
+    };
+    std::fs::create_dir_all(&out).map_err(|e| e.to_string())?;
+    let Some(pages) = coxswain_core::pictures::png(path, bytes.as_deref().map(Vec::as_slice), page, side, &file)? else {
+        let _ = std::fs::remove_dir(&out);
+        return Ok(None);
+    };
+    let _ = std::fs::write(out.join("pages.txt"), pages.to_string());
+    Ok(Some(OldPicture { file, pages }))
 }
 
 /// A comic's pages (`archive::pages`): the pictures in it, in the order of their names.
@@ -558,6 +566,41 @@ mod tests {
         assert!(big.file.is_file() && big.pages == 1);
         let thumb = picture_in(&cache, &pic, 0, 256).unwrap().unwrap();
         assert_eq!(thumb.file, big.file, "the preview's PNG, not a second decode");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A TIFF inside a zip is unpacked once for its preview: its PNG made and its EXIF read from
+    /// the same bytes. A spoiled one says why, with no call for a copy, which would fail alike.
+    #[test]
+    fn an_old_picture_inside_an_archive_is_unpacked_once() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-old-picture-once-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let (tif, spoiled, zip) = (d.join("a.tif"), d.join("spoiled.tif"), d.join("pics.zip"));
+        // One grey pixel, uncompressed: eight directory entries, then the pixel at 110.
+        let mut t = b"II\x2a\x00\x08\x00\x00\x00\x08\x00".to_vec();
+        for (tag, kind, v) in [(256u16, 3u16, 1u32), (257, 3, 1), (258, 3, 8), (259, 3, 1), (262, 3, 1), (273, 4, 110), (278, 3, 1), (279, 4, 1)] {
+            t.extend([&tag.to_le_bytes()[..], &kind.to_le_bytes(), &1u32.to_le_bytes(), &v.to_le_bytes()].concat());
+        }
+        t.extend([0, 0, 0, 0, 0x80]);
+        std::fs::write(&tif, t).unwrap();
+        std::fs::write(&spoiled, b"II\x2a\x00\x08\x00\x00\x00\x00\x00").unwrap();
+        coxswain_core::archive::create(&zip, &[tif, spoiled]).unwrap();
+        let inner = zip.join("a.tif");
+        // The one file kept unpacked is shared with the other tests' threads: one of them may
+        // take its place between the two reads, so a few tries; a second unpacking every time fails.
+        let once = (0..3).any(|i| {
+            let before = coxswain_core::archive::heads();
+            let made = picture_in(&d.join(format!("cache-{i}")), &inner, 0, 2048).unwrap().unwrap();
+            assert!(made.file.is_file() && made.pages == 1);
+            exif_facts(&inner);
+            coxswain_core::archive::heads() - before == 1
+        });
+        assert!(once, "unpacked once for its picture and its facts");
+        let e = picture_in(&d.join("cache"), &zip.join("spoiled.tif"), 0, 2048).err().unwrap();
+        assert!(!e.starts_with(coxswain_core::pictures::NEEDS_COPY), "{e}");
+        let js = format!("export const NEEDS_COPY = \"{}\";", coxswain_core::pictures::NEEDS_COPY);
+        assert!(include_str!("../../src/lib.js").contains(&js), "the page knows the core's word");
         std::fs::remove_dir_all(d).unwrap();
     }
 

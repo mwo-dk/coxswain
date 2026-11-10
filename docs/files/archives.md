@@ -198,8 +198,10 @@ through an installed 7-Zip instead, read-only, like a disk image
   status line when there is more), whatever the file's size.
 - **Old pictures, comic pages and thumbnails are made from memory too**: an old picture (TIFF,
   TGA, PCX, Photoshop, JPEG XL …, [Old formats](../previews/old-formats.md)) up to 64 MB is
-  decoded from the bytes the archive unpacks, and only its PNG for the preview is kept in the
-  cache, as for one on the disk; a comic's page is read into memory when it is shown; and in the
+  decoded from the bytes the archive unpacks, once for the picture and its facts (a TIFF's
+  EXIF too), and only its PNG for the preview is kept in the cache, as for one on the disk; a
+  spoiled picture, or one of more than 64 million pixels, says so under the preview, with no
+  copy made, as a copy would show the same; a comic's page is read into memory when it is shown; and in the
   desktop app's thumbnails view ([Views](../panels/views.md)) a picture's tile is a small PNG
   made in memory, one picture at a time.
 - **Documents, workbooks, notebooks, slide decks and Parquet files are read into memory too**:
@@ -230,6 +232,8 @@ through an installed 7-Zip instead, read-only, like a disk image
     over 64 MB (the preview holds the file whole, a player's seeking included), and a document,
     workbook, notebook or deck over 25 MB (whose reader refuses it there too); an old picture
     inside a disk image too, as 7-Zip reads such a file whole;
+  - drawn by GDAL, which reads a file: a GeoTIFF of heights or measurements that the picture
+    reader cannot draw ([Geodata](../previews/geodata.md));
   - read in pieces from several files: a SCID or ChessBase database and a `.cbv`, and read by
     jumping about in it, an opening book or a Go file over 64 MB (a smaller one is held in
     memory, [Chess](../previews/chess.md));

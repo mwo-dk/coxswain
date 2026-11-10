@@ -57,7 +57,8 @@ pub fn is_geotiff(path: &Path) -> bool {
     geotiff_tags(&head)
 }
 
-fn geotiff_tags(b: &[u8]) -> bool {
+/// The first bytes of a TIFF (its header and first directory) name GeoTIFF's tags.
+pub(crate) fn geotiff_tags(b: &[u8]) -> bool {
     let le = match b.get(..4) {
         Some([b'I', b'I', 42, 0]) => true,
         Some([b'M', b'M', 0, 42]) => false,

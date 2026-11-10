@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { ui, tab, item, keyOf, lineHistory, openHistory, openGitView, switchBranch, newBranch, remoteRun, gitTool, openGitConfig, makeSearchable, makeExport, openSpace, convertMedia, resortSoon, convertEbook, transcribe, isSpeech } from "./app.svelte.js";
   import { pageUrl, renderPptx, renderDrawio, drawioPages, renderMarkdown, renderMermaid, highlight, highlightOff, renderDocx, readSheet, renderNotebook, loadFont, clean, parseData, calendar, contacts, renderGraphviz, renderAsciidoc, readParquet } from "./renderers.js";
-  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, kindByName, moduleOff, viewerReads, MAX_WHOLE, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
+  import { invoke, convertFileSrc, basename, size, date, age, ageColor, previewKind, kindByName, moduleOff, viewerReads, MAX_WHOLE, looksLikeBom, looksLikeProvenance, looksLikeDhtml, sameEntry, CONVERTER, LOCKED, NEEDS_COPY, diskSeen, isOldPicture, isMedia, isEditable, isGeoText, isScad, isKicad } from "./lib.js";
   import BomView from "./BomView.svelte";
   import ProvenanceView from "./ProvenanceView.svelte";
   import ChessView from "./ChessView.svelte";
@@ -427,8 +427,10 @@
       const unpacked = direct;
       const r = await invoke("old_picture", { path: cur.path, page, side: 2048 }).catch((err) => ({ error: String(err) }));
       if (e?.path !== cur.path) return;
-      // Read from memory: locked, its password asked for; too large (over 64 MB), from a copy.
-      if (unpacked && r?.error) return void (r.error.includes(LOCKED) ? (lockedAt = cur.path) : needsCopy(cur.path));
+      // Read from memory: locked, its password asked for; too large (over 64 MB) or a GeoTIFF,
+      // from a copy. A spoiled picture or one of too many pixels says so: a copy would too.
+      if (unpacked && r?.error?.includes(LOCKED)) return void (lockedAt = cur.path);
+      if (unpacked && r?.error?.startsWith(NEEDS_COPY)) return void needsCopy(cur.path);
       if (r === null) return void (sniffed = { path: cur.path, kind: "text" });
       pic = { ...r, path: cur.path };
     }, 80);
