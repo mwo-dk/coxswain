@@ -567,7 +567,8 @@ fn games_read_at_their_place_are_read_by_several_threads() {
     let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).div_ceil(2).clamp(1, 8) as u64;
     assert_eq!(j.readers.load(Ordering::Relaxed), threads);
     let unpacked = lib.unpacked() - before;
-    assert!(unpacked <= blocks + threads, "{unpacked} blocks unpacked for {blocks}");
+    // A block two readers' runs share may be unpacked by both.
+    assert!(unpacked <= blocks + 3000u64.div_ceil(CHUNK), "{unpacked} blocks unpacked for {blocks}");
     let plain_lib = opened_lib(&plain);
     let pj = built(&plain_lib, 30);
     assert_eq!(pj.readers.load(Ordering::Relaxed), 1, "a plain file: one handle");

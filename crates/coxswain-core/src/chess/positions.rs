@@ -62,7 +62,7 @@ const BATCH: usize = 256;
 const BATCH_BYTES: usize = 8 << 20;
 /// Games one reader takes at a time, when several read (`Library::reads_anywhere`): a few
 /// blocks of a PGN kept in blocks, so a block is unpacked about once.
-const CHUNK: u64 = if cfg!(test) { 16 } else { 16 * BATCH as u64 };
+const CHUNK: u64 = if cfg!(test) { 512 } else { 16 * BATCH as u64 };
 /// The move code of a game that ends there (or where the index stops): it reaches the position.
 const END: u16 = 0x7FFE;
 /// The code of the sums of all games reaching a position, in `tree`.
