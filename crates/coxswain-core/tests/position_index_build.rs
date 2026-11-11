@@ -7,7 +7,8 @@
 //! - `build_the_index`: reads the database `COXSWAIN_POSITIONS_DB` (any games table: a PGN,
 //!   packed, inside an archive, SCID, ChessBase) and builds its index, in the cache
 //!   (`XDG_CACHE_HOME`). Run it twice: the second run takes the table kept by the first, so its
-//!   time and memory are the index's alone.
+//!   time and memory are the index's alone. With `COXSWAIN_POSITIONS_READ` set, every game's
+//!   text is first read in order on one thread, timed: the reading alone.
 
 use std::io::{BufWriter, Write};
 use std::sync::Arc;
@@ -106,6 +107,12 @@ fn build_the_index() {
     }
     let p = lib.progress();
     println!("table: {} games, kept {}, error {:?}, in {:.1?}, peak {} MB", p.games, p.kept, p.error, t.elapsed(), peak_mb());
+    if std::env::var_os("COXSWAIN_POSITIONS_READ").is_some() {
+        // Every game's text read in order on one thread, as the build's reader does.
+        let t = Instant::now();
+        let bytes: usize = (0..p.games as u32).map(|g| lib.text(g).map_or(0, |s| s.len())).sum();
+        println!("read: {} MB of text in {:.1?}", bytes >> 20, t.elapsed());
+    }
     let t = Instant::now();
     positions::build(lib.clone(), 30);
     let s = loop {
