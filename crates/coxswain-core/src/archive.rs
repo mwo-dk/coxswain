@@ -4658,7 +4658,7 @@ mod tests {
     /// a large one pushes the others out, so one list of millions is all that is kept.
     #[test]
     fn kept_lists_are_compact_and_one_large_one_is_kept_alone() {
-        let item = |name: &str| Item { name: name.into(), size: 1, dir: false, modified: 2, locked: false, link: false };
+        let item = |name: &str| Item { name: name.into(), size: 1, dir: false, modified: 2, locked: false, link: false, further: false };
         let items: Items = [item("a/b.txt"), item("../out"), item("c")].into_iter().collect();
         assert_eq!((items.len(), items.seen), (2, 3));
         let names: Vec<&str> = items.iter().map(|it| it.name).collect();
@@ -4684,7 +4684,7 @@ mod tests {
     fn a_large_list_goes_with_its_last_hold() {
         let big = |n: usize| {
             let mut i = Items::default();
-            i.push(Item { name: "x".repeat(n), size: 1, dir: false, modified: 2, locked: false, link: false });
+            i.push(Item { name: "x".repeat(n), size: 1, dir: false, modified: 2, locked: false, link: false, further: false });
             Arc::new(i.done())
         };
         let (mut last, stamp) = (vec![], (0, None));
