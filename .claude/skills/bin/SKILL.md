@@ -50,10 +50,11 @@ user.
 
 **What to expect at the sync commit (below):** exactly the table above: every promise holds.
 With `--outside`: `NoLoss` and `Restorable` FAIL, `NeverOverwrite` PASS, and every trace runs
-through the instant between a re-check (`DCheck`, `ECheck`, `RId`, `RUnlinkCheck`, the info
-checks) and the call it guards: the residue of #726, which no program can close alone (*What it
+through the instant between a re-check (`DCheck`, `ECheck`, `RId`, `RUnlinkCheck`, `RBackCheck`,
+the info checks) and the call it guards: the residue of #726, which no program can close alone (*What it
 found*). `--outside --variant atomic`, the same with each re-check and its call one step: every
-promise holds. Any other `FAIL` is news: a new bug or a model that no longer matches the code.
+promise holds; so does `--outside --variant link_open` (`--files 3` too, about ten minutes), where
+the link stays apart from its re-check so the #901 and #923 steps are reached. Any other `FAIL` is news: a new bug or a model that no longer matches the code.
 Decide which with the coverage table. The variants (*Able to fail*, below) must still fail as
 told there.
 
@@ -77,7 +78,8 @@ and `report.txt (2)` beside it), a crash of either program between any two steps
 saving a new file at a free place at any time, restores with and without *Restore under a free
 name*, every order of Empty's deletions. 3.4 million distinct states (the lock serialises restore,
 delete and Empty; the unlocked variant has 57 million), about a minute; with `--outside` one
-Coxswain and one other program, 6.9 million (4.0 million with `--variant atomic`), a few
+Coxswain and one other program, 8.2 million (4.0 million with `--variant atomic`, 5.3 million
+with `link_open`, 60 million with `link_open --files 3`), a few
 minutes. TLC visits all of them.
 
 Not modelled, so not proven:
@@ -212,11 +214,11 @@ order of system calls in them, needs the model looked at (and the sync commit mo
 | `Crash` | Not Coxswain: the process or machine dying between two system calls. |
 | The three promises | `docs/files/bin.md`, *Restore, delete for good, empty*: "nothing is overwritten", "Deletes everything in the bin for good" (what was listed and confirmed), the panel lists every item. |
 
-**Sync commit: the merge of pull request #912** (the fixes of #900 and #901,
-after the re-checks of #789; `bin.rs` and `xdg_trash.rs` as on master at that commit). To see whether the covered code changed since:
+**Sync commit: the merge of pull request #930** (the fix of #923, after #900 and #901 in
+#912 and the re-checks of #789; `bin.rs` and `xdg_trash.rs` as on master at that commit). To see whether the covered code changed since:
 
 ```
-sync=$(git log -1 --format=%h --grep='(#912)$' origin/master)
+sync=$(git log -1 --format=%h --grep='(#930)$' origin/master)
 git diff "$sync" HEAD -- crates/coxswain-core/src/bin.rs crates/coxswain-core/src/xdg_trash.rs
 ```
 
