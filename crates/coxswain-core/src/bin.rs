@@ -432,14 +432,17 @@ pub(crate) mod fd {
 
     /// What tells one file from another that took its name since.
     pub(crate) fn id(path: &Path) -> Option<Id> {
-        let m = fs::symlink_metadata(path).ok()?;
+        fs::symlink_metadata(path).ok().map(|m| id_of(&m))
+    }
+
+    fn id_of(m: &fs::Metadata) -> Id {
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;
-            Some((m.dev(), m.ino(), m.ctime(), m.ctime_nsec()))
+            (m.dev(), m.ino(), m.ctime(), m.ctime_nsec())
         }
         #[cfg(not(unix))]
-        Some((0, m.len(), 0, 0))
+        (0, m.len(), 0, 0)
     }
 
     /// A bin folder and the top of the disk it is on, which the paths in its info files are
@@ -868,11 +871,15 @@ pub(crate) mod fd {
                 {
                     // No hard link here (Termux, FAT, or Linux's fs.protected_hardlinks on a file
                     // not ours): the empty file claims `to`, and the rename replaces only that.
-                    fs::OpenOptions::new()
+                    // Its id from the handle, not the name: a file saved at `to` in between is
+                    // never taken for it.
+                    let made = fs::OpenOptions::new()
                         .write(true)
                         .create_new(true)
-                        .open(to)?;
-                    let made = id(to);
+                        .open(to)?
+                        .metadata()
+                        .ok()
+                        .map(|m| id_of(&m));
                     // The empty file, removed only while it is still the one made here: a file
                     // saved at `to` since stays.
                     let unclaim = || {

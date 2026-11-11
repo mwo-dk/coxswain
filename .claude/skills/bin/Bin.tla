@@ -211,7 +211,7 @@ RLink(a) ==
                  /\ files' = [files EXCEPT ![n] = None]
                  /\ Go(a, "r_info", loc[a])
        ELSE IF NoLink
-       THEN IF origin[to] # None \/ ~(RenameOpen \/ Guard(SameFile(a)))
+       THEN IF origin[to] # None
               THEN Done(a) /\ UNCHANGED <<origin, files>> \* create_new fails: `failed`
               ELSE /\ origin' = [origin EXCEPT ![to] = Hole]
                    /\ Go(a, IF Split THEN "r_nl_check" ELSE "r_rename", loc[a])
