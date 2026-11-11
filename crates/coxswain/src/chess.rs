@@ -843,6 +843,11 @@ impl Viewer {
     fn requery(&mut self) {
         if let Some(lib) = self.lib.clone() {
             self.list(&lib);
+            // A new query: the list before is no answer, Enter meanwhile would open one of its
+            // games. A refresh of the same query keeps it until the answer comes.
+            if self.listing.is_some() {
+                self.ids.clear();
+            }
             self.counted = lib.progress().games;
             self.asked = Instant::now();
             self.cursor = 0;
@@ -858,8 +863,6 @@ impl Viewer {
             self.ids = lib.query(&self.query);
             return;
         }
-        // The list before is no answer: Enter meanwhile would open one of its games.
-        self.ids.clear();
         let (lib, q) = (lib.clone(), self.query.clone());
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -1495,7 +1498,7 @@ impl Viewer {
         f.render_widget(Paragraph::new(fit(&head, w)).style(base.add_modifier(Modifier::BOLD)), Rect { y: area.y + 1, height: 1, ..area });
         let h = area.height.saturating_sub(2) as usize;
         if self.ids.is_empty() {
-            let s = if p.done { t!("chess.no_games") } else { t!("common.loading") };
+            let s = if p.done && self.listing.is_none() { t!("chess.no_games") } else { t!("common.loading") };
             f.render_widget(Paragraph::new(fit(&s, w)).style(dim), Rect { y: area.y + 2, height: 1, ..area });
             return;
         }
