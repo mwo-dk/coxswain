@@ -156,6 +156,11 @@ pub struct Viewer {
     /// The position index (`positions`): where it stands, asked again every second.
     pos_index: Option<chess::positions::Status>,
     pos_index_asked: Option<Instant>,
+    /// Its state asked on a thread (the first estimate reads thousands of rows): `None` when
+    /// the table is of the file before it changed, else the state and `positions::generation`.
+    pos_asking: Option<Receiver<Option<(chess::positions::Status, u64)>>>,
+    /// The list cut to a position, made on a thread (its games are decoded from the index).
+    listing: Option<Receiver<Vec<u32>>>,
     /// `positions::generation` when the list was last cut to a position.
     pos_generation: u64,
     /// The opening tree is shown (t) and its move chosen; the last position's tree.
@@ -257,6 +262,8 @@ impl Viewer {
             lone: None,
             pos_index: None,
             pos_index_asked: None,
+            pos_asking: None,
+            listing: None,
             pos_generation: 0,
             tree: None,
             tree_of: None,
@@ -341,41 +348,63 @@ impl Viewer {
                 Err(e) => self.said = Some(e.to_string()),
             }
         }
-        let Some(lib) = &self.lib else { return };
+        if let Some(ids) = self.listing.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            self.listing = None;
+            if self.said.as_deref() == Some(t!("common.loading").as_str()) {
+                self.said = None;
+            }
+            self.ids = ids;
+            self.cursor = self.cursor.min(self.ids.len().saturating_sub(1));
+        }
+        let Some(lib) = self.lib.clone() else { return };
         let p = lib.progress();
         if p.games != self.counted && (self.asked.elapsed().as_millis() >= 500 || p.done || self.counted == 0) {
-            self.ids = lib.query(&self.query);
+            self.list(&lib);
             self.counted = p.games;
             self.asked = Instant::now();
             self.cursor = self.cursor.min(self.ids.len().saturating_sub(1));
         }
-        // The position index: built when Settings says so or when it is out of date.
-        if p.done && matches!(lib.format, Format::Pgn | Format::Xiangqi) && self.pos_index_asked.is_none_or(|t| t.elapsed().as_millis() >= 1000) {
-            // The file changed: its table is read again, as the desktop app does, and the index
-            // is built again from that one.
-            if chess::positions::outdated(lib) {
-                let path = lib.path.clone();
-                self.pos_index_asked = Some(Instant::now());
-                // A build from the old table would be out of date at once.
-                chess::positions::stop(&path);
-                if let Ok(l) = Library::open(&path) {
-                    self.lib = Some(Arc::new(l));
-                    self.counted = usize::MAX;
-                    self.tree_of = None;
-                }
-                return;
-            }
-            chess::positions::keep_up(lib, &self.chess);
-            let st = chess::positions::status(lib, chess::positions::depth_of(&self.chess.position_depth));
-            // A new index came: the trees and the list cut to a position are asked again.
-            let generation = chess::positions::generation();
-            if self.pos_index.as_ref().is_some_and(|o| o.games != st.games || o.ready != st.ready || o.stale != st.stale) || self.pos_generation != generation {
-                self.tree_of = None;
-                self.counted = usize::MAX;
-                self.pos_generation = generation;
-            }
-            self.pos_index = Some(st);
+        // The position index: built when Settings says so or when it is out of date. Asked on a
+        // thread, so the view draws on meanwhile; its answer is taken here.
+        if let Some(r) = self.pos_asking.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            self.pos_asking = None;
             self.pos_index_asked = Some(Instant::now());
+            match r {
+                // The file changed: its table is read again, as the desktop app does, and the
+                // index is built again from that one.
+                None => {
+                    // A build from the old table would be out of date at once.
+                    chess::positions::stop(&lib.path);
+                    if let Ok(l) = Library::open(&lib.path) {
+                        self.lib = Some(Arc::new(l));
+                        self.counted = usize::MAX;
+                        self.tree_of = None;
+                    }
+                    return;
+                }
+                Some((st, generation)) => {
+                    // A new index came: the trees and the list cut to a position are asked again.
+                    if self.pos_index.as_ref().is_some_and(|o| o.games != st.games || o.ready != st.ready || o.stale != st.stale) || self.pos_generation != generation {
+                        self.tree_of = None;
+                        self.counted = usize::MAX;
+                        self.pos_generation = generation;
+                    }
+                    self.pos_index = Some(st);
+                }
+            }
+        }
+        if p.done && matches!(lib.format, Format::Pgn | Format::Xiangqi) && self.pos_asking.is_none() && self.pos_index_asked.is_none_or(|t| t.elapsed().as_millis() >= 1000) {
+            let (lib, cfg) = (lib.clone(), self.chess.clone());
+            let (tx, rx) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let r = (!chess::positions::outdated(&lib)).then(|| {
+                    chess::positions::keep_up(&lib, &cfg);
+                    let st = chess::positions::status(&lib, chess::positions::depth_of(&cfg.position_depth));
+                    (st, chess::positions::generation())
+                });
+                let _ = tx.send(r);
+            });
+            self.pos_asking = Some(rx);
         }
         // A file of one game opens on its board, once it is read to its end.
         if self.lone.is_none() && p.done {
@@ -811,13 +840,29 @@ impl Viewer {
     }
 
     fn requery(&mut self) {
-        if let Some(lib) = &self.lib {
-            self.ids = lib.query(&self.query);
+        if let Some(lib) = self.lib.clone() {
+            self.list(&lib);
             self.counted = lib.progress().games;
             self.asked = Instant::now();
             self.cursor = 0;
             self.offset = 0;
         }
+    }
+
+    /// The games the query keeps: at once, or with a position on a thread, since its games are
+    /// decoded from the index (thousands at a common one); `poll` takes them.
+    fn list(&mut self, lib: &Arc<Library>) {
+        self.listing = None;
+        if self.query.position.trim().is_empty() {
+            self.ids = lib.query(&self.query);
+            return;
+        }
+        let (lib, q) = (lib.clone(), self.query.clone());
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(lib.query(&q));
+        });
+        self.listing = Some(rx);
     }
 
     /// Reads game `index` on a thread; `poll` shows it.
@@ -955,6 +1000,8 @@ impl Viewer {
             let depth = if st.ready { st.depth } else { chess::positions::depth_of(&self.chess.position_depth) };
             chess::positions::build(lib, depth);
         }
+        // An answer asked before the key would show the state before it for a second.
+        self.pos_asking = None;
         self.pos_index_asked = None;
     }
 
@@ -1012,6 +1059,7 @@ impl Viewer {
                 }
                 self.query.position = self.now().0?;
                 self.requery();
+                self.said = Some(t!("common.loading"));
                 self.open = None;
                 self.played = None;
                 self.review = None;
@@ -2505,6 +2553,54 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(2));
         }
         assert_eq!(v.open.as_ref().map(|o| o.index), Some(1));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// The position index's state and the list cut to a position (l) are asked on threads:
+    /// after the turn that asks, the view still draws and the answer is pending; it comes later.
+    #[test]
+    fn the_position_index_is_asked_off_the_drawing_thread() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-chess-index-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("g.pgn");
+        std::fs::write(&p, "[White \"A\"]\n\n1.e4 e5 *\n\n[White \"B\"]\n\n1.d4 d5 *\n\n[White \"C\"]\n\n1.e4 c5 *\n").unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        while !v.lib.as_ref().unwrap().progress().done {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let draws = |v: &mut Viewer| {
+            let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 34)).unwrap();
+            term.draw(|f| v.draw(f, &Theme::default())).unwrap();
+        };
+        let until = |v: &mut Viewer, done: &dyn Fn(&Viewer) -> bool| {
+            let start = Instant::now();
+            while !done(v) {
+                assert!(start.elapsed() < coxswain_core::test_limit(std::time::Duration::from_secs(30)), "no answer");
+                v.poll();
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+        };
+        v.poll();
+        assert!(v.pos_asking.is_some() && v.pos_index.is_none(), "the state is asked, not waited for");
+        draws(&mut v);
+        until(&mut v, &|v| v.pos_index.is_some());
+        assert!(v.pos_index.as_ref().is_some_and(|i| i.can && !i.ready));
+        // Built: the next answer says so.
+        chess::positions::build(v.lib.clone().unwrap(), 0);
+        until(&mut v, &|v| v.pos_index.as_ref().is_some_and(|i| i.ready));
+        // After 1.e4, l: the list waits for its games while the view draws, then shows them.
+        v.key(key(KeyCode::Enter), None);
+        until(&mut v, &|v| v.open.is_some());
+        v.key(key(KeyCode::Right), None);
+        v.key(key(KeyCode::Char('t')), None);
+        v.key(key(KeyCode::Char('l')), None);
+        assert!(v.listing.is_some() && v.ids == vec![0, 1, 2], "the list is cut on a thread");
+        assert_eq!(v.said, Some(t!("common.loading")));
+        draws(&mut v);
+        until(&mut v, &|v| v.listing.is_none());
+        assert_eq!((v.ids.clone(), v.said.clone()), (vec![0, 2], None));
+        chess::positions::remove(&p);
         std::fs::remove_dir_all(&d).unwrap();
     }
 
