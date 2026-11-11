@@ -466,7 +466,7 @@ fn a_rare_position_of_a_stale_index_shows_its_counts() {
     let lib = opened_lib(&p);
     built(&lib, 30);
     drop(lib);
-    let text = std::fs::read_to_string(&p).unwrap().replacen("1.e4 e5", "1.c4 e5", 1);
+    let text = std::fs::read_to_string(&p).unwrap().replacen("1.e4 e5", "1.Nf3 e5", 1);
     std::fs::write(&p, text).unwrap();
     let lib = opened_lib(&p);
     assert!(opened(&p).unwrap().kept(crate::chess::polyglot::key(&Board::default())).unwrap().is_empty(), "a rare position");
@@ -483,16 +483,17 @@ fn a_rare_position_of_a_stale_index_shows_its_counts() {
 #[cfg(unix)]
 fn an_ended_builds_half_made_index_goes() {
     let root = folder().unwrap();
-    // An id no real process of this test has, with its list held by none: the run ended.
-    let lists = crate::helper::folder().unwrap().join("staging");
-    crate::fs::private_dir(&lists).unwrap();
-    std::fs::write(lists.join("4000021"), "").unwrap();
     let ended = root.join("00000000000000aa-4000021-0");
     let live = root.join(format!("00000000000000aa-{}-0", crate::spill::run()));
     for dir in [&ended, &live] {
         std::fs::create_dir_all(dir.join("runs")).unwrap();
         std::fs::write(dir.join("runs").join("run-0"), "x").unwrap();
     }
+    // An id no real process of this test has, with its list held by none: the run ended. Written
+    // last, so another test's `kept()` leaves the folder alone until it is whole.
+    let lists = crate::helper::folder().unwrap().join("staging");
+    crate::fs::private_dir(&lists).unwrap();
+    std::fs::write(lists.join("4000021"), "").unwrap();
     kept();
     assert!(!ended.exists(), "ended: gone");
     assert!(live.join("runs").join("run-0").exists(), "live: kept");
@@ -500,18 +501,22 @@ fn an_ended_builds_half_made_index_goes() {
     let _ = std::fs::remove_file(lists.join("4000021"));
 }
 
-/// A table of the file before it changed stops a build of that table: it would be out of date
-/// when done. Both apps ask `keep_up`.
+/// The file changed and its table was read again (both apps do): a build still under way from
+/// the table before is stopped, as it would be out of date when done. Both apps ask `keep_up`.
 #[test]
-fn an_outdated_table_stops_its_build() {
+fn a_build_of_an_older_table_is_stopped() {
     let d = Dir::new();
     let p = file(&d, "changed.pgn", &[game("a", "b", 0, 0, 2000, "1-0", None, "1.e4")]);
-    let lib = opened_lib(&p);
+    let old = opened_lib(&p);
     let j = Arc::new(Job::default());
-    *j.stamp.lock().unwrap() = lib.stamp().to_string();
+    *j.stamp.lock().unwrap() = old.stamp().to_string();
     JOBS.lock().unwrap().get_or_insert_with(HashMap::new).insert(p.clone(), j.clone());
+    // Its own table: left to run.
+    keep_up(&old, &crate::config::ChessConfig::default());
+    assert!(!j.stop.load(Ordering::Relaxed));
     std::fs::OpenOptions::new().append(true).open(&p).unwrap().write_all(game("c", "d", 0, 0, 2000, "1-0", None, "1.d4").as_bytes()).unwrap();
-    assert!(outdated(&lib));
+    let lib = opened_lib(&p);
+    assert!(!outdated(&lib));
     keep_up(&lib, &crate::config::ChessConfig::default());
     assert!(j.stop.load(Ordering::Relaxed));
     JOBS.lock().unwrap().as_mut().unwrap().remove(&p);

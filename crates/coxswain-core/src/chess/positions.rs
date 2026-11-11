@@ -913,7 +913,7 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
                 loop {
                     let batch = rx.lock().unwrap_or_else(|e| e.into_inner()).recv();
                     let Ok(batch) = batch else { break };
-                    let n = batch.len() as u64;
+                    let games = batch.len() as u64;
                     for (g, text) in batch {
                         walk(k, &text, plies, |key, code| buf.push(entry(key, g, code)));
                         job.walked.fetch_add(1, Ordering::Relaxed);
@@ -923,7 +923,7 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
                             return fail(e);
                         }
                     }
-                    job.done.fetch_add(n, Ordering::Relaxed);
+                    job.done.fetch_add(games, Ordering::Relaxed);
                 }
                 if let Err(e) = write_run(&mut buf) {
                     fail(e);
@@ -1390,18 +1390,23 @@ pub fn keep_up(lib: &Arc<Library>, cfg: &crate::config::ChessConfig) {
         return;
     }
     let path = &lib.path;
-    // A table of the file before it changed: the app reads it again first (`outdated`), and a
-    // build for a table other than the file's now is stopped, not left to finish out of date.
+    // A table of the file before it changed: the app reads it again first (`outdated`).
     if outdated(lib) {
-        if job(path).is_some_and(|j| *j.stamp.lock().unwrap_or_else(|e| e.into_inner()) != stamp(path)) {
-            stop(path);
-        }
         return;
     }
     if let Some(j) = job(path) {
         // Under way, or tried for the database as it is now.
         let stamp = j.stamp.lock().unwrap_or_else(|e| e.into_inner()).clone();
-        if j.phase.load(Ordering::Relaxed) < 2 || stamp == self::stamp(path) {
+        if j.phase.load(Ordering::Relaxed) < 2 {
+            // Of a table read before the file changed (the app has read it again): stopped, not
+            // left to finish out of date; built again from this table once it has ended. An
+            // empty stamp: still waiting for its table.
+            if !stamp.is_empty() && stamp != lib.stamp() {
+                stop(path);
+            }
+            return;
+        }
+        if stamp == self::stamp(path) {
             return;
         }
     }
@@ -1526,7 +1531,11 @@ pub fn kept() -> Vec<Kept> {
             continue;
         }
         let Some(d) = read_done(&dir) else {
-            if super::table::stale(&dir) {
+            // Its run (`<hash>-<run>-<n>`) is known to have ended: one that keeps no list may
+            // still be building, however old the folder.
+            let name = e.file_name().to_string_lossy().into_owned();
+            let run = name.split_once('-').and_then(|(_, r)| r.rsplit_once('-')).map(|(r, _)| r.to_string());
+            if run.as_deref().and_then(crate::spill::alive) == Some(false) {
                 crate::spill::gone(&dir);
             }
             continue;
