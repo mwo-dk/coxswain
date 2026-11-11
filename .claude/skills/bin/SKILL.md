@@ -33,7 +33,8 @@ NeverOverwrite   PASS
 
 `--outside` runs one Coxswain beside another program (the desktop's own trash: `ODelete`,
 `ORestore`, `OInfo`, and its puts), a few minutes. `--variant` picks a broken variant (*Able to
-fail*, below).
+fail*, below). `--files 3` checks with three files instead of two: a restore that links another
+program's file and a file the user saves at the place since (#923) need three.
 
 A promise that fails prints `FAIL` with the log of its counterexample, and runs again assuming no
 put overlaps an Empty: `FAIL   with a put during empty: FAIL (…/NoLoss-TRUE.log); without: …`.
@@ -49,10 +50,11 @@ user.
 
 **What to expect at the sync commit (below):** exactly the table above: every promise holds.
 With `--outside`: `NoLoss` and `Restorable` FAIL, `NeverOverwrite` PASS, and every trace runs
-through the instant between a re-check (`DCheck`, `ECheck`, `RId`, `RUnlinkCheck`, the info
-checks) and the call it guards: the residue of #726, which no program can close alone (*What it
+through the instant between a re-check (`DCheck`, `ECheck`, `RId`, `RUnlinkCheck`, `RBackCheck`,
+the info checks) and the call it guards: the residue of #726, which no program can close alone (*What it
 found*). `--outside --variant atomic`, the same with each re-check and its call one step: every
-promise holds. Any other `FAIL` is news: a new bug or a model that no longer matches the code.
+promise holds; so does `--outside --variant link_open` (`--files 3` too, about ten minutes), where
+the link has no re-check (`RId` skipped), so the #901 and #923 steps are reached. Any other `FAIL` is news: a new bug or a model that no longer matches the code.
 Decide which with the coverage table. The variants (*Able to fail*, below) must still fail as
 told there.
 
@@ -76,7 +78,8 @@ and `report.txt (2)` beside it), a crash of either program between any two steps
 saving a new file at a free place at any time, restores with and without *Restore under a free
 name*, every order of Empty's deletions. 3.4 million distinct states (the lock serialises restore,
 delete and Empty; the unlocked variant has 57 million), about a minute; with `--outside` one
-Coxswain and one other program, 6.9 million (4.0 million with `--variant atomic`), a few
+Coxswain and one other program, 8.2 million (4.0 million with `--variant atomic`, 5.3 million
+with `link_open`, 60 million with `link_open --files 3`), a few
 minutes. TLC visits all of them.
 
 Not modelled, so not proven:
@@ -122,7 +125,8 @@ Not modelled, so not proven:
 - Disk full, permissions, a bin on a disk that is unplugged mid-step: a failed system call is
   modelled only where the code reads its result (`hard_link`, `remove_file`, `rename` of a
   missing source).
-- More than two programs or files: a trace needing three has not been looked for.
+- More than two programs: a trace needing three has not been looked for. Three files only with
+  `--files 3` (#923's traces).
 - `move_new`'s check after the link (#901) compares device and inode only, as the link changes
   the change time: another program's file given the freed inode of the item within that
   instant goes unseen.
@@ -176,10 +180,17 @@ too; the docs say two programs emptying at once is not guarded.
 only moved): `move_new` compared the bin file with the file at the place after the link, both
 then the same, so a file another program put under the item's name between restore's re-check
 (`RId`) and the link went to the item's place. It now compares the file at the place with the
-id found (device and inode); another file stays in the bin and its link at the place is left.
-Taking that link away again was tried: TLC found it removing a file the user saved at the place
-after another Coxswain put the restored file back in the bin, and with any check before the
-removal the same can happen in that instant, at the user's place, not in the bin.
+id found (device and inode); another file stays in the bin.
+
+**#923, that other file's link left at the place** (no promise breaks: a second name of a file
+still in the bin): `move_new` now takes it away again (`RBackCheck`, `RBack`), but only while the
+name at the place and the bin file are still one file (`id(to) == id(from)`: device, inode,
+change time), so the removal never takes data off the disk. Taking it away by name, trusting
+the `id(to)` read right after the link (variant `back_by_name`), loses a file: another program
+puts the linked file in its bin, the user saves a new `report.txt` at the place, and the
+removal takes that (`NoLoss` with `--outside --files 3`; it needs a third file). What remains
+is the instant between `RBackCheck` and `RBack`, like every re-check of #726. Unix only: on
+other systems `fd::id` is only a length, and the link is left there.
 
 Do not weaken `Bin.tla` to make a promise pass. A fix is in the code.
 
@@ -194,20 +205,20 @@ order of system calls in them, needs the model looked at (and the sync commit mo
 | `Free`, `Take`, `Done`, `lock` | `fd::hold` (`bin.rs` 370–414, `lock_all`): `flock` on `<bin>/.coxswain-lock` (`try_lock`; when busy, nothing is done) at the start of `restore_in`, `delete_in`, `empty_in`; `fd::wait` (waits, until Stop) for `undo::Record::undo` and `fs::trash_named`. Let go when they return (`fd::Held`: an unlock before the close, as a program another thread starts holds a copy of the handle until it runs, #797) or the program dies. |
 | `Listed`, `RestoreStart`, `DeleteStart`, `EmptyStart`, `iid`, `SameFile`, `SameInfo` | `fd::list_in` (`bin.rs` 588–604, `item` 607–632: an info file whose `parse` succeeds and whose item exists, names as bytes), `fd::find` (687–694) and `fd::ids` (700–702: `fd::id`, 434–443, of the file and its info file). |
 | `RCheck`, `RId` | `fd::restore_in` (723–770): `symlink_metadata(&to)`, `taken`, `free_in` (numbered as `name_candidates` does, as bytes); then `id(&item.path)` against the one found. |
-| `RLink`, `RUnlinkCheck`, `RUnlink` | `fd::move_new` (784–882), the file branch: `hard_link(from, to)`, `id(to)` against the id found (device, inode; else `err.not_in_trash`, both links left), `id(from) == id(to)`, then `remove_file(from)`; `false` when either finds the file gone or another's; also `xdg_trash::restore_in` (101–136), which takes the ids before reading the info file and re-checks the file before `move_new`. |
+| `RLink`, `RUnlinkCheck`, `RBackCheck`, `RBack`, `RUnlink` | `fd::move_new` (784–891), the file branch: `hard_link(from, to)`, `id(to)` against the id found (device, inode; else `err.not_in_trash`, and on Unix `remove_file(to)` when `id(to) == id(from)`, else both links left), `id(from) == id(to)`, then `remove_file(from)`; `false` when either finds the file gone or another's; also `xdg_trash::restore_in` (101–136), which takes the ids before reading the info file and re-checks the file before `move_new`. |
 | `RInfoCheck`, `RInfo` | `fd::restore_in`: when `move_new` says `true`, `remove_info` (706–711: `id(info)` against the one found, then `remove_file`). |
-| `DCheck`, `DRemove`, `DInfoCheck`, `DInfo` | `fd::delete_in` (892–911: `find` and `ids` per path) and `fd::delete_listed` (916–942): `id(p)` against the one listed, `remove(p)`, then `remove_info`. |
-| `EFile`, `ECheck`, `ERemove`, `EInfoCheck`, `EInfo`, `ESweepCheck`, `ESweepRm` | `fd::empty_in` (949–988): `list_in` with `ids` of each item, and the strays of `read_dir(files)` (`unlisted`: info file missing or empty) with their `id`, `delete_listed` on the list, then for each stray `unlisted` and the same `id` again before `remove`. `ESweepFiles`, `ESweepInfo` are the `sweep_all` variant only. |
+| `DCheck`, `DRemove`, `DInfoCheck`, `DInfo` | `fd::delete_in` (901–920: `find` and `ids` per path) and `fd::delete_listed` (925–951): `id(p)` against the one listed, `remove(p)`, then `remove_info`. |
+| `EFile`, `ECheck`, `ERemove`, `EInfoCheck`, `EInfo`, `ESweepCheck`, `ESweepRm` | `fd::empty_in` (958–997): `list_in` with `ids` of each item, and the strays of `read_dir(files)` (`unlisted`: info file missing or empty) with their `id`, `delete_listed` on the list, then for each stray `unlisted` and the same `id` again before `remove`. `ESweepFiles`, `ESweepInfo` are the `sweep_all` variant only. |
 | `ODelete`, `ORestore`, `OInfo` | Not Coxswain: another program's delete for good, restore and Empty (`--outside`), taking no lock. |
 | `Make` | Not Coxswain: the user or any program saving a file at a free place. |
 | `Crash` | Not Coxswain: the process or machine dying between two system calls. |
 | The three promises | `docs/files/bin.md`, *Restore, delete for good, empty*: "nothing is overwritten", "Deletes everything in the bin for good" (what was listed and confirmed), the panel lists every item. |
 
-**Sync commit: the merge of pull request #912** (the fixes of #900 and #901,
-after the re-checks of #789; `bin.rs` and `xdg_trash.rs` as on master at that commit). To see whether the covered code changed since:
+**Sync commit: the merge of pull request #930** (the fix of #923, after #900 and #901 in
+#912 and the re-checks of #789; `bin.rs` and `xdg_trash.rs` as on master at that commit). To see whether the covered code changed since:
 
 ```
-sync=$(git log -1 --format=%h --grep='(#912)$' origin/master)
+sync=$(git log -1 --format=%h --grep='(#930)$' origin/master)
 git diff "$sync" HEAD -- crates/coxswain-core/src/bin.rs crates/coxswain-core/src/xdg_trash.rs
 ```
 
@@ -244,6 +255,7 @@ Each promise has been seen failing on a broken variant, run with `--variant`:
 | `unlocked` | restore, delete and Empty take no lock (before #720) | `NoLoss` and `Restorable` even with no put during Empty: two programs `find` `report.txt` for delete for good, the first removes it, a new `report.txt` is put under the freed name, the second removes that. |
 | `put_moves_first` | `put_in` renames the file into `files/` before writing its info file | `Restorable` in 5 states: the file is in the bin with an empty info file, which `parse` rejects; a crash there leaves it invisible. `NoLoss` too: the next Empty sweeps it as a stray. |
 | `no_recheck`, with `--outside` | restore, delete for good and Empty remove by name, without `fd::ids` (before #726) | `NoLoss` and `Restorable` in 17 states: Coxswain finds `report.txt` to delete it for good, the other program empties it, a put of another file takes the name, Coxswain removes that. Passes without `--outside`: the lock holds Coxswains apart. |
+| `back_by_name`, with `--outside --files 3` | `move_new` takes the link of another program's file away by name, trusting the `id(to)` read after the link (the first try at #923) | `NoLoss` in 19 states: the restore links the item at the place, the other program puts it back in its bin, the user saves a new `report.txt` there, the removal takes it. `--variant link_open` (the code, every re-check one step, the link without its re-check) holds every promise. |
 | `--outside` (the code) | none: the instant between a re-check and its call | `NoLoss` and `Restorable` the same way, with the other program's empty and put inside that instant (between `DCheck` and `DRemove`). `--variant atomic` (each pair one step): every promise holds, so nothing else is left. |
 
 

@@ -29,10 +29,14 @@ Claimed == NS + 1  \* an info file made by create_new whose body is not written 
 
 (* Re-checks before each removal (#726): "no_recheck" is the code before them. A re-check and
    the call it guards are two system calls, so two steps; "atomic" makes them one, which the
-   code cannot: it shows what is left is only the instant between the two. *)
+   code cannot: it shows what is left is only the instant between the two. "link_open" is
+   "atomic" but for the link, which has no re-check (RId skipped), so any file at files/<n>,
+   another program's too, can be linked at the place (#901); "back_by_name" is "link_open" with that link taken
+   away again by name, without looking at what is at the place by then (#923). *)
 Checked == Variant # "no_recheck"
-Split == Variant # "atomic"
-Guard(c) == Variant # "atomic" \/ c
+LinkOpen == Variant \in {"link_open", "back_by_name"}
+Split == Variant \notin {"atomic", "link_open", "back_by_name"}
+Guard(c) == Split \/ c
 
 VARIABLES
   origin,  \* origin[s]: the file at place s of ~/Documents, or None
@@ -158,8 +162,9 @@ PutFail(a) ==
    free_name the first free name beside it (r_check); the file still the one found (r_id);
    move_new: hard_link(files/<n>, to), which fails when `to` exists by then or the item is gone
    (r_link); the file now at `to` the one found (its dev, ino: the link changes its change
-   time), else another program's put since, which stays in the bin, its link at `to` left
-   (#901), and files/<n> still the file now at `to` (r_unlink_check); remove_file(files/<n>)
+   time), else another program's put since, which stays in the bin (#901), and its link at `to`
+   is taken away again while `to` and files/<n> are still one file (dev, ino, change time), so
+   nothing leaves the disk (#923) (r_back_check, r_back); files/<n> still the file now at `to` (r_unlink_check); remove_file(files/<n>)
    (r_unlink); either gone or another's by then: move_new says false and the info file stays,
    the other program's to remove; the info file still the one found (r_info_check);
    remove_file(info) (r_info). *)
@@ -193,10 +198,10 @@ RLink(a) ==
             ELSE /\ origin' = [origin EXCEPT ![to] = files[n]]
                  /\ files' = [files EXCEPT ![n] = None]
                  /\ Go(a, "r_info", loc[a])
-       ELSE IF files[n] = None \/ origin[to] # None \/ ~Guard(SameFile(a))
+       ELSE IF files[n] = None \/ origin[to] # None \/ ~(LinkOpen \/ Guard(SameFile(a)))
             THEN Done(a) /\ UNCHANGED <<origin, files>>    \* hard_link fails: listed in `failed`
             ELSE /\ origin' = [origin EXCEPT ![to] = files[n]]
-                 /\ Go(a, IF Checked /\ Split THEN "r_unlink_check" ELSE "r_unlink", loc[a])
+                 /\ Go(a, IF Checked /\ (Split \/ LinkOpen) THEN "r_unlink_check" ELSE "r_unlink", loc[a])
                  /\ UNCHANGED files
   /\ UNCHANGED <<info, iid, wanted>>
 
@@ -204,10 +209,29 @@ RLink(a) ==
 \* the file just linked at `to`.
 RUnlinkCheck(a) ==
   /\ pc[a] = "r_unlink_check"
-  /\ IF origin[loc[a].to] # loc[a].c THEN Done(a) \* another's: left at `to` and in the bin
+  /\ IF origin[loc[a].to] = None THEN Done(a)     \* gone from `to` already: left in the bin
+     ELSE IF origin[loc[a].to] # loc[a].c        \* another's: left in the bin, its link taken back
+       THEN Go(a, IF Split THEN "r_back_check" ELSE "r_back", loc[a])
      ELSE IF files[loc[a].n] = origin[loc[a].to] THEN Go(a, "r_unlink", loc[a])
      ELSE Done(a)                         \* another's now, or gone: left, and its info file
   /\ UNCHANGED <<origin, files, info, iid, wanted>>
+
+\* fd::id(to) == fd::id(from): `to` still a link of the file in the bin, else a file saved there
+\* since: left.
+Linked(a) == origin[loc[a].to] # None /\ origin[loc[a].to] = files[loc[a].n]
+RBackCheck(a) ==
+  /\ pc[a] = "r_back_check"
+  /\ IF Linked(a) THEN Go(a, "r_back", loc[a]) ELSE Done(a)
+  /\ UNCHANGED <<origin, files, info, iid, wanted>>
+
+\* remove_file(to): the error said, the restore reports err.not_in_trash.
+RBack(a) ==
+  /\ pc[a] = "r_back"
+  /\ IF (Variant = "back_by_name" \/ Guard(Linked(a))) /\ origin[loc[a].to] # None
+       THEN origin' = [origin EXCEPT ![loc[a].to] = None]
+       ELSE UNCHANGED origin
+  /\ Done(a)
+  /\ UNCHANGED <<files, info, iid, wanted>>
 
 RAfterUnlink == IF Checked /\ Split THEN "r_info_check" ELSE "r_info"
 
@@ -388,7 +412,7 @@ Next ==
        \/ \E s \in Ss : PutStart(a, s)
        \/ PutCheck(a) \/ PutClaim(a) \/ PutWrite(a) \/ PutMove(a) \/ PutFail(a)
        \/ \E n \in Ns, free \in BOOLEAN : RestoreStart(a, n, free)
-       \/ RCheck(a) \/ RId(a) \/ RLink(a) \/ RUnlinkCheck(a) \/ RUnlink(a) \/ RInfoCheck(a) \/ RInfo(a)
+       \/ RCheck(a) \/ RId(a) \/ RLink(a) \/ RUnlinkCheck(a) \/ RBackCheck(a) \/ RBack(a) \/ RUnlink(a) \/ RInfoCheck(a) \/ RInfo(a)
        \/ \E n \in Ns : DeleteStart(a, n)
        \/ DCheck(a) \/ DRemove(a) \/ DInfoCheck(a) \/ DInfo(a)
        \/ EmptyStart(a) \/ EFile(a) \/ ECheck(a) \/ ERemove(a) \/ EInfoCheck(a) \/ EInfo(a)
