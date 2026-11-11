@@ -350,7 +350,8 @@ impl Viewer {
         }
         if let Some(ids) = self.listing.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.listing = None;
-            if self.said.as_deref() == Some(t!("common.loading").as_str()) {
+            // Not while a game or a Find hit is read: theirs is the same text.
+            if self.reading.is_none() && self.hit.is_none() && self.said.as_deref() == Some(t!("common.loading").as_str()) {
                 self.said = None;
             }
             self.ids = ids;
@@ -857,6 +858,8 @@ impl Viewer {
             self.ids = lib.query(&self.query);
             return;
         }
+        // The list before is no answer: Enter meanwhile would open one of its games.
+        self.ids.clear();
         let (lib, q) = (lib.clone(), self.query.clone());
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -2595,7 +2598,7 @@ mod tests {
         v.key(key(KeyCode::Right), None);
         v.key(key(KeyCode::Char('t')), None);
         v.key(key(KeyCode::Char('l')), None);
-        assert!(v.listing.is_some() && v.ids == vec![0, 1, 2], "the list is cut on a thread");
+        assert!(v.listing.is_some() && v.ids.is_empty(), "the list is cut on a thread");
         assert_eq!(v.said, Some(t!("common.loading")));
         draws(&mut v);
         until(&mut v, &|v| v.listing.is_none());
