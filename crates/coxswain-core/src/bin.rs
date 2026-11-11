@@ -835,11 +835,12 @@ pub(crate) mod fd {
                         // Its link at `to` taken away again while `to` and `from` are still one
                         // file (device, inode, change time), so nothing leaves the disk: a file
                         // saved at `to` since, after another program put this one in its bin,
-                        // stays (#923). Elsewhere `id` is only a length, which cannot tell.
+                        // stays (#923). `to` is read last, just before its removal. Elsewhere `id`
+                        // is only a length, which cannot tell.
                         midway();
                         #[cfg(unix)]
-                        if let back @ Some(_) = id(to)
-                            && back == id(from)
+                        if let bin @ Some(_) = id(from)
+                            && id(to) == bin
                         {
                             let _ = fs::remove_file(to);
                         }

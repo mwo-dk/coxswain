@@ -30,8 +30,8 @@ Claimed == NS + 1  \* an info file made by create_new whose body is not written 
 (* Re-checks before each removal (#726): "no_recheck" is the code before them. A re-check and
    the call it guards are two system calls, so two steps; "atomic" makes them one, which the
    code cannot: it shows what is left is only the instant between the two. "link_open" is
-   "atomic" but for the link, which stays apart from its re-check (RId), so another program's
-   file can be linked at the place (#901); "back_by_name" is "link_open" with that link taken
+   "atomic" but for the link, which has no re-check (RId skipped), so any file at files/<n>,
+   another program's too, can be linked at the place (#901); "back_by_name" is "link_open" with that link taken
    away again by name, without looking at what is at the place by then (#923). *)
 Checked == Variant # "no_recheck"
 LinkOpen == Variant \in {"link_open", "back_by_name"}

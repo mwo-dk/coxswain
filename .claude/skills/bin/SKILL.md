@@ -54,7 +54,7 @@ through the instant between a re-check (`DCheck`, `ECheck`, `RId`, `RUnlinkCheck
 the info checks) and the call it guards: the residue of #726, which no program can close alone (*What it
 found*). `--outside --variant atomic`, the same with each re-check and its call one step: every
 promise holds; so does `--outside --variant link_open` (`--files 3` too, about ten minutes), where
-the link stays apart from its re-check so the #901 and #923 steps are reached. Any other `FAIL` is news: a new bug or a model that no longer matches the code.
+the link has no re-check (`RId` skipped), so the #901 and #923 steps are reached. Any other `FAIL` is news: a new bug or a model that no longer matches the code.
 Decide which with the coverage table. The variants (*Able to fail*, below) must still fail as
 told there.
 
@@ -255,7 +255,7 @@ Each promise has been seen failing on a broken variant, run with `--variant`:
 | `unlocked` | restore, delete and Empty take no lock (before #720) | `NoLoss` and `Restorable` even with no put during Empty: two programs `find` `report.txt` for delete for good, the first removes it, a new `report.txt` is put under the freed name, the second removes that. |
 | `put_moves_first` | `put_in` renames the file into `files/` before writing its info file | `Restorable` in 5 states: the file is in the bin with an empty info file, which `parse` rejects; a crash there leaves it invisible. `NoLoss` too: the next Empty sweeps it as a stray. |
 | `no_recheck`, with `--outside` | restore, delete for good and Empty remove by name, without `fd::ids` (before #726) | `NoLoss` and `Restorable` in 17 states: Coxswain finds `report.txt` to delete it for good, the other program empties it, a put of another file takes the name, Coxswain removes that. Passes without `--outside`: the lock holds Coxswains apart. |
-| `back_by_name`, with `--outside --files 3` | `move_new` takes the link of another program's file away by name, trusting the `id(to)` read after the link (the first try at #923) | `NoLoss` in 19 states: the restore links the item at the place, the other program puts it back in its bin, the user saves a new `report.txt` there, the removal takes it. `--variant link_open` (the code, with every re-check one step but the link's) holds every promise. |
+| `back_by_name`, with `--outside --files 3` | `move_new` takes the link of another program's file away by name, trusting the `id(to)` read after the link (the first try at #923) | `NoLoss` in 19 states: the restore links the item at the place, the other program puts it back in its bin, the user saves a new `report.txt` there, the removal takes it. `--variant link_open` (the code, every re-check one step, the link without its re-check) holds every promise. |
 | `--outside` (the code) | none: the instant between a re-check and its call | `NoLoss` and `Restorable` the same way, with the other program's empty and put inside that instant (between `DCheck` and `DRemove`). `--variant atomic` (each pair one step): every promise holds, so nothing else is left. |
 
 
