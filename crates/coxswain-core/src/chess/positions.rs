@@ -928,7 +928,10 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
                         if buf.len() >= RUN - 1024
                             && let Err(e) = write_run(&mut buf)
                         {
-                            return fail(e);
+                            fail(e);
+                            // Taken and dropped, so no reader waits on a full channel for ever.
+                            while rx.lock().unwrap_or_else(|e| e.into_inner()).recv().is_ok() {}
+                            return;
                         }
                     }
                     job.done.fetch_add(games, Ordering::Relaxed);

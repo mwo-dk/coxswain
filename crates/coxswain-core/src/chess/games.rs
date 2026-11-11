@@ -1202,6 +1202,8 @@ const BLOCK: usize = 256 << 10;
 const DICT: u32 = 2 * BLOCK as u32;
 /// The most a block unpacks to: a game of `MAX_GAME` after less than `BLOCK`, and the sizes.
 const BLOCK_MAX: u64 = MAX_GAME as u64 + 2 * BLOCK as u64;
+/// The most a block may take packed: LZMA2 adds a few bytes to every 64 KB it cannot pack.
+const PACKED_MAX: u64 = BLOCK_MAX + BLOCK_MAX / 128 + 1024;
 /// A game's moves size, with this set: its move numbers kept as they are (`numbers_out`).
 const KEPT_NUMBERS: u32 = 1 << 31;
 
@@ -2039,19 +2041,27 @@ impl Library {
         f.seek(SeekFrom::Start(offset))?;
         let mut n = [0u8; 4];
         f.read_exact(&mut n)?;
+        // A damaged size is not read: a block packs to little more than it unpacks to.
+        let n = u32::from_le_bytes(n) as u64;
+        if n > PACKED_MAX {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "block size"));
+        }
         let mut packed = vec![];
-        (&mut *f).take(u32::from_le_bytes(n) as u64).read_to_end(&mut packed)?;
+        (&mut *f).take(n).read_to_end(&mut packed)?;
         // Unpacked with the file let go: other threads read their blocks meanwhile.
         drop(f);
         let mut raw = vec![];
         lzma_rust2::Lzma2Reader::new(&packed[..], DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
         self.unpacked.fetch_add(1, Ordering::Relaxed);
         let raw = Arc::new(raw);
+        // Two threads may have unpacked it at once: kept once.
         let mut kept = self.blocks.lock().unwrap_or_else(|e| e.into_inner());
-        if kept.len() >= BLOCKS_KEPT {
-            kept.remove(0);
+        if !kept.iter().any(|b| b.0 == offset) {
+            if kept.len() >= BLOCKS_KEPT {
+                kept.remove(0);
+            }
+            kept.push((offset, raw.clone()));
         }
-        kept.push((offset, raw.clone()));
         Ok(raw)
     }
 
