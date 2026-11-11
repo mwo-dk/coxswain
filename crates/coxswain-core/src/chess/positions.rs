@@ -1431,6 +1431,26 @@ pub fn tree(lib: &Library, fen: &str) -> Option<Tree> {
     Some(t)
 }
 
+/// The tree's move `uci` (`TreeMove::uci`) played on the position `fen` of a `format` game, as
+/// a move on its board is: chess by its rules, xiangqi in ICCS (`h2e2`). `last` is the move that
+/// led to `fen` (White's or Red's, its number), as a xiangqi FEN keeps no move number. None when
+/// it is no move there.
+pub fn play_tree_move(format: super::Format, fen: &str, uci: &str, last: Option<(bool, u32)>) -> Option<super::play::Played> {
+    if format != super::Format::Xiangqi {
+        return super::play::play(fen, uci);
+    }
+    let rules = crate::xiangqi::Xiangqi;
+    let (b, _) = rules.start(&[("FEN".to_string(), fen.to_string())], "");
+    let (red, _) = rules.turn(&b);
+    let (_, after, from, to) = rules.play(&b, uci)?;
+    let number = match last {
+        Some((true, n)) => n,
+        Some((false, n)) => n + 1,
+        None => 1,
+    };
+    Some(super::play::Played { san: uci.to_string(), uci: uci.to_string(), fen: after, from: from?, to: to?, white: red, number, promotion: None })
+}
+
 /// The index is of the database as it is now. A stale one still gives its counts, but never its
 /// game numbers: they are of the database before it changed, and would open other games.
 fn fresh(idx: &Index, lib: &Library) -> bool {

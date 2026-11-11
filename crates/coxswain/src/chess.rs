@@ -489,6 +489,16 @@ impl Viewer {
         }
     }
 
+    /// The move that led to the game's position (or your line's): White's or Red's, and its number.
+    fn last_move(&self) -> Option<(bool, u32)> {
+        if let Some(l) = self.played.as_ref().filter(|l| l.at > 0) {
+            let m = &l.moves[l.at - 1];
+            return Some((m.white, m.number));
+        }
+        let o = self.open.as_ref()?;
+        o.at.map(|n| (o.game.nodes[n as usize].white, o.game.nodes[n as usize].number))
+    }
+
     /// The squares and arrows the game's comments draw on the position shown ([%csl], [%cal]).
     fn drawn(&self) -> Vec<chess::pgn::Mark> {
         if self.played.as_ref().is_some_and(|l| l.at > 0) || self.browsing().is_some() {
@@ -986,10 +996,8 @@ impl Viewer {
             KeyCode::Up => self.tree = Some(sel.saturating_sub(1)),
             KeyCode::Enter => {
                 let (Some(fen), Some(m)) = (self.now().0, self.tree_now().and_then(|t| t.moves.get(sel).cloned())) else { return Some(Outcome::Stay) };
-                if self.xiangqi() {
-                    return Some(Outcome::Stay);
-                }
-                match play::play(&fen, &m.uci) {
+                let format = self.lib.as_ref().map_or(Format::Pgn, |l| l.format);
+                match chess::positions::play_tree_move(format, &fen, &m.uci, self.last_move()) {
                     Some(p) => {
                         self.play(p);
                         self.tree = Some(0);

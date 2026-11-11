@@ -1,0 +1,1 @@
+| **Xiangqi moves play from the opening tree.** A click on a move of the tree (desktop app) or Enter (terminal app) now plays it on the xiangqi board, as it does for chess, and the tree follows. | [Position index and opening tree](previews/chess-positions.md#the-opening-tree) | <!-- feature -->
