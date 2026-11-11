@@ -81,17 +81,18 @@ fn picture_in(previews: &Path, locked_dir: &dyn Fn() -> Res<PathBuf>, path: &Pat
     static PREVIEW: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let side = side.clamp(64, 4096);
     let split = coxswain_core::archive::split(path).filter(|_| !path.exists());
-    // A grid's tile of one not reached alone (further into a solid 7z's block, a tar's): its
-    // icon, as `asset::thumb` gives, not all before it unpacked again for each tile. Even a kept
-    // PNG is not shown: a locked one would be read again to prove its password.
-    if side <= 256 && split.is_some() && !coxswain_core::archive::reached_alone(path) {
-        return Ok(None);
-    }
     // A locked file's preview is shown from the cache only once its password is proved again
     // (read to its checksum), so a picture once unlocked is not shown without it; a listing
     // that cannot be read (a 7z with locked names) counts as locked, and so does a file under a
     // locked one on the way (a picture in a zip inside a locked 7z).
     let locked = split.as_ref().is_some_and(|(archive, inner)| coxswain_core::archive::locked_on_the_way(archive, inner).unwrap_or(true));
+    // A grid's tile of one not reached alone (further into a solid 7z's block, a tar's): its
+    // icon, as `asset::thumb` gives, not all before it unpacked again for each tile; only a PNG
+    // already kept is shown, and not a locked one's, which would be read again for its password.
+    let icon = side <= 256 && split.is_some() && !coxswain_core::archive::reached_alone(path);
+    if icon && locked {
+        return Ok(None);
+    }
     // Its PNG is never in the lasting cache: in this run's own folder, swept when the run ends.
     let own;
     let previews = if locked {
@@ -121,6 +122,9 @@ fn picture_in(previews: &Path, locked_dir: &dyn Fn() -> Res<PathBuf>, path: &Pat
     }
     if let (_, _, Some(hit)) = cached(side)? {
         return shown(hit);
+    }
+    if icon {
+        return Ok(None);
     }
     let _one = if side <= 256 { &THUMBS } else { &PREVIEW }.lock().unwrap_or_else(|e| e.into_inner());
     // Made meanwhile by the one before in line.
@@ -628,7 +632,8 @@ mod tests {
     }
 
     /// Old pictures in a solid 7z: a tile of one further into the block is its icon, nothing
-    /// unpacked, while its preview is still made; the first of the block gets its tile.
+    /// unpacked, while its preview is still made (and then shown as its tile); the first of the
+    /// block gets its tile.
     #[test]
     fn no_old_picture_tile_further_into_a_solid_block() {
         let d = std::env::temp_dir().join(format!("coxswain-test-old-picture-solid-{}", std::process::id()));
@@ -652,16 +657,15 @@ mod tests {
         w.push_archive_entries(entries.collect(), readers).unwrap();
         w.finish().unwrap();
         let cache = d.join("cache");
-        // Other tests' threads unpack too: a few tries; an unpacking for the tiles every time fails.
-        let none = (0..3).any(|_| {
-            let before = coxswain_core::archive::heads();
-            assert!(picture_in(&cache, &unused, &seven.join("b.tif"), 0, 256).unwrap().is_none(), "b.tif: its icon");
-            assert!(picture_in(&cache, &unused, &seven.join("c.tif"), 0, 256).unwrap().is_none(), "c.tif: its icon");
-            coxswain_core::archive::heads() == before
-        });
-        assert!(none, "nothing unpacked for an icon");
+        let before = coxswain_core::archive::heads();
+        assert!(picture_in(&cache, &unused, &seven.join("b.tif"), 0, 256).unwrap().is_none(), "b.tif: its icon");
+        assert!(picture_in(&cache, &unused, &seven.join("c.tif"), 0, 256).unwrap().is_none(), "c.tif: its icon");
+        assert_eq!(coxswain_core::archive::heads(), before, "nothing unpacked for an icon");
         let made = picture_in(&cache, &unused, &seven.join("c.tif"), 0, 2048).unwrap().unwrap();
         assert!(made.file.is_file() && made.pages == 1, "the preview still unpacks it");
+        let before = coxswain_core::archive::heads();
+        let kept = picture_in(&cache, &unused, &seven.join("c.tif"), 0, 256).unwrap().unwrap();
+        assert_eq!((kept.file, coxswain_core::archive::heads()), (made.file, before), "once previewed, its tile takes that PNG, nothing unpacked");
         let tile = picture_in(&cache, &unused, &seven.join("a.tif"), 0, 256).unwrap().unwrap();
         assert!(tile.file.is_file(), "the first of the block: its tile");
         std::fs::remove_dir_all(d).unwrap();
