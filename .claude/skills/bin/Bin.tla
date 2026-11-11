@@ -16,7 +16,8 @@ EXTENDS Naturals, FiniteSets, TLC
 CONSTANTS NA, NC, NN, NS,
           Variant,        \* "code": the code as it is; a broken variant otherwise (check.sh)
           PutDuringEmpty, \* FALSE: assume no put overlaps an empty (the known finding set aside)
-          Outside         \* TRUE: one more program, which takes no lock of ours
+          Outside,        \* TRUE: one more program, which takes no lock of ours
+          NoLink          \* TRUE: a disk without hard links (Termux, FAT): move_new's other way
 
 As == 1..NA
 O == NA + 1
@@ -26,16 +27,20 @@ Ns == 1..NN
 Ss == 1..NS
 None == 0
 Claimed == NS + 1  \* an info file made by create_new whose body is not written yet
+Hole == NC + 1     \* the empty file move_new makes at the place with create_new (NoLink)
 
 (* Re-checks before each removal (#726): "no_recheck" is the code before them. A re-check and
    the call it guards are two system calls, so two steps; "atomic" makes them one, which the
    code cannot: it shows what is left is only the instant between the two. "link_open" is
    "atomic" but for the link, which has no re-check (RId skipped), so any file at files/<n>,
    another program's too, can be linked at the place (#901); "back_by_name" is "link_open" with that link taken
-   away again by name, without looking at what is at the place by then (#923). *)
+   away again by name, without looking at what is at the place by then (#923). "rename_open"
+(with NoLink) is "atomic" but for the rename onto the empty file, which has no re-check (RId
+skipped, the id(from) check left out): the code before #931. *)
 Checked == Variant # "no_recheck"
 LinkOpen == Variant \in {"link_open", "back_by_name"}
-Split == Variant \notin {"atomic", "link_open", "back_by_name"}
+RenameOpen == Variant = "rename_open"
+Split == Variant \notin {"atomic", "link_open", "back_by_name", "rename_open"}
 Guard(c) == Split \/ c
 
 VARIABLES
@@ -94,7 +99,8 @@ Reusable(c) == c \notin wanted /\ Nowhere(c) /\ \A a \in Ps : c \notin Held(a)
                /\ \A n \in Ns : iid[n] # c
 
 (* The user (or any program) saves a new file at a free place: what makes a restore find its
-   place taken. *)
+   place taken. A program that replaces move_new's empty file (an editor's save by rename) is
+   not modelled. *)
 Make(s) ==
   /\ origin[s] = None
   /\ \E c \in Cs : Reusable(c)
@@ -111,7 +117,7 @@ Make(s) ==
    (put_claim); write_all of the body (put_write); rename(path, files/<n>) (put_move); on a
    failed rename remove_file(info) (put_fail). *)
 PutStart(a, s) ==
-  /\ Idle(a) /\ origin[s] # None
+  /\ Idle(a) /\ origin[s] \in Cs
   /\ PutDuringEmpty \/ \A b \in Ps : ~Emptying(b)
   /\ Go(a, "put_check", [Fresh EXCEPT !.s = s, !.n = 1, !.c = origin[s]])
   /\ UNCHANGED <<origin, files, info, iid, wanted>>
@@ -141,9 +147,10 @@ PutWrite(a) ==
   /\ UNCHANGED <<origin, files, iid, wanted>>
 
 \* rename(2) replaces whatever is at files/<n> by then: put_check guarded against that earlier.
+\* move_new's empty file put in a bin instead is not modelled (as if the put failed).
 PutMove(a) ==
   /\ pc[a] = "put_move"
-  /\ IF origin[loc[a].s] = None
+  /\ IF origin[loc[a].s] \notin Cs
        THEN Go(a, "put_fail", loc[a]) /\ UNCHANGED <<origin, files>>
        ELSE /\ files' = [files EXCEPT ![loc[a].n] = origin[loc[a].s]]
             /\ origin' = [origin EXCEPT ![loc[a].s] = None]
@@ -167,12 +174,17 @@ PutFail(a) ==
    nothing leaves the disk (#923) (r_back_check, r_back); files/<n> still the file now at `to` (r_unlink_check); remove_file(files/<n>)
    (r_unlink); either gone or another's by then: move_new says false and the info file stays,
    the other program's to remove; the info file still the one found (r_info_check);
-   remove_file(info) (r_info). *)
+   remove_file(info) (r_info). With NoLink, move_new's other way: create_new(to), which fails
+   when `to` exists by then (r_link); fd::id(from) against the id found (device, inode), else
+   another program's put since, which stays in the bin (#931) (r_nl_check); rename(files/<n>,
+   to) over the empty file (r_rename); on either failing, the empty file taken away again while
+   it is still the one made (r_unclaim_check, r_unclaim). *)
 RestoreStart(a, n, free) ==
   /\ a \in As /\ Idle(a) /\ Free /\ Listed(n)
   /\ Take(a, "r_check", [Fresh EXCEPT !.n = n, !.s = info[n], !.free = free, !.c = files[n], !.i = iid[n]])
   /\ UNCHANGED <<origin, files, info, iid, wanted>>
 
+RAfterUnlink == IF Checked /\ Split THEN "r_info_check" ELSE "r_info"
 FirstFree == CHOOSE t \in Ss : origin[t] = None /\ \A u \in Ss : origin[u] = None => t <= u
 RAfterCheck == IF Checked /\ Split THEN "r_id" ELSE "r_link"
 
@@ -198,12 +210,50 @@ RLink(a) ==
             ELSE /\ origin' = [origin EXCEPT ![to] = files[n]]
                  /\ files' = [files EXCEPT ![n] = None]
                  /\ Go(a, "r_info", loc[a])
+       ELSE IF NoLink
+       THEN IF origin[to] # None \/ ~(RenameOpen \/ Guard(SameFile(a)))
+              THEN Done(a) /\ UNCHANGED <<origin, files>> \* create_new fails: `failed`
+              ELSE /\ origin' = [origin EXCEPT ![to] = Hole]
+                   /\ Go(a, IF Split THEN "r_nl_check" ELSE "r_rename", loc[a])
+                   /\ UNCHANGED files
        ELSE IF files[n] = None \/ origin[to] # None \/ ~(LinkOpen \/ Guard(SameFile(a)))
             THEN Done(a) /\ UNCHANGED <<origin, files>>    \* hard_link fails: listed in `failed`
             ELSE /\ origin' = [origin EXCEPT ![to] = files[n]]
                  /\ Go(a, IF Checked /\ (Split \/ LinkOpen) THEN "r_unlink_check" ELSE "r_unlink", loc[a])
                  /\ UNCHANGED files
   /\ UNCHANGED <<info, iid, wanted>>
+
+Unclaim == IF Split THEN "r_unclaim_check" ELSE "r_unclaim"
+
+\* fd::id(from) against the id found (#931): gone or another's, the empty file is taken back.
+RNlCheck(a) ==
+  /\ pc[a] = "r_nl_check"
+  /\ Go(a, IF SameFile(a) THEN "r_rename" ELSE Unclaim, loc[a])
+  /\ UNCHANGED <<origin, files, info, iid, wanted>>
+
+\* rename(files/<n>, to): replaces the empty file; fails when files/<n> is gone.
+RRename(a) ==
+  /\ pc[a] = "r_rename"
+  /\ LET n == loc[a].n  to == loc[a].to IN
+     IF files[n] = None \/ ~(RenameOpen \/ Guard(SameFile(a)))
+       THEN Go(a, Unclaim, loc[a]) /\ UNCHANGED <<origin, files>>
+       ELSE /\ origin' = [origin EXCEPT ![to] = files[n]]
+            /\ files' = [files EXCEPT ![n] = None]
+            /\ Go(a, RAfterUnlink, loc[a])
+  /\ UNCHANGED <<info, iid, wanted>>
+
+\* fd::id(to) against the empty file's id when made, then remove_file(to); NotFound said.
+RUnclaimCheck(a) ==
+  /\ pc[a] = "r_unclaim_check"
+  /\ IF origin[loc[a].to] = Hole THEN Go(a, "r_unclaim", loc[a]) ELSE Done(a)
+  /\ UNCHANGED <<origin, files, info, iid, wanted>>
+
+RUnclaim(a) ==
+  /\ pc[a] = "r_unclaim"
+  /\ IF Guard(origin[loc[a].to] = Hole) THEN origin' = [origin EXCEPT ![loc[a].to] = None]
+     ELSE UNCHANGED origin
+  /\ Done(a)
+  /\ UNCHANGED <<files, info, iid, wanted>>
 
 \* fd::id(to) against the id found (#901), then fd::id(from) == fd::id(to): files/<n> is still
 \* the file just linked at `to`.
@@ -232,8 +282,6 @@ RBack(a) ==
        ELSE UNCHANGED origin
   /\ Done(a)
   /\ UNCHANGED <<files, info, iid, wanted>>
-
-RAfterUnlink == IF Checked /\ Split THEN "r_info_check" ELSE "r_info"
 
 RUnlink(a) ==
   /\ pc[a] = "r_unlink"
@@ -412,7 +460,8 @@ Next ==
        \/ \E s \in Ss : PutStart(a, s)
        \/ PutCheck(a) \/ PutClaim(a) \/ PutWrite(a) \/ PutMove(a) \/ PutFail(a)
        \/ \E n \in Ns, free \in BOOLEAN : RestoreStart(a, n, free)
-       \/ RCheck(a) \/ RId(a) \/ RLink(a) \/ RUnlinkCheck(a) \/ RBackCheck(a) \/ RBack(a) \/ RUnlink(a) \/ RInfoCheck(a) \/ RInfo(a)
+       \/ RCheck(a) \/ RId(a) \/ RLink(a) \/ RUnlinkCheck(a) \/ RBackCheck(a) \/ RBack(a) \/ RUnlink(a)
+       \/ RNlCheck(a) \/ RRename(a) \/ RUnclaimCheck(a) \/ RUnclaim(a) \/ RInfoCheck(a) \/ RInfo(a)
        \/ \E n \in Ns : DeleteStart(a, n)
        \/ DCheck(a) \/ DRemove(a) \/ DInfoCheck(a) \/ DInfo(a)
        \/ EmptyStart(a) \/ EFile(a) \/ ECheck(a) \/ ERemove(a) \/ EInfoCheck(a) \/ EInfo(a)
@@ -434,10 +483,16 @@ Restorable == \A c \in wanted :
   (\E s \in Ss : origin[s] = c) \/ (\E n \in Ns : files[n] = c /\ info[n] \in Ss)
 
 \* A file at its place is never replaced by another: it only ever leaves by being put in the bin.
-NeverOverwrite == [][\A s \in Ss : origin[s] # None /\ origin'[s] # origin[s] => origin'[s] = None]_vars
+NeverOverwrite == [][\A s \in Ss : origin[s] \in Cs /\ origin'[s] # origin[s] => origin'[s] = None]_vars
+
+\* A restore's rename takes out of the bin only the file it looked at: another program's file,
+\* put under the item's name since, stays in the bin (#931).
+TakesOnlyItsItem == [][\A a \in As :
+  pc[a] = "r_rename" /\ pc'[a] # "r_rename" /\ files'[loc[a].n] # files[loc[a].n]
+    => files[loc[a].n] = loc[a].c]_vars
 
 TypeOK ==
-  /\ origin \in [Ss -> Cs \cup {None}]
+  /\ origin \in [Ss -> Cs \cup {None, Hole}]
   /\ files \in [Ns -> Cs \cup {None}]
   /\ info \in [Ns -> Ss \cup {None, Claimed}]
   /\ iid \in [Ns -> Cs \cup {None}]
