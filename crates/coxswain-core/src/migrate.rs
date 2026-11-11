@@ -159,7 +159,7 @@ fn take(t: &mut dyn TableLike, key: &str, carry: bool) -> Option<(Item, Option<S
 /// A comment above the last top-level value (a file's own heading): above the first table, or,
 /// with no table, at the end of the file.
 fn keep_note(doc: &mut DocumentMut, note: String) {
-    let first = doc.iter().filter(|(_, i)| i.is_table()).map(|(k, _)| k.to_string()).min_by_key(|k| doc.get(k).and_then(Item::as_table).and_then(|t| t.position()).unwrap_or(isize::MAX));
+    let first = doc.iter().filter(|(_, i)| i.as_table().is_some_and(|t| !t.is_implicit())).map(|(k, _)| k.to_string()).min_by_key(|k| doc.get(k).and_then(Item::as_table).and_then(|t| t.position()).unwrap_or(isize::MAX));
     put_above(doc, first, note);
 }
 
