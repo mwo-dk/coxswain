@@ -421,7 +421,7 @@ fn xiangqi_games_have_a_tree_too() {
     let black = play_tree_move(x, &red.fen, &next.moves[1].uci, Some((red.white, red.number))).expect("h9g7 plays");
     assert_eq!((black.fen.as_str(), black.white, black.number), (next.moves[1].fen.as_str(), false, 1));
     assert_eq!(play_tree_move(x, &black.fen, "h9g7", Some((false, 1))).map(|p| p.number), None, "no piece of Red's there");
-    let again = play_tree_move(x, &black.fen, "b2e2", Some((false, 1))).expect("Red again");
+    let again = play_tree_move(x, &black.fen, "b0c2", Some((false, 1))).expect("Red again");
     assert_eq!((again.white, again.number), (true, 2));
     remove(&p);
 }
