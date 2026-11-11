@@ -831,9 +831,18 @@ pub(crate) mod fd {
                     // shortcut: a file freed and another given its inode in that instant goes
                     // unseen; closing it needs a link by handle (linkat AT_EMPTY_PATH), Linux only.
                     let inode = |i: Option<Id>| i.map(|i| (i.0, i.1));
-                    // Its link at `to` is left: removing it by name could remove a file saved
-                    // there since, after another program put this one back in the bin.
                     if now.is_some() && inode(now) != inode(was) {
+                        // Its link at `to` taken away again while `to` and `from` are still one
+                        // file (device, inode, change time), so nothing leaves the disk: a file
+                        // saved at `to` since, after another program put this one in its bin,
+                        // stays (#923). Elsewhere `id` is only a length, which cannot tell.
+                        midway();
+                        #[cfg(unix)]
+                        if let back @ Some(_) = id(to)
+                            && back == id(from)
+                        {
+                            let _ = fs::remove_file(to);
+                        }
                         return Err(io::Error::new(
                             io::ErrorKind::NotFound,
                             crate::t!("err.not_in_trash"),
@@ -1784,7 +1793,8 @@ mod tests {
     }
 
     /// Another program empties the item and puts another file under its name between restore's
-    /// look and its link: that file is not taken out of the bin (#901).
+    /// look and its link: that file is not taken out of the bin (#901), and its link at the
+    /// place is taken away again (#923).
     #[cfg(unix)]
     #[test]
     fn bin_move_takes_only_the_file_looked_at() {
@@ -1802,11 +1812,32 @@ mod tests {
             io::ErrorKind::NotFound
         );
         assert_eq!(fs::read_to_string(&from).unwrap(), "another's", "still in the bin");
-        assert_eq!(
-            fs::read_to_string(&to).unwrap(),
-            "another's",
-            "its link at the place is left"
-        );
+        assert!(fs::symlink_metadata(&to).is_err(), "no link left at the place");
+    }
+
+    /// The same, but another program puts the linked file in its bin and the user saves a new
+    /// file at the place before the link is taken away: the new file stays (#923).
+    #[cfg(unix)]
+    #[test]
+    fn bin_move_leaves_a_file_saved_at_the_place() {
+        let d = crate::fs::Scratch::named("bin-move-saved-since");
+        let from = d.join("from");
+        fs::write(&from, "item").unwrap();
+        let was = id(&from);
+        let _kept = fs::File::open(&from).unwrap();
+        fs::remove_file(&from).unwrap();
+        fs::write(&from, "another's").unwrap();
+        let to = d.join("to");
+        let (t, away) = (to.clone(), d.join("away"));
+        MIDWAY.set(Some(Box::new(move || {
+            fs::rename(&t, &away).unwrap();
+            fs::write(&t, "saved since").unwrap();
+        })));
+        let r = move_new(&from, &to, was);
+        MIDWAY.set(None);
+        assert_eq!(r.unwrap_err().kind(), io::ErrorKind::NotFound);
+        assert_eq!(fs::read_to_string(&to).unwrap(), "saved since");
+        assert_eq!(fs::read_to_string(&from).unwrap(), "another's");
     }
 
     /// An item whose name is not UTF-8 (another program's put of a Latin-1 file) is listed,
