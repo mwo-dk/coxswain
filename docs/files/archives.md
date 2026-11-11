@@ -205,8 +205,8 @@ through an installed 7-Zip instead, read-only, like a disk image
   copy made, as a copy would show the same; a comic's page is read into memory when it is shown; and in the
   desktop app's thumbnails view ([Views](../panels/views.md)) a picture's tile is a small PNG
   made in memory, one picture at a time, for a picture in a zip, a disk image or one that
-  starts its block in a 7z. One further into a solid 7z's block, or in a tar, a package, a
-  cabinet, a mailbox or a container image, keeps its icon: reaching it unpacks every file before it, again for each tile, and a grid
+  starts its block in a 7z. One further into a solid 7z's block, or in a tar, a package
+  (`.deb`, `.rpm`, `.cpio`), a cabinet, a mailbox or a container image, keeps its icon: reaching it unpacks every file before it, again for each tile, and a grid
   of them would hold up the preview. Selected, it shows in the preview as before.
 - **Documents, workbooks, notebooks, slide decks and Parquet files are read into memory too**:
   the desktop app's preview pane shows a Word document (`.docx`), a workbook (`.xlsx`, `.ods`,

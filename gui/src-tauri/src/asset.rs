@@ -45,8 +45,13 @@ pub fn inside_file(path: &Path) -> Option<std::sync::Arc<Vec<u8>>> {
 /// The preview has left the files inside archives: the one kept unpacked goes.
 #[tauri::command]
 pub fn inside_forget() {
-    *INSIDE.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    let mut kept = INSIDE.lock().unwrap_or_else(|e| e.into_inner());
+    FORGOTTEN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    *kept = None;
 }
+
+/// Times `inside_forget` was called: an unpacking under way when it is called is not kept after.
+static FORGOTTEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// The bytes of `path`, a file inside `archive`, from memory (`archive::head`): the kept ones
 /// while the archive has not changed. `None` when it is larger than `MAX_INSIDE`. `keep`: kept
@@ -70,13 +75,17 @@ pub(crate) fn inside(path: &Path, archive: &Path, keep: bool, fresh: bool) -> st
     if keep && let Some(bytes) = hit() {
         return Ok(Some(bytes));
     }
+    let forgotten = FORGOTTEN.load(std::sync::atomic::Ordering::Relaxed);
     let (bytes, more) = coxswain_core::archive::head(path, MAX_INSIDE)?;
     if more {
         return Ok(None);
     }
     let bytes = std::sync::Arc::new(bytes);
     if keep {
-        *INSIDE.lock().unwrap_or_else(|e| e.into_inner()) = Some((path.to_path_buf(), stamp, bytes.clone()));
+        let mut kept = INSIDE.lock().unwrap_or_else(|e| e.into_inner());
+        if FORGOTTEN.load(std::sync::atomic::Ordering::Relaxed) == forgotten {
+            *kept = Some((path.to_path_buf(), stamp, bytes.clone()));
+        }
     }
     Ok(Some(bytes))
 }

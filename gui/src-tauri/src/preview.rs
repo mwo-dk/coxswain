@@ -83,8 +83,9 @@ fn picture_in(previews: &Path, locked_dir: &dyn Fn() -> Res<PathBuf>, path: &Pat
     let split = coxswain_core::archive::split(path).filter(|_| !path.exists());
     // A locked file's preview is shown from the cache only once its password is proved again
     // (read to its checksum), so a picture once unlocked is not shown without it; a listing
-    // that cannot be read (a 7z with locked names) counts as locked.
-    let locked = split.as_ref().is_some_and(|(archive, inner)| coxswain_core::archive::locked_at(archive, inner).unwrap_or(true));
+    // that cannot be read (a 7z with locked names) counts as locked, and so does a file under a
+    // locked one on the way (a picture in a zip inside a locked 7z).
+    let locked = split.as_ref().is_some_and(|(archive, inner)| coxswain_core::archive::locked_on_the_way(archive, inner).unwrap_or(true));
     // Its PNG is never in the lasting cache: in this run's own folder, swept when the run ends.
     let own;
     let previews = if locked {
@@ -644,6 +645,13 @@ mod tests {
         // Its PNG is kept for this run, but not shown again without the password.
         assert_eq!(picture_in(&cache, &own_dir, &inner, 0, 2048).err().as_deref(), Some(coxswain_core::archive::LOCKED));
         assert_eq!(picture_in(&cache, &own_dir, &inner, 0, 256).err().as_deref(), Some(coxswain_core::archive::LOCKED));
+        // A picture in an open zip inside a locked one: locked on the way, kept the same way.
+        let (open, outer) = (d.join("open.zip"), d.join("outer.zip"));
+        coxswain_core::archive::create(&open, std::slice::from_ref(&pic)).unwrap();
+        coxswain_core::archive::create_locked(&outer, std::slice::from_ref(&open), Some("hunter2"), false).unwrap();
+        let made = picture_in(&cache, &own_dir, &outer.join("open.zip").join("a.ppm"), 0, 2048).unwrap().unwrap();
+        assert!(made.file.starts_with(&own) && !cache.exists(), "{}", made.file.display());
+        coxswain_core::archive::forget(&outer);
         std::fs::remove_dir_all(d).unwrap();
     }
 
