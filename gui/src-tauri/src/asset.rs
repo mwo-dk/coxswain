@@ -55,22 +55,28 @@ pub fn inside_forget() {
 pub(crate) fn inside(path: &Path, archive: &Path, keep: bool, fresh: bool) -> std::io::Result<Option<std::sync::Arc<Vec<u8>>>> {
     let m = std::fs::metadata(archive)?;
     let stamp = (m.len(), m.modified().ok());
-    let mut kept = INSIDE.lock().unwrap_or_else(|e| e.into_inner());
-    if let Some((p, s, bytes)) = kept.as_ref()
-        && p == path
-        && *s == stamp
-        && !fresh
-    {
-        return Ok(Some(bytes.clone()));
+    // `INSIDE` is held only to look at it or fill it, never while unpacking: the preview's own
+    // file does not wait behind a grid's tiles.
+    let hit = || {
+        let kept = INSIDE.lock().unwrap_or_else(|e| e.into_inner());
+        kept.as_ref().filter(|(p, s, _)| p == path && *s == stamp && !fresh).map(|(.., bytes)| bytes.clone())
+    };
+    if let Some(bytes) = hit() {
+        return Ok(Some(bytes));
     }
-    // Unpacked under the lock: a player's next range waits for these bytes, not for its own.
+    // One kept file unpacked at a time: a player's next range waits for these bytes, not for its own.
+    static KEEPING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _one = keep.then(|| KEEPING.lock().unwrap_or_else(|e| e.into_inner()));
+    if keep && let Some(bytes) = hit() {
+        return Ok(Some(bytes));
+    }
     let (bytes, more) = coxswain_core::archive::head(path, MAX_INSIDE)?;
     if more {
         return Ok(None);
     }
     let bytes = std::sync::Arc::new(bytes);
     if keep {
-        *kept = Some((path.to_path_buf(), stamp, bytes.clone()));
+        *INSIDE.lock().unwrap_or_else(|e| e.into_inner()) = Some((path.to_path_buf(), stamp, bytes.clone()));
     }
     Ok(Some(bytes))
 }
@@ -82,9 +88,14 @@ const THUMB_AS_IS: usize = 8 << 20;
 
 /// A grid's tile of `path`, a picture inside `archive`: its type and bytes, a PNG of at most
 /// `THUMB_SIDE` made in memory (`pictures::thumbnail`), or a small picture the web view reads
-/// itself as it is (an SVG, an AVIF). `None` for one that is neither, or larger than `MAX_INSIDE`. One at a time:
-/// a grid asks for many at once, and each holds its picture in memory.
+/// itself as it is (an SVG, an AVIF). `None` for one that is neither, larger than `MAX_INSIDE`,
+/// or not reached alone (`archive::reached_alone`: further into a solid 7z's block, a
+/// compressed tar's), which would unpack all before it for each tile: an icon instead. One at
+/// a time: a grid asks for many at once, and each holds its picture in memory.
 fn thumb(path: &Path, archive: &Path) -> std::io::Result<Option<(String, Vec<u8>)>> {
+    if !coxswain_core::archive::reached_alone(path) {
+        return Ok(None);
+    }
     static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
     let Some(bytes) = inside(path, archive, false, false)? else { return Ok(None) };
@@ -394,6 +405,42 @@ mod tests {
         assert_eq!(ask("wide.ppm", "inside&once").body().as_slice(), png.as_slice());
         let kept = INSIDE.lock().unwrap().as_ref().is_some_and(|(p, ..)| p.starts_with(&zip));
         assert!(!kept, "neither is kept unpacked");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// In a solid 7z every file but the first of its block is reached only by unpacking those
+    /// before it: a grid's tile of one is an icon (415), unpacked not at all, so a grid of many
+    /// pictures does not unpack the block once for each; the first is a tile as in a zip.
+    #[test]
+    fn no_tile_further_into_a_solid_block() {
+        let dir = std::env::temp_dir().join(format!("coxswain-test-inside-solid-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let seven = dir.join("pics.7z");
+        let mut pic = b"P6\n40 20\n255\n".to_vec();
+        pic.resize(pic.len() + 40 * 20 * 3, 0x80);
+        let names = ["a.ppm", "b.ppm", "c.ppm"];
+        let mut w = sevenz_rust2::ArchiveWriter::create(&seven).unwrap();
+        let entries = names.iter().map(|n| {
+            let mut e = sevenz_rust2::ArchiveEntry::new_file(n);
+            e.size = pic.len() as u64;
+            e
+        });
+        let readers = names.iter().map(|_| sevenz_rust2::SourceReader::new(std::io::Cursor::new(pic.clone()))).collect();
+        w.push_archive_entries(entries.collect(), readers).unwrap();
+        w.finish().unwrap();
+        let ask = |name: &str| {
+            let mut r = get(&seven.join(name), None);
+            *r.uri_mut() = format!("{}?thumb", r.uri()).parse().unwrap();
+            respond(&r, |_: &Path| false)
+        };
+        let before = coxswain_core::archive::heads();
+        assert_eq!(ask("b.ppm").status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
+        assert_eq!(ask("c.ppm").status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
+        assert_eq!(coxswain_core::archive::heads(), before, "nothing unpacked for an icon");
+        let r = ask("a.ppm");
+        assert_eq!((r.status(), r.headers()[header::CONTENT_TYPE].to_str().unwrap()), (StatusCode::OK, "image/png"));
+        assert_eq!(coxswain_core::archive::heads(), before + 1, "the first of the block: one unpacking");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

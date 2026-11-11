@@ -43,3 +43,5 @@ gtk = "0.18.2"
 # Tests get a home of their own in the temporary folder (`coxswain_core::dirs`).
 [dev-dependencies]
 coxswain-core = { workspace = true, features = ["test-home"] }
+# A solid 7z, which `archive::create` does not make, for the tests of grid tiles inside one.
+sevenz-rust2 = "0.24.1"

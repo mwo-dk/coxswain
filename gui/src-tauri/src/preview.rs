@@ -67,13 +67,16 @@ pub struct OldPicture {
 #[tauri::command]
 pub async fn old_picture(path: PathBuf, page: usize, side: u32) -> Res<Option<OldPicture>> {
     crate::here(&path)?;
-    crate::blocking(move || picture_in(&crate::convert::previews_dir()?, &path, page, side)).await
+    let locked = || coxswain_core::archive::locked_previews().map_err(|e| e.to_string());
+    crate::blocking(move || picture_in(&crate::convert::previews_dir()?, &locked, &path, page, side)).await
 }
 
-/// `old_picture`, with the preview cache at `previews`. Inside an archive the picture is
-/// unpacked once, and kept for its facts (`asset::inside_file`). An error a copy of it on the
-/// disk would mend says so (`pictures::NEEDS_COPY`).
-fn picture_in(previews: &Path, path: &Path, page: usize, side: u32) -> Res<Option<OldPicture>> {
+/// `old_picture`, with the preview cache at `previews`, and `locked_dir` giving the run's own
+/// folder a locked file's PNG goes to instead (`archive::locked_previews`, gone when the run
+/// ends). Inside an archive the picture is unpacked once, and kept for its facts
+/// (`asset::inside_file`). An error a copy of it on the disk would mend says so
+/// (`pictures::NEEDS_COPY`).
+fn picture_in(previews: &Path, locked_dir: &dyn Fn() -> Res<PathBuf>, path: &Path, page: usize, side: u32) -> Res<Option<OldPicture>> {
     static THUMBS: std::sync::Mutex<()> = std::sync::Mutex::new(());
     static PREVIEW: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let side = side.clamp(64, 4096);
@@ -82,6 +85,14 @@ fn picture_in(previews: &Path, path: &Path, page: usize, side: u32) -> Res<Optio
     // (read to its checksum), so a picture once unlocked is not shown without it; a listing
     // that cannot be read (a 7z with locked names) counts as locked.
     let locked = split.as_ref().is_some_and(|(archive, inner)| coxswain_core::archive::locked_at(archive, inner).unwrap_or(true));
+    // Its PNG is never in the lasting cache: in this run's own folder, swept when the run ends.
+    let own;
+    let previews = if locked {
+        own = locked_dir()?;
+        own.as_path()
+    } else {
+        previews
+    };
     let shown = |hit: OldPicture| -> Res<Option<OldPicture>> {
         if locked {
             coxswain_core::archive::head(path, 64).map_err(|e| e.to_string())?;
@@ -553,6 +564,11 @@ mod tests {
         assert!(!binary_facts(&me).is_empty());
     }
 
+    /// No locked file in these: its own folder is never asked for.
+    fn unused() -> Res<PathBuf> {
+        Err("no locked file here".into())
+    }
+
     #[test]
     fn old_pictures_are_made_once_and_thumbnails_take_the_preview() {
         let d = std::env::temp_dir().join(format!("coxswain-test-old-picture-{}", std::process::id()));
@@ -561,10 +577,10 @@ mod tests {
         let (cache, pic, text) = (d.join("cache"), d.join("a.ppm"), d.join("scan.hdr"));
         std::fs::write(&pic, b"P6\n2 1\n255\n\xff\0\0\0\xff\0").unwrap();
         std::fs::write(&text, "ENVI\nsamples = 2\n").unwrap();
-        assert!(picture_in(&cache, &text, 0, 2048).unwrap().is_none(), "another program's .hdr: text");
-        let big = picture_in(&cache, &pic, 0, 2048).unwrap().unwrap();
+        assert!(picture_in(&cache, &unused, &text, 0, 2048).unwrap().is_none(), "another program's .hdr: text");
+        let big = picture_in(&cache, &unused, &pic, 0, 2048).unwrap().unwrap();
         assert!(big.file.is_file() && big.pages == 1);
-        let thumb = picture_in(&cache, &pic, 0, 256).unwrap().unwrap();
+        let thumb = picture_in(&cache, &unused, &pic, 0, 256).unwrap().unwrap();
         assert_eq!(thumb.file, big.file, "the preview's PNG, not a second decode");
         std::fs::remove_dir_all(d).unwrap();
     }
@@ -591,13 +607,13 @@ mod tests {
         // take its place between the two reads, so a few tries; a second unpacking every time fails.
         let once = (0..3).any(|i| {
             let before = coxswain_core::archive::heads();
-            let made = picture_in(&d.join(format!("cache-{i}")), &inner, 0, 2048).unwrap().unwrap();
+            let made = picture_in(&d.join(format!("cache-{i}")), &unused, &inner, 0, 2048).unwrap().unwrap();
             assert!(made.file.is_file() && made.pages == 1);
             exif_facts(&inner);
             coxswain_core::archive::heads() - before == 1
         });
         assert!(once, "unpacked once for its picture and its facts");
-        let e = picture_in(&d.join("cache"), &zip.join("spoiled.tif"), 0, 2048).err().unwrap();
+        let e = picture_in(&d.join("cache"), &unused, &zip.join("spoiled.tif"), 0, 2048).err().unwrap();
         assert!(!e.starts_with(coxswain_core::pictures::NEEDS_COPY), "{e}");
         let js = format!("export const NEEDS_COPY = \"{}\";", coxswain_core::pictures::NEEDS_COPY);
         assert!(include_str!("../../src/lib.js").contains(&js), "the page knows the core's word");
@@ -605,26 +621,29 @@ mod tests {
     }
 
     /// An old picture inside a locked zip: said as locked (the preview asks the password), not
-    /// taken for text; with the password, its PNG made from memory, and not shown from the cache
-    /// once the password is forgotten.
+    /// taken for text; with the password, its PNG made from memory in the run's own folder, never
+    /// in the lasting preview cache, and not shown from there once the password is forgotten.
     #[test]
     fn an_old_picture_inside_a_locked_archive_asks_for_its_password() {
         let d = std::env::temp_dir().join(format!("coxswain-test-old-picture-locked-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
-        let (cache, pic, zip) = (d.join("cache"), d.join("a.ppm"), d.join("locked.zip"));
+        let (cache, own, pic, zip) = (d.join("cache"), d.join("own"), d.join("a.ppm"), d.join("locked.zip"));
+        let own_dir = || -> Res<PathBuf> { Ok(own.clone()) };
         std::fs::write(&pic, b"P6\n2 1\n255\n\xff\0\0\0\xff\0").unwrap();
         coxswain_core::archive::create_locked(&zip, std::slice::from_ref(&pic), Some("hunter2"), false).unwrap();
         coxswain_core::archive::forget(&zip);
         let inner = zip.join("a.ppm");
-        assert_eq!(picture_in(&cache, &inner, 0, 2048).err().as_deref(), Some(coxswain_core::archive::LOCKED));
+        assert_eq!(picture_in(&cache, &own_dir, &inner, 0, 2048).err().as_deref(), Some(coxswain_core::archive::LOCKED));
         coxswain_core::archive::remember(&zip, "hunter2");
-        let made = picture_in(&cache, &inner, 0, 2048).unwrap().unwrap();
+        let made = picture_in(&cache, &own_dir, &inner, 0, 2048).unwrap().unwrap();
         assert!(made.file.is_file() && made.pages == 1);
+        assert!(made.file.starts_with(&own), "in the run's own folder: {}", made.file.display());
+        assert!(!cache.exists(), "nothing in the lasting preview cache");
         coxswain_core::archive::forget(&zip);
-        // Its PNG is in the cache, but not shown again without the password.
-        assert_eq!(picture_in(&cache, &inner, 0, 2048).err().as_deref(), Some(coxswain_core::archive::LOCKED));
-        assert_eq!(picture_in(&cache, &inner, 0, 256).err().as_deref(), Some(coxswain_core::archive::LOCKED));
+        // Its PNG is kept for this run, but not shown again without the password.
+        assert_eq!(picture_in(&cache, &own_dir, &inner, 0, 2048).err().as_deref(), Some(coxswain_core::archive::LOCKED));
+        assert_eq!(picture_in(&cache, &own_dir, &inner, 0, 256).err().as_deref(), Some(coxswain_core::archive::LOCKED));
         std::fs::remove_dir_all(d).unwrap();
     }
 

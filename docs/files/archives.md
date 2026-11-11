@@ -199,11 +199,15 @@ through an installed 7-Zip instead, read-only, like a disk image
 - **Old pictures, comic pages and thumbnails are made from memory too**: an old picture (TIFF,
   TGA, PCX, Photoshop, JPEG XL …, [Old formats](../previews/old-formats.md)) up to 64 MB is
   decoded from the bytes the archive unpacks, once for the picture and its facts (a TIFF's
-  EXIF too), and only its PNG for the preview is kept in the cache, as for one on the disk; a
+  EXIF too), and only its PNG for the preview is kept in the cache, as for one on the disk (a
+  locked one's only in this run's own folder, [Archive passwords](archive-passwords.md#is-a-locked-file-copied-to-the-disk-to-be-looked-at)); a
   spoiled picture, or one of more than 64 million pixels, says so under the preview, with no
   copy made, as a copy would show the same; a comic's page is read into memory when it is shown; and in the
   desktop app's thumbnails view ([Views](../panels/views.md)) a picture's tile is a small PNG
-  made in memory, one picture at a time.
+  made in memory, one picture at a time, for a picture in a zip, a disk image or one that
+  starts its block in a 7z. One further into a solid 7z's block, or in a tar, a package, a
+  cabinet, a mailbox or a container image, keeps its icon: reaching it unpacks every file before it, again for each tile, and a grid
+  of them would hold up the preview. Selected, it shows in the preview as before.
 - **Documents, workbooks, notebooks, slide decks and Parquet files are read into memory too**:
   the desktop app's preview pane shows a Word document (`.docx`), a workbook (`.xlsx`, `.ods`,
   `.csv` …), a Jupyter notebook and a PowerPoint deck (`.pptx`) up to 25 MB, the most their

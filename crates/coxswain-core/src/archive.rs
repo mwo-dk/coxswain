@@ -2902,6 +2902,22 @@ pub fn head(path: &Path, max: u64) -> io::Result<(Vec<u8>, bool)> {
     Ok(got.into_inner())
 }
 
+/// Whether the file `path` inside an archive is unpacked without unpacking others before it: a
+/// zip's (each packed on its own), a disk image's (7-Zip reads its one file) or a 7z's that
+/// starts its block. Not one further into a solid 7z's block, nor a tar's, a package's, a
+/// cabinet's, a mailbox's or a container image's, read from the start up to it: a grid asks
+/// for many tiles, and each would unpack all before it again.
+pub fn reached_alone(path: &Path) -> bool {
+    let Ok((archive, inner, _, _held)) = entry_of(path) else { return false };
+    match kind(&archive) {
+        Some(Kind::Zip | Kind::Disk) => true,
+        Some(Kind::SevenZ) => Joined::open(&archive).is_ok_and(|f| {
+            crate::seven_list::find(&mut BufReader::new(f), &inner).is_ok_and(|found| found.is_some_and(|(l, i)| l.entries[i].first_in_block()))
+        }),
+        _ => false,
+    }
+}
+
 /// Whether `stream` reads the file `path` inside an archive: not a locked one, nor one in a
 /// disk image.
 pub fn streamable(path: &Path) -> bool {
@@ -3019,6 +3035,12 @@ pub(crate) fn peek_folder() -> io::Result<PathBuf> {
     return run_folder(&format!("peek-{:?}", std::thread::current().id()), true);
     #[cfg(not(test))]
     run_folder("peek", true)
+}
+
+/// This run's folder for what is made to show a locked file (an old picture's PNG): gone when
+/// the run ends, never in the lasting preview cache.
+pub fn locked_previews() -> io::Result<PathBuf> {
+    run_folder("locked", false)
 }
 
 /// The runs' folders in `base` last written more than `age` ago, removed.
