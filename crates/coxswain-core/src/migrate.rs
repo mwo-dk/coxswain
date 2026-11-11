@@ -164,20 +164,26 @@ fn keep_note(doc: &mut DocumentMut, note: String) {
 }
 
 /// `note` (the comment of the table `name`, about to lose its header) above the table that
-/// prints next: its own first sub-table, else the next top-level one, else the file's end.
+/// prints next: a sub-table of it or the next top-level one, else the file's end.
 fn keep_note_after(doc: &mut DocumentMut, name: &str, note: String) {
     let pos = |i: &Item| i.as_table().and_then(|t| t.position()).unwrap_or(isize::MAX);
-    let child = doc.get(name).and_then(Item::as_table).and_then(|t| t.iter().filter(|(_, i)| i.is_table()).min_by_key(|(_, i)| pos(i)).map(|(k, _)| k.to_string()));
-    if let Some(child) = child {
-        if let Some(t) = doc.get_mut(name).and_then(Item::as_table_mut).and_then(|t| t.get_mut(&child)).and_then(Item::as_table_mut) {
+    let shown = |i: &Item| i.as_table().is_some_and(|t| !t.is_implicit());
+    let here = doc.get(name).map_or(isize::MAX, pos);
+    let child = doc.get(name).and_then(Item::as_table).and_then(|t| t.iter().filter(|(_, i)| shown(i) && pos(i) > here).min_by_key(|(_, i)| pos(i)).map(|(k, i)| (pos(i), Some(k.to_string()))));
+    let next = doc.iter().filter(|(k, i)| *k != name && shown(i) && pos(i) > here).min_by_key(|(_, i)| pos(i)).map(|(k, i)| (pos(i), Some(k.to_string())));
+    let (note_to_child, target) = match (child, next) {
+        (Some(c), Some(n)) if n.0 < c.0 => (false, n.1),
+        (Some(c), _) => (true, c.1),
+        (None, n) => (false, n.and_then(|n| n.1)),
+    };
+    if note_to_child {
+        if let Some(t) = target.and_then(|k| doc.get_mut(name).and_then(Item::as_table_mut)?.get_mut(&k)?.as_table_mut()) {
             let was = t.decor().prefix().and_then(|p| p.as_str()).unwrap_or("").to_string();
             t.decor_mut().set_prefix(format!("{note}{was}"));
-            return;
         }
+    } else {
+        put_above(doc, target, note);
     }
-    let here = doc.get(name).map_or(isize::MAX, pos);
-    let next = doc.iter().filter(|(k, i)| *k != name && i.is_table() && pos(i) > here).min_by_key(|(_, i)| pos(i)).map(|(k, _)| k.to_string());
-    put_above(doc, next, note);
 }
 
 fn put_above(doc: &mut DocumentMut, table: Option<String>, note: String) {
@@ -322,6 +328,8 @@ max_results = 500
             assert_eq!(rewrite(&new).unwrap(), None, "once");
             let (new, _) = rewrite(&fix("# about preview\n[preview]\nebooks = true\n")).unwrap().unwrap();
             assert_eq!(new, "# about preview\n", "{new:?}");
+            let (new, _) = rewrite(&fix("# about preview\n[preview]\nebooks = true\n[themes.mine]\nfg = \"#fff\"\n")).unwrap().unwrap();
+            assert!(new.contains("# about preview\n") && !new.contains("[preview]"), "{new:?}");
             let (new, _) = rewrite(&fix("# about preview\n[preview]\nebooks = true\n[preview.tools]\noffice = \"local\"\n")).unwrap().unwrap();
             assert_eq!(new, "# about preview\n[preview.tools]\noffice = \"local\"\n", "{new:?}");
         }
