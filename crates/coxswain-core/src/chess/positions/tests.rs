@@ -539,3 +539,60 @@ fn a_batch_of_long_games_is_cut_by_its_text() {
     assert_eq!(tree(&lib, pgn::START).unwrap().games, 40);
     remove(&p);
 }
+
+/// A PGN kept in blocks (a large one in a 7z) is read by as many threads as play the games out,
+/// each block still unpacked about once; a ChessBase database too, and a packed file by one
+/// thread, front to back. The index is the same as the plain file's.
+#[test]
+fn games_read_at_their_place_are_read_by_several_threads() {
+    let d = Dir::new();
+    let note = format!("{{{}}}", "x".repeat(1000));
+    let lines = random_lines(3000, 9);
+    let texts: Vec<String> = lines.iter().map(|l| game("a", "b", 2000, 2000, 2000, "1-0", None, &format!("{note} {}", l.join(" ")))).collect();
+    let plain = file(&d, "games.pgn", &texts);
+    let seven = d.0.join("games.7z");
+    crate::archive::create(&seven, std::slice::from_ref(&plain)).unwrap();
+    let inside = seven.join("games.pgn");
+    let lib = Arc::new(Library::open_with(&inside, super::super::games::Limits { keep: 0, ..Default::default() }).unwrap());
+    let until = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(30));
+    while !lib.progress().done {
+        assert!(std::time::Instant::now() < until, "the table never filled");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    assert_eq!(lib.progress().games, 3000);
+    let blocks = (0..3000).map(|g| lib.rec(g).unwrap().offset).collect::<BTreeSet<_>>().len() as u64;
+    assert!(blocks >= 8, "{blocks} blocks");
+    let before = lib.unpacked();
+    let j = built(&lib, 30);
+    let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).div_ceil(2).clamp(1, 8) as u64;
+    assert_eq!(j.readers.load(Ordering::Relaxed), threads);
+    let unpacked = lib.unpacked() - before;
+    assert!(unpacked <= blocks + threads, "{unpacked} blocks unpacked for {blocks}");
+    let plain_lib = opened_lib(&plain);
+    let pj = built(&plain_lib, 30);
+    assert_eq!(pj.readers.load(Ordering::Relaxed), 1, "a plain file: one handle");
+    let shown = |l: &Library, fen: &str| serde_json::to_string(&tree(l, fen).unwrap()).unwrap();
+    for fen in [pgn::START.to_string(), fen_after(&lines[0].iter().map(|s| s.as_str()).collect::<Vec<_>>()[..6])] {
+        assert_eq!(shown(&lib, &fen), shown(&plain_lib, &fen));
+    }
+    remove(&inside);
+    remove(&plain);
+
+    // A ChessBase database: several threads too.
+    let cbh = d.0.join("Games.cbh");
+    for ext in ["cba", "cbg", "cbh", "cbp", "cbt", "cbv"] {
+        std::fs::copy(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/chess/cbh-test/Games").with_extension(ext), cbh.with_extension(ext)).unwrap();
+    }
+    let lib = opened_lib(&cbh);
+    assert_eq!(built(&lib, 30).readers.load(Ordering::Relaxed), threads);
+    remove(&cbh);
+
+    // A gzip: one thread, the file unpacked once.
+    let gz = d.0.join("games.pgn.gz");
+    let mut w = flate2::write::GzEncoder::new(std::fs::File::create(&gz).unwrap(), flate2::Compression::fast());
+    w.write_all(texts[..50].concat().as_bytes()).unwrap();
+    w.finish().unwrap();
+    let lib = opened_lib(&gz);
+    assert_eq!(built(&lib, 30).readers.load(Ordering::Relaxed), 1);
+    remove(&gz);
+}

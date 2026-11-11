@@ -115,10 +115,16 @@ fn build_the_index() {
     }
     let t = Instant::now();
     positions::build(lib.clone(), 30);
+    let mut played = None;
     let s = loop {
         let s = positions::status(&lib, 30);
         if s.ready || s.error.is_some() {
             break s;
+        }
+        // Past 0.8 the games are played out and the runs are being merged.
+        if played.is_none() && s.building.is_some_and(|b| b >= 0.8) {
+            played = Some(t.elapsed());
+            println!("played: in {:.1?}, peak {} MB", t.elapsed(), peak_mb());
         }
         std::thread::sleep(Duration::from_millis(50));
     };

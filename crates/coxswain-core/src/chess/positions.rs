@@ -24,7 +24,8 @@
 //!   A rarer position's tree is counted from its few games' rows in the games table.
 //!
 //! Built from the games table (`Library`), one code path for every format: one thread reads the
-//! games' text in order, others play out their main lines; what they find is sorted in runs of
+//! games' text in order (several, each a run of games, when any game can be read at its place:
+//! SCID, ChessBase, a PGN kept in blocks), others play out their main lines; what they find is sorted in runs of
 //! `RUN` entries on the disk and merged, so the memory stays the same for any database (the
 //! runs, and 8 bytes a game for the sums). When the database changes, a new index is built in
 //! the background while the old one is still used, marked out of date; a PGN file that only
@@ -59,6 +60,9 @@ const FAN: usize = 96;
 const BATCH: usize = 256;
 /// A batch is closed once its games' text is this long.
 const BATCH_BYTES: usize = 8 << 20;
+/// Games one reader takes at a time, when several read (`Library::reads_anywhere`): a few
+/// blocks of a PGN kept in blocks, so a block is unpacked about once.
+const CHUNK: u64 = if cfg!(test) { 16 } else { 16 * BATCH as u64 };
 /// The move code of a game that ends there (or where the index stops): it reaches the position.
 const END: u16 = 0x7FFE;
 /// The code of the sums of all games reaching a position, in `tree`.
@@ -830,6 +834,8 @@ struct Job {
     stamp: Mutex<String>,
     /// Games played out: the work, counted.
     walked: AtomicU64,
+    /// Threads that read the games' text.
+    readers: AtomicU64,
     /// The most text one batch of games held: the memory, counted.
     most: AtomicU64,
     /// Entries sorted into runs, for the merge's progress.
@@ -887,6 +893,8 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
     let n = AtomicU64::new(0);
     let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<(u32, String)>>(threads * 2);
     let rx = Mutex::new(rx);
+    // The next game a reader takes.
+    let next = AtomicU64::new(from as u64);
     let write_run = |buf: &mut Vec<Entry>| -> io::Result<()> {
         if buf.is_empty() {
             return Ok(());
@@ -930,32 +938,47 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
                 }
             });
         }
-        // The games read in order, one thread: a packed file is unpacked once, front to back. A
-        // batch holds `BATCH` games or `BATCH_BYTES` of text, whichever comes first, so heavily
-        // annotated games waiting in the channel hold little memory.
-        let mut batch = Vec::with_capacity(BATCH);
-        let mut bytes = 0;
-        let send = |batch: Vec<(u32, String)>, bytes: usize| {
-            job.most.fetch_max(bytes as u64, Ordering::Relaxed);
-            tx.send(batch).is_ok()
-        };
-        for g in from..count {
-            if job.stop.load(Ordering::Relaxed) {
-                break;
-            }
-            match lib.text(g) {
-                Ok(t) => {
-                    bytes += t.len();
-                    batch.push((g, t));
+        // The games read in order, one thread: a packed file is unpacked once, front to back.
+        // A database that reads any game at its place (`reads_anywhere`) is read by as many
+        // threads as play them out, each taking `CHUNK` games after another. A batch holds
+        // `BATCH` games or `BATCH_BYTES` of text, whichever comes first, so heavily annotated
+        // games waiting in the channel hold little memory.
+        let readers = if lib.reads_anywhere() { threads } else { 1 };
+        for _ in 0..readers {
+            job.readers.fetch_add(1, Ordering::Relaxed);
+            let (tx, next) = (tx.clone(), &next);
+            s.spawn(move || {
+                let mut batch = Vec::with_capacity(BATCH);
+                let mut bytes = 0;
+                let send = |batch: Vec<(u32, String)>, bytes: usize| {
+                    job.most.fetch_max(bytes as u64, Ordering::Relaxed);
+                    tx.send(batch).is_ok()
+                };
+                'chunks: loop {
+                    let first = next.fetch_add(CHUNK, Ordering::Relaxed);
+                    if first >= count as u64 {
+                        break;
+                    }
+                    for g in first as u32..(first + CHUNK).min(count as u64) as u32 {
+                        if job.stop.load(Ordering::Relaxed) {
+                            break 'chunks;
+                        }
+                        match lib.text(g) {
+                            Ok(t) => {
+                                bytes += t.len();
+                                batch.push((g, t));
+                            }
+                            // A game that cannot be read has no positions; the others go on.
+                            Err(_) => {}
+                        }
+                        if (batch.len() == BATCH || bytes >= BATCH_BYTES) && !send(std::mem::replace(&mut batch, Vec::with_capacity(BATCH)), std::mem::take(&mut bytes)) {
+                            break 'chunks;
+                        }
+                    }
                 }
-                // A game that cannot be read has no positions; the others go on.
-                Err(_) => {}
-            }
-            if (batch.len() == BATCH || bytes >= BATCH_BYTES) && !send(std::mem::replace(&mut batch, Vec::with_capacity(BATCH)), std::mem::take(&mut bytes)) {
-                break;
-            }
+                send(batch, bytes);
+            });
         }
-        send(batch, bytes);
         drop(tx);
     });
     if let Some(e) = failed.into_inner().unwrap_or_else(|e| e.into_inner()) {
