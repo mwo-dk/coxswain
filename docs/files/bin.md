@@ -156,7 +156,10 @@ under its name meanwhile stays in the bin, listed, and the dialog names it *Not 
 A restore checks once more after it has linked the file back at its place: when that turns out to
 be such another file, it stays in the bin, named *Not in the bin* the same way, and its second name
 at the place is taken away again, but only while that name is still the same file as the one in the
-bin: a file saved at the place since stays.
+bin: a file saved at the place since stays. On a disk without hard links (Termux, FAT) the restore
+makes an empty file at the place and moves the item over it; it looks at the item just before that
+move instead, and when it is such another file, it stays in the bin and the empty file is taken
+away again.
 What is left is the instant between that last look and the removal itself, a few microseconds,
 and, for *Empty the bin*, the time it takes to list the bin before it looks at the first item
 (longer in a bin of thousands); no program can close these alone: emptying or deleting from the

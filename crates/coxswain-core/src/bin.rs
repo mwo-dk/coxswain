@@ -432,14 +432,17 @@ pub(crate) mod fd {
 
     /// What tells one file from another that took its name since.
     pub(crate) fn id(path: &Path) -> Option<Id> {
-        let m = fs::symlink_metadata(path).ok()?;
+        fs::symlink_metadata(path).ok().map(|m| id_of(&m))
+    }
+
+    fn id_of(m: &fs::Metadata) -> Id {
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;
-            Some((m.dev(), m.ino(), m.ctime(), m.ctime_nsec()))
+            (m.dev(), m.ino(), m.ctime(), m.ctime_nsec())
         }
         #[cfg(not(unix))]
-        Some((0, m.len(), 0, 0))
+        (0, m.len(), 0, 0)
     }
 
     /// A bin folder and the top of the disk it is on, which the paths in its info files are
@@ -868,17 +871,38 @@ pub(crate) mod fd {
                 {
                     // No hard link here (Termux, FAT, or Linux's fs.protected_hardlinks on a file
                     // not ours): the empty file claims `to`, and the rename replaces only that.
-                    fs::OpenOptions::new()
+                    // Its id from the handle, not the name: a file saved at `to` in between is
+                    // never taken for it.
+                    let made = fs::OpenOptions::new()
                         .write(true)
                         .create_new(true)
-                        .open(to)?;
-                    fs::rename(from, to)
-                        .inspect_err(|_| {
-                            if fs::symlink_metadata(to).is_ok_and(|m| m.len() == 0) {
-                                let _ = fs::remove_file(to);
-                            }
-                        })
-                        .map(|_| true)
+                        .open(to)?
+                        .metadata()
+                        .ok()
+                        .map(|m| id_of(&m));
+                    // The empty file, removed only while it is still the one made here: a file
+                    // saved at `to` since stays.
+                    let unclaim = || {
+                        if made.is_some() && id(to) == made {
+                            let _ = fs::remove_file(to);
+                        }
+                    };
+                    midway();
+                    // The file looked at, not one put under its name since (#901), as with the
+                    // link above. Elsewhere `id` is only a length, which cannot tell: renamed
+                    // as before.
+                    #[cfg(unix)]
+                    {
+                        let inode = |i: Option<Id>| i.map(|i| (i.0, i.1));
+                        if inode(id(from)) != inode(was) {
+                            unclaim();
+                            return Err(io::Error::new(
+                                io::ErrorKind::NotFound,
+                                crate::t!("err.not_in_trash"),
+                            ));
+                        }
+                    }
+                    fs::rename(from, to).inspect_err(|_| unclaim()).map(|_| true)
                 }
                 Err(e) => Err(e),
             }
@@ -1814,6 +1838,39 @@ mod tests {
         );
         assert_eq!(fs::read_to_string(&from).unwrap(), "another's", "still in the bin");
         assert!(fs::symlink_metadata(&to).is_err(), "no link left at the place");
+    }
+
+    /// The same on a disk without hard links (Termux, FAT): the file put under the item's name
+    /// stays in the bin, and the empty file that claimed the place is taken away again (#931);
+    /// a file saved at the place meanwhile stays.
+    #[cfg(unix)]
+    #[test]
+    fn bin_move_without_links_takes_only_the_file_looked_at() {
+        for saved in [false, true] {
+            let d = crate::fs::Scratch::named("bin-move-no-link");
+            let from = d.join("from");
+            fs::write(&from, "item").unwrap();
+            let was = id(&from);
+            let _kept = fs::File::open(&from).unwrap();
+            let (f, to) = (from.clone(), d.join("to"));
+            let (t, away) = (to.clone(), d.join("away"));
+            // Another program's swap between restore's re-check and the rename.
+            MIDWAY.set(Some(Box::new(move || {
+                fs::remove_file(&f).unwrap();
+                fs::write(&f, "another's").unwrap();
+                if saved {
+                    fs::rename(&t, &away).unwrap();
+                    fs::write(&t, "").unwrap();
+                }
+            })));
+            NO_LINK.set(true);
+            let r = move_new(&from, &to, was);
+            NO_LINK.set(false);
+            MIDWAY.set(None);
+            assert_eq!(r.unwrap_err().kind(), io::ErrorKind::NotFound);
+            assert_eq!(fs::read_to_string(&from).unwrap(), "another's", "still in the bin");
+            assert_eq!(fs::symlink_metadata(&to).is_ok(), saved, "only a saved file at the place");
+        }
     }
 
     /// The same, but another program puts the linked file in its bin and the user saves a new
