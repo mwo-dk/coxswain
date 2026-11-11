@@ -232,11 +232,11 @@ order of system calls in them, needs the model looked at (and the sync commit mo
 | `Crash` | Not Coxswain: the process or machine dying between two system calls. |
 | The four promises | `docs/files/bin.md`, *Restore, delete for good, empty*: "nothing is overwritten", "Deletes everything in the bin for good" (what was listed and confirmed), the panel lists every item; *What if the desktop's own trash works on the bin at the same time?*: another file put under an item's name "stays in the bin". |
 
-**Sync commit: the merge of the pull request that fixed #931** (the no-link re-check, after #923
+**Sync commit: the merge of pull request #934** (the fix of #931, the no-link re-check, after #923
 in #930, #900 and #901 in #912 and the re-checks of #789; `bin.rs` and `xdg_trash.rs` as on master at that commit). To see whether the covered code changed since:
 
 ```
-sync=$(git log -1 --format=%h --grep='without hard links' origin/master)
+sync=$(git log -1 --format=%h --grep='(#934)$' origin/master)
 git diff "$sync" HEAD -- crates/coxswain-core/src/bin.rs crates/coxswain-core/src/xdg_trash.rs
 ```
 
