@@ -1695,6 +1695,8 @@ struct Item {
     locked: bool,
     /// A link, shown as what it leads to: not counted again in its folder's size.
     link: bool,
+    /// Reached only by unpacking another file first: further into a solid 7z's block.
+    further: bool,
 }
 
 /// An archive's entries as they are kept: their names one after another in one string, the
@@ -1716,6 +1718,7 @@ struct Row {
     dir: bool,
     locked: bool,
     link: bool,
+    further: bool,
 }
 
 /// An entry of `Items` as it is read: its name borrowed from them.
@@ -1727,6 +1730,7 @@ struct ItemRef<'a> {
     modified: u64,
     locked: bool,
     link: bool,
+    further: bool,
 }
 
 impl ItemRef<'_> {
@@ -1738,6 +1742,7 @@ impl ItemRef<'_> {
             modified: self.modified,
             locked: self.locked,
             link: self.link,
+            further: self.further,
         }
     }
 }
@@ -1756,6 +1761,7 @@ impl Items {
             dir: it.dir,
             locked: it.locked,
             link: it.link,
+            further: it.further,
         });
     }
 
@@ -1775,6 +1781,7 @@ impl Items {
                 modified: r.modified,
                 locked: r.locked,
                 link: r.link,
+                further: r.further,
             }
         })
     }
@@ -1901,6 +1908,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 modified: if e.modified == 0 { own } else { e.modified },
                 locked: false,
                 link: false,
+                further: false,
             })
             .collect());
     }
@@ -1916,6 +1924,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 modified: n.modified,
                 locked: false,
                 link: n.linked,
+                further: false,
             })
             .collect());
     }
@@ -1933,6 +1942,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 modified: m.secs.max(0) as u64,
                 locked: false,
                 link: false,
+                further: false,
             })
             .collect());
     }
@@ -1945,6 +1955,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 modified: e.modified,
                 locked: false,
                 link: false,
+                further: false,
             });
             Ok(out.seen < max)
         })?;
@@ -1961,6 +1972,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 modified: c.modified().map_or(0, unix),
                 locked: c.encrypted(),
                 link: false,
+                further: false,
             });
             walked.seen < max
         }) {
@@ -1983,6 +1995,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 modified: e.last_modified().map_or(0, unix),
                 locked: e.encrypted(),
                 link: false,
+                further: false,
             });
         }
         return Ok(out);
@@ -2002,13 +2015,15 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                     modified: e.modified,
                     locked: locked && e.has_stream(),
                     link: false,
+                    further: !e.first_in_block(),
                 })
                 .collect());
         }
         // Not read there (or found broken there): the crate's say.
         let r = seven(archive, password)?;
         let locked = seven_locked(r.archive());
-        for f in r.archive().files.iter().take(max) {
+        let a = r.archive();
+        for (i, f) in a.files.iter().take(max).enumerate() {
             let modified = seven_secs(f);
             out.push(Item {
                 name: f.name.replace('\\', "/").trim_end_matches('/').to_string(),
@@ -2017,6 +2032,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 modified,
                 locked: locked && f.has_stream,
                 link: false,
+                further: a.stream_map.file_block_index[i].is_some_and(|b| a.stream_map.block_first_file_index.get(b) != Some(&i)),
             });
         }
         return Ok(out);
@@ -2029,6 +2045,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
             modified: h.mtime().unwrap_or(0),
             locked: false,
             link: false,
+            further: false,
         });
         Ok(out.seen < max)
     };
@@ -2048,6 +2065,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
                 modified: l.modified,
                 locked: false,
                 link: false,
+                further: false,
             });
         }
     } else {
@@ -2613,6 +2631,17 @@ pub fn locked_at(archive: &Path, inner: &str) -> io::Result<bool> {
     }))
 }
 
+/// `locked_at`, or a locked file on the way to `inner`: a picture in a zip inside a locked 7z.
+pub fn locked_on_the_way(archive: &Path, inner: &str) -> io::Result<bool> {
+    for (end, _) in inner.match_indices('/') {
+        let (at, cut, _held) = resolve(archive, &inner[..end], false)?;
+        if items(&at)?.iter().any(|it| it.locked && it.name == cut) {
+            return Ok(true);
+        }
+    }
+    locked_at(archive, inner)
+}
+
 /// What copying `inner` ("" for everything) out of `archive` takes: its bytes and files, and
 /// whether a file of it is locked with no password known this run.
 pub fn measure(archive: &Path, inner: &str) -> io::Result<(u64, usize, bool)> {
@@ -2902,6 +2931,15 @@ pub fn head(path: &Path, max: u64) -> io::Result<(Vec<u8>, bool)> {
     Ok(got.into_inner())
 }
 
+/// Whether the file `path` inside an archive is unpacked without unpacking others before it: a
+/// zip's (each packed on its own), a disk image's (7-Zip reads its one file) or a 7z's that
+/// starts its block. Not one further into a solid 7z's block, nor a tar's, a package's, a
+/// cabinet's, a mailbox's or a container image's, read from the start up to it: a grid asks
+/// for many tiles, and each would unpack all before it again.
+pub fn reached_alone(path: &Path) -> bool {
+    entry_of(path).is_ok_and(|(archive, _, it, _held)| matches!(kind(&archive), Some(Kind::Zip | Kind::Disk | Kind::SevenZ)) && !it.further)
+}
+
 /// Whether `stream` reads the file `path` inside an archive: not a locked one, nor one in a
 /// disk image.
 pub fn streamable(path: &Path) -> bool {
@@ -3019,6 +3057,12 @@ pub(crate) fn peek_folder() -> io::Result<PathBuf> {
     return run_folder(&format!("peek-{:?}", std::thread::current().id()), true);
     #[cfg(not(test))]
     run_folder("peek", true)
+}
+
+/// This run's folder for what is made to show a locked file (an old picture's PNG): gone when
+/// the run ends, never in the lasting preview cache.
+pub fn locked_previews() -> io::Result<PathBuf> {
+    run_folder("locked", false)
 }
 
 /// The runs' folders in `base` last written more than `age` ago, removed.
@@ -4614,7 +4658,7 @@ mod tests {
     /// a large one pushes the others out, so one list of millions is all that is kept.
     #[test]
     fn kept_lists_are_compact_and_one_large_one_is_kept_alone() {
-        let item = |name: &str| Item { name: name.into(), size: 1, dir: false, modified: 2, locked: false, link: false };
+        let item = |name: &str| Item { name: name.into(), size: 1, dir: false, modified: 2, locked: false, link: false, further: false };
         let items: Items = [item("a/b.txt"), item("../out"), item("c")].into_iter().collect();
         assert_eq!((items.len(), items.seen), (2, 3));
         let names: Vec<&str> = items.iter().map(|it| it.name).collect();
@@ -4640,7 +4684,7 @@ mod tests {
     fn a_large_list_goes_with_its_last_hold() {
         let big = |n: usize| {
             let mut i = Items::default();
-            i.push(Item { name: "x".repeat(n), size: 1, dir: false, modified: 2, locked: false, link: false });
+            i.push(Item { name: "x".repeat(n), size: 1, dir: false, modified: 2, locked: false, link: false, further: false });
             Arc::new(i.done())
         };
         let (mut last, stamp) = (vec![], (0, None));

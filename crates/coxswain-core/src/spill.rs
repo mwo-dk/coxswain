@@ -492,6 +492,7 @@ const RUN_FOLDERS: &[&str] = &[
     "nested",
     "cbv",
     "provenance",
+    "locked",
 ];
 
 /// Every run's folder in `dir` whose run ended, removed (never through a link).
