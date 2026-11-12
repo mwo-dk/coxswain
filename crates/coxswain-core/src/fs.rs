@@ -1962,13 +1962,14 @@ impl Watch {
 
 /// The folders in `dirs` that these changed paths are, or are in. macOS names a change by its
 /// real path (`/private/var` for `/var`, a link followed, the letter case on disk), so a folder
-/// matches by its own path or its real one (a folder gone by its parent's real path).
+/// matches by its own path or its real one (a folder gone by its parent's real path). Other
+/// systems name it by the path it is watched by.
 pub fn changed_dirs<'a>(dirs: &'a [PathBuf], paths: &[PathBuf]) -> Vec<&'a PathBuf> {
     let hit = |d: &Path| paths.iter().any(|p| p == d || p.parent() == Some(d));
     dirs.iter()
         .filter(|d| {
             hit(d)
-                || std::fs::canonicalize(d)
+                || cfg!(target_os = "macos") && std::fs::canonicalize(d)
                     .ok()
                     .or_else(|| Some(std::fs::canonicalize(d.parent()?).ok()?.join(d.file_name()?)))
                     .is_some_and(|real| real != **d && hit(&real))
