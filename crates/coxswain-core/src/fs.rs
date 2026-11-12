@@ -1960,6 +1960,13 @@ impl Watch {
     }
 }
 
+/// The folders in `dirs` that these changed paths are, or are in.
+pub fn changed_dirs<'a>(dirs: &'a [PathBuf], paths: &[PathBuf]) -> Vec<&'a PathBuf> {
+    dirs.iter()
+        .filter(|d| paths.iter().any(|p| p == *d || p.parent() == Some(d.as_path())))
+        .collect()
+}
+
 /// Changes gathered until none has come for `QUIET`, or for `MOST` at most while they keep
 /// coming: a build or a copy writes many files, and they are read again once.
 #[derive(Default)]
@@ -2473,6 +2480,35 @@ mod tests {
                 .any(|p| p.file_name().is_some_and(|n| n == "new.txt")),
             "{got:?}"
         );
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn watch_names_the_folder_a_new_file_lands_in() {
+        // Watched by the path the app has (on macOS the temp folder is `/var/...`, its real
+        // path `/private/var/...`): a file written there and one renamed in from outside.
+        let d = std::env::temp_dir().join(format!("coxswain-test-lands-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("in")).unwrap();
+        std::fs::write(d.join("elsewhere.part"), "x").unwrap();
+        let dir = d.join("in");
+        let mut w = Watch::default();
+        w.set(vec![dir.clone()]);
+        let heard = |w: &mut Watch, name: &str| {
+            let end = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(10));
+            let mut got = vec![];
+            while !got.iter().any(|p: &PathBuf| p.file_name().is_some_and(|n| n == name)) && std::time::Instant::now() < end {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                got.extend(w.changed());
+            }
+            got
+        };
+        std::fs::write(dir.join("new.txt"), "x").unwrap();
+        let got = heard(&mut w, "new.txt");
+        assert_eq!(changed_dirs(std::slice::from_ref(&dir), &got), [&dir], "written: {got:?}");
+        std::fs::rename(d.join("elsewhere.part"), dir.join("done.txt")).unwrap();
+        let got = heard(&mut w, "done.txt");
+        assert_eq!(changed_dirs(std::slice::from_ref(&dir), &got), [&dir], "renamed in: {got:?}");
         std::fs::remove_dir_all(d).unwrap();
     }
 
