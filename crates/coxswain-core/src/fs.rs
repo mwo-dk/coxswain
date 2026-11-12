@@ -1960,10 +1960,16 @@ impl Watch {
     }
 }
 
-/// The folders in `dirs` that these changed paths are, or are in.
+/// The folders in `dirs` that these changed paths are, or are in. macOS names a change by its
+/// real path (`/private/var` for `/var`, a link followed, the letter case on disk), so a folder
+/// matches by its own path or its real one.
 pub fn changed_dirs<'a>(dirs: &'a [PathBuf], paths: &[PathBuf]) -> Vec<&'a PathBuf> {
     dirs.iter()
-        .filter(|d| paths.iter().any(|p| p == *d || p.parent() == Some(d.as_path())))
+        .filter(|d| {
+            let real = std::fs::canonicalize(d).ok();
+            let here = |p: &Path| p == d.as_path() || real.as_deref() == Some(p);
+            paths.iter().any(|p| here(p) || p.parent().is_some_and(here))
+        })
         .collect()
 }
 
