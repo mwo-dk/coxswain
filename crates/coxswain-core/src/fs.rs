@@ -2524,10 +2524,13 @@ mod tests {
         std::fs::rename(d.join("elsewhere.part"), dir.join("done.txt")).unwrap();
         let got = heard(&mut w, &dir, "done.txt");
         assert_eq!(changed_dirs(std::slice::from_ref(&dir), &got), [&dir], "renamed in: {got:?}");
-        // A folder gone is still named, by its parent's real path.
-        let gone = d.join("gone");
-        let real_gone = std::fs::canonicalize(&d).unwrap().join("gone");
-        assert_eq!(changed_dirs(std::slice::from_ref(&gone), &[real_gone]), [&gone]);
+        // A folder gone is still named, by its parent's real path: macOS only, the one system
+        // that names changes by it (Windows' real path is the `\\?\` form, never in an event).
+        if cfg!(target_os = "macos") {
+            let gone = d.join("gone");
+            let real_gone = std::fs::canonicalize(&d).unwrap().join("gone");
+            assert_eq!(changed_dirs(std::slice::from_ref(&gone), &[real_gone]), [&gone]);
+        }
         std::fs::remove_dir_all(d).unwrap();
     }
 
