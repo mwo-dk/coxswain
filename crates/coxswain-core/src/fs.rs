@@ -1960,6 +1960,23 @@ impl Watch {
     }
 }
 
+/// The folders in `dirs` that these changed paths are, or are in. macOS names a change by its
+/// real path (`/private/var` for `/var`, a link followed, the letter case on disk), so a folder
+/// matches by its own path or its real one (a folder gone by its parent's real path). Other
+/// systems name it by the path it is watched by.
+pub fn changed_dirs<'a>(dirs: &'a [PathBuf], paths: &[PathBuf]) -> Vec<&'a PathBuf> {
+    let hit = |d: &Path| paths.iter().any(|p| p == d || p.parent() == Some(d));
+    dirs.iter()
+        .filter(|d| {
+            hit(d)
+                || cfg!(target_os = "macos") && std::fs::canonicalize(d)
+                    .ok()
+                    .or_else(|| Some(std::fs::canonicalize(d.parent()?).ok()?.join(d.file_name()?)))
+                    .is_some_and(|real| real != **d && hit(&real))
+        })
+        .collect()
+}
+
 /// Changes gathered until none has come for `QUIET`, or for `MOST` at most while they keep
 /// coming: a build or a copy writes many files, and they are read again once.
 #[derive(Default)]
@@ -2473,6 +2490,47 @@ mod tests {
                 .any(|p| p.file_name().is_some_and(|n| n == "new.txt")),
             "{got:?}"
         );
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn watch_names_the_folder_a_new_file_lands_in() {
+        // Watched by the path the app has (on macOS the temp folder is `/var/...`, its real
+        // path `/private/var/...`): a file written there and one renamed in from outside.
+        let d = std::env::temp_dir().join(format!("coxswain-test-lands-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("in")).unwrap();
+        std::fs::write(d.join("elsewhere.part"), "x").unwrap();
+        let dir = d.join("in");
+        let mut w = Watch::default();
+        w.set(vec![dir.clone()]);
+        let heard = |w: &mut Watch, dir: &PathBuf, name: &str| {
+            let end = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(10));
+            // kqueue and event ports name the folder and only its first entry.
+            let folder_only = cfg!(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd", target_os = "illumos", target_os = "solaris"));
+            let mut got: Vec<PathBuf> = vec![];
+            while !(!changed_dirs(std::slice::from_ref(&dir), &got).is_empty()
+                && (folder_only || got.iter().any(|p| p.file_name().is_some_and(|n| n == name))))
+                && std::time::Instant::now() < end
+            {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                got.extend(w.changed());
+            }
+            got
+        };
+        std::fs::write(dir.join("new.txt"), "x").unwrap();
+        let got = heard(&mut w, &dir, "new.txt");
+        assert_eq!(changed_dirs(std::slice::from_ref(&dir), &got), [&dir], "written: {got:?}");
+        std::fs::rename(d.join("elsewhere.part"), dir.join("done.txt")).unwrap();
+        let got = heard(&mut w, &dir, "done.txt");
+        assert_eq!(changed_dirs(std::slice::from_ref(&dir), &got), [&dir], "renamed in: {got:?}");
+        // A folder gone is still named, by its parent's real path: macOS only, the one system
+        // that names changes by it (Windows' real path is the `\\?\` form, never in an event).
+        if cfg!(target_os = "macos") {
+            let gone = d.join("gone");
+            let real_gone = std::fs::canonicalize(&d).unwrap().join("gone");
+            assert_eq!(changed_dirs(std::slice::from_ref(&gone), &[real_gone]), [&gone]);
+        }
         std::fs::remove_dir_all(d).unwrap();
     }
 

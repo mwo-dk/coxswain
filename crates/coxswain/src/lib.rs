@@ -5070,12 +5070,9 @@ impl App {
         let stale = self.forget(&paths);
         let sides = git_sides(&self.panels, &paths);
         for (side, stale) in stale.into_iter().enumerate() {
-            // macOS names what changed by its real path (`/private/var` for `/var`).
             let dir = &self.panels[side].dir;
-            let real = std::fs::canonicalize(dir).ok();
-            let here = |p: &Path| p == dir || real.as_deref() == Some(p);
-            let in_bin = coxswain_core::bin::is_bin(dir) && paths.iter().any(|p| bin_dirs.iter().any(|b| p == b || p.parent() == Some(b.as_path())));
-            let reread = in_bin || paths.iter().any(|p| here(p) || p.parent().is_some_and(here));
+            let in_bin = coxswain_core::bin::is_bin(dir) && !coxswain_core::fs::changed_dirs(&bin_dirs, &paths).is_empty();
+            let reread = in_bin || !coxswain_core::fs::changed_dirs(std::slice::from_ref(dir), &paths).is_empty();
             if reread {
                 self.load(side, None);
             }

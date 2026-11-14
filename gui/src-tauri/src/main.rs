@@ -2552,7 +2552,7 @@ fn start_watcher(app: &tauri::AppHandle) -> Option<coxswain_core::DirWatcher> {
             }
             paths.iter().for_each(|p| app.state::<Ctx>().sizer.forget(p));
             let watched = app.state::<Ctx>().watched.lock().map(|w| w.clone()).unwrap_or_default();
-            let changed: Vec<&PathBuf> = watched.iter().filter(|d| paths.iter().any(|p| p == *d || p.parent() == Some(d.as_path()))).collect();
+            let changed = coxswain_core::fs::changed_dirs(&watched, &paths);
             if !changed.is_empty() {
                 let _ = app.emit("dir-changed", changed);
             }
