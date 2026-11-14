@@ -86,7 +86,9 @@ the tree (a click or **Enter** does nothing); play them on the board itself.
 
 *List them* above the tree (**l** in the terminal app's tree) goes back to the games list,
 cut to the games that reach the position on the board, whatever their move order. The other
-filters, the sort and **Enter** work as always. The list says *Only the games reaching the
+filters, the sort and **Enter** work as always. At a common position of a large database the
+games take a moment to gather: the terminal app's status line says *Loading…* until they are
+in, and the view keeps drawing and answering keys meanwhile. The list says *Only the games reaching the
 tree's position*; *Show all games* (**c** in the terminal app, which clears every filter)
 shows all again. While the index is [out of date](#when-the-database-changes), *List them* is
 not there (**l** says why), and the list cut to a position shows no games.
