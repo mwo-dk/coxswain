@@ -86,8 +86,7 @@ being the folder. Leave it out for *Automatic*.
 | | | `konsole`, `qterminal` | `--workdir <folder>` |
 | | | `gnome-terminal`, `ptyxis`, `kgx`, `xfce4-terminal`, `mate-terminal`, `lxterminal`, `terminator`, `tilix` | `--working-directory=<folder>` |
 | | | `urxvt` | `urxvt -cd <folder>` |
-| | | `st` | `st -d <folder>` |
-| | | `xterm`, `x-terminal-emulator` | started in the folder |
+| | | `st`, `xterm`, `x-terminal-emulator` | started in the folder |
 | macOS | in `/Applications` or `~/Applications` (Terminal always) | `terminal` (Terminal) | `open -a Terminal <folder>` |
 | | | `iterm2` (iTerm2) | `open -a iTerm <folder>` |
 | | the app there, else on `PATH` | `ghostty`, `alacritty`, `kitty`, `wezterm` | `open -na Ghostty --args --working-directory=<folder>` and the like, or the program on `PATH` with the flags above |

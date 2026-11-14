@@ -1,0 +1,1 @@
+| **Open a terminal here opens st again.** It was started with a `-d` flag that st does not have, so no window came; it now starts in the folder like xterm. | [User menu](commands/user-menu.md#choosing-the-terminal) |

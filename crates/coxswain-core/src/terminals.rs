@@ -242,8 +242,8 @@ fn flags(program: &str, dir: &str) -> (Vec<String>, Vec<String>) {
         "xfce4-terminal" | "mate-terminal" | "terminator" => (eq("--working-directory"), &["-x"]),
         "qterminal" => (two("--workdir"), &["-e"]),
         "urxvt" => (two("-cd"), &["-e"]),
-        "st" => (two("-d"), &["-e"]),
-        // xterm and x-terminal-emulator (which may be any of them): the folder they start in.
+        // xterm, st (no folder flag: `-d` is only a patch's) and x-terminal-emulator (which may be
+        // any of them): the folder they start in.
         _ => (vec![], &["-e"]),
     };
     (open, owned(run))
@@ -462,6 +462,7 @@ mod tests {
             ("konsole", vec!["--workdir", "/w/my dir"], vec!["-e"]),
             ("xfce4-terminal", vec!["--working-directory=/w/my dir"], vec!["-x"]),
             ("xterm", vec![], vec!["-e"]),
+            ("st", vec![], vec!["-e"]),
         ] {
             let (o, _) = on("netbsd", &[], X, &[], None, choice, &["tig"]);
             let Some(How::Spawn(_, a)) = o else { panic!("{choice}") };
