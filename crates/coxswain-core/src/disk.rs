@@ -66,7 +66,7 @@ const OWN: &[(&str, &[&str], bool)] = &[
     ),
     ("index", &["index.bin", "index.tmp"], true),
     ("previews", &["previews"], true),
-    ("peek", &["peek", "nested", "archive-index"], true),
+    ("peek", &["peek", "nested", "archive-index", "locked"], true),
     ("inside", &[], true),
     (
         "libreoffice",

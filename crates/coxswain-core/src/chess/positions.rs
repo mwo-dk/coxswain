@@ -55,6 +55,10 @@ const HOT: usize = 32;
 const RUN: usize = 1 << 21;
 /// Runs merged at once (files open together).
 const FAN: usize = 96;
+/// Games read into one batch for the threads that play them out, at most.
+const BATCH: usize = 256;
+/// A batch is closed once its games' text is this long.
+const BATCH_BYTES: usize = 8 << 20;
 /// The move code of a game that ends there (or where the index stops): it reaches the position.
 const END: u16 = 0x7FFE;
 /// The code of the sums of all games reaching a position, in `tree`.
@@ -546,6 +550,8 @@ fn stopped() -> io::Error {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Done {
     form: u32,
+    /// Kept whole when it is not UTF-8, so its index is found again.
+    #[serde(with = "crate::spill::path_json")]
     source: PathBuf,
     /// The games table's stamp of the database (`table::stamp`).
     stamp: String,
@@ -553,8 +559,9 @@ struct Done {
     depth: u32,
     games: u32,
     entries: u64,
-    /// The database's size then, and a hash of its last bytes before that: a PGN file that only
-    /// grew has the same bytes there.
+    /// The database's size when its table was read, and a hash of its last bytes before that: a
+    /// PGN file that only grew has the same bytes there. Empty when the file had changed since
+    /// its table was read: the next build reads every game.
     size: u64,
     tail: String,
     /// The games table's form it was built from: a table read anew in another form may cut the
@@ -699,7 +706,9 @@ fn tally(found: &[(u32, u16)], info: &dyn Fn(u32) -> Option<Info>) -> Vec<Sums> 
     let mut reach = Sums::new(REACH);
     let mut last = None;
     for &(g, c) in found {
-        let Some(i) = info(g) else { continue };
+        // A game without its row (a stale index of a file changed in its middle) is still
+        // counted: its results, Elos and years are not.
+        let i = info(g).unwrap_or_default();
         if last != Some(g) {
             // The position's own (REACH has the side bit: its best is Black's, never shown).
             reach.add(g, &i);
@@ -821,6 +830,8 @@ struct Job {
     stamp: Mutex<String>,
     /// Games played out: the work, counted.
     walked: AtomicU64,
+    /// The most text one batch of games held: the memory, counted.
+    most: AtomicU64,
     /// Entries sorted into runs, for the merge's progress.
     entries: AtomicU64,
     /// The index was removed while this ran: its folders go once it has let them go.
@@ -836,6 +847,19 @@ fn tail(path: &Path, size: u64) -> String {
         return String::new();
     }
     blake3::hash(&b).to_hex()[..32].to_string()
+}
+
+/// The size of the file at `path` and its tail (`tail`), while its stamp is `stamp` (the file
+/// its table read); else an empty tail, so it is never taken for one that only grew.
+fn sized(path: &Path, stamp: &str) -> (u64, String) {
+    let same = || super::table::stamp(path) == stamp;
+    if !grows(path) || !same() {
+        return (0, String::new());
+    }
+    let size = std::fs::metadata(path).map_or(0, |m| m.len());
+    let t = tail(path, size);
+    // Changed while its tail was read: none.
+    if same() { (size, t) } else { (0, String::new()) }
 }
 
 /// The file at `path` only grew since `idx` was made of it: its games before the last one are
@@ -889,6 +913,7 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
                 loop {
                     let batch = rx.lock().unwrap_or_else(|e| e.into_inner()).recv();
                     let Ok(batch) = batch else { break };
+                    let games = batch.len() as u64;
                     for (g, text) in batch {
                         walk(k, &text, plies, |key, code| buf.push(entry(key, g, code)));
                         job.walked.fetch_add(1, Ordering::Relaxed);
@@ -898,29 +923,39 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
                             return fail(e);
                         }
                     }
-                    job.done.fetch_add(1, Ordering::Relaxed);
+                    job.done.fetch_add(games, Ordering::Relaxed);
                 }
                 if let Err(e) = write_run(&mut buf) {
                     fail(e);
                 }
             });
         }
-        // The games read in order, one thread: a packed file is unpacked once, front to back.
-        let mut batch = Vec::with_capacity(256);
+        // The games read in order, one thread: a packed file is unpacked once, front to back. A
+        // batch holds `BATCH` games or `BATCH_BYTES` of text, whichever comes first, so heavily
+        // annotated games waiting in the channel hold little memory.
+        let mut batch = Vec::with_capacity(BATCH);
+        let mut bytes = 0;
+        let send = |batch: Vec<(u32, String)>, bytes: usize| {
+            job.most.fetch_max(bytes as u64, Ordering::Relaxed);
+            tx.send(batch).is_ok()
+        };
         for g in from..count {
             if job.stop.load(Ordering::Relaxed) {
                 break;
             }
             match lib.text(g) {
-                Ok(t) => batch.push((g, t)),
+                Ok(t) => {
+                    bytes += t.len();
+                    batch.push((g, t));
+                }
                 // A game that cannot be read has no positions; the others go on.
                 Err(_) => {}
             }
-            if batch.len() == 256 && tx.send(std::mem::replace(&mut batch, Vec::with_capacity(256))).is_err() {
+            if (batch.len() == BATCH || bytes >= BATCH_BYTES) && !send(std::mem::replace(&mut batch, Vec::with_capacity(BATCH)), std::mem::take(&mut bytes)) {
                 break;
             }
         }
-        let _ = tx.send(batch);
+        send(batch, bytes);
         drop(tx);
     });
     if let Some(e) = failed.into_inner().unwrap_or_else(|e| e.into_inner()) {
@@ -935,9 +970,12 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
 /// Builds the index of `lib` (its table whole) into `dir`: from scratch, or keeping the entries
 /// of `old` for its games before `keep`.
 fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, job: &Job, stamp: &str) -> io::Result<Done> {
+    // The file's size and tail now, while it is still the file the table read: taken at the
+    // end, a file replaced meanwhile and then grown would keep this table's entries.
+    let (size, tail) = sized(&lib.path, stamp);
     let count = lib.progress().games as u32;
     let from = old.map_or(0, |(_, keep)| keep).min(count);
-    job.of.store(((count - from) as u64).div_ceil(256), Ordering::Relaxed);
+    job.of.store((count - from) as u64, Ordering::Relaxed);
     let runs_dir = dir.join("runs");
     std::fs::create_dir_all(&runs_dir)?;
     let plies = plies(depth);
@@ -1059,8 +1097,7 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
     f.write_all(&b)?;
     f.sync_all()?;
     let _ = std::fs::remove_dir_all(&runs_dir);
-    let size = std::fs::metadata(&lib.path).map_or(0, |m| m.len());
-    let done = Done { form: FORM, source: lib.path.clone(), stamp: stamp.to_string(), depth, games: count, entries, size, tail: if grows(&lib.path) { tail(&lib.path, size) } else { String::new() }, table_form: super::table::FORM.to_string(), made: now() };
+    let done = Done { form: FORM, source: lib.path.clone(), stamp: stamp.to_string(), depth, games: count, entries, size, tail, table_form: super::table::FORM.to_string(), made: now() };
     let part = dir.join("done.part");
     let mut f = File::create(&part)?;
     f.write_all(&serde_json::to_vec(&done).map_err(io::Error::other)?)?;
@@ -1360,7 +1397,16 @@ pub fn keep_up(lib: &Arc<Library>, cfg: &crate::config::ChessConfig) {
     if let Some(j) = job(path) {
         // Under way, or tried for the database as it is now.
         let stamp = j.stamp.lock().unwrap_or_else(|e| e.into_inner()).clone();
-        if j.phase.load(Ordering::Relaxed) < 2 || stamp == self::stamp(path) {
+        if j.phase.load(Ordering::Relaxed) < 2 {
+            // Of a table read before the file changed (the app has read it again): stopped, not
+            // left to finish out of date; built again from this table once it has ended. An
+            // empty stamp: still waiting for its table.
+            if !stamp.is_empty() && stamp != lib.stamp() {
+                stop(path);
+            }
+            return;
+        }
+        if stamp == self::stamp(path) {
             return;
         }
     }
@@ -1493,7 +1539,8 @@ pub struct Kept {
     pub bytes: u64,
 }
 
-/// Every whole index kept; one whose database is gone (from a folder that is there) goes.
+/// Every whole index kept; one whose database is gone (from a folder that is there) goes, and so
+/// does one a build that ended (a quit, a crash) left half made.
 pub fn kept() -> Vec<Kept> {
     let mut out = vec![];
     let Some(root) = folder() else { return out };
@@ -1503,7 +1550,16 @@ pub fn kept() -> Vec<Kept> {
             let _ = std::fs::remove_dir_all(&dir);
             continue;
         }
-        let Some(d) = read_done(&dir) else { continue };
+        let Some(d) = read_done(&dir) else {
+            // Its run (`<hash>-<run>-<n>`) is known to have ended: one that keeps no list may
+            // still be building, however old the folder.
+            let name = e.file_name().to_string_lossy().into_owned();
+            let run = name.split_once('-').and_then(|(_, r)| r.rsplit_once('-')).map(|(r, _)| r.to_string());
+            if run.as_deref().and_then(crate::spill::alive) == Some(false) {
+                crate::spill::gone(&dir);
+            }
+            continue;
+        };
         let src = if d.source.exists() { d.source.clone() } else { crate::archive::split(&d.source).map_or(d.source.clone(), |(a, _)| a) };
         if !src.exists() && src.parent().is_some_and(|p| p.exists()) {
             crate::spill::gone(&dir);

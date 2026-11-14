@@ -199,8 +199,10 @@ folder instead (up to 256 MB): paging would show lines before the checksum at th
 prove the password.
 
 The PNG the desktop app makes to show an old picture (a TIFF, PSD …) is kept in the preview
-cache, as for any picture; for a locked one it is shown again only after the password is given
-and checked anew.
+cache for an unlocked one, as for any picture. For a locked one it goes to this run's own
+folder in the cache (`locked/<run>/`), never to the lasting preview cache, and is removed when
+the app ends (after a crash, at the next start); within the run it is shown again only after
+the password is given and checked anew.
 
 ---
 [← Previous: Pack and extract](pack-and-extract.md) · [Next: Disk images, CHM help files and CBR comics →](disk-images.md)

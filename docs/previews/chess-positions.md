@@ -86,7 +86,9 @@ one on the xiangqi board as it does a chess move, and the tree follows.
 
 *List them* above the tree (**l** in the terminal app's tree) goes back to the games list,
 cut to the games that reach the position on the board, whatever their move order. The other
-filters, the sort and **Enter** work as always. The list says *Only the games reaching the
+filters, the sort and **Enter** work as always. At a common position of a large database the
+games take a moment to gather: the terminal app's status line says *Loading…* until they are
+in, and the view keeps drawing and answering keys meanwhile. The list says *Only the games reaching the
 tree's position*; *Show all games* (**c** in the terminal app, which clears every filter)
 shows all again. While the index is [out of date](#when-the-database-changes), *List them* is
 not there (**l** says why), and the list cut to a position shows no games.
@@ -114,7 +116,10 @@ there (**l** in the terminal app says why), and a games list cut to a position s
 since the old index's game numbers would now point at other games. When the new index is done,
 it takes the old one's place, the old one is removed, and *List them* is back. A PGN file that
 only grew (games added at its end) keeps the old index's games and reads only the new ones, and
-the last old one again. Any other change reads every game again.
+the last old one again. Any other change reads every game again. Whether a file only grew is
+told by its last 64 KB before the old end: an edit further up that keeps the file's length,
+made together with games added at the end, is not seen, and the edited game keeps its old
+entries until the index is built anew (*Remove*, then *Build position index*).
 
 ## Room on the disk
 
@@ -129,7 +134,9 @@ in keeps its indexes; an empty folder where a network share or a disk is mounted
 `positions/<file name>`, with *Remove*. *Clear everything that can be built again* leaves the
 indexes, as building one again takes minutes. An index is removed only per database: by that
 row's *Remove*, by *Remove* in its games list (**I** in the terminal app), or when its database
-file is gone. Turning *Position index for every games table* off removes none.
+file is gone. Turning *Position index for every games table* off removes none. A build cut short by quitting or a crash
+leaves a half-made index; it is removed the next time *Disk use* lists the indexes or that
+database is shown.
 
 Measured on a 16-core machine on a database of 12.3 million games (a 12 GB PGN file):
 

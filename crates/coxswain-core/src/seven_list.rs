@@ -38,6 +38,11 @@ impl Entry {
     pub fn has_stream(&self) -> bool {
         self.block.is_some()
     }
+
+    /// Whether nothing else is unpacked to reach it: it starts its block, or has none.
+    pub fn first_in_block(&self) -> bool {
+        !matches!(self.block, Some((_, at)) if at > 0)
+    }
 }
 
 /// How a block is packed, when it is one stream this reads.
