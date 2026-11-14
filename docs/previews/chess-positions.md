@@ -52,6 +52,12 @@ index for every games table* builds one for each games table you open, without t
 On a database of 12.3 million games (a 12 GB PGN file), at 30 moves, the index took about three
 minutes on a 16-core machine and 6.1 GB: see [Room on the disk](#room-on-the-disk).
 
+A ChessBase or SCID database and a PGN file over 256 MB inside an archive have their games read
+by several threads at once: on 6 million games, the ChessBase database and the PGN file in a 7z
+took about as long as the plain file. A `.pgn.gz` or `.pgn.zst` file is read by one thread,
+front to back: on the same games a `.pgn.gz` took about as long, a `.pgn.zst` about half a minute
+longer.
+
 ## The opening tree
 
 On a game's board, *Tree* (**t** in both apps) shows the opening tree of the position on the

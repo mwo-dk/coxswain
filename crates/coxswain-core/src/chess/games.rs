@@ -861,8 +861,11 @@ pub struct Library {
     _held: Option<super::cbv::Held>,
     /// The names' order (`Table::ranks`), with how many names there were then.
     ranks: Mutex<Option<(u32, Arc<Vec<u32>>)>>,
-    /// The last block of `GAMES` unpacked, by its place: games read in order unpack each once.
-    last_block: Mutex<Option<(u64, Arc<Vec<u8>>)>>,
+    /// The last blocks of `GAMES` unpacked, by their place, the newest last: games read in
+    /// order unpack each once, also by several threads each reading a run of games (`positions`).
+    blocks: Mutex<Vec<(u64, Arc<Vec<u8>>)>>,
+    /// Blocks of `GAMES` unpacked: the work, counted.
+    unpacked: AtomicU64,
 }
 
 impl Drop for Library {
@@ -926,7 +929,7 @@ impl Library {
         let games = games.map(Mutex::new);
         let table = Arc::new(table);
         let _held = (cbh && super::cbv::is_cbv(path)).then(|| super::cbv::hold(path));
-        let lib = |shared, size| Library { path: path.to_path_buf(), format, shared, games, table: table.clone(), read: read.clone(), size, stop: stop.clone(), source, scid: scid.clone(), archived: streamed, _held, ranks: Mutex::new(None), last_block: Mutex::new(None) };
+        let lib = |shared, size| Library { path: path.to_path_buf(), format, shared, games, table: table.clone(), read: read.clone(), size, stop: stop.clone(), source, scid: scid.clone(), archived: streamed, _held, ranks: Mutex::new(None), blocks: Mutex::new(vec![]), unpacked: AtomicU64::new(0) };
         if let Some(done) = kept {
             {
                 let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
@@ -1191,12 +1194,16 @@ const GAMES: &str = "games";
 /// The form of `GAMES`, in the table's `extra`: a table kept in another form is not taken (nor
 /// removed: an older version still reads its own), and the file is read again into a new one.
 const GAMES_FORM: &str = "games 2";
+/// Unpacked blocks kept (`Library::block`): two for each thread that reads games at once.
+const BLOCKS_KEPT: usize = 16;
 /// A block is closed once its text is this long (a game is never split).
 const BLOCK: usize = 256 << 10;
 /// The dictionary of a block's LZMA2: twice the block, so a block is one run.
 const DICT: u32 = 2 * BLOCK as u32;
 /// The most a block unpacks to: a game of `MAX_GAME` after less than `BLOCK`, and the sizes.
 const BLOCK_MAX: u64 = MAX_GAME as u64 + 2 * BLOCK as u64;
+/// The most a block may take packed: LZMA2 adds a few bytes to every 64 KB it cannot pack.
+const PACKED_MAX: u64 = BLOCK_MAX + BLOCK_MAX / 128 + 1024;
 /// A game's moves size, with this set: its move numbers kept as they are (`numbers_out`).
 const KEPT_NUMBERS: u32 = 1 << 31;
 
@@ -2024,11 +2031,9 @@ pub fn positions(path: &Path, stop: &dyn Fn() -> bool, mut each: impl FnMut(u32,
 
 /// What the position index (`positions`) reads of the table.
 impl Library {
-    /// The block of `GAMES` at `offset`, unpacked; the last one is kept.
+    /// The block of `GAMES` at `offset`, unpacked; the last `BLOCKS_KEPT` are kept.
     fn block(&self, offset: u64) -> io::Result<Arc<Vec<u8>>> {
-        if let Some((at, raw)) = self.last_block.lock().unwrap_or_else(|e| e.into_inner()).as_ref()
-            && *at == offset
-        {
+        if let Some((_, raw)) = self.blocks.lock().unwrap_or_else(|e| e.into_inner()).iter().find(|b| b.0 == offset) {
             return Ok(raw.clone());
         }
         // The table's own handle on `GAMES`: a prune that removes the folder leaves it readable.
@@ -2036,12 +2041,41 @@ impl Library {
         f.seek(SeekFrom::Start(offset))?;
         let mut n = [0u8; 4];
         f.read_exact(&mut n)?;
-        let mut raw = vec![];
-        lzma_rust2::Lzma2Reader::new((&mut *f).take(u32::from_le_bytes(n) as u64), DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
+        // A damaged size is not read: a block packs to little more than it unpacks to.
+        let n = u32::from_le_bytes(n) as u64;
+        if n > PACKED_MAX {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "block size"));
+        }
+        let mut packed = vec![];
+        (&mut *f).take(n).read_to_end(&mut packed)?;
+        // Unpacked with the file let go: other threads read their blocks meanwhile.
         drop(f);
+        let mut raw = vec![];
+        lzma_rust2::Lzma2Reader::new(&packed[..], DICT, None).take(BLOCK_MAX).read_to_end(&mut raw)?;
+        self.unpacked.fetch_add(1, Ordering::Relaxed);
         let raw = Arc::new(raw);
-        *self.last_block.lock().unwrap_or_else(|e| e.into_inner()) = Some((offset, raw.clone()));
+        // Two threads may have unpacked it at once: kept once.
+        let mut kept = self.blocks.lock().unwrap_or_else(|e| e.into_inner());
+        if !kept.iter().any(|b| b.0 == offset) {
+            if kept.len() >= BLOCKS_KEPT {
+                kept.remove(0);
+            }
+            kept.push((offset, raw.clone()));
+        }
         Ok(raw)
+    }
+
+    /// Blocks of `GAMES` unpacked so far.
+    #[cfg(test)]
+    pub(crate) fn unpacked(&self) -> u64 {
+        self.unpacked.load(Ordering::Relaxed)
+    }
+
+    /// Whether any game's text is read on its own, at its place, by any thread at once: a SCID
+    /// or ChessBase database, a PGN kept in blocks. Not a packed file read as it unpacks, nor a
+    /// plain one read through one handle.
+    pub(crate) fn reads_anywhere(&self) -> bool {
+        self.scid.is_some() || self.archived || (super::cbh::is_cbh(&self.path) && archived_pgn(&self.path).is_none())
     }
 
     /// The stamp of the database the table was read from (`table::stamp`).
