@@ -79,14 +79,14 @@ for a Black move, whatever move order the game took to get there.
 
 | | Desktop app | Terminal app |
 |---|---|---|
-| Play a move of the tree | A click on it: it is played on the board as a move of yours would be (the game's own next move is stepped to; any other starts [your line](chess-play.md#your-line)), and the tree follows | **↑ ↓** choose it, **Enter** plays it (xiangqi: shown only) |
+| Play a move of the tree | A click on it: it is played on the board as a move of yours would be (the game's own next move is stepped to; any other starts [your line](chess-play.md#your-line)), and the tree follows | **↑ ↓** choose it, **Enter** plays it |
 | Step through the game | **← →** and the other keys of the board; the tree follows | **← →** and the other keys of the board; the tree follows |
 | Hide the tree | *Tree* again, or **t** | **t** or **Esc** |
 
 A position past the index's depth shows how many games reach it, and *Past the index's depth (30
 moves): no next moves*. A position the index does not have says *0 games*. Xiangqi games have a
-tree too, but it is read-only: its moves are shown in ICCS (`h2e2`), and are not played from
-the tree (a click or **Enter** does nothing); play them on the board itself.
+tree too, its moves in ICCS (`h2e2`): a click (desktop app) or **Enter** (terminal app) plays
+one on the xiangqi board as it does a chess move, and the tree follows.
 
 ## The games reaching a position
 
@@ -231,6 +231,13 @@ place in the file. After a change those places can hold other games, so a game o
 old index could be the wrong one. The tree still shows the old counts, results, Elo, years and
 players, but *List them* (**l**) waits until the new index is in, which happens by itself in the
 background while the table is open; a list cut to the position shows no games until then.
+
+#### Can I play a xiangqi move from the tree?
+
+Yes. A click on the move (desktop app), or **↑ ↓** to it and **Enter** (terminal app), plays it
+on the xiangqi board: the game's own next move is stepped to, any other starts
+[your line](chess-play.md#your-line) under the moves, and the tree shows the new position.
+The move is played as the games have it; it is not checked against the rules.
 
 #### Why does a deep position show games but no moves?
 

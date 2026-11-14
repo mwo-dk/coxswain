@@ -519,6 +519,16 @@ impl Viewer {
         }
     }
 
+    /// The move that led to the game's position (or your line's): White's or Red's, and its number.
+    fn last_move(&self) -> Option<(bool, u32)> {
+        if let Some(l) = self.played.as_ref().filter(|l| l.at > 0) {
+            let m = &l.moves[l.at - 1];
+            return Some((m.white, m.number));
+        }
+        let o = self.open.as_ref()?;
+        o.at.map(|n| (o.game.nodes[n as usize].white, o.game.nodes[n as usize].number))
+    }
+
     /// The squares and arrows the game's comments draw on the position shown ([%csl], [%cal]).
     fn drawn(&self) -> Vec<chess::pgn::Mark> {
         if self.played.as_ref().is_some_and(|l| l.at > 0) || self.browsing().is_some() {
@@ -1039,10 +1049,8 @@ impl Viewer {
             KeyCode::Up => self.tree = Some(sel.saturating_sub(1)),
             KeyCode::Enter => {
                 let (Some(fen), Some(m)) = (self.now().0, self.tree_now().and_then(|t| t.moves.get(sel).cloned())) else { return Some(Outcome::Stay) };
-                if self.xiangqi() {
-                    return Some(Outcome::Stay);
-                }
-                match play::play(&fen, &m.uci) {
+                let format = self.lib.as_ref().map_or(Format::Pgn, |l| l.format);
+                match chess::positions::play_tree_move(format, &fen, &m.uci, self.last_move()) {
                     Some(p) => {
                         self.play(p);
                         self.tree = Some(0);
@@ -1731,14 +1739,12 @@ impl Viewer {
     /// in red and black, the last move's points tinted. With room, the pieces are discs drawn
     /// from block characters with their character on them, or the desktop app's pictures.
     fn xiangqi_board(&self, area: Rect, dim: Style) -> (Vec<Line<'static>>, u16, Vec<crate::pictures::Placed>) {
-        let Some(o) = &self.open else { return (vec![], 0, vec![]) };
-        let g = &o.game;
-        let fen = match o.at {
-            Some(n) => g.nodes[n as usize].fen.clone(),
-            None => Some(g.start.clone()),
+        if self.open.is_none() {
+            return (vec![], 0, vec![]);
         }
-        .unwrap_or_default();
-        let last = o.at.map(|n| (g.nodes[n as usize].from, g.nodes[n as usize].to));
+        // The game's position, or your line's (a tree move played).
+        let (fen, last) = self.game_now();
+        let fen = fen.unwrap_or_default();
         let cells = coxswain_core::xiangqi::cells(&fen);
         let wood = self.board[0];
         let ink = Style::default().bg(wood).fg(Color::Rgb(70, 50, 30));
@@ -2789,6 +2795,51 @@ mod tests {
         let s: String = term.backend().buffer().content.iter().map(|c| c.symbol()).collect();
         assert!(s.chars().any(|c| ('\u{1FB00}'..='\u{1FB3B}').contains(&c)) && !s.contains('●') && s.contains("26"), "{s}");
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// Enter on a xiangqi tree move that is not the game's next one: your line, drawn on the
+    /// board, and the tree of the position after it.
+    #[test]
+    fn a_xiangqi_tree_move_played_on_the_board() {
+        let d = std::env::temp_dir().join(format!("coxswain-tui-xq-tree-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("g.pgn");
+        let g = |moves: &str| format!("[Game \"Chinese Chess\"]\n[Red \"r\"]\n[Black \"b\"]\n[Result \"1-0\"]\n\n{moves} 1-0\n\n");
+        std::fs::write(&p, [g("1. h2e2 h9g7"), g("1. b2e2 b9c7")].concat()).unwrap();
+        let cfg = coxswain_core::config::Config::default();
+        let mut v = Viewer::open(&p, &cfg, &Theme::default()).unwrap();
+        let lib = v.lib.clone().unwrap();
+        let until = std::time::Instant::now() + coxswain_core::test_limit(std::time::Duration::from_secs(30));
+        while !lib.progress().done {
+            assert!(std::time::Instant::now() < until, "the table never filled");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        chess::positions::build(lib.clone(), 30);
+        while !chess::positions::status(&lib, 30).ready {
+            assert!(std::time::Instant::now() < until, "the index was never built");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        v.poll();
+        v.key(key(KeyCode::Enter), None);
+        while v.open.is_none() {
+            assert!(std::time::Instant::now() < until, "the game never opened");
+            v.poll();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let area = Rect::new(0, 0, 120, 34);
+        let before = v.xiangqi_board(area, Style::default()).0;
+        v.key(key(KeyCode::Char('t')), None);
+        let start = v.tree_now().unwrap();
+        // One game each: by their ICCS, b2e2 first, which is not this game's move.
+        assert_eq!(start.moves.iter().map(|m| m.san.as_str()).collect::<Vec<_>>(), ["b2e2", "h2e2"]);
+        v.key(key(KeyCode::Enter), None);
+        let line = v.played.as_ref().expect("your line");
+        assert_eq!((line.moves[0].san.as_str(), line.moves[0].white, line.moves[0].number), ("b2e2", true, 1));
+        assert_eq!(v.now().0.as_deref(), Some(start.moves[0].fen.as_str()));
+        assert_ne!(v.xiangqi_board(area, Style::default()).0, before, "the board shows the move");
+        assert_eq!(v.tree_now().unwrap().moves.iter().map(|m| m.san.as_str()).collect::<Vec<_>>(), ["b9c7"]);
+        chess::positions::remove(&p);
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     #[test]

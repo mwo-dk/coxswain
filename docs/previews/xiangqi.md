@@ -102,6 +102,11 @@ move*.
 
 The desktop app also has **|◀ ◀ ▶ ▶|** under the board.
 
+With a [position index](chess-positions.md) built, **t** (*Tree* in the desktop app) shows the
+opening tree of the position on the board, its moves in ICCS. A click on a move (desktop app),
+or **↑ ↓** and **Enter** (terminal app), plays it on the board, and the tree follows
+([The opening tree](chess-positions.md#the-opening-tree)).
+
 A move that cannot be played (no piece of the side to move where it starts, its own piece where
 it goes) stops the positions of its line: the moves after it are still listed, and the line
 above the board says *… could not be played*. Moves are not checked further: a move the rules

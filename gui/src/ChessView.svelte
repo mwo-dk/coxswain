@@ -303,12 +303,15 @@
       () => {},
     );
   });
-  /** A move of the tree played: as a click on the board would (xiangqi's are not played). */
+  /** A move of the tree played: as a click on the board would, chess's or xiangqi's. */
   function playTree(m) {
     // A tree of the position before, still shown while the new one is asked for: not played.
     if (tree?.fen !== fen) return;
-    const l = legal.find((x) => x.uci === m.uci);
-    if (l) playMove(l);
+    const f = fen;
+    invoke("chess_tree_move", { xiangqi, fen: f, uci: m.uci, last: last ? [last.white, last.number] : null }).then(
+      (p) => p && fen === f && playMove(p),
+      () => {},
+    );
   }
   /** The games list cut to the games that reach the position shown. */
   function gamesHere() {
@@ -1129,7 +1132,7 @@
                 <tbody>
                   {#each tree.moves as m (m.uci)}
                     <tr>
-                      <td>{#if xiangqi}{m.san}{:else}<button class="mv" title={t("chess.tree_play_tip")} onclick={() => playTree(m)}>{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}</button>{/if}</td>
+                      <td><button class="mv" title={t("chess.tree_play_tip")} onclick={() => playTree(m)}>{#if xiangqi}{m.san}{:else}{#each show(m.san) as [text, fig], j (j)}{#if fig}<span class="fig">{text}</span>{:else}{text}{/if}{/each}{/if}</button></td>
                       <td class="n">{m.games}</td>
                       <td class="n score"><span class="bar3" title={t("chess.tree_score_of", { white: m.white, draws: m.draws, black: m.black })}><i class="w" style:width="{m.white}%"></i><i class="d" style:width="{m.draws}%"></i><i class="b" style:width="{m.black}%"></i></span> {m.white} · {m.draws} · {m.black}</td>
                       <td class="n">{m.elo ?? ""}</td>

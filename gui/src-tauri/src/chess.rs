@@ -190,6 +190,15 @@ pub fn chess_moves(fen: String) -> Vec<chess::play::Played> {
     chess::play::moves(&fen)
 }
 
+/// The opening tree's move `uci` played on the position `fen` (`chess::positions::play_tree_move`):
+/// chess's, or xiangqi's when `xiangqi`; `last` is the move that led there (White's or Red's, its
+/// number).
+#[tauri::command]
+pub fn chess_tree_move(xiangqi: bool, fen: String, uci: String, last: Option<(bool, u32)>) -> Option<chess::play::Played> {
+    let format = if xiangqi { chess::Format::Xiangqi } else { chess::Format::Pgn };
+    chess::positions::play_tree_move(format, &fen, &uci, last)
+}
+
 /// The last position the engine was asked about: an older question stops when a newer one comes.
 static ASKED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 

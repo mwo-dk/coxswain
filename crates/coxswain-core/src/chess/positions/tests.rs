@@ -409,7 +409,29 @@ fn xiangqi_games_have_a_tree_too() {
     assert_eq!(t.moves.iter().map(|m| (m.san.as_str(), m.games)).collect::<Vec<_>>(), vec![("h2e2", 2), ("b2e2", 1)]);
     let after = &t.moves[0].fen;
     assert_eq!(tree(&lib, after).unwrap().games, 2);
+
+    // A tree move played: the board's next position, Red's first move, and the tree follows.
+    let x = crate::chess::Format::Xiangqi;
+    let red = play_tree_move(x, &start, &t.moves[0].uci, None).expect("h2e2 plays");
+    assert_eq!((red.fen.as_str(), red.white, red.number, red.san.as_str()), (after.as_str(), true, 1, "h2e2"));
+    // h2 and e2: cells x + y × 9, rows from Black's side.
+    assert_eq!((red.from, red.to), (7 + 7 * 9, 4 + 7 * 9));
+    let next = tree(&lib, &red.fen).unwrap();
+    assert_eq!(next.moves.iter().map(|m| (m.san.as_str(), m.games)).collect::<Vec<_>>(), vec![("b9c7", 1), ("h9g7", 1)]);
+    let black = play_tree_move(x, &red.fen, &next.moves[1].uci, Some((red.white, red.number))).expect("h9g7 plays");
+    assert_eq!((black.fen.as_str(), black.white, black.number), (next.moves[1].fen.as_str(), false, 1));
+    assert_eq!(play_tree_move(x, &black.fen, "h9g7", Some((false, 1))).map(|p| p.number), None, "no piece of Red's there");
+    let again = play_tree_move(x, &black.fen, "b0c2", Some((false, 1))).expect("Red again");
+    assert_eq!((again.white, again.number), (true, 2));
     remove(&p);
+}
+
+#[test]
+fn a_chess_tree_move_plays_by_the_rules() {
+    let start = pgn::fen(&Board::default());
+    let m = play_tree_move(crate::chess::Format::Pgn, &start, "e2e4", None).unwrap();
+    assert_eq!((m.fen, m.san.as_str(), m.white, m.number), (fen_after(&["e4"]), "e4", true, 1));
+    assert!(play_tree_move(crate::chess::Format::Pgn, &start, "e2e5", None).is_none());
 }
 
 /// A database whose name is not UTF-8 gets its index, found again by its path.
