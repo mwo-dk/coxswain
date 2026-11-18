@@ -164,7 +164,7 @@ calibre's runs for [e-books](ebooks.md) are held tighter still: no mounts at all
 standard input, `sh -c` running `ebook-convert` and `ebook-meta` as nobody, with the same limits
 as ffmpeg's and ImageMagick's ([How calibre runs](ebooks.md#how-calibre-runs)).
 
-A run longer than the timeout (120 s by default) is stopped and its container killed. Make PDF
+A run longer than the timeout (120 s by default) is stopped and its container removed. Make PDF
 searchable, Convert video or audio, Convert or edit pictures, Convert geodata, Export 3D model and Export from KiCad have none: **Stop** ends them. Pulling
 the image is not counted.
 

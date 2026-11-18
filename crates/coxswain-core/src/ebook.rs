@@ -207,7 +207,6 @@ fn run_args(name: &str, image: &str, script: &str, bounds: bool) -> Vec<String> 
     v
 }
 
-
 /// What a run says while it goes.
 pub enum Said<'a> {
     /// The image is being pulled: its progress line.

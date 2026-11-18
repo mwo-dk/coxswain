@@ -174,10 +174,13 @@ fn own_start() -> Option<u64> {
     *START.get_or_init(|| if crate::tools::flatpak().is_some() { None } else { started(std::process::id()).flatten() })
 }
 
-/// Stops and removes the container `name` (`rm -f`), when its run is stopped or ends: never left
-/// to `--rm` alone, which a `run` that is killed never gets to.
+/// Stops the container `name` when its run is stopped or runs past its time: killed at once
+/// (`rm -f` alone would wait the stop timeout, as a tool that is PID 1 ignores SIGTERM), then
+/// removed (`rm -f`), not left to `--rm` alone, which a `run` that is killed never gets to.
 pub fn stop(rt: &Path, name: &str) {
-    let _ = crate::tools::command(rt).args(["rm", "-f", name]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+    for verb in [&["kill", name][..], &["rm", "-f", name]] {
+        let _ = crate::tools::command(rt).args(verb).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+    }
 }
 
 /// The process id and start of a container's name `name`, when it is one Coxswain gives:
@@ -218,7 +221,8 @@ fn leftover(name: &str, state: &str, started: &dyn Fn(u32) -> Option<Option<u64>
     }
 }
 
-/// The containers to remove in `ps`'s lines (`<id> <name> <state>`): their ids, and whether each
+/// The containers to remove in `ps`'s lines (`<id> <name> <state>`, the state's first word:
+/// podman can say `Exited (0) 2 hours ago`, `Up 3 minutes`): their ids, and whether each
 /// is in storage only (podman's `rm --storage`).
 fn leftovers<'a>(ps: &'a str, started: &dyn Fn(u32) -> Option<Option<u64>>) -> Vec<(&'a str, bool)> {
     ps.lines()
@@ -226,7 +230,7 @@ fn leftovers<'a>(ps: &'a str, started: &dyn Fn(u32) -> Option<Option<u64>>) -> V
             let mut w = l.split_whitespace();
             let (id, name, state) = (w.next()?, w.next()?, w.next()?);
             let id_ok = !id.is_empty() && id.bytes().all(|b| b.is_ascii_hexdigit());
-            (id_ok && w.next().is_none() && leftover(name, state, started)).then(|| (id, state.eq_ignore_ascii_case("storage")))
+            (id_ok && leftover(name, state, started)).then(|| (id, state.eq_ignore_ascii_case("storage")))
         })
         .collect()
 }
@@ -238,7 +242,8 @@ fn leftovers<'a>(ps: &'a str, started: &dyn Fn(u32) -> Option<Option<u64>>) -> V
 /// container, image or anything else.
 pub(crate) fn sweep(rt: &Path) {
     static DONE: Mutex<std::collections::BTreeSet<PathBuf>> = Mutex::new(std::collections::BTreeSet::new());
-    // Never in a test: it would act on the runtime of the machine the tests run on.
+    // Never in this crate's unit tests: it would act on the runtime of the machine they run on.
+    // Other tests reach a real runtime only in `--ignored` runs, and only leftovers go.
     if cfg!(test) || own_start().is_none() || !DONE.lock().unwrap_or_else(|e| e.into_inner()).insert(rt.to_path_buf()) {
         return;
     }
@@ -266,7 +271,11 @@ pub(crate) fn sweep(rt: &Path) {
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn started(pid: u32) -> Option<Option<u64>> {
     match std::fs::read_to_string(format!("/proc/{pid}/stat")) {
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        // Hidden (`hidepid`) is not gone: another user's process answers kill(0) with EPERM.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            let gone = unsafe { libc::kill(pid as libc::pid_t, 0) } != 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH);
+            (!gone).then_some(None)
+        }
         Err(_) => Some(None),
         // Field 22, `starttime`, in clock ticks since boot; counted after the `(name)`.
         Ok(s) => Some(s.rfind(')').and_then(|i| s[i + 1..].split_whitespace().nth(19)?.parse().ok())),
@@ -817,8 +826,14 @@ def456 coxswain-media-20-500-1 exited
 --rm coxswain-stockfish-20-500-9 storage
 444444 coxswain-stockfish-20-500-8 storage extra
 555555 coxswain-calibre-20-0 created
+666666 coxswain-media-20-500-4 Exited (0) 2 hours ago
+777777 coxswain-media-20-500-5 Up 3 minutes
+888888 coxswain-ocr-20-500-6 Created
 ";
-        assert_eq!(leftovers(ps, &started), vec![("abc123", true), ("def456", false), ("555555", false)]);
+        assert_eq!(
+            leftovers(ps, &started),
+            vec![("abc123", true), ("def456", false), ("444444", true), ("555555", false), ("666666", false), ("888888", false)]
+        );
     }
 
     /// This process is alive by `started`, with a start, and one that cannot exist is gone.
