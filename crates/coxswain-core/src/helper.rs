@@ -7,8 +7,11 @@
 //! session instead. What goes wrong when it starts is in `helper.log` in the cache folder.
 //!
 //! They talk over a loopback TCP socket, one JSON line per request and per reply. The port
-//! and a token are in a file only the user can read; a connection that does not start with
-//! the token is dropped. If no helper can be reached, the app indexes by itself as before.
+//! and two tokens are in a file only the user can read: a connection that does not start with
+//! the first is dropped, and the helper answers with the second, so an app knows it talks to
+//! its own helper and not to whatever else listens on that port. An app dials only while a
+//! helper holds `index.lock`. If no helper can be reached, the app indexes by itself as before,
+//! and looks for the helper again now and then.
 
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
@@ -132,6 +135,10 @@ enum Reply {
         same: bool,
         #[serde(default)]
         newer: Option<String>,
+        /// The second token of `index.addr`: this is the helper of that file. Older apps
+        /// ignore it; a helper of before sends none, and only ever asks a newer app to wait.
+        #[serde(default)]
+        proof: Option<String>,
     },
     Results(Results),
     Found(Found),
@@ -265,8 +272,9 @@ fn runs_in(dir: &Path) -> bool {
     let Ok(lock) = std::fs::File::open(dir.join("index.lock")) else {
         return false;
     };
-    // Got: let go at once, by `Held`, so no program started meanwhile keeps it (#802).
-    matches!(crate::fs::Held::try_lock(lock), Err(std::fs::TryLockError::WouldBlock))
+    // Got: let go at once, by `Held`, so no program started meanwhile keeps it (#802). Shared,
+    // so two apps looking at once never take each other for the helper.
+    matches!(crate::fs::Held::try_lock_shared(lock), Err(std::fs::TryLockError::WouldBlock))
 }
 
 /// Where a helper's errors go: `helper.log` beside its address.
@@ -330,18 +338,6 @@ fn is_token(theirs: &str, token: &str) -> bool {
             .zip(token.bytes())
             .fold(0u8, |acc, (a, b)| acc | (a ^ b))
             == 0
-}
-
-/// `text` into `path`, readable by this user alone. On Windows the cache folder is in the
-/// user's profile, which is theirs alone already; the file inherits that.
-fn write_private(path: &Path, text: &str) -> io::Result<()> {
-    let tmp = path.with_extension("tmp");
-    let mut o = std::fs::OpenOptions::new();
-    o.write(true).create(true).truncate(true);
-    #[cfg(unix)]
-    std::os::unix::fs::OpenOptionsExt::mode(&mut o, 0o600);
-    o.open(&tmp)?.write_all(text.as_bytes())?;
-    std::fs::rename(tmp, path)
 }
 
 // ---------------------------------------------------------------- the helper
@@ -504,11 +500,17 @@ fn serve_in(
         }
         std::thread::sleep(Duration::from_millis(100));
     }
+    let addr = dir.join("index.addr");
+    // A helper that ended without tidying left its address: no app dials it from now on.
+    let _ = std::fs::remove_file(&addr);
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
-    let (token, addr) = (token(), dir.join("index.addr"));
-    write_private(
+    let (token, proof) = (token(), token());
+    // Readable by this user alone; on Windows the cache folder is in the user's profile, which
+    // is theirs alone already. A name of its own on the way (#962).
+    crate::fs::replace(
         &addr,
-        &format!("{}\n{token}\n", listener.local_addr()?.port()),
+        format!("{}\n{token}\n{proof}\n", listener.local_addr()?.port()).as_bytes(),
+        true,
     )?;
 
     let index = index();
@@ -539,11 +541,12 @@ fn serve_in(
         );
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
-                let (index, store, roots, token, clients, quit, last, counted) = (
+                let (index, store, roots, token, proof, clients, quit, last, counted) = (
                     index.clone(),
                     store.clone(),
                     text_roots.clone(),
                     token.clone(),
+                    proof.clone(),
                     clients.clone(),
                     quit.clone(),
                     last.clone(),
@@ -558,6 +561,7 @@ fn serve_in(
                         store.as_deref(),
                         &roots,
                         &token,
+                        &proof,
                         &quit,
                         &counted,
                     );
@@ -701,6 +705,7 @@ fn answer(
     store: Option<&Store>,
     text_roots: &[PathBuf],
     token: &str,
+    proof: &str,
     quit: &AtomicBool,
     counted: &Counted,
 ) -> io::Result<()> {
@@ -735,6 +740,7 @@ fn answer(
                     _ if quit.load(Ordering::SeqCst) => Reply::Hello {
                         same: false,
                         newer: None,
+                        proof: Some(proof.into()),
                     },
                     Greet::Leave => {
                         if !quit.fetch_or(true, Ordering::SeqCst) {
@@ -745,6 +751,7 @@ fn answer(
                         Reply::Hello {
                             same: false,
                             newer: None,
+                            proof: Some(proof.into()),
                         }
                     }
                     Greet::Serve => {
@@ -756,6 +763,7 @@ fn answer(
                         Reply::Hello {
                             same: true,
                             newer: None,
+                            proof: Some(proof.into()),
                         }
                     }
                     Greet::Refuse => {
@@ -766,6 +774,7 @@ fn answer(
                         Reply::Hello {
                             same: false,
                             newer: Some(ours.0.into()),
+                            proof: Some(proof.into()),
                         }
                     }
                 }
@@ -945,7 +954,11 @@ pub struct Client {
     line: Mutex<Option<Line>>,
     /// The last status and when it was asked: the terminal app asks with every frame.
     status: Mutex<Option<(Instant, Status)>>,
-    own: OnceLock<Arc<Service>>,
+    /// The app's own index, while no helper serves it.
+    own: Mutex<Option<Arc<Service>>>,
+    /// When the app on its own index looks for a helper next, and how often (#969).
+    redial: Mutex<Instant>,
+    redial_every: Duration,
     /// Whether a helper answered the last dial. One that is there but silent (its store busy
     /// with a big change) is waited for, not replaced by the app's own index for good.
     reachable: AtomicBool,
@@ -1014,7 +1027,9 @@ impl Client {
             outdated: OnceLock::new(),
             line: Mutex::default(),
             status: Mutex::default(),
-            own: OnceLock::new(),
+            own: Mutex::default(),
+            redial: Mutex::new(Instant::now()),
+            redial_every: REDIAL,
             reachable: AtomicBool::new(false),
         })
     }
@@ -1096,7 +1111,7 @@ impl Client {
     ) -> Result<(), String> {
         // Both apps show what the model says as it is: never an escape a terminal obeys.
         let mut piece = |text: &str| piece(&crate::meaning::printable(text));
-        let line = (crate::chat::of(&cfg.ask_model).is_some() && self.own.get().is_none())
+        let line = (crate::chat::of(&cfg.ask_model).is_some() && !self.on_own())
             .then(|| self.connect())
             .flatten();
         let Some((mut from, mut to)) = line else {
@@ -1235,7 +1250,11 @@ impl Client {
 
     /// Whether the index is the helper's (and not our own, the fallback).
     pub fn shared(&self) -> bool {
-        self.own.get().is_none()
+        !self.on_own()
+    }
+
+    fn on_own(&self) -> bool {
+        self.own.lock().unwrap().is_some()
     }
 
     pub fn status(&self) -> Status {
@@ -1275,27 +1294,33 @@ impl Client {
         now
     }
 
-    fn own(&self) -> &Arc<Service> {
-        self.own.get_or_init(|| {
-            Service::start(&self.search, self.dir.as_ref().map(|d| d.join("index.bin")))
-        })
+    fn own(&self) -> Arc<Service> {
+        self.own
+            .lock()
+            .unwrap()
+            .get_or_insert_with(|| {
+                *self.redial.lock().unwrap() = Instant::now() + self.redial_every;
+                Service::start(&self.search, self.dir.as_ref().map(|d| d.join("index.bin")))
+            })
+            .clone()
     }
 
     /// The app's own index, started when no helper can be reached: not for one that is
-    /// there and slow, which would leave this app on its own index for good.
-    fn fallback(&self) -> Option<&Arc<Service>> {
+    /// there and slow.
+    fn fallback(&self) -> Option<Arc<Service>> {
         (!self.reachable.load(Ordering::Relaxed)).then(|| self.own())
     }
 
     /// One request, one reply. A broken line is opened again once, which starts a helper when
-    /// none runs. `None` when that fails too: then the app's own index answers, from now on.
+    /// none runs. `None` when that fails too: then the app's own index answers, until a helper
+    /// is found again (`back`).
     fn ask(&self, request: &Request) -> Option<Reply> {
         self.ask_on(&mut self.line.lock().unwrap(), request)
     }
 
     /// `ask` on a line already held.
     fn ask_on(&self, line: &mut Option<Line>, request: &Request) -> Option<Reply> {
-        if self.own.get().is_some() {
+        if self.on_own() && !self.back(line) {
             return None;
         }
         for _ in 0..2 {
@@ -1312,6 +1337,86 @@ impl Client {
         None
     }
 
+    /// An app on its own index looks for a helper again, every `redial_every`: one that came
+    /// after the app stopped waiting (a slow start) serves it from then on, and its own index
+    /// stops. One dial, which starts nothing and waits for nothing: it may come from the
+    /// screen's thread (`status`).
+    fn back(&self, line: &mut Option<Line>) -> bool {
+        {
+            let mut next = self.redial.lock().unwrap();
+            if self.outdated.get().is_some() || Instant::now() < *next {
+                return false;
+            }
+            *next = Instant::now() + self.redial_every;
+        }
+        let Some(dir) = self.dir.as_deref() else {
+            return false;
+        };
+        *line = match self.hello(dir) {
+            Hi::Served(l) => Some(l),
+            _ => None,
+        };
+        if line.is_none() {
+            return false;
+        }
+        if let Some(own) = self.own.lock().unwrap().take() {
+            own.stop();
+        }
+        self.reachable.store(true, Ordering::Relaxed);
+        *self.status.lock().unwrap() = None;
+        app_note(dir, format_args!("the helper answers: this app uses it again"));
+        true
+    }
+
+    /// One dial of the helper and its hello.
+    fn hello(&self, dir: &Path) -> Hi {
+        let Some((mut line, token, proof)) = dial(dir) else {
+            return Hi::Nobody;
+        };
+        let reply = exchange(
+            &mut line,
+            &Request::Hello {
+                token,
+                version: self.ours.0.into(),
+                protocol: self.ours.1,
+            },
+        );
+        // Whatever listens on the port must show the address file's second token to be heard.
+        let ours = |theirs: &Option<String>| {
+            proof
+                .as_deref()
+                .zip(theirs.as_deref())
+                .is_some_and(|(p, t)| is_token(t, p))
+        };
+        match reply {
+            Ok(Reply::Hello {
+                same: true, proof, ..
+            }) if ours(&proof) && line.1.set_read_timeout(Some(ANSWER_WAIT)).is_ok() => {
+                Hi::Served(line)
+            }
+            // A newer helper that cannot serve us stays: neither asking it to go nor starting
+            // ours, which would be that newer version again.
+            Ok(Reply::Hello {
+                newer: Some(v),
+                proof,
+                ..
+            }) if ours(&proof) => {
+                if self.outdated.set(v.clone()).is_ok() {
+                    app_note(
+                        dir,
+                        format_args!(
+                            "the helper is the newer version {v}, which this app of {} cannot talk to: it indexes by itself until it is restarted",
+                            self.ours.0
+                        ),
+                    );
+                }
+                Hi::Outdated
+            }
+            // An older helper leaving for ours, or one still starting: ours comes next.
+            _ => Hi::Again,
+        }
+    }
+
     fn connect(&self) -> Option<Line> {
         let dir = self.dir.as_deref()?;
         let mut tries = 0;
@@ -1322,38 +1427,15 @@ impl Client {
         #[cfg(test)]
         let patience = crate::test_limit(patience);
         loop {
-            match dial(dir) {
-                Some((mut line, token)) => match exchange(
-                    &mut line,
-                    &Request::Hello {
-                        token,
-                        version: self.ours.0.into(),
-                        protocol: self.ours.1,
-                    },
-                ) {
-                    Ok(Reply::Hello { same: true, .. }) => return Some(line),
-                    // A newer helper that cannot serve us stays: neither asking it to go nor
-                    // starting ours, which would be that newer version again.
-                    Ok(Reply::Hello { newer: Some(v), .. }) => {
-                        if self.outdated.set(v.clone()).is_ok() {
-                            app_note(
-                                dir,
-                                format_args!(
-                                    "the helper is the newer version {v}, which this app of {} cannot talk to: it indexes by itself until it is restarted",
-                                    self.ours.0
-                                ),
-                            );
-                        }
-                        return None;
-                    }
-                    // An older helper leaving for ours, or a stale address: ours comes next.
-                    _ => {}
-                },
-                None if STEPS.get(tries).is_some_and(|&at| wait.elapsed() >= at) => {
+            match self.hello(dir) {
+                Hi::Served(line) => return Some(line),
+                Hi::Outdated => return None,
+                Hi::Again => {}
+                Hi::Nobody if STEPS.get(tries).is_some_and(|&at| wait.elapsed() >= at) => {
                     (self.spawn)(tries);
                     tries += 1;
                 }
-                None => {}
+                Hi::Nobody => {}
             }
             if wait.elapsed() > patience {
                 return None;
@@ -1362,6 +1444,24 @@ impl Client {
         }
     }
 }
+
+/// What one dial of the helper found.
+enum Hi {
+    Served(Line),
+    /// A newer helper this app cannot talk to.
+    Outdated,
+    /// Something answered that does not serve us (yet): an older helper leaving for ours.
+    Again,
+    /// No helper holds the lock, or it has no address yet.
+    Nobody,
+}
+
+/// A search over a million names answers in milliseconds; a helper that is silent this long
+/// is stuck.
+const ANSWER_WAIT: Duration = Duration::from_secs(10);
+
+/// How often an app on its own index looks for a helper again.
+const REDIAL: Duration = Duration::from_secs(30);
 
 /// When, after the first try, an app that finds no helper starts one again (see `step`).
 const STEPS: [Duration; 3] = [
@@ -1396,23 +1496,32 @@ fn step(n: usize, registered: bool, supervised: bool) -> Step {
     }
 }
 
-/// The helper's address file, read and dialled.
-fn dial(dir: &Path) -> Option<(Line, String)> {
+/// The helper's address file, read and dialled: the line, the token to send and the one the
+/// helper answers with (none from a helper of before). Only while a helper holds `index.lock`
+/// (no other user can: the folder is the user's alone), so an address a helper that ended
+/// without tidying left behind is never dialled: another program may listen on its port now
+/// (#959).
+fn dial(dir: &Path) -> Option<(Line, String, Option<String>)> {
+    if !runs_in(dir) {
+        return None;
+    }
     let text = std::fs::read_to_string(dir.join("index.addr")).ok()?;
     let mut lines = text.lines();
     let (port, token) = (lines.next()?.parse().ok()?, lines.next()?.to_string());
+    let proof = lines.next().map(str::to_string);
     let stream = TcpStream::connect_timeout(
         &SocketAddr::from((Ipv4Addr::LOCALHOST, port)),
         Duration::from_millis(300),
     )
     .ok()?;
     stream.set_nodelay(true).ok()?;
-    // A search over a million names answers in milliseconds; a helper that is silent this
-    // long is stuck.
-    stream
-        .set_read_timeout(Some(Duration::from_secs(10)))
-        .ok()?;
-    Some(((BufReader::new(stream.try_clone().ok()?), stream), token))
+    // Hello is answered at once: an app looking again from its screen's thread never waits
+    // long for a helper that is stuck (`ANSWER_WAIT` once it serves).
+    let hello_wait = Duration::from_secs(2);
+    #[cfg(test)]
+    let hello_wait = crate::test_limit(hello_wait);
+    stream.set_read_timeout(Some(hello_wait)).ok()?;
+    Some(((BufReader::new(stream.try_clone().ok()?), stream), token, proof))
 }
 
 fn exchange((from, to): &mut Line, request: &Request) -> io::Result<Reply> {
@@ -1860,7 +1969,7 @@ mod tests {
         assert_eq!(old.search("README", None, 10).total, 1);
         // An app from before the protocol was named says no protocol: it speaks the first, which
         // this one no longer does.
-        let (mut line, token) = dial(&d.join("cache")).unwrap();
+        let (mut line, token, _) = dial(&d.join("cache")).unwrap();
         line.1
             .write_all(
                 format!("{{\"op\":\"hello\",\"token\":\"{token}\",\"version\":\"1.0.0\"}}\n")
@@ -2023,12 +2132,12 @@ mod tests {
         {
             std::thread::sleep(Duration::from_millis(20));
         }
-        let (mut line, token) = dial(&d.join("cache")).unwrap();
+        let (mut line, token, _) = dial(&d.join("cache")).unwrap();
         assert!(
             exchange(&mut line, &Request::Status).is_err(),
             "no hello, no answer"
         );
-        let (mut line, _) = dial(&d.join("cache")).unwrap();
+        let (mut line, ..) = dial(&d.join("cache")).unwrap();
         assert!(
             exchange(
                 &mut line,
@@ -2040,7 +2149,7 @@ mod tests {
             )
             .is_err()
         );
-        let (mut line, _) = dial(&d.join("cache")).unwrap();
+        let (mut line, ..) = dial(&d.join("cache")).unwrap();
         assert!(matches!(
             exchange(
                 &mut line,
@@ -2077,7 +2186,7 @@ mod tests {
                 && !is_token(&format!("{token}0"), &token)
         );
         // A line without end that goes on and on is dropped before it fills the memory.
-        let (mut long, _) = dial(&d.join("cache")).unwrap();
+        let (mut long, ..) = dial(&d.join("cache")).unwrap();
         let _ = long.1.write_all(&vec![b'a'; 2 << 20]);
         let _ = long.1.write_all(b"\n");
         assert!(
@@ -2111,6 +2220,82 @@ mod tests {
         assert_eq!(alone.search("README", None, 10).total, 1);
         assert!(!alone.shared());
         // The helper may still hold the store: on Windows an open file cannot be removed.
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// A helper that ended without tidying left `index.addr` behind, and something else listens
+    /// on its port now: no helper holds the lock, so the app never says hello there (it would
+    /// give away its token and take the stranger's answers for the helper's), and starts a
+    /// helper, which puts its own address in place (#959).
+    #[test]
+    fn a_stale_address_is_not_dialled_and_a_helper_is_started() {
+        let d = tree("stale-addr");
+        let stranger = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        stranger.set_nonblocking(true).unwrap();
+        let port = stranger.local_addr().unwrap().port();
+        std::fs::write(d.join("cache/index.addr"), format!("{port}\nfeed\nbeef\n")).unwrap();
+        let (started, spawn) = counting(helper(&d, Duration::from_secs(5)));
+        let c = Client::with(Some(d.join("cache")), &config(&d), spawn);
+        ready(&c);
+        assert!(c.shared(), "served by the helper it started");
+        assert_eq!(started.load(Ordering::SeqCst), 1);
+        assert!(stranger.accept().is_err(), "the stranger was never dialled");
+        let addr = std::fs::read_to_string(d.join("cache/index.addr")).unwrap();
+        assert!(!addr.starts_with(&format!("{port}\n")), "the helper's own address");
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// While a helper holds the lock, what answers on the address's port must show its second
+    /// token: a stranger that says "same" without it is not taken for the helper.
+    #[test]
+    fn a_helper_without_the_proof_is_not_used() {
+        let d = tree("no-proof");
+        let lock = std::fs::File::create(d.join("cache/index.lock")).unwrap();
+        lock.try_lock().unwrap();
+        let stranger = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let port = stranger.local_addr().unwrap().port();
+        std::fs::write(d.join("cache/index.addr"), format!("{port}\nfeed\nbeef\n")).unwrap();
+        let answers = |proof: &'static str| {
+            let (mut s, _) = stranger.accept().unwrap();
+            let mut hello = String::new();
+            BufReader::new(s.try_clone().unwrap()).read_line(&mut hello).unwrap();
+            assert!(hello.contains("feed"));
+            s.write_all(format!("{{\"re\":\"hello\",\"same\":true{proof}}}\n").as_bytes()).unwrap();
+        };
+        let c = Client::with(Some(d.join("cache")), &config(&d), |_| {});
+        std::thread::scope(|s| {
+            s.spawn(|| answers(""));
+            assert!(matches!(c.hello(&d.join("cache")), Hi::Again), "no proof");
+            s.spawn(|| answers(",\"proof\":\"dead\""));
+            assert!(matches!(c.hello(&d.join("cache")), Hi::Again), "a wrong proof");
+            s.spawn(|| answers(",\"proof\":\"beef\""));
+            assert!(matches!(c.hello(&d.join("cache")), Hi::Served(_)), "the right one");
+        });
+        drop(lock);
+        let _ = std::fs::remove_dir_all(d);
+    }
+
+    /// An app that gave up waiting for a helper (one slow to start) and indexes by itself finds
+    /// the helper when it comes, uses it from then on, and stops its own index (#969).
+    #[test]
+    fn an_app_on_its_own_index_finds_a_helper_that_comes_later() {
+        let d = tree("later");
+        let mut c = Client::with(Some(d.join("cache")), &config(&d), |_| {});
+        Arc::get_mut(&mut c).unwrap().redial_every = Duration::from_millis(50);
+        // As after a connect that found nobody in time.
+        let own = c.own();
+        assert!(!c.shared());
+        helper(&d, Duration::from_secs(5))();
+        up(&d);
+        let wait = Instant::now();
+        while !c.shared() && wait.elapsed() < crate::test_limit(Duration::from_secs(5)) {
+            c.status();
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert!(c.shared(), "back on the helper");
+        assert!(own.stopped.load(Ordering::Relaxed), "its own index stopped");
+        ready(&c);
+        assert_eq!(c.search("main", None, 10).hits.len(), 1);
         let _ = std::fs::remove_dir_all(d);
     }
 }

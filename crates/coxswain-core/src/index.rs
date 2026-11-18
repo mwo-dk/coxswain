@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
@@ -790,9 +790,17 @@ impl Index {
     // ------------------------------------------------------------ persistence
 
     pub fn save(&self, path: &Path) -> io::Result<()> {
-        let tmp = path.with_extension("tmp");
         crate::fs::private(path.parent().unwrap_or(Path::new(".")), None)?;
-        let mut w = io::BufWriter::new(fs::File::create(&tmp)?);
+        let tmp = crate::fs::passing(path);
+        let done = self.write_to(&tmp, path);
+        if done.is_err() {
+            let _ = fs::remove_file(&tmp);
+        }
+        done
+    }
+
+    fn write_to(&self, tmp: &Path, path: &Path) -> io::Result<()> {
+        let mut w = io::BufWriter::new(fs::File::create(tmp)?);
         w.write_all(MAGIC)?;
         let roots = self
             .roots
@@ -827,7 +835,7 @@ impl Index {
         w.write_all(&at.to_le_bytes())?;
         w.write_all(&ms.to_le_bytes())?;
         w.into_inner()?.sync_all()?;
-        crate::fs::private(path.parent().unwrap_or(Path::new(".")), Some(&tmp))?;
+        crate::fs::private(path.parent().unwrap_or(Path::new(".")), Some(tmp))?;
         fs::rename(tmp, path)
     }
 
@@ -1199,6 +1207,8 @@ pub struct Service {
     state: AtomicU8,
     /// Who else follows the watcher: each burst of changed paths is sent to them.
     listeners: Mutex<Vec<std::sync::mpsc::Sender<Vec<PathBuf>>>>,
+    /// No longer wanted (an app back on the helper): it stops watching and saving.
+    pub(crate) stopped: AtomicBool,
 }
 
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1239,6 +1249,7 @@ impl Service {
             index: RwLock::new(cached.unwrap_or_default()),
             state: AtomicU8::new(state as u8),
             listeners: Mutex::default(),
+            stopped: AtomicBool::new(false),
         });
         let (s, exclude, watch, archives) = (
             svc.clone(),
@@ -1248,6 +1259,11 @@ impl Service {
         );
         std::thread::spawn(move || s.run(roots, exclude, cache, watch, archives));
         svc
+    }
+
+    /// Stop watching and saving, within a minute: searches still answer from what it has.
+    pub fn stop(&self) {
+        self.stopped.store(true, Ordering::Relaxed);
     }
 
     pub fn state(&self) -> State {
@@ -1290,8 +1306,10 @@ impl Service {
         let mut watcher: Option<crate::DirWatcher> = None;
         // Folders kqueue may still watch: new ones take from it.
         let mut left = 0;
+        // The folders this index took from the process's budget, given back when it stops.
+        let mut claimed = 0;
         let mut rebuild_at = Instant::now();
-        loop {
+        while !self.stopped.load(Ordering::Relaxed) {
             if rebuild_at <= Instant::now() {
                 // Archives that have not changed since are not read again.
                 let fresh = Index::build(
@@ -1300,6 +1318,10 @@ impl Service {
                     archives.as_ref(),
                     Some(&self.index.read().unwrap()),
                 );
+                // Stopped while it read the disk: the helper's index is not written over.
+                if self.stopped.load(Ordering::Relaxed) {
+                    break;
+                }
                 *self.index.write().unwrap() = fresh;
                 // Not saved, the index is built again at every start: helper.log says why.
                 if let Some(c) = &cache
@@ -1326,6 +1348,7 @@ impl Service {
                         if let Some(w) = watcher.as_mut() {
                             // One batch: kqueue hands every watch to the kernel on each `watch`.
                             let budget = claim_folders();
+                            claimed += budget;
                             let dirs = folders_to_watch(&roots, &exclude, budget);
                             left = budget - watch_folders(w, &dirs);
                         }
@@ -1408,6 +1431,9 @@ impl Service {
                 }
             }
         }
+        // Its watches go, and a later index in this process may watch those folders.
+        drop(watcher);
+        folders_left().fetch_add(claimed, Ordering::Relaxed);
     }
 }
 
@@ -1514,10 +1540,12 @@ fn watched_folders() -> usize {
 /// The folders this index may watch: the process's budget is shared, so a second index in the
 /// same process (as in tests) gets what the first left, not a budget of its own.
 fn claim_folders() -> usize {
-    use std::sync::atomic::AtomicUsize;
-    static LEFT: std::sync::OnceLock<AtomicUsize> = std::sync::OnceLock::new();
-    LEFT.get_or_init(|| AtomicUsize::new(watched_folders()))
-        .swap(0, Ordering::Relaxed)
+    folders_left().swap(0, Ordering::Relaxed)
+}
+
+fn folders_left() -> &'static std::sync::atomic::AtomicUsize {
+    static LEFT: std::sync::OnceLock<std::sync::atomic::AtomicUsize> = std::sync::OnceLock::new();
+    LEFT.get_or_init(|| std::sync::atomic::AtomicUsize::new(watched_folders()))
 }
 
 /// Three quarters of `open_files`, less 64 for the rest of the helper, at most `WATCHED_FOLDERS`.
@@ -1600,6 +1628,7 @@ mod tests {
             index: RwLock::default(),
             state: AtomicU8::new(State::Building as u8),
             listeners: Mutex::default(),
+            stopped: AtomicBool::new(false),
         });
         let s = svc.clone();
         let root = d.clone();
@@ -1689,6 +1718,41 @@ mod tests {
             .collect();
         v.sort();
         v
+    }
+
+    /// Two programs saving the same index file at once (an app on its own index beside the
+    /// helper) each write a file of their own: what is left loads, as one of the two (#962).
+    #[test]
+    fn saves_at_once_leave_one_whole_index() {
+        let d = tree("two-saves");
+        let a = Index::build(std::slice::from_ref(&d), &[], None, None);
+        let b = Index::build(std::slice::from_ref(&d), &["skip".into(), "docs".into()], None, None);
+        assert_ne!(a.len(), b.len());
+        let p = Path::new("cache/index.bin");
+        let (one, two) = (crate::fs::passing(p), crate::fs::passing(p));
+        assert!(one != two && one.to_string_lossy().contains(crate::spill::run()));
+        let file = d.join("cache").join("index.bin");
+        std::thread::scope(|s| {
+            for ix in [&a, &b] {
+                let file = &file;
+                s.spawn(move || {
+                    // On Windows a rename onto a file another rename just put there can be
+                    // refused: what is promised is a whole index, not every save.
+                    for _ in 0..20 {
+                        let _ = ix.save(file);
+                    }
+                });
+            }
+        });
+        let back = Index::load(&file).unwrap();
+        assert!(back.len() == a.len() || back.len() == b.len());
+        let left: Vec<_> = fs::read_dir(d.join("cache"))
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name())
+            .collect();
+        assert_eq!(left, ["index.bin"]);
+        fs::remove_dir_all(d).unwrap();
     }
 
     #[test]

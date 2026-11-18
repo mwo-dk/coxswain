@@ -65,9 +65,12 @@ Nothing of its own while it works. Signs of it:
   [name index](names.md), reads [text](text.md), makes [vectors](meaning.md), and keeps
   [folder sizes](../panels/folder-sizes.md) and the hashes for [Duplicates](../files/duplicates.md),
   and [transcribes](transcripts.md) the recordings you choose.
-- **Private.** The apps talk to it over a local connection (a loopback TCP port). Its port and a
-  random token are in a file only you can read (`index.addr` in the cache folder); a connection
-  without the token is dropped.
+- **Private.** The apps talk to it over a local connection (a loopback TCP port). Its port and
+  two random tokens are in a file only you can read (`index.addr` in the cache folder): a
+  connection without the first token is dropped, and the helper answers with the second, so an
+  app never takes another program on that port for its helper. An app dials only while a helper
+  holds `index.lock` beside it, and a helper removes the `index.addr` a helper that was killed left
+  behind as it starts.
 - **Versions.** A helper steps down only for a newer app. An older app, still open after an
   update, uses the newer helper when both speak the same protocol (a number in the hello that
   changes only when the requests and replies do). When they do not, the old app leaves the helper
@@ -110,7 +113,9 @@ Nothing of its own while it works. Signs of it:
   on Linux), readable by you alone. It is emptied when it passes 1 MB. On Linux, systemd keeps
   the session helper's lines in the journal instead: `journalctl --user -u coxswain-index`.
 - **Without it.** If the helper cannot be reached, each app indexes names by itself; text search
-  and meaning then wait for the helper.
+  and meaning then wait for the helper. An app on its own index looks for the helper again every
+  30 seconds, and when one answers (a helper that was slow to start), it uses it from then on and
+  stops its own index. Before 2.38.0 it went on by itself until it was restarted.
 - **Settings.** A change under *Finding files* starts a new helper
   with the new settings.
 
@@ -160,7 +165,10 @@ window is open. Otherwise reading happens only while an app runs and ten minutes
 #### Can another user on the machine search my files through it?
 
 No. The port is on loopback only, and a connection must bring the token, which is in a file only
-you can read.
+you can read. The other way round, a program of theirs that listens on the port cannot pose as
+your helper: an app dials only while your helper runs, and takes only an answer that brings the
+second token from that file. Before 2.38.0 an app dialled the port of an address a killed helper
+had left behind, whatever listened there.
 
 #### Two windows are open. Are my files read twice?
 

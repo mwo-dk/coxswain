@@ -120,22 +120,27 @@ pub fn now() -> u64 {
     secs(Ok(std::time::SystemTime::now())).unwrap_or(0)
 }
 
+/// A name beside `path` to write its new content under before it takes `path`'s: this write's
+/// own, so two programs saving at once (the terminal and the desktop app, an app and the
+/// helper) never write into one file. Noted: a crash before the rename leaves it for the next
+/// start to remove.
+pub(crate) fn passing(path: &Path) -> PathBuf {
+    static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    crate::spill::staging_in(path.parent().unwrap_or(Path::new(".")));
+    path.with_file_name(format!(
+        ".{}.coxswain-{}-{n}.tmp",
+        path.file_name().unwrap_or_default().to_string_lossy(),
+        crate::spill::run()
+    ))
+}
+
 /// `bytes` as the new content of `path`, through a file beside it, so a failed write never
 /// leaves a half-written `path` (and the file beside it is removed); with `own`, readable by the
 /// user alone, as `private` makes it.
 pub fn replace(path: &Path, bytes: &[u8], own: bool) -> io::Result<()> {
     let dir = path.parent().unwrap_or(Path::new("."));
-    // Its own name, so two apps saving at once (the terminal and the desktop app) never write
-    // into one file beside it.
-    static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    // A passing name, noted: a crash before the rename leaves it for the next start to remove.
-    crate::spill::staging_in(dir);
-    let tmp = path.with_file_name(format!(
-        ".{}.coxswain-{}-{n}.tmp",
-        path.file_name().unwrap_or_default().to_string_lossy(),
-        crate::spill::run()
-    ));
+    let tmp = passing(path);
     let done = (|| {
         if own {
             private(dir, None)?;
@@ -664,6 +669,11 @@ impl Held {
     /// `f` locked, if no one else holds it.
     pub(crate) fn try_lock(f: fs::File) -> Result<Held, fs::TryLockError> {
         f.try_lock().map(|()| Held(f))
+    }
+
+    /// `f` locked shared, if no one holds it alone: probes of each other never clash.
+    pub(crate) fn try_lock_shared(f: fs::File) -> Result<Held, fs::TryLockError> {
+        f.try_lock_shared().map(|()| Held(f))
     }
 }
 
