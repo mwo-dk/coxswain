@@ -1196,7 +1196,7 @@ pub(crate) mod tests {
     #[test]
     fn fits_this_machine() {
         use crate::setup::{Machine, Vendor};
-        let m = Machine { gpu: Some((Vendor::Nvidia, "RTX".into(), Some(8))), npu: false, ram: 32 };
+        let m = Machine { gpu: Some((Vendor::Nvidia, "RTX".into(), Some(8))), npu: false, shared: false, ram: 32 };
         assert_eq!(fits(4 << 30, &m), t!("local_models.fits_gpu", "gpu" => "RTX", "gb" => 8));
         assert_eq!(fits(16 << 30, &m), t!("local_models.fits_ram_not_gpu", "ram" => 32, "gpu" => "RTX", "gb" => 8));
         assert_eq!(fits(64 << 30, &m), t!("local_models.too_big", "ram" => 32));

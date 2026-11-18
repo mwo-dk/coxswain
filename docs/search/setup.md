@@ -238,6 +238,15 @@ Intel on FreeBSD), the kernel's `/sys/class/drm` and `/dev/accel` (AMD and Intel
 Lemonade's `/system-info` (AMD on any system) and the processor type (Apple silicon). The
 graphics in an Intel processor do not count: they have no memory of their own for the models.
 
+Some GPUs have (next to) no memory of their own and borrow the processor's: the Radeon in a
+Ryzen (a 780M, an 890M, a Steam Deck, a Ryzen AI Max), NVIDIA's Jetson and GB10, Apple silicon.
+For them the memory counted is what they may borrow, not the small part the firmware sets
+aside: the kernel's GTT size for a Ryzen on Linux (when the firmware sets aside 2 GB or less),
+Lemonade's figure for its integrated GPU wherever Lemonade runs, and two thirds of the
+machine's memory for NVIDIA's (whose `nvidia-smi` reports no memory of its own) and for a Mac.
+A graphics card of its own counts only its own memory, and a card beside a Ryzen's Radeon is
+the one counted. On FreeBSD, and on Windows without Lemonade, no memory figure is read.
+
 ## Keep reading in the background
 
 Coxswain reads your files and makes their vectors only while an app runs, and for ten minutes

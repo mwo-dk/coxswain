@@ -129,6 +129,7 @@ the graphics card's name and memory and the server:
 | A graphics card whose memory holds a model for code on the server (about 0.6 GB per billion weights, and 0.5 GB for the context) | That model, marked *recommended*; when it does not fit beside Ask's model too, the line says the server swaps them and the first code question after another kind waits a few seconds more |
 | A card too small for it (`qwen3-coder:30b`, about 19 GB, on an 8 GB card) | None: the model is marked *slow here* and never preselected; *Same as Ask* stays |
 | A Mac with Apple silicon | A model for code on the server that fits in two thirds of the Mac's memory |
+| A GPU that shares the processor's memory (the Radeon in a Ryzen, NVIDIA's GB10) | A model for code that fits in what it may borrow ([how that is found](setup.md#is-it-using-the-graphics-card)); when none does, the line says the GPU shares the processor's memory and how much of it is usable |
 | No graphics card | None: on the processor a model for code answers slower than Ask's own |
 | A server without a model made for code | None; the line says so |
 

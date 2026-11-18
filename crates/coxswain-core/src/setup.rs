@@ -366,8 +366,12 @@ pub enum Vendor {
 /// What the machine has to run models on.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct Machine {
-    /// The graphics card (or Apple's GPU), its name, and its own memory in GB when it has some.
+    /// The graphics card (or Apple's GPU), its name, and its memory in GB when known: its own,
+    /// or with `shared` what it may take from the system's memory.
     pub gpu: Option<(Vendor, String, Option<u64>)>,
+    /// The GPU has (next to) no memory of its own and borrows the system's: the Radeon in a
+    /// Ryzen, NVIDIA's Jetson and GB10.
+    pub shared: bool,
     /// An AMD Ryzen AI NPU.
     pub npu: bool,
     /// Memory in GB.
@@ -386,15 +390,9 @@ pub fn machine(found: &[Found]) -> Machine {
             "--format=csv,noheader,nounits",
         ])
         .output()
+        && let Some((gpu, shared)) = nvidia_in_smi(&String::from_utf8_lossy(&out.stdout), m.ram)
     {
-        let text = String::from_utf8_lossy(&out.stdout);
-        if let Some((name, mb)) = text.lines().next().and_then(|l| l.split_once(',')) {
-            m.gpu = Some((
-                Vendor::Nvidia,
-                name.trim().to_string(),
-                mb.trim().parse::<u64>().ok().map(|mb| mb.div_ceil(1024)),
-            ));
-        }
+        (m.gpu, m.shared) = (Some(gpu), shared);
     }
     if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
         m.gpu = Some((Vendor::Apple, "Apple silicon".into(), None));
@@ -402,7 +400,11 @@ pub fn machine(found: &[Found]) -> Machine {
     #[cfg(target_os = "linux")]
     if m.gpu.is_none() {
         let devices = drm_devices();
-        m.gpu = amd_on_linux(&devices).or_else(|| intel_card_on_linux(&devices));
+        if let Some((gpu, shared)) = amd_on_linux(&devices) {
+            (m.gpu, m.shared) = (Some(gpu), shared);
+        } else {
+            m.gpu = intel_card_on_linux(&devices);
+        }
         m.npu = std::path::Path::new("/dev/accel/accel0").exists();
     }
     #[cfg(target_os = "freebsd")]
@@ -426,11 +428,7 @@ pub fn machine(found: &[Found]) -> Machine {
                 .as_array()
                 .and_then(|g| g.iter().find(|g| g["available"].as_bool() == Some(true)))
         {
-            m.gpu = Some((
-                Vendor::Amd,
-                g["name"].as_str().unwrap_or("AMD Radeon").to_string(),
-                g["vram_gb"].as_f64().map(|v| v.round() as u64),
-            ));
+            (m.gpu, m.shared) = amd_in_lemonade(g);
         }
     }
     m
@@ -438,6 +436,44 @@ pub fn machine(found: &[Found]) -> Machine {
 
 /// The name shown for an Intel graphics card of its own.
 const INTEL_CARD: &str = "Intel Arc";
+
+/// What a GPU that borrows the system's memory may use of `ram` GB, where the system does not
+/// say: two thirds, as for a Mac's.
+fn shared_gb(ram: u64) -> u64 {
+    ram * 2 / 3
+}
+
+/// The first NVIDIA GPU in `nvidia-smi`'s `name, memory.total` lines (MiB), and whether it
+/// shares the system's memory: Jetson and GB10 have none of their own and say `[N/A]` or
+/// `[Not Supported]` there.
+fn nvidia_in_smi(text: &str, ram: u64) -> Option<((Vendor, String, Option<u64>), bool)> {
+    let (name, mb) = text.lines().next()?.split_once(',')?;
+    let mb = mb.trim();
+    let shared = mb.contains("N/A") || mb.contains("Not Supported");
+    let gb = if shared {
+        (ram > 0).then(|| shared_gb(ram))
+    } else {
+        mb.parse::<u64>().ok().map(|mb| mb.div_ceil(1024))
+    };
+    Some(((Vendor::Nvidia, name.trim().to_string(), gb), shared))
+}
+
+/// An AMD GPU in Lemonade's `/system-info`: an integrated one (`"integrated": true`) may use
+/// the larger of its carve-out (`vram_gb`) and what it borrows (`virtual_mem_gb`), as Lemonade
+/// itself counts it.
+fn amd_in_lemonade(g: &serde_json::Value) -> (Option<(Vendor, String, Option<u64>)>, bool) {
+    let shared = g["integrated"].as_bool() == Some(true);
+    let vram = g["vram_gb"].as_f64();
+    let gb = match g["virtual_mem_gb"].as_f64() {
+        Some(v) if shared => Some(vram.unwrap_or(0.0).max(v)),
+        _ => vram,
+    };
+    let name = g["name"].as_str().unwrap_or("AMD Radeon").to_string();
+    (
+        Some((Vendor::Amd, name, gb.map(|v| v.round() as u64))),
+        shared,
+    )
+}
 
 /// The graphics devices the kernel knows, each with its PCI vendor (`0x1002`, `0x8086`, …).
 #[cfg(target_os = "linux")]
@@ -454,20 +490,47 @@ fn drm_devices() -> Vec<(std::path::PathBuf, String)> {
         .collect()
 }
 
-/// An AMD graphics card or the Radeon in a Ryzen, from the kernel's view of it.
-#[cfg(target_os = "linux")]
-fn amd_on_linux(devices: &[(std::path::PathBuf, String)]) -> Option<(Vendor, String, Option<u64>)> {
-    let (dev, _) = devices.iter().find(|(_, v)| v == "0x1002")?;
-    let vram = std::fs::read_to_string(dev.join("mem_info_vram_total"))
-        .ok()
-        .and_then(|b| b.trim().parse::<u64>().ok())
-        .map(|b| b.div_ceil(1 << 30));
+/// An AMD graphics card, else the Radeon in a Ryzen, from the kernel's view of them, and
+/// whether it shares the system's memory (`amd_device_on_linux`). A desktop Ryzen's small
+/// Radeon beside a card is passed over for the card, which is where models run.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn amd_on_linux(
+    devices: &[(std::path::PathBuf, String)],
+) -> Option<((Vendor, String, Option<u64>), bool)> {
+    let amd: Vec<_> = devices
+        .iter()
+        .filter(|(_, v)| v == "0x1002")
+        .map(|(d, _)| amd_device_on_linux(d))
+        .collect();
+    let card = amd.iter().position(|(_, shared)| !shared);
+    amd.into_iter().nth(card.unwrap_or(0))
+}
+
+/// One AMD GPU from the kernel's view of it, and whether it shares the system's memory. A
+/// Ryzen's Radeon has only a small carve-out as VRAM (512 MB to 2 GB) and borrows the rest
+/// through GTT, which is what it may use. A card's GTT is system memory too, far slower than
+/// its VRAM, so a card counts its VRAM alone. amdgpu hides `board_info` on an APU (Linux 6.7
+/// and later).
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+fn amd_device_on_linux(dev: &std::path::Path) -> ((Vendor, String, Option<u64>), bool) {
+    let bytes = |f: &str| {
+        std::fs::read_to_string(dev.join(f))
+            .ok()
+            .and_then(|b| b.trim().parse::<u64>().ok())
+    };
+    let (vram, gtt) = (bytes("mem_info_vram_total"), bytes("mem_info_gtt_total"));
+    // shortcut: before Linux 6.7 no card has `board_info`, so there a card with 2 GB of VRAM
+    // or less is taken for an APU and counts its GTT (overstated); and an APU whose carve-out
+    // is set above 2 GB counts only that (#1037).
+    let shared =
+        !dev.join("board_info").exists() && vram.is_some_and(|v| v <= 2 << 30) && gtt > vram;
+    let gb = if shared { gtt } else { vram }.map(|b| b.div_ceil(1 << 30));
     let name = std::fs::read_to_string(dev.join("product_name"))
         .ok()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "AMD Radeon".into());
-    Some((Vendor::Amd, name, vram))
+    ((Vendor::Amd, name, gb), shared)
 }
 
 /// An Intel graphics card of its own (not the graphics in the processor, which sits at
@@ -593,7 +656,12 @@ const ENOUGH_VRAM_GB: u64 = 4;
 /// Only said, never installed.
 pub fn faster_with_ollama(m: &Machine, found: &[Found], os: &str) -> Option<Faster> {
     let (vendor, name, vram) = m.gpu.as_ref()?;
-    if !found.is_empty() || *vendor == Vendor::Apple || vram.is_some_and(|v| v < ENOUGH_VRAM_GB) {
+    // A Ryzen's Radeon is Lemonade's (`advise_server`), as it was while it read 1 GB.
+    if !found.is_empty()
+        || *vendor == Vendor::Apple
+        || (*vendor == Vendor::Amd && m.shared)
+        || vram.is_some_and(|v| v < ENOUGH_VRAM_GB)
+    {
         return None;
     }
     let backend = match (os, vendor) {
@@ -1378,16 +1446,21 @@ pub fn code_advice(cfg: &crate::config::SearchConfig, look: Option<&Look>) -> Co
 fn code_advice_at(cfg: &crate::config::SearchConfig, look: &Look, metal: bool) -> CodeAdvice {
     use crate::t;
     let fmt = |gb: f64| format!("{gb:.0}");
-    // The memory a model may use: the card's own, or on a Mac two thirds of the machine's.
+    // The memory a model may use: the card's own, or what a GPU that shares the system's may
+    // take of it (on a Mac two thirds).
     let room = match &look.machine.gpu {
         _ if metal => Some((
             look.machine.ram as f64 * 2.0 / 3.0,
-            t!("setup.code_mac_memory"),
+            look.machine
+                .gpu
+                .as_ref()
+                .map_or("Mac".into(), |g| g.1.clone()),
+            true,
         )),
-        Some((_, name, Some(gb))) => Some((*gb as f64, name.clone())),
+        Some((_, name, Some(gb))) => Some((*gb as f64, name.clone(), look.machine.shared)),
         _ => None,
     };
-    let Some((room, card)) = room else {
+    let Some((room, card, shared)) = room else {
         return CodeAdvice {
             why: t!("setup.code_no_card"),
             ..Default::default()
@@ -1408,7 +1481,12 @@ fn code_advice_at(cfg: &crate::config::SearchConfig, look: &Look, metal: bool) -
         let slow: Vec<String> = coders.iter().map(|(n, _)| n.to_string()).collect();
         let why = match coders.first() {
             Some((name, p)) => {
-                t!("setup.code_too_large", "model" => *name, "gb" => fmt(needs_gb(*p)), "gpu" => card.as_str(), "room" => fmt(room))
+                let (gb, gpu, room) = (fmt(needs_gb(*p)), card.as_str(), fmt(room));
+                if shared {
+                    t!("setup.code_too_large_shared", "model" => *name, "gb" => gb, "gpu" => gpu, "room" => room)
+                } else {
+                    t!("setup.code_too_large", "model" => *name, "gb" => gb, "gpu" => gpu, "room" => room)
+                }
             }
             None => {
                 t!("setup.code_none", "server" => servers.first().map_or("Ollama", |(f, _)| f.kind.name()))
@@ -1844,6 +1922,7 @@ mod tests {
         let card = |v, gb| Machine {
             gpu: Some((v, "Card".into(), gb)),
             npu: false,
+            shared: false,
             ram: 32,
         };
         let server = [Found {
@@ -1950,11 +2029,103 @@ mod tests {
         );
     }
 
+    /// A dedicated Radeon counts its VRAM; the Radeon in a Ryzen, with a small carve-out and
+    /// no `board_info`, counts what it borrows through GTT.
+    #[test]
+    fn amd_memory_is_read_from_sysfs() {
+        let root = std::env::temp_dir().join(format!("coxswain-test-amd-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let dev = |name: &str, files: &[(&str, &str)]| {
+            let d = root.join(name);
+            std::fs::create_dir_all(&d).unwrap();
+            for (f, v) in files {
+                std::fs::write(d.join(f), v).unwrap();
+            }
+            vec![(d, "0x1002".to_string())]
+        };
+        const GIB: u64 = 1 << 30;
+        let card = dev(
+            "card",
+            &[
+                ("mem_info_vram_total", &(16 * GIB).to_string()),
+                ("mem_info_gtt_total", &(32 * GIB).to_string()),
+                ("board_info", "type : cem\n"),
+                ("product_name", "AMD Radeon RX 7800 XT\n"),
+            ],
+        );
+        let ryzen = dev(
+            "apu",
+            &[
+                ("mem_info_vram_total", &GIB.to_string()),
+                ("mem_info_gtt_total", &(88 * GIB).to_string()),
+            ],
+        );
+        // A small card on a kernel with `board_info` keeps its VRAM.
+        let small = dev(
+            "small",
+            &[
+                ("mem_info_vram_total", &(2 * GIB).to_string()),
+                ("mem_info_gtt_total", &(16 * GIB).to_string()),
+                ("board_info", "type : cem\n"),
+            ],
+        );
+        // A desktop Ryzen's small Radeon listed before a card: the card.
+        let both: Vec<_> = ryzen.iter().chain(&card).cloned().collect();
+        let got = |d| amd_on_linux(d).map(|((_, n, gb), s)| (n, gb, s));
+        assert_eq!(got(&both), Some(("AMD Radeon RX 7800 XT".into(), Some(16), false)));
+        assert_eq!(
+            got(&card),
+            Some(("AMD Radeon RX 7800 XT".into(), Some(16), false))
+        );
+        assert_eq!(got(&ryzen), Some(("AMD Radeon".into(), Some(88), true)));
+        assert_eq!(got(&small), Some(("AMD Radeon".into(), Some(2), false)));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn amd_memory_is_read_from_lemonade() {
+        let read = |j: &str| {
+            let (g, s) = amd_in_lemonade(&serde_json::from_str(j).unwrap());
+            (g.and_then(|g| g.2), s)
+        };
+        // Lemonade's own example: the Radeon 8060S in a Ryzen AI Max+ 395.
+        assert_eq!(
+            read(
+                r#"{"integrated":true,"name":"Radeon 8060S Graphics","virtual_mem_gb":61.3,"vram_gb":0.5}"#
+            ),
+            (Some(61), true)
+        );
+        assert_eq!(
+            read(
+                r#"{"integrated":false,"name":"Radeon RX 7900 XTX","virtual_mem_gb":31.0,"vram_gb":24.0}"#
+            ),
+            (Some(24), false)
+        );
+    }
+
+    #[test]
+    fn nvidia_memory_is_read_from_nvidia_smi() {
+        let read = |t| nvidia_in_smi(t, 120).map(|((_, n, gb), s)| (n, gb, s));
+        assert_eq!(
+            read("NVIDIA GeForce RTX 4070, 12282\n"),
+            Some(("NVIDIA GeForce RTX 4070".into(), Some(12), false))
+        );
+        // GB10 and Jetson have no memory of their own: two thirds of the system's.
+        assert_eq!(
+            read("NVIDIA GB10, [N/A]\n"),
+            Some(("NVIDIA GB10".into(), Some(80), true))
+        );
+        assert_eq!(read("Orin, [Not Supported]\n").map(|r| r.2), Some(true));
+        assert_eq!(read(""), None);
+        assert_eq!(nvidia_in_smi("NVIDIA GB10, [N/A]", 0).map(|r| r.0.2), Some(None));
+    }
+
     #[test]
     fn advice_follows_the_hardware() {
         let nvidia = Machine {
             gpu: Some((Vendor::Nvidia, "RTX 4070".into(), Some(12))),
             npu: false,
+            shared: false,
             ram: 32,
         };
         let some = [Found {
@@ -1972,6 +2143,7 @@ mod tests {
         let ryzen = Machine {
             gpu: Some((Vendor::Amd, "Radeon 890M".into(), None)),
             npu: true,
+            shared: false,
             ram: 64,
         };
         // FreeBSD has no Lemonade: every card goes to Ollama's Vulkan there.
@@ -1980,6 +2152,7 @@ mod tests {
         let mac = Machine {
             gpu: Some((Vendor::Apple, "Apple silicon".into(), None)),
             npu: false,
+            shared: false,
             ram: 36,
         };
         assert_eq!(
@@ -2047,6 +2220,7 @@ mod tests {
         let gpu = Machine {
             gpu: Some((Vendor::Nvidia, "RTX 4070".into(), Some(12))),
             npu: false,
+            shared: false,
             ram: 32,
         };
         let why = speed_problem(&f, &gpu, "qwen3:8b").unwrap();
@@ -2109,6 +2283,7 @@ mod tests {
         let card = |gb| Machine {
             gpu: Some((Vendor::Nvidia, "RTX 4070".into(), Some(gb))),
             npu: false,
+            shared: false,
             ram: 32,
         };
         let cfg = crate::config::SearchConfig {
@@ -2218,6 +2393,7 @@ mod tests {
             machine: Machine {
                 gpu: Some((Vendor::Apple, "Apple M3".into(), None)),
                 npu: false,
+                shared: false,
                 ram,
             },
             gpu: vec![Some(true)],
@@ -2227,6 +2403,31 @@ mod tests {
             Some("qwen3-coder:30b")
         );
         assert_eq!(code_advice_at(&cfg, &mac(16), true).recommended, None);
+        let a = code_advice_at(&cfg, &mac(16), true);
+        assert!(
+            a.why.contains("Apple M3") && a.why.contains("11 GB"),
+            "{}",
+            a.why
+        );
+        // A Ryzen whose Radeon borrows 88 GB holds it; with 12 GB it does not, and the line
+        // says the memory is shared, not that the Radeon has 1 GB.
+        let ryzen = |gb| Machine {
+            gpu: Some((Vendor::Amd, "AMD Radeon 8060S".into(), Some(gb))),
+            shared: true,
+            ram: 128,
+            ..Machine::default()
+        };
+        let roomy = look(with(&[("qwen3-coder:30b", 30.5)]), ryzen(88));
+        assert_eq!(
+            code_advice_at(&cfg, &roomy, false).recommended.as_deref(),
+            Some("qwen3-coder:30b")
+        );
+        let tight = look(with(&[("qwen3-coder:30b", 30.5)]), ryzen(12));
+        let a = code_advice_at(&cfg, &tight, false);
+        assert_eq!(
+            a.why,
+            crate::t!("setup.code_too_large_shared", "model" => "qwen3-coder:30b", "gb" => "19", "gpu" => "AMD Radeon 8060S", "room" => "12")
+        );
         // No model for code on the server: Same as Ask, said.
         let a = code_advice_at(&cfg, &look(ollama(), card(24)), false);
         assert!(
@@ -2327,6 +2528,7 @@ mod tests {
         let card = Machine {
             gpu: Some((Vendor::Nvidia, "RTX 4070".into(), Some(8))),
             npu: false,
+            shared: false,
             ram: 32,
         };
         let look = Look {
@@ -2499,6 +2701,7 @@ mod tests {
         let mac = Machine {
             gpu: Some((Vendor::Apple, "Apple silicon".into(), None)),
             npu: false,
+            shared: false,
             ram: 36,
         };
         let m = |name: &str, embed, params| Model {

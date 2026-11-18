@@ -105,7 +105,7 @@ for [the setup guide's model choice](../search/setup.md#what-to-use-on-your-mach
 
 | It says | When |
 |---|---|
-| *fits on the graphics card (NVIDIA GeForce RTX 4070, 12 GB)* | It fits in the card's own memory |
+| *fits on the graphics card (NVIDIA GeForce RTX 4070, 12 GB)* | It fits in the card's own memory, or for a GPU that shares the processor's memory (the Radeon in a Ryzen) in what it may borrow |
 | *fits in memory (32 GB), not on the graphics card (…, 8 GB)* | Too big for the card, it runs on the processor, slower |
 | *fits in memory (32 GB)* | No card with memory of its own (Apple silicon shares its memory) |
 | *more than this machine's memory (16 GB)* | It will not load, or only very slowly |
