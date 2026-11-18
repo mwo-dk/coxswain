@@ -222,6 +222,8 @@ jobs:
       - run: python3 tools/msrv-check.py
       # Which GHCR versions the image cleanup keeps (ghcr-cleanup.yml).
       - run: python3 -m unittest tools/test_ghcr_cleanup.py
+      # The release pull request's milestone gate (packaging/release-pr.py).
+      - run: python3 -m unittest packaging/test_release_pr.py
       # Every theme, action, config.toml key, flag and feature has its mention in docs/. `test`
       # runs these on code changes (and every push to master); a docs-only pull request skips
       # `test`, so it runs them here.

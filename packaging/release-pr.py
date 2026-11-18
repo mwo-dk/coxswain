@@ -17,8 +17,9 @@ nothing, when the current version has no published GitHub release (`gh release v
 past it would leave it unpublished for good (2.33.0 was), so its release run is finished first.
 Exits 4, changing nothing, while the new version's GitHub milestone (named X.Y.Z) has open issues:
 a release is done when its milestone is empty. Issues labelled `post-release` or titled "After the
-release…" (verifying the channels) are left open on purpose and do not count; a version with no
-milestone is not held.
+release…" (verifying the channels) are left open on purpose and do not count. When the new version
+has no milestone (a patch, say), every open milestone above the current version up to the next
+minor holds it instead, so a week of fixes only does not skip the planned minor's open issues.
 Run from the repository's root.
 """
 import datetime
@@ -55,8 +56,21 @@ def gh_json(path: str) -> list:
         sys.exit("release-pr.py: gh is needed to read the milestone (or pass --open-issues-ok)")
     if r.returncode != 0:
         sys.exit(f"release-pr.py: gh api {path} failed: {r.stderr.strip()}")
-    # --paginate prints one JSON array per page.
-    return [x for page in re.split(r"(?<=\])\s*(?=\[)", r.stdout.strip()) if page for x in json.loads(page)]
+    return pages(r.stdout)
+
+
+def pages(text: str) -> list:
+    """`gh api --paginate` prints one JSON array per page, back to back: their items, in order."""
+    dec, at, items = json.JSONDecoder(), 0, []
+    while (at := len(text) - len(text[at:].lstrip())) < len(text):
+        page, at = dec.raw_decode(text, at)
+        items += page
+    return items
+
+
+def version(title: str) -> tuple | None:
+    m = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", title.strip())
+    return tuple(map(int, m.groups())) if m else None
 
 
 def post_release(issue: dict) -> bool:
@@ -65,14 +79,24 @@ def post_release(issue: dict) -> bool:
             or issue["title"].lower().startswith("after the release"))
 
 
-def open_issues(version: str) -> list[dict]:
-    """The open issues (not pull requests) of milestone `version` that hold its release."""
-    stones = [m for m in gh_json("repos/{owner}/{repo}/milestones?state=all&per_page=100")
-              if m["title"] == version]
-    if not stones:
-        return []
-    issues = gh_json(f"repos/{{owner}}/{{repo}}/issues?milestone={stones[0]['number']}&state=open&per_page=100")
-    return [i for i in issues if "pull_request" not in i and not post_release(i)]
+def holding(stones: list[dict], new: str, was: str) -> list[dict]:
+    """The milestones that hold release `new` over `was`: its own, or when it has none, every open
+    one above `was` up to the next minor (a patch must not skip the planned minor's issues)."""
+    own = [m for m in stones if m["title"] == new]
+    if own:
+        return own[:1]
+    lo = version(was)
+    hi = (lo[0], lo[1] + 1, 0)
+    return [m for m in stones if m["state"] == "open" and (v := version(m["title"])) and lo < v <= hi]
+
+
+def open_issues(new: str, was: str) -> list[dict]:
+    """The open issues (not pull requests) that hold release `new`, each with its milestone."""
+    held = []
+    for m in holding(gh_json("repos/{owner}/{repo}/milestones?state=all&per_page=100"), new, was):
+        issues = gh_json(f"repos/{{owner}}/{{repo}}/issues?milestone={m['number']}&state=open&per_page=100")
+        held += [dict(i, stone=m["title"]) for i in issues if "pull_request" not in i and not post_release(i)]
+    return held
 
 
 def main() -> int:
@@ -97,11 +121,13 @@ def main() -> int:
               f"purpose, pass --unreleased-ok.", file=sys.stderr)
         return 3
     new = f"{major}.{minor + 1}.0" if features else f"{major}.{minor}.{patch + 1}"
-    if not open_ok and (held := open_issues(new)):
-        print(f"release-pr.py: milestone {new} has {len(held)} open issue(s); a release is done when "
-              f"its milestone is empty. Close them, or move them to a later milestone:", file=sys.stderr)
+    if not open_ok and (held := open_issues(new, was)):
+        names = ", ".join(sorted({i["stone"] for i in held}))
+        print(f"release-pr.py: {new} is held by {len(held)} open issue(s) in milestone {names}; a "
+              f"release is done when its milestone is empty. Close them, or move them to a later "
+              f"milestone:", file=sys.stderr)
         for i in held:
-            print(f"  #{i['number']} {i['title']}", file=sys.stderr)
+            print(f"  #{i['number']} {i['title']} ({i['stone']})", file=sys.stderr)
         print("To release anyway, pass --open-issues-ok (the owner's decision only).", file=sys.stderr)
         return 4
     print(new)

@@ -81,8 +81,10 @@ These rules hold for every contributor and every Claude session in this reposito
   (`X.Y.Z`); a PR says `Closes #n`, and every cut or deferral becomes an issue of its own.
   `packaging/release-pr.py` (and so the Sunday release pull request and the Saturday rehearsal)
   refuses (exit 4, listing them) while the new version's milestone has open issues, except those
-  labelled `post-release` or titled "After the release…". Close them or move them to a later
-  milestone; `--open-issues-ok` releases anyway, the owner's decision only.
+  labelled `post-release` or titled "After the release…". A new version with no milestone (a
+  patch) is held by every open milestone above the current version up to the next minor. Close
+  them or move them to a later milestone; `--open-issues-ok` releases anyway, the owner's
+  decision only.
 - **Take an issue before starting it.** Several people and sessions work on one milestone at
   once. Start only on an issue that has no assignee and no open pull request naming it
   (`gh pr list --search "<n>"`), and assign it to yourself first
