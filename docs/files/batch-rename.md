@@ -96,7 +96,9 @@ No; batch rename works on folders on disk. Inside an archive, rename one entry a
 Each file is first renamed to a temporary name `.coxswain-rename-…` and then to its new name. If
 the system refuses a step (a disk removed mid-way), the error is shown in the dialog, and every
 file gets its old name back, the ones already renamed before the failure too: the batch is
-done whole, or not at all.
+done whole, or not at all. A new name that is taken by the time its file gets it (two new names
+that differ only in case, on a disk that does not mind the case, such as a USB stick or an SMB
+share) is refused the same way, *name already taken*: no file is ever written over.
 
 #### How do I take newlines out of names?
 
