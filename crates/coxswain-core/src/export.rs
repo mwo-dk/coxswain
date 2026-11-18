@@ -365,7 +365,7 @@ fn pull(rt: &Path, image: &str, stop: &AtomicBool, said: &mut impl FnMut(Said)) 
 
 
 fn container_name() -> String {
-    format!("coxswain-export-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed))
+    crate::images::name("export")
 }
 
 /// Asciidoctor PDF on the document, read from standard input, writing the PDF to standard
@@ -534,7 +534,7 @@ fn go((c, name): (Command, Option<String>), how: &How, stdin: Option<Vec<u8>>, o
 fn kill(child: &mut Child, how: &How, name: Option<&str>) {
     crate::tools::kill_tree(child);
     if let (How::Container { path, .. }, Some(name)) = (how, name) {
-        let _ = crate::tools::command(path).args(["kill", name]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        crate::images::stop(path, name);
     }
 }
 
@@ -760,7 +760,7 @@ pub fn drawio_thumbnail(cfg: &PreviewConfig, path: &Path, to: &Path, width: u32,
     let o = crate::tools::capture(crate::tools::hosted(c), timeout, 64 << 10);
     if let (How::Container { path, .. }, Some(name), Err(_)) = (&how, &name, &o) {
         // Past its time: the container goes too.
-        let _ = crate::tools::command(path).args(["kill", name]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        crate::images::stop(path, name);
     }
     let o = o.map_err(|e| e.to_string())?;
     if !o.status.success() {

@@ -20,7 +20,7 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
@@ -207,7 +207,6 @@ fn run_args(name: &str, image: &str, script: &str, bounds: bool) -> Vec<String> 
     v
 }
 
-static N: AtomicUsize = AtomicUsize::new(0);
 
 /// What a run says while it goes.
 pub enum Said<'a> {
@@ -262,7 +261,7 @@ fn make(how: &How, path: &Path, want: Want, out: &Path, stop: &AtomicBool, timeo
                     puller.join().map_err(|_| t!("convert.failed", "status" => "pull"))?
                 })?;
             }
-            let name = format!("coxswain-calibre-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed));
+            let name = crate::images::name("calibre");
             let mut c = crate::tools::command(rt);
             c.args(run_args(&name, image, &script(ending, want), crate::images::bounds_work(rt, image)));
             let book = File::open(path).map_err(|e| e.to_string())?;
@@ -299,7 +298,7 @@ fn go(
     let end = |child: &mut std::process::Child| {
         crate::tools::kill_tree(child);
         if let Some((rt, name)) = kill {
-            let _ = crate::tools::command(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+            crate::images::stop(rt, name);
         }
     };
     let status = loop {

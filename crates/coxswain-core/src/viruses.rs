@@ -423,7 +423,7 @@ pub fn scan(cfg: &PreviewConfig, targets: &[PathBuf], stop: &AtomicBool, mut sai
     }
     let all = back.len();
     std::fs::write(scratch.0.join("files"), &list).map_err(|e| e.to_string())?;
-    let name = format!("coxswain-clamscan-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed));
+    let name = crate::images::name("clamscan");
     let mut c = sealed(&rt_path, &name, &who, bounds, false);
     c.arg("--mount").arg(crate::images::bind(&root, "/src", true));
     c.arg("--mount").arg(crate::images::bind(&db, "/db", true));
@@ -501,6 +501,7 @@ fn bytes(p: &Path) -> Vec<u8> {
 /// the runtime can bound them, and as `who` says (`who`): you, so freshclam need not change
 /// user and clamscan reads what you can. `net`: network (freshclam only); else none.
 fn sealed(rt_path: &Path, name: &str, who: &[String], bounds: bool, net: bool) -> Command {
+    crate::images::sweep(rt_path);
     let mut c = crate::tools::command(rt_path);
     c.args(["run", "--rm", "-i", "--security-opt", "label=disable", "--name", name]);
     if !net {
@@ -546,7 +547,7 @@ fn update(who: &[String], rt_path: &Path, image: &str, db: &Path, scratch: &Path
     let conf = scratch.join("conf");
     std::fs::create_dir_all(&conf).map_err(|e| e.to_string())?;
     std::fs::write(conf.join("freshclam.conf"), format!("DatabaseDirectory /db\nDatabaseMirror {SERVER}\nForeground yes\nConnectTimeout 30\n")).map_err(|e| e.to_string())?;
-    let name = format!("coxswain-freshclam-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed));
+    let name = crate::images::name("freshclam");
     let mut c = sealed(rt_path, &name, who, bounds, true);
     c.arg("--mount").arg(crate::images::bind(db, "/db", false));
     c.arg("--mount").arg(crate::images::bind(&conf, "/conf", true));
@@ -630,7 +631,7 @@ fn follow(c: Command, rt: &Path, name: &str, stop: &AtomicBool, mut line: impl F
         }
         if stop.load(Ordering::Relaxed) {
             let _ = child.kill();
-            let _ = crate::tools::command(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+            crate::images::stop(rt, name);
             let _ = child.wait();
             return Err(t!("viruses.stopped"));
         }

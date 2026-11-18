@@ -16,7 +16,7 @@
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -351,8 +351,7 @@ fn run(engine: &Engine, model: &Path, file: &Path, start: u64, secs: Option<u64>
 
 /// whisper-cli run (in the container, after its ffmpeg): what it printed.
 fn run_cli(engine: &Engine, model: &Path, file: &Path, start: u64, secs: Option<u64>, stop: &dyn Fn() -> bool, scratch: &Path) -> Result<Option<String>, String> {
-    static N: AtomicU64 = AtomicU64::new(0);
-    let name = format!("coxswain-whisper-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed));
+    let name = crate::images::name("whisper");
     // Whether the runtime can bound memory and processes is found once, apart, by a probe;
     // never from what this run prints, which a file's name or its sound could make say anything.
     if let Engine::Container { path, image, .. } = engine {
