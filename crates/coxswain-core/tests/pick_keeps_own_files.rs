@@ -65,6 +65,7 @@ fn sources() -> Vec<(PathBuf, String)> {
 
 /// A new way to write either file would slip past `keep_own_files`: config.toml and state.json
 /// are replaced only in the functions that ask it, and by the 1.x migration, which asks it too.
+/// Outside those files `fs::replace` writes only targets that name neither file.
 /// shortcut: a path taken on one line and written on another is not seen; a review must catch that.
 #[test]
 fn config_and_state_are_written_only_where_pick_mode_is_asked() {
@@ -75,8 +76,14 @@ fn config_and_state_are_written_only_where_pick_mode_is_asked() {
         for (i, line) in text.lines().enumerate() {
             let code = line.split("//").next().unwrap();
             let at = format!("{}:{}", p.display(), i + 1);
-            if code.contains("fs::replace(") {
-                assert!(allowed.iter().any(|a| p.ends_with(a)), "{at}: config.toml and state.json are written through config::update_config or AppState::save_to");
+            if code.contains("fs::replace(") && !allowed.iter().any(|a| p.ends_with(a)) {
+                // Elsewhere only a file of another kind (the helper's index.addr): the target,
+                // to the first comma even across lines, names neither file nor where they live.
+                let call = &text[text.lines().take(i).map(|l| l.len() + 1).sum::<usize>()..];
+                let call = &call[call.find("fs::replace(").unwrap() + "fs::replace(".len()..];
+                let target = call[..call.find(',').unwrap_or(call.len())].to_lowercase();
+                let settings = ["config", "state", "settings", "path()"].iter().any(|w| target.contains(w));
+                assert!(!settings, "{at}: config.toml and state.json are written through config::update_config or AppState::save_to");
             }
             let own = code.contains("Config::path()") || code.contains("AppState::path()");
             let writes = ["fs::write(", "File::create(", "OpenOptions::new(", "fs::remove_file(", "fs::rename("].iter().any(|w| code.contains(w));
