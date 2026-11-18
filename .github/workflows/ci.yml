@@ -154,7 +154,7 @@ jobs:
         if: runner.os == 'Linux' && runner.arch == 'X64'
         run: |
           cargo check --workspace --all-targets --no-default-features --features coxswain-gui/custom-protocol --locked
-          cargo test -p coxswain-core --no-default-features --lib --locked modules::tests::a_module_left_out
+          cargo test -p coxswain-core --no-default-features --lib --locked -- --exact modules::tests::a_module_left_out_of_the_build_is_off_and_cannot_be_turned_on
 
       # The terminal app ships as a static musl binary (Homebrew, releases): whatever the
       # dependencies compile from C has to build for musl too, before a release finds out.

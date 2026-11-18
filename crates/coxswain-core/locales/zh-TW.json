@@ -4654,6 +4654,7 @@
  "modules.uses": "使用 {what}",
  "modules.images": "可能下載容器映像",
  "modules.not_built": "不在此建置中",
+ "modules.not_built_notice": "以文字顯示：{module} 不在此建置中。",
  "modules.off_notice": "以文字顯示：{module} 已關閉。請在「設定」（{key}）→「模組」開啟。",
  "guide.modules": "不需要的檢視器可以關閉，每個都列出它顯示的格式與使用的東西。",
  "guide.modules_open": "選擇模組",

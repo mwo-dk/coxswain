@@ -1186,6 +1186,7 @@ impl App {
                 };
                 return self.settings_change(s, changes);
             }
+            Some(Row::Module(m)) if !m.built => s.said = Some((t!("modules.not_built"), true)),
             Some(Row::Module(m)) => {
                 let off = coxswain_core::modules::toggled(&self.cfg.modules.off, m.id, !m.on);
                 return self.settings_change(s, set("modules_off", Value::from(off)));
@@ -1917,7 +1918,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                         }
                     }
                 }
-                Row::Module(m) => lines.extend(pair(&format!(" [{}] {}", if !m.built { "-" } else if m.on { "x" } else { " " }, m.label), &m.about, st)),
+                Row::Module(m) => lines.extend(pair(&format!(" [{}] {}", if !m.built { "-" } else if m.on { "x" } else { " " }, m.label), &m.about, if m.built { st } else { st.add_modifier(Modifier::DIM) })),
                 // The kind, then what is used and the choice.
                 Row::PreviewTool(r) => {
                     let choice = if !r.can_choose { String::new() } else if r.choice.is_empty() { t!("ptools.choice.default", "value" => choice_label("preview_prefer", &cfg.preview.prefer)) } else if r.choice == "container" && !r.container { t!("ptools.choice.container_no_image") } else { t!(&format!("ptools.choice.{}", r.choice)) };

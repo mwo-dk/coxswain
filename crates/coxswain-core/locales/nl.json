@@ -4741,6 +4741,7 @@
  "modules.uses": "gebruikt {what}",
  "modules.images": "kan een containerimage downloaden",
  "modules.not_built": "niet in deze build",
+ "modules.not_built_notice": "Als tekst getoond: {module} zit niet in deze build.",
  "modules.off_notice": "Als tekst getoond: {module} staat uit. Zet het aan in Instellingen ({key}) → Modules.",
  "guide.modules": "Weergaven die je niet nodig hebt kun je uitzetten, elk met de formaten die het toont en wat het gebruikt.",
  "guide.modules_open": "Modules kiezen",

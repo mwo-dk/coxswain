@@ -4842,6 +4842,7 @@
  "modules.uses": "používá {what}",
  "modules.images": "může stáhnout obraz kontejneru",
  "modules.not_built": "není v tomto sestavení",
+ "modules.not_built_notice": "Zobrazeno jako text: {module} není v tomto sestavení.",
  "modules.off_notice": "Zobrazeno jako text: {module} je vypnutý. Zapněte ho v Nastavení ({key}) → Moduly.",
  "guide.modules": "Prohlížeče, které nepotřebujete, lze vypnout, každý s formáty, které ukazuje, a tím, co používá.",
  "guide.modules_open": "Vybrat moduly",

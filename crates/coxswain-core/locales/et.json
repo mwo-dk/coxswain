@@ -4741,6 +4741,7 @@
  "modules.uses": "kasutab: {what}",
  "modules.images": "võib alla laadida konteineri tõmmise",
  "modules.not_built": "pole selles järgus",
+ "modules.not_built_notice": "Näidatud tekstina: {module} pole selles järgus.",
  "modules.off_notice": "Näidatud tekstina: {module} on väljas. Lülita see sisse: Sätted ({key}) → Moodulid.",
  "guide.modules": "Vaated, mida sa ei vaja, saab välja lülitada, igaüks koos näidatavate vormingute ja kasutatavaga.",
  "guide.modules_open": "Vali moodulid",

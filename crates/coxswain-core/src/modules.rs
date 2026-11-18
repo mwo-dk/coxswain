@@ -246,6 +246,10 @@ pub fn notice(state: &mut crate::state::AppState, m: &Module, settings_key: &str
 
 /// "Shown as text: the Chess games module is off (Settings, F9 → Modules)."
 pub fn off_text(m: &Module, settings_key: &str) -> String {
+    if !built(m.id) {
+        // Settings cannot turn it on: nothing to point at.
+        return crate::t!("modules.not_built_notice", "module" => m.label());
+    }
     crate::t!("modules.off_notice", "module" => m.label(), "key" => settings_key)
 }
 
@@ -296,6 +300,7 @@ mod tests {
             assert_eq!(on(m.id), b, "{}", m.id);
             assert_eq!(off_for(m.kinds[0]).is_some(), !b, "{}", m.id);
             assert_eq!(toggled(&[], m.id, false), if b { vec![m.id.to_string()] } else { vec![] }, "{}", m.id);
+            assert_eq!(off_text(m, "F9").contains("F9"), b, "{}: the notice points at Settings only when it can help", m.id);
         }
         for r in rows(&[]) {
             assert_eq!((r.on, r.built), (built(r.id), built(r.id)), "{}", r.id);

@@ -4741,6 +4741,7 @@
  "modules.uses": "käyttää: {what}",
  "modules.images": "voi ladata kontti-imagen",
  "modules.not_built": "ei mukana tässä koostissa",
+ "modules.not_built_notice": "Näytetään tekstinä: {module} ei ole mukana tässä koostissa.",
  "modules.off_notice": "Näytetään tekstinä: {module} on pois päältä. Ota se käyttöön kohdassa Asetukset ({key}) → Moduulit.",
  "guide.modules": "Näkymät, joita et tarvitse, voi ottaa pois, kukin näyttämiensä muotojen ja käyttämiensä osien kera.",
  "guide.modules_open": "Valitse moduulit",

@@ -4839,6 +4839,7 @@
  "modules.uses": "usa {what}",
  "modules.images": "può scaricare un’immagine di container",
  "modules.not_built": "non incluso in questa build",
+ "modules.not_built_notice": "Mostrato come testo: {module} non è incluso in questa build.",
  "modules.off_notice": "Mostrato come testo: {module} è disattivato. Attivalo in Impostazioni ({key}) → Moduli.",
  "guide.modules": "I visualizzatori che non ti servono si possono disattivare, ognuno con i formati che mostra e ciò che usa.",
  "guide.modules_open": "Scegli i moduli",
