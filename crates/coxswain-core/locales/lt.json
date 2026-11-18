@@ -1170,6 +1170,7 @@
  "err.exists": "{path} jau yra",
  "err.special_file": "{path} yra kanalas, lizdas arba įrenginys, kuris nekopijuojamas",
  "err.not_packable": "{path} yra nuoroda, kanalas arba įrenginys, kurį archyvas praleidžia, todėl niekas nebuvo perkelta",
+ "err.tar_unsafe": "Šio tar negalima saugiai atverti: jame yra retasis failas arba failas, kurio dydis nurodytas atskirai nuo antraštės, o Coxswain jo dar neskaito",
  "err.is_folder": "{name} yra aplankas",
  "err.key_twice": "{key} config.toml skiltyje [keys] priskirtas ir {a}, ir {b}",
  "err.move_check": "{path} pasikeitė perkeliant arba jo kopija išėjo trumpesnė, todėl jis lieka, kur buvo",

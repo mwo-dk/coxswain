@@ -1129,6 +1129,7 @@
  "err.exists": "{path} finns redan",
  "err.special_file": "{path} är ett rör, en socket eller en enhet, som inte kopieras",
  "err.not_packable": "{path} är en länk, ett rör eller en enhet, som ett arkiv utelämnar, så inget flyttades",
+ "err.tar_unsafe": "Den här tar-filen kan inte öppnas säkert: den innehåller en gles fil, eller en fil vars storlek anges skilt från dess huvud, som Coxswain ännu inte kan läsa",
  "err.is_folder": "{name} är en mapp",
  "err.key_twice": "{key} är tilldelad både {a} och {b} i [keys] i config.toml",
  "err.move_check": "{path} ändrades medan den flyttades, eller så blev kopian för kort, så den stannar där den var",

@@ -1088,6 +1088,7 @@
  "err.exists": "{path} は既にあります",
  "err.special_file": "{path} はパイプ、ソケット、デバイスのいずれかで、コピーされません",
  "err.not_packable": "{path} はリンク、パイプ、デバイスのいずれかで、アーカイブには入らないため、何も移動していません",
+ "err.tar_unsafe": "この tar は安全に開けません。スパースファイル、またはヘッダーとは別にサイズが記されたファイルが含まれており、Coxswain はまだそれを読めません",
  "err.is_folder": "{name} はフォルダーです",
  "err.key_twice": "config.toml の [keys] で {key} が {a} と {b} の両方に割り当てられています",
  "err.move_check": "{path} は移動中に変わったか、コピーが短くなったため、元の場所に残ります",

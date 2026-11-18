@@ -1170,6 +1170,7 @@
  "err.exists": "{path} ja existeix",
  "err.special_file": "{path} és una canonada, un sòcol o un dispositiu, que no es copia",
  "err.not_packable": "{path} és un enllaç, una canonada o un dispositiu, que un arxiu deixa fora, així que no s'ha mogut res",
+ "err.tar_unsafe": "Aquest tar no es pot obrir amb seguretat: conté un fitxer dispers, o un fitxer amb la mida indicada a part de la capçalera, que el Coxswain encara no sap llegir",
  "err.is_folder": "{name} és una carpeta",
  "err.key_twice": "{key} està assignada alhora a {a} i a {b} a [keys] de config.toml",
  "err.move_check": "{path} ha canviat mentre es movia, o la còpia ha quedat curta: es queda on era",

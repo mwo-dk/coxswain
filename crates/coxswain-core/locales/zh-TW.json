@@ -1059,6 +1059,7 @@
  "err.exists": "{path} 已存在",
  "err.special_file": "{path} 是管道、通訊端或裝置，不會被複製",
  "err.not_packable": "{path} 是連結、管道或裝置，壓縮檔會略過它，因此未移動任何項目",
+ "err.tar_unsafe": "無法安全開啟此 tar：其中有稀疏檔案，或大小寫在檔頭之外的檔案，Coxswain 目前還讀不了",
  "err.is_folder": "{name} 是資料夾",
  "err.key_twice": "config.toml 的 [keys] 中，{key} 同時指派給 {a} 和 {b}",
  "err.move_check": "{path} 在移動時發生變更，或其副本不完整，因此保留在原處",

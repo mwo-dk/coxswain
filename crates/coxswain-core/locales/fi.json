@@ -1129,6 +1129,7 @@
  "err.exists": "{path} on jo olemassa",
  "err.special_file": "{path} on putki, pistoke tai laite, jota ei kopioida",
  "err.not_packable": "{path} on linkki, putki tai laite, jonka arkisto jättää pois, joten mitään ei siirretty",
+ "err.tar_unsafe": "Tätä tar-tiedostoa ei voi avata turvallisesti: siinä on harva tiedosto tai tiedosto, jonka koko on annettu otsakkeen ulkopuolella, eikä Coxswain osaa vielä lukea sitä",
  "err.is_folder": "{name} on kansio",
  "err.key_twice": "{key} on annettu sekä toiminnolle {a} että {b} config.toml-tiedoston osassa [keys]",
  "err.move_check": "{path} muuttui siirron aikana tai sen kopio jäi lyhyeksi, joten se jää paikalleen",

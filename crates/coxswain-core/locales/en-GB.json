@@ -1099,6 +1099,7 @@
  "err.exists": "{path} exists",
  "err.special_file": "{path} is a pipe, a socket or a device, which is not copied",
  "err.not_packable": "{path} is a link, a pipe or a device, which an archive leaves out, so nothing was moved",
+ "err.tar_unsafe": "This tar cannot be opened safely: it holds a sparse file, or a file whose size is given apart from its header, which Coxswain cannot read yet",
  "err.is_folder": "{name} is a folder",
  "err.key_twice": "{key} is given to both {a} and {b} in [keys] of config.toml",
  "err.move_check": "{path} changed while it was moved, or its copy came out short, so it stays where it was",

@@ -1088,6 +1088,7 @@
  "err.exists": "{path}이(가) 이미 있습니다",
  "err.special_file": "{path}은(는) 파이프, 소켓 또는 장치이므로 복사되지 않습니다",
  "err.not_packable": "{path}은(는) 링크, 파이프 또는 장치이므로 압축 파일에 들어가지 않아 아무것도 이동하지 않았습니다",
+ "err.tar_unsafe": "이 tar는 안전하게 열 수 없습니다. 스파스 파일이나 헤더와 따로 크기가 적힌 파일이 들어 있으며, Coxswain은 아직 이를 읽을 수 없습니다",
  "err.is_folder": "{name}은(는) 폴더입니다",
  "err.key_twice": "config.toml의 [keys]에서 {key}이(가) {a}와(과) {b} 모두에 지정되어 있습니다",
  "err.move_check": "{path}이(가) 이동 중에 바뀌었거나 사본이 짧게 나와서 원래 자리에 남습니다",

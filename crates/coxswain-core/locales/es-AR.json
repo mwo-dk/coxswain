@@ -1170,6 +1170,7 @@
  "err.exists": "{path} ya existe",
  "err.special_file": "{path} es una tubería, un socket o un dispositivo, que no se copia",
  "err.not_packable": "{path} es un enlace, una tubería o un dispositivo, que un archivo comprimido deja afuera, así que no se movió nada",
+ "err.tar_unsafe": "Este tar no se puede abrir con seguridad: contiene un archivo disperso, o un archivo cuyo tamaño figura aparte de su encabezado, que Coxswain todavía no sabe leer",
  "err.is_folder": "{name} es una carpeta",
  "err.key_twice": "{key} está asignada a {a} y a {b} a la vez en [keys] de config.toml",
  "err.move_check": "{path} cambió mientras se movía, o su copia quedó corta, así que se queda donde estaba",

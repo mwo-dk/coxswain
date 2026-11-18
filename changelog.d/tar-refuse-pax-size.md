@@ -1,0 +1,1 @@
+| **A tar whose listing could differ from what comes out of it is refused.** A tar with a sparse file, or a size given in a PAX record apart from its header, now says it cannot be opened safely, instead of showing other files than Extract writes out or losing files when it is changed. | [Archives](files/archives.md#limits) |

@@ -582,6 +582,11 @@ fn tar_named_at<'a, R: Read>(
     let mut start = None;
     let text = |b: &[u8]| String::from_utf8_lossy(b.strip_suffix(&[0]).unwrap_or(b)).into_owned();
     let (mut long, mut link): (Option<String>, Option<String>) = (None, None);
+    // A PAX `size`, or a sparse file: raw entries apply neither, so this list would not be what
+    // Extract and other tars read (#960). Refused, never read past.
+    // shortcut: a tar with a file of 8 GiB or more (PAX size) does not open; read them (#982).
+    let (mut size, mut sparse) = (None::<Option<u64>>, false);
+    let unsafe_tar = || io::Error::new(io::ErrorKind::InvalidData, crate::t!("err.tar_unsafe"));
     for e in entries.raw(true) {
         let mut e = e?;
         let at = *start.get_or_insert(e.raw_header_position());
@@ -603,16 +608,29 @@ fn tar_named_at<'a, R: Read>(
                 long = Some(text(&buf));
             } else if t.is_gnu_longlink() {
                 link = Some(text(&buf));
-            } else if t.is_pax_local_extensions() {
-                for x in tar::PaxExtensions::new(&buf).filter_map(Result::ok) {
+            } else {
+                for x in tar::PaxExtensions::new(&buf) {
+                    let x = x?;
                     match x.key_bytes() {
+                        b"size" => size = Some(x.value().ok().and_then(|v| v.parse().ok())),
+                        k if k.starts_with(b"GNU.sparse.") => sparse = true,
+                        _ if t.is_pax_global_extensions() => {}
                         b"path" => long = Some(text(x.value_bytes())),
                         b"linkpath" => link = Some(text(x.value_bytes())),
                         _ => {}
                     }
                 }
+                if t.is_pax_global_extensions() && (size.is_some() || sparse) {
+                    return Err(unsafe_tar());
+                }
             }
             continue;
+        }
+        if t.is_gnu_sparse()
+            || std::mem::take(&mut sparse)
+            || size.take().is_some_and(|s| s != Some(e.size()))
+        {
+            return Err(unsafe_tar());
         }
         let name = match long.take() {
             Some(n) => n,
@@ -5428,6 +5446,87 @@ mod tests {
             (local.year(), local.month(), local.day(), local.hour())
         );
         assert_eq!(unix(t), now, "and back");
+    }
+
+    #[test]
+    fn tar_with_a_pax_size_or_a_sparse_file_is_refused_not_misread() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-pax-size-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let entry = |t: &mut tar::Builder<Vec<u8>>, ty: tar::EntryType, name: &str, size: u64, body: &[u8]| {
+            let mut h = tar::Header::new_gnu();
+            h.set_entry_type(ty);
+            h.set_size(size);
+            h.set_mode(0o644);
+            h.set_path(name).unwrap();
+            h.set_cksum();
+            t.append(&h, body).unwrap();
+        };
+        let pax = |key: &str, value: &str| {
+            let rest = format!(" {key}={value}\n");
+            let mut n = rest.len() + 1;
+            while (n.to_string() + &rest).len() != n {
+                n += 1;
+            }
+            format!("{n}{rest}").into_bytes()
+        };
+        // A whole entry's header and data, as another tar would read them.
+        let mut hidden = tar::Builder::new(Vec::new());
+        entry(&mut hidden, tar::EntryType::Regular, "hidden.txt", 6, b"hidden");
+        let hidden = hidden.get_ref().clone();
+        let write = |name: &str, f: &dyn Fn(&mut tar::Builder<Vec<u8>>)| {
+            let mut t = tar::Builder::new(Vec::new());
+            f(&mut t);
+            entry(&mut t, tar::EntryType::Regular, "last.txt", 4, b"last");
+            let p = d.join(name);
+            std::fs::write(&p, t.into_inner().unwrap()).unwrap();
+            p
+        };
+        let refused = |p: &Path| {
+            let before = std::fs::read(p).unwrap();
+            let e = list(p, 10).unwrap_err();
+            assert_eq!(e.to_string(), crate::t!("err.tar_unsafe"), "{}", p.display());
+            assert!(copy_out(p, "last.txt", &d.join("out"), None, false).is_err());
+            std::fs::create_dir_all(d.join("x")).unwrap();
+            assert!(extract(p, &d.join("x")).is_err());
+            assert_eq!(std::fs::read_dir(d.join("x")).unwrap().count(), 0, "nothing extracted");
+            // Never written anew short.
+            assert!(remove(p, &["last.txt".into()], None).is_err());
+            assert_eq!(std::fs::read(p).unwrap(), before, "untouched");
+        };
+        // The header says 0, the PAX record says the next header is the entry's data.
+        refused(&write("hides.tar", &|t| {
+            let rec = pax("size", &hidden.len().to_string());
+            entry(t, tar::EntryType::XHeader, "PaxHeaders/a", rec.len() as u64, &rec);
+            entry(t, tar::EntryType::Regular, "a", 0, &[]);
+            t.get_mut().extend_from_slice(&hidden);
+        }));
+        // The other way: the header's data holds an entry the PAX size says is not there.
+        refused(&write("shows.tar", &|t| {
+            let rec = pax("size", "0");
+            entry(t, tar::EntryType::XHeader, "PaxHeaders/a", rec.len() as u64, &rec);
+            entry(t, tar::EntryType::Regular, "a", hidden.len() as u64, &hidden);
+        }));
+        // A sparse file, old GNU or PAX: read raw, its data is not the file.
+        refused(&write("sparse.tar", &|t| {
+            entry(t, tar::EntryType::GNUSparse, "s", 0, &[]);
+        }));
+        refused(&write("pax-sparse.tar", &|t| {
+            let rec = pax("GNU.sparse.size", "1048576");
+            entry(t, tar::EntryType::XHeader, "PaxHeaders/s", rec.len() as u64, &rec);
+            entry(t, tar::EntryType::Regular, "s", 0, &[]);
+        }));
+        // A PAX size that agrees with the header opens as before.
+        let p = write("agrees.tar", &|t| {
+            let rec = pax("size", "2");
+            entry(t, tar::EntryType::XHeader, "PaxHeaders/a", rec.len() as u64, &rec);
+            entry(t, tar::EntryType::Regular, "a", 2, b"ok");
+        });
+        let names: Vec<_> = list(&p, 10).unwrap().0.into_iter().map(|e| e.name).collect();
+        assert_eq!(names, ["a", "last.txt"]);
+        remove(&p, &["last.txt".into()], None).unwrap();
+        assert_eq!(list(&p, 10).unwrap().0.len(), 1);
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]

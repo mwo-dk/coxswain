@@ -1129,6 +1129,7 @@
  "err.exists": "{path} bestaat al",
  "err.special_file": "{path} is een pipe, socket of apparaat, dat niet wordt gekopieerd",
  "err.not_packable": "{path} is een koppeling, pipe of apparaat, dat een archief weglaat, dus er is niets verplaatst",
+ "err.tar_unsafe": "Deze tar kan niet veilig worden geopend: er zit een sparse bestand in, of een bestand waarvan de grootte los van de header staat, en dat kan Coxswain nog niet lezen",
  "err.is_folder": "{name} is een map",
  "err.key_twice": "{key} is in [keys] van config.toml aan zowel {a} als {b} gegeven",
  "err.move_check": "{path} veranderde tijdens het verplaatsen, of de kopie is te kort, dus het blijft waar het was",
