@@ -60,6 +60,13 @@ export function keyString(e) {
   return (e.ctrlKey ? "Ctrl+" : "") + (e.altKey ? "Alt+" : "") + (shift ? "Shift+" : "") + k;
 }
 
+/** The editor or Compare in `modal` or under it (F1 → Features over one): the window that may
+ *  hold unsaved text when the app is closed. */
+export function textWindowIn(modal) {
+  for (let m = modal; m; m = m.back) if (m.kind === "editor" || m.kind === "compare") return m;
+  return null;
+}
+
 /** Whether `path` is `folder` or below it; `folder` may end with `sep` (a root). */
 export const inside = (path, folder, sep) => path === folder || path.startsWith(folder.endsWith(sep) ? folder : folder + sep);
 /** `list` without its entry at `i`: one of two equal entries (config.toml may name one twice) goes, not both. */

@@ -32,6 +32,12 @@
 
   // F1 → Features from a dialog goes back to it on Esc.
   const close = () => (ui.modal = ui.modal?.back ?? null);
+  /** After an await: close `m` only when it is still the one open, not what was opened since. */
+  const closeOwn = (m) => {
+    if (ui.modal === m) return close();
+    // Under F1 → Features: taken out, so Esc there does not come back to a finished run.
+    for (let x = ui.modal; x; x = x.back) if (x.back === m) return void (x.back = m.back);
+  };
 
   // ------------------------------------------------------------ features (F1)
 
@@ -262,7 +268,7 @@
     try {
       await invoke("rename_apply", { dir: m.dir, plan: $state.snapshot(m.plan) });
       await refreshUndo(tn("dialogs.renamed", changed.length));
-      close();
+      closeOwn(m);
       load(tab());
     } catch (e) {
       m.error = String(e);
@@ -292,10 +298,12 @@
         return;
       }
       const r = await invoke("attrs_apply", { token: m.plan.token });
-      close();
+      const own = ui.modal === m;
+      closeOwn(m);
       await refreshUndo(r.summary);
       reloadAll();
-      if (r.failed.length) ui.modal = failure(t("attrs.failed"), r.failed.join("\n"));
+      if (r.failed.length && own && ui.modal === (m.back ?? null)) ui.modal = failure(t("attrs.failed"), r.failed.join("\n"));
+      else if (r.failed.length) ui.status = t("attrs.failed");
     } catch (e) {
       m.error = String(e);
     } finally {
@@ -375,10 +383,12 @@
       const picks = m.plan.files.flatMap((f, i) => (m.ticks[i].some(Boolean) ? [{ file: i, skip: m.ticks[i].flatMap((on, j) => (on ? [] : [j])) }] : []));
       m.busy.all = picks.length;
       const r = await invoke("replace_apply", { picks, token: m.plan.token });
-      close();
+      const own = ui.modal === m;
+      closeOwn(m);
       await refreshUndo(r.summary);
       reloadAll();
-      if (r.failed.length) ui.modal = failure(t("replace.failed"), r.failed.join("\n"));
+      if (r.failed.length && own && ui.modal === (m.back ?? null)) ui.modal = failure(t("replace.failed"), r.failed.join("\n"));
+      else if (r.failed.length) ui.status = t("replace.failed");
     } catch (e) {
       m.error = String(e);
     } finally {
@@ -451,7 +461,7 @@
       const on = Object.keys(m.flags).filter((n) => m.flags[n]);
       if (m.props.flags?.can_set && on.join(" ") !== was) await invoke("set_flags", { path: m.props.path, on });
       await invoke("set_permissions", { path: m.props.path, mode, readonly: m.readonly });
-      close();
+      closeOwn(m);
       load(tab());
     } catch (e) {
       m.error = String(e);
@@ -665,7 +675,7 @@
 
 {#if ui.modal && !["dupes", "settings", "bom", "chess", "go", "space", "editor", "compare"].includes(ui.modal.kind)}
   {@const m = ui.modal}
-  <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && close()}>
+  <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && !m.busy && close()}>
     <div class="dialog {m.kind}" role="dialog" aria-modal="true" aria-label={m.title ?? (KIND_LABEL[m.kind] ? t(KIND_LABEL[m.kind]) : m.kind)}>
       {#if m.kind === "input"}
         <h2>{m.title}</h2>

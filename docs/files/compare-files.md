@@ -65,7 +65,7 @@ until it is done. **Esc** closes it, which also stops the reading.
 | **Alt+→**, **Alt+←** | Copy the change under the cursor to the right, to the left | The same; **>** and **<** too |
 | **Ctrl+Z** | Undo the last copy | The same |
 | **F2**, **Ctrl+S** | Save | The same |
-| **Esc** | Close (asks first when a copy is not saved) | The same |
+| **Esc** | Close (asks first when a copy is not saved) | The same; closing the window asks too |
 | **F1** | This feature in F1 → Features | The same |
 
 The key line at the bottom names them, and **Shift+F2** can be changed (`compare_files` under

@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Main window",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-close", "core:window:allow-set-title"]
+  "permissions": ["core:default", "core:window:allow-close", "core:window:allow-destroy", "core:window:allow-set-title"]
 }

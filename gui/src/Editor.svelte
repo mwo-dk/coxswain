@@ -11,6 +11,7 @@
   // modal, so F1 → Features and back keeps it; undo is this window's own.
   import { tick } from "svelte";
   import { ui, reloadAll, keyOf, lineHistory } from "./app.svelte.js";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { invoke, basename, parent } from "./lib.js";
   import { t } from "./i18n.svelte.js";
   import { hljs } from "./hl.js";
@@ -39,6 +40,10 @@
 
   const name = basename(m.path);
   const dirty = $derived(m.doc && m.text !== m.saved);
+  // Closing the app asks first while this holds unsaved text (App.svelte): `tryClose(true)`, and
+  // the app closes after Save or Don't save. Any other close resets it, so a Cancel does not stick.
+  m.dirty = () => dirty;
+  m.tryClose = (quit) => tryClose(quit);
   const lines = $derived.by(() => {
     let n = 1;
     for (let i = m.text?.indexOf("\n") ?? -1; i >= 0; i = m.text.indexOf("\n", i + 1)) n++;
@@ -316,9 +321,11 @@
     ui.modal = m.back ?? null;
     kept.modal = null;
     if (m.wrote) reloadAll();
+    if (m.quitAfter) getCurrentWindow().close();
   }
 
-  function tryClose() {
+  function tryClose(quit = false) {
+    m.quitAfter = quit;
     if (dirty) asking = "close";
     else close();
   }
@@ -371,7 +378,7 @@
         <button class:on={!!m.blame} disabled={!m.doc} title={t("blame.tip", { key: keyOf("blame") })} onclick={toggleBlame}>{t("blame.button")} <kbd>{keyOf("blame")}</kbd></button>
         <button disabled={!m.doc} title={t("blame.history_tip")} onclick={trace}>{t("action.line_history")} <kbd>{keyOf("line_history")}</kbd></button>
       {/if}
-      <button onclick={tryClose}>{t("common.close")} <kbd>Esc</kbd></button>
+      <button onclick={() => tryClose()}>{t("common.close")} <kbd>Esc</kbd></button>
     </span>
   </header>
 

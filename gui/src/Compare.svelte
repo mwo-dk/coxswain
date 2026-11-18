@@ -5,6 +5,7 @@
   // other files as hex rows, pictures side by side, over each other or as their difference.
   import { onDestroy, tick } from "svelte";
   import { ui, reloadAll } from "./app.svelte.js";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { invoke, convertFileSrc, basename, isOldPicture } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import { hljs } from "./hl.js";
@@ -15,7 +16,7 @@
 
   let kind = $state(null);
   let st = $state({ percent: 0, ready: false });
-  let options = $state({ whitespace: false, case: false });
+  let options = $state(m.options ?? { whitespace: false, case: false });
   let view = $state("split");
   let rows = $state([]);
   let first = $state(0);
@@ -32,17 +33,28 @@
   let wrote = false;
   let timer;
 
-  const dirty = $derived(!!st.summary?.dirty?.some((d) => d));
+  // Until the state is read again (back from F1 → Features), what it was: kept on the modal.
+  const dirty = $derived(st.summary ? !!st.summary.dirty?.some((d) => d) : !!m.unsaved);
+  $effect(() => {
+    if (st.summary) m.unsaved = dirty;
+  });
+  // Closing the app asks first while this holds unsaved text (App.svelte): `tryClose(true)`, and
+  // the app closes after Save or Don't save. Any other close resets it, so a Cancel does not stick.
+  m.dirty = () => dirty;
+  m.tryClose = (quit) => tryClose(quit);
   const total = $derived(st.total ?? 0);
   const shown = $derived(Math.ceil(height / ROW) + 2);
 
-  async function start(place = true) {
+  /** Compares anew; `reopen` false (back from F1 → Features) keeps the comparison open, and the
+   *  lines taken over that are not saved yet. */
+  async function start(place = true, reopen = true) {
     clearTimeout(timer);
     rows = [];
     first = cur = 0;
     st = { percent: 0, ready: false };
     try {
-      kind = await invoke("compare_open", { left: m.left, right: m.right, options });
+      kind = reopen ? await invoke("compare_open", { left: m.left, right: m.right, options }) : m.opened;
+      Object.assign(m, { opened: kind, options: $state.snapshot(options) });
     } catch (e) {
       st = { ready: true, error: String(e) };
       return;
@@ -110,6 +122,7 @@
     try {
       await invoke("compare_save", { force });
       wrote = true;
+      m.unsaved = false;
       asking = null;
       // Read again: where the lines of a side written start is known no more.
       const [c, f] = [cur, first];
@@ -143,9 +156,14 @@
     invoke("compare_close");
     ui.modal = null;
     if (wrote) reloadAll();
+    if (m.quitAfter) getCurrentWindow().close();
   }
 
-  const tryClose = () => (dirty ? (asking = "close") : close());
+  function tryClose(quit = false) {
+    m.quitAfter = quit;
+    if (dirty) asking = "close";
+    else close();
+  }
 
   async function saveAndClose() {
     if (await save()) close();
@@ -193,7 +211,7 @@
   const hex = (b) => (b == null ? "  " : b.toString(16).padStart(2, "0"));
   const SIGN = { same: " ", changed: "~", removed: "−", added: "+", taken: "=" };
 
-  start();
+  start(true, !m.opened);
   onDestroy(() => clearTimeout(timer));
 </script>
 
@@ -226,7 +244,7 @@
           <button class:primary={pic === id} onclick={() => (pic = id)}>{t(label)}</button>
         {/each}
       {/if}
-      <button onclick={tryClose}>{t("common.close")} <kbd>Esc</kbd></button>
+      <button onclick={() => tryClose()}>{t("common.close")} <kbd>Esc</kbd></button>
     </span>
   </header>
 
