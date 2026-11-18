@@ -134,7 +134,7 @@ taking out all write a complete new archive next to the old one, in a hidden fil
 the app's run, so two apps never write the same file). Only when it is complete and written to
 the disk does it take the old one's place, with a rename in the same folder. A move into an
 archive (**F6**) deletes the originals only after that; a move out of one takes the entries out of
-the archive only after the files that came out are on the disk. If anything fails on the way, or
+the archive only after the files that came out, and their folders, are on the disk. If anything fails on the way, or
 you stop it ([Stopping it](copy.md#stopping-it)), the new file is removed and the archive is
 exactly as it was, byte for byte. One archive is written at a time, also across the apps and
 windows that run: a second change waits for the first. Before it writes, Coxswain notes the

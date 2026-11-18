@@ -3249,7 +3249,7 @@ fn copy_entries(
         }
         // A move takes it out of the archive next: on the disk first, as a move across disks.
         if how.whole {
-            f.sync_all()?;
+            crate::fs::sync(&f).inspect_err(|_| drop(std::fs::remove_file(&tmp)))?;
         }
         drop(f);
         crate::fs::put(&tmp, path).inspect_err(|_| drop(std::fs::remove_file(&tmp)))?;
@@ -4046,14 +4046,15 @@ fn rewrite(
             File::options()
                 .write(true)
                 .open(&tmp)
-                .and_then(|f| f.sync_all())
+                .and_then(|f| crate::fs::sync(&f))
                 .and_then(|_| {
                     std::fs::metadata(archive)
                         .and_then(|m| std::fs::set_permissions(&tmp, m.permissions()))
                         .or_else(|e| if exists { Err(e) } else { Ok(()) })
                 })
                 .and_then(|_| std::fs::rename(&tmp, archive))
-                .inspect(|_| sync_folder(archive))
+                .inspect_err(|_| drop(std::fs::remove_file(&tmp)))
+                .inspect(|_| crate::fs::sync_dir(archive.parent().unwrap_or(Path::new(""))))
         }
         Err(e) => {
             let _ = std::fs::remove_file(&tmp);
@@ -4066,18 +4067,6 @@ fn rewrite(
         remember(archive, pw);
     }
     done
-}
-
-/// The folder that holds `path`, on the disk: a rename into it is kept. Unix only (Windows
-/// keeps a rename with the file); a file system that cannot sync a folder is left as it is.
-fn sync_folder(path: &Path) {
-    #[cfg(unix)]
-    if let Some(dir) = path.parent() {
-        let dir = if dir.as_os_str().is_empty() { Path::new(".") } else { dir };
-        let _ = File::open(dir).and_then(|d| d.sync_all());
-    }
-    #[cfg(not(unix))]
-    let _ = path;
 }
 
 /// Take `inner` (files, or folders and everything in them) out of the archive: it is written

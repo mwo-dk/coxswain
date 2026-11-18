@@ -942,7 +942,7 @@ fn copy_file(src: &Path, to: &Path, sync: bool) -> io::Result<()> {
         let r = fs::copy(src, &tmp).and_then(|_| {
             #[cfg(unix)]
             if sync {
-                fs::File::open(&tmp)?.sync_all()?;
+                sync(&fs::File::open(&tmp)?)?;
             }
             put(&tmp, to)
         });
@@ -997,7 +997,7 @@ fn copy_in_steps(src: &Path, to: &Path, meta: &fs::Metadata, sync: bool) -> io::
         let end = out.stream_position()?;
         out.set_len(end)?;
         if sync {
-            out.sync_all()?;
+            sync(&out)?;
         }
         out.set_modified(meta.modified()?)?;
         // The original's permission bits, not its set-user or set-group ones; on Windows only
@@ -1053,6 +1053,43 @@ pub(crate) fn put(tmp: &Path, to: &Path) -> io::Result<()> {
         return Err(exists(to));
     }
     fs::rename(tmp, to)
+}
+
+/// `f` on the disk. A Mac's full sync, which some shares and USB disks refuse, falls back to a
+/// plain one there.
+pub(crate) fn sync(f: &fs::File) -> io::Result<()> {
+    let r = f.sync_all();
+    #[cfg(target_vendor = "apple")]
+    if r.as_ref().is_err_and(|e| matches!(e.raw_os_error(), Some(libc::ENOTSUP | libc::ENOTTY | libc::EINVAL))) {
+        return f.sync_data();
+    }
+    r
+}
+
+/// The folder `dir` on the disk, so a rename or a new file in it is kept. Unix only (Windows
+/// keeps them with the file); a file system that cannot sync a folder is left as it is.
+pub(crate) fn sync_dir(dir: &Path) {
+    #[cfg(unix)]
+    {
+        let dir = if dir.as_os_str().is_empty() { Path::new(".") } else { dir };
+        let _ = fs::File::open(dir).and_then(|d| d.sync_all());
+    }
+    #[cfg(not(unix))]
+    let _ = dir;
+}
+
+/// `to`'s folder, and every folder in `to` when it is one, on the disk: what came out of an
+/// archive stays out when the archive is written without it next.
+fn sync_tree(to: &Path) {
+    sync_dir(to.parent().unwrap_or(Path::new("")));
+    if fs::symlink_metadata(to).is_ok_and(|m| m.is_dir()) {
+        sync_dir(to);
+        for de in fs::read_dir(to).into_iter().flatten().flatten() {
+            if de.file_type().is_ok_and(|t| t.is_dir()) {
+                sync_tree(&de.path());
+            }
+        }
+    }
 }
 
 pub(crate) fn exists(to: &Path) -> io::Error {
@@ -1207,6 +1244,7 @@ pub(crate) fn rename_locked_logged(
         (Some((a, from)), _) => {
             // Taken out of the archive only when all of it came out.
             let to = copy_out_or_in(src, dst, password, true)?;
+            sync_tree(&to);
             // Once out whole it is taken out of the archive, Stop or not: never in two places.
             crate::stop::during(&Default::default(), || {
                 crate::archive::remove(&a, &[from], password)
