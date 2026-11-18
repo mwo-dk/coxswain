@@ -599,9 +599,10 @@ fn installed_kroki_args(kind: &str) -> Vec<&'static str> {
 /// separator (`:`, `;` on Windows): PlantUML splits the allowlist on it, so it would allow a
 /// second folder the name chooses.
 fn plantuml_java_options(user: Option<String>, dir: &Path) -> Option<String> {
-    std::env::join_paths([dir]).ok()?;
+    // Not `env::join_paths`: on Windows it quotes a `;` instead of refusing it.
+    let separator = if cfg!(windows) { ';' } else { ':' };
     let dir = dir.to_string_lossy();
-    if dir.chars().any(|ch| ch == '"' || ch.is_control()) {
+    if dir.chars().any(|ch| ch == '"' || ch == separator || ch.is_control()) {
         return None;
     }
     let user = user.map(|o| format!("{o} ")).unwrap_or_default();
