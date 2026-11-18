@@ -1148,6 +1148,14 @@ fn read_done(dir: &Path) -> Option<Done> {
     serde_json::from_slice(&std::fs::read(dir.join("done")).ok()?).ok()
 }
 
+/// A half-made index folder (`<hash>-<run>-<n>`) whose run is known to have ended. One whose run
+/// keeps no list may still be building, however old the folder: it stays.
+fn ended(dir: &Path) -> bool {
+    let name = dir.file_name().unwrap_or_default().to_string_lossy().into_owned();
+    let run = name.split_once('-').and_then(|(_, r)| r.rsplit_once('-')).map(|(r, _)| r.to_string());
+    run.as_deref().and_then(crate::spill::alive) == Some(false)
+}
+
 /// The whole index folders of `path`, the newest first; each one a run that ended left half
 /// made goes.
 fn folders(path: &Path) -> Vec<(PathBuf, Done)> {
@@ -1164,7 +1172,7 @@ fn folders(path: &Path) -> Vec<(PathBuf, Done)> {
             // An older version's goes; a newer one's is left to it.
             Some(d) if d.form < FORM => crate::spill::gone(&e.path()),
             Some(_) => {}
-            None if super::table::stale(&e.path()) => crate::spill::gone(&e.path()),
+            None if ended(&e.path()) => crate::spill::gone(&e.path()),
             None => {}
         }
     }
@@ -1577,11 +1585,7 @@ pub fn kept() -> Vec<Kept> {
             continue;
         }
         let Some(d) = read_done(&dir) else {
-            // Its run (`<hash>-<run>-<n>`) is known to have ended: one that keeps no list may
-            // still be building, however old the folder.
-            let name = e.file_name().to_string_lossy().into_owned();
-            let run = name.split_once('-').and_then(|(_, r)| r.rsplit_once('-')).map(|(r, _)| r.to_string());
-            if run.as_deref().and_then(crate::spill::alive) == Some(false) {
+            if ended(&dir) {
                 crate::spill::gone(&dir);
             }
             continue;

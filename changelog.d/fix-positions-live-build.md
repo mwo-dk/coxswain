@@ -1,0 +1,1 @@
+| **A long position index build is no longer removed while it runs.** Showing its database could take a half-made index more than ten minutes old for one cut short when it could not tell whether its build had ended, and remove it mid-build; now only a build known to have ended is removed. | [Position index](previews/chess-positions.md#room-on-the-disk) |
