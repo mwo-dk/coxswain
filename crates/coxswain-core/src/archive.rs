@@ -3249,7 +3249,7 @@ fn copy_entries(
         }
         // A move takes it out of the archive next: on the disk first, as a move across disks.
         if how.whole {
-            crate::fs::sync(&f).inspect_err(|_| drop(std::fs::remove_file(&tmp)))?;
+            crate::fs::sync_file(&f).inspect_err(|_| drop(std::fs::remove_file(&tmp)))?;
         }
         drop(f);
         crate::fs::put(&tmp, path).inspect_err(|_| drop(std::fs::remove_file(&tmp)))?;
@@ -4046,7 +4046,7 @@ fn rewrite(
             File::options()
                 .write(true)
                 .open(&tmp)
-                .and_then(|f| crate::fs::sync(&f))
+                .and_then(|f| crate::fs::sync_file(&f))
                 .and_then(|_| {
                     std::fs::metadata(archive)
                         .and_then(|m| std::fs::set_permissions(&tmp, m.permissions()))

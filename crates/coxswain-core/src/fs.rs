@@ -942,7 +942,7 @@ fn copy_file(src: &Path, to: &Path, sync: bool) -> io::Result<()> {
         let r = fs::copy(src, &tmp).and_then(|_| {
             #[cfg(unix)]
             if sync {
-                sync(&fs::File::open(&tmp)?)?;
+                sync_file(&fs::File::open(&tmp)?)?;
             }
             put(&tmp, to)
         });
@@ -997,7 +997,7 @@ fn copy_in_steps(src: &Path, to: &Path, meta: &fs::Metadata, sync: bool) -> io::
         let end = out.stream_position()?;
         out.set_len(end)?;
         if sync {
-            sync(&out)?;
+            sync_file(&out)?;
         }
         out.set_modified(meta.modified()?)?;
         // The original's permission bits, not its set-user or set-group ones; on Windows only
@@ -1057,7 +1057,7 @@ pub(crate) fn put(tmp: &Path, to: &Path) -> io::Result<()> {
 
 /// `f` on the disk. A Mac's full sync, which some shares and USB disks refuse, falls back to a
 /// plain one there.
-pub(crate) fn sync(f: &fs::File) -> io::Result<()> {
+pub(crate) fn sync_file(f: &fs::File) -> io::Result<()> {
     let r = f.sync_all();
     #[cfg(target_vendor = "apple")]
     if r.as_ref().is_err_and(|e| matches!(e.raw_os_error(), Some(libc::ENOTSUP | libc::ENOTTY | libc::EINVAL))) {
