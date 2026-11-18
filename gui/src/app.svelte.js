@@ -186,6 +186,9 @@ export function newTab(dir, view = "details") {
     up: null,
     /** Not read yet, or changed while in the background: read when shown (`readWhenShown`). */
     unread: false,
+    /** The folders the columns view shows besides `dir` (its parents', the one under the cursor):
+     *  watched too, so they follow what lands in them. */
+    columns: [],
     sort: "name",
     reverse: false,
     view,

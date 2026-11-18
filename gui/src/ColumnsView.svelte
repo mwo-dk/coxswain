@@ -1,5 +1,6 @@
 <script>
   import { untrack } from "svelte";
+  import { listen } from "@tauri-apps/api/event";
   // Miller columns: two ancestor levels, the current folder, and a peek into the folder
   // under the cursor. Left/Right walk the hierarchy (handled in App).
   import { ui, cd, openItem, pickDim, toggleMark, gitFacts, dragOut, newId } from "./app.svelte.js";
@@ -39,11 +40,28 @@
   $effect(() => () => {
     gone = true;
     drop([...ancestors, peek]);
+    t.columns = [];
+  });
+
+  // The columns' folders are watched with the tab's (App's `watchList`); one that changed is read
+  // again. The watch on a folder goes when its column does.
+  let rereadUp = $state(0);
+  let rereadPeek = $state(0);
+  $effect(() => {
+    t.columns = [...ancestors.map((c) => c.dir), ...(peek ? [peek.dir] : [])];
+  });
+  $effect(() => {
+    const off = listen("dir-changed", (ev) => {
+      if (untrack(() => ancestors).some((c) => ev.payload.includes(c.dir))) rereadUp++;
+      if (ev.payload.includes(untrack(() => peek)?.dir)) rereadPeek++;
+    });
+    return () => off.then((f) => f());
   });
 
   // Ancestor columns follow the directory.
   $effect(() => {
     const dir = t.dir;
+    rereadUp;
     const chain = [];
     for (let d = parent(dir), n = 0; d && n < 2; d = parent(d), n++) chain.unshift(d);
     Promise.all(chain.map(async (d, i) => ({ dir: d, open: chain[i + 1] ?? dir, ...(await list(d, chain[i + 1] ?? dir)) }))).then((cols) => {
@@ -62,7 +80,7 @@
   $effect(() => {
     const dir = under;
     // Read again when the folder is, or sorted or shown otherwise.
-    t.items.listed, t.sort, t.reverse, ui.showHidden;
+    t.items.listed, t.sort, t.reverse, ui.showHidden, rereadPeek;
     if (!dir) {
       untrack(() => drop([peek]));
       return void (peek = null);
