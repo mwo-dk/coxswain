@@ -214,3 +214,13 @@ test("fkeyAction: pick mode greys out the F-keys of refused actions", async () =
   assert.equal(fkeyAction("help", { filter: [] }, ["copy"]), "help");
   assert.equal(fkeyAction(undefined, null, []), undefined);
 });
+
+test("the columns view's other folders are watched with the tab's, and only those it lists", async () => {
+  const { watchList } = await pick("watchList");
+  const git = (t) => (t.git ? [`${t.git}/.git`] : []);
+  const tab = { dir: "/p/a", columns: ["/", "/p", "/p/a/new"], git: "/p" };
+  assert.deepEqual(watchList([tab, { dir: "/q", columns: [] }], git, ["/bin"]), ["/p/a", "/", "/p", "/p/a/new", "/p/.git", "/q", "/bin"]);
+  // The cursor moved on to a file: the peek column, and so its watch, is gone.
+  tab.columns = ["/", "/p"];
+  assert.ok(!watchList([tab], git, []).includes("/p/a/new"));
+});

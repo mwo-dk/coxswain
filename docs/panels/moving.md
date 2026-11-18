@@ -132,7 +132,8 @@ already walk the tree.
 
 #### Do the panels follow changes on disk?
 
-Yes. The desktop app watches every folder open in a tab, the terminal app the folders of its two
+Yes. The desktop app watches every folder open in a tab (in the columns view, its parent columns'
+and the one under the cursor too), the terminal app the folders of its two
 panels and their repository's `.git`. Both read a folder again once the changes have settled (a
 quarter of a second without another, or every two seconds while they keep coming, as during a
 build or a copy); in the terminal app the git line follows. Both also read again after their own

@@ -5,7 +5,7 @@
   import { listen } from "@tauri-apps/api/event";
   import { ui, openFind, init, gamesOf, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, pickItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders, remoteRun, stopRemote, refreshBin, openBin, binAct } from "./app.svelte.js";
   import { failure } from "./errors.js";
-  import { invoke, textWindowIn, keyString, basename, parent, quote, isArchive, diskName, packFormat, LOCKED, inside, keyOwner, fkeyAction, setModulesOff, moduleOff } from "./lib.js";
+  import { invoke, textWindowIn, watchList, keyString, basename, parent, quote, isArchive, diskName, packFormat, LOCKED, inside, keyOwner, fkeyAction, setModulesOff, moduleOff } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -126,7 +126,7 @@
   $effect(() => {
     if (!ready) return;
     // The bin's own folders too, so its row and a tab showing it follow what goes in.
-    invoke("watch_dirs", { dirs: [...new Set([...allTabs().flatMap((t) => [t.dir, ...gitDirs(t)]), ...(ui.bin?.watch ?? [])].filter(Boolean))] }).catch((e) => (ui.status = String(e)));
+    invoke("watch_dirs", { dirs: watchList(allTabs(), gitDirs, ui.bin?.watch ?? []) }).catch((e) => (ui.status = String(e)));
   });
   // Settings saved behind the page's back (the built-in model's download turned meaning on).
   listen("config-changed", async () => {
