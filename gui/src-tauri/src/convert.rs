@@ -439,7 +439,7 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             let how = coxswain_core::ebook::How::Container { rt, path: rt_path, image: image.clone() };
             return coxswain_core::ebook::preview(&how, path, out, timeout, &mut |_| {}).map(drop);
         }
-        let container_name = format!("coxswain-preview-{}", out.file_name().unwrap_or_default().to_string_lossy());
+        let container_name = coxswain_core::images::name("preview");
         // LaTeX and Typst see their whole project, so `../figures/plot.pdf` is found; the rest only their folder.
         let mount = match tool {
             "latex" => latex::project(path),
@@ -1156,7 +1156,7 @@ fn wait_child(child: &mut std::process::Child, timeout: Duration, container: Opt
             coxswain_core::tools::kill_tree(child);
         }
         if let Some((rt, name)) = container {
-            let _ = coxswain_core::tools::command(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+            coxswain_core::images::stop(rt, name);
         }
     }
     match r {

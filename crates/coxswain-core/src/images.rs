@@ -48,6 +48,7 @@ pub fn sealed(rt: &str, rt_path: &Path, name: &str, src: &Path, out: Option<&Pat
 }
 
 fn sealed_at(rt: &str, rt_path: &Path, name: &str, src: &Path, at: &str, out: Option<&Path>) -> Command {
+    sweep(rt_path);
     let mut c = crate::tools::command(rt_path);
     c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
     c.args(tight(rt_path));
@@ -141,6 +142,7 @@ pub const TIGHT: &[&str] = &[
 /// `<rt> run` of a program that reads no file at all (the chess engine, talking over stdin
 /// and stdout): `sealed` without a mount, with `TIGHT`'s limits, as the image's own user.
 pub fn sealed_bare(_rt: &str, rt_path: &Path, name: &str) -> Command {
+    sweep(rt_path);
     let mut c = crate::tools::command(rt_path);
     c.args(["run", "--rm", "-i", "--network=none", "--security-opt", "label=disable", "--name", name]);
     c.args(tight(rt_path));
@@ -152,6 +154,173 @@ pub fn sealed_bare(_rt: &str, rt_path: &Path, name: &str) -> Command {
 /// it can write.
 pub fn sealed_file(rt: &str, rt_path: &Path, name: &str, file: &Path, at: &str, out: Option<&Path>) -> Command {
     sealed_at(rt, rt_path, name, file, at, out)
+}
+
+// ---------------------------------------------------------------- names, and what a crash leaves
+
+/// The name of a container of Coxswain's that runs `tool` (lower-case letters only):
+/// `coxswain-<tool>-<pid>-<start>-<n>`, `<start>` when this process started (`started`), so a
+/// later run can tell whether the run that made it is gone (`sweep`). `<start>` is 0 where it
+/// cannot be read (in a Flatpak, whose process ids the host does not see, and on systems
+/// `started` does not know): such a container is never swept.
+pub fn name(tool: &str) -> String {
+    static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("coxswain-{tool}-{}-{}-{n}", std::process::id(), own_start().unwrap_or(0))
+}
+
+fn own_start() -> Option<u64> {
+    static START: std::sync::OnceLock<Option<u64>> = std::sync::OnceLock::new();
+    *START.get_or_init(|| if crate::tools::flatpak().is_some() { None } else { started(std::process::id()).flatten() })
+}
+
+/// Stops the container `name` when its run is stopped or runs past its time: killed at once
+/// (`rm -f` alone would wait the stop timeout, as a tool that is PID 1 ignores SIGTERM), then
+/// removed (`rm -f`), not left to `--rm` alone, which a `run` that is killed never gets to.
+pub fn stop(rt: &Path, name: &str) {
+    for verb in [&["kill", name][..], &["rm", "-f", name]] {
+        let _ = crate::tools::command(rt).args(verb).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+    }
+}
+
+/// The process id and start of a container's name `name`, when it is one Coxswain gives:
+/// `coxswain-<tool>-<pid>-<start>-<n>`, or an older version's `coxswain-<tool>-<pid>-<n>`
+/// (start `None`).
+fn parse_name(name: &str) -> Option<(u32, Option<u64>)> {
+    let mut parts = name.strip_prefix("coxswain-")?.split('-');
+    let tool = parts.next()?;
+    let nums: Vec<&str> = parts.collect();
+    let number = |s: &str| !s.is_empty() && s.len() <= 20 && s.bytes().all(|b| b.is_ascii_digit());
+    if tool.is_empty() || !tool.bytes().all(|b| b.is_ascii_lowercase()) || !nums.iter().all(|n| number(n)) {
+        return None;
+    }
+    let pid = nums.first()?.parse().ok()?;
+    match nums.len() {
+        2 => Some((pid, None)),
+        3 => Some((pid, Some(nums[1].parse().ok()?))),
+        _ => None,
+    }
+}
+
+/// Whether the container `name`, in `state` as `ps` says it, is what a run of Coxswain's that
+/// is gone left behind: the name is Coxswain's own, it does not run (in storage only, created,
+/// exited: never a running one), and its process is gone or is another program under the same
+/// id (it started at another time). An older version's name has no start, so it counts as gone
+/// only while no process has its id: one that took the id keeps it for a later run. A process
+/// whose start cannot be read is taken as alive. `started` as the function of that name.
+fn leftover(name: &str, state: &str, started: &dyn Fn(u32) -> Option<Option<u64>>) -> bool {
+    let idle = ["storage", "created", "configured", "exited", "stopped", "dead"].iter().any(|s| state.eq_ignore_ascii_case(s));
+    match parse_name(name) {
+        _ if !idle => false,
+        None | Some((_, Some(0))) => false,
+        Some((pid, Some(start))) => match started(pid) {
+            None => true,
+            Some(t) => t.is_some_and(|t| t != start),
+        },
+        Some((pid, None)) => started(pid).is_none(),
+    }
+}
+
+/// The containers to remove in `ps`'s lines (`<id> <name> <state>`, the state's first word:
+/// podman can say `Exited (0) 2 hours ago`, `Up 3 minutes`): their ids, and whether each
+/// is in storage only (podman's `rm --storage`).
+fn leftovers<'a>(ps: &'a str, started: &dyn Fn(u32) -> Option<Option<u64>>) -> Vec<(&'a str, bool)> {
+    ps.lines()
+        .filter_map(|l| {
+            let mut w = l.split_whitespace();
+            let (id, name, state) = (w.next()?, w.next()?, w.next()?);
+            let id_ok = !id.is_empty() && id.bytes().all(|b| b.is_ascii_hexdigit());
+            (id_ok && leftover(name, state, started)).then(|| (id, state.eq_ignore_ascii_case("storage")))
+        })
+        .collect()
+}
+
+/// Once a run and runtime, before its first container starts: removes the containers runs of
+/// Coxswain's that are gone left behind (`leftover`), as a run killed or crashed never gets to
+/// `--rm`. Podman then keeps them in its storage (`ps -a --external`, state `storage`), each
+/// holding its image, so the image cannot be removed. Only names Coxswain gives, never another
+/// container, image or anything else.
+pub(crate) fn sweep(rt: &Path) {
+    static DONE: Mutex<std::collections::BTreeSet<PathBuf>> = Mutex::new(std::collections::BTreeSet::new());
+    // Never in this crate's unit tests: it would act on the runtime of the machine they run on.
+    // Other tests reach a real runtime only in `--ignored` runs, and only leftovers go.
+    if cfg!(test) || own_start().is_none() || !DONE.lock().unwrap_or_else(|e| e.into_inner()).insert(rt.to_path_buf()) {
+        return;
+    }
+    let docker = rt.file_stem().is_some_and(|s| s.to_string_lossy().starts_with("docker"));
+    let mut c = crate::tools::command(rt);
+    c.args(["ps", "-a", "--format", "{{.ID}} {{.Names}} {{.State}}"]).stdin(Stdio::null());
+    if !docker {
+        c.arg("--external");
+    }
+    let Ok(out) = crate::tools::capture(c, std::time::Duration::from_secs(30), 4 << 20) else {
+        return;
+    };
+    if !out.status.success() {
+        return;
+    }
+    for (id, storage) in leftovers(&String::from_utf8_lossy(&out.stdout), &started) {
+        let mut c = crate::tools::command(rt);
+        c.arg("rm").args(storage.then_some("--storage")).arg(id).stdin(Stdio::null());
+        let _ = crate::tools::capture(c, std::time::Duration::from_secs(30), 4096);
+    }
+}
+
+/// When the process `pid` started, in the system's own unit: `None` when there is no such
+/// process, `Some(None)` when there is one but its start cannot be read.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn started(pid: u32) -> Option<Option<u64>> {
+    match std::fs::read_to_string(format!("/proc/{pid}/stat")) {
+        // Hidden (`hidepid`) is not gone: another user's process answers kill(0) with EPERM.
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            let gone = unsafe { libc::kill(pid as libc::pid_t, 0) } != 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH);
+            (!gone).then_some(None)
+        }
+        Err(_) => Some(None),
+        // Field 22, `starttime`, in clock ticks since boot; counted after the `(name)`.
+        Ok(s) => Some(s.rfind(')').and_then(|i| s[i + 1..].split_whitespace().nth(19)?.parse().ok())),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn started(pid: u32) -> Option<Option<u64>> {
+    let mut i: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<libc::proc_bsdinfo>() as libc::c_int;
+    let n = unsafe { libc::proc_pidinfo(pid as libc::c_int, libc::PROC_PIDTBSDINFO, 0, (&raw mut i).cast(), size) };
+    if n == size {
+        return Some(Some(i.pbi_start_tvsec * 1_000_000 + i.pbi_start_tvusec));
+    }
+    (std::io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)).then_some(None)
+}
+
+#[cfg(windows)]
+fn started(pid: u32) -> Option<Option<u64>> {
+    use windows_sys::Win32::Foundation::{CloseHandle, ERROR_INVALID_PARAMETER, FILETIME, GetLastError, STILL_ACTIVE};
+    use windows_sys::Win32::System::Threading::{GetExitCodeProcess, GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+    unsafe {
+        let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if h.is_null() {
+            // No such process; any other refusal (access denied) is one that lives.
+            return (GetLastError() != ERROR_INVALID_PARAMETER).then_some(None);
+        }
+        let mut code = 0u32;
+        let z = FILETIME { dwLowDateTime: 0, dwHighDateTime: 0 };
+        let (mut made, mut e, mut k, mut u) = (z, z, z, z);
+        let ended = GetExitCodeProcess(h, &mut code) != 0 && code != STILL_ACTIVE as u32;
+        let ok = GetProcessTimes(h, &mut made, &mut e, &mut k, &mut u) != 0;
+        CloseHandle(h);
+        if ended {
+            return None;
+        }
+        Some(ok.then(|| ((made.dwHighDateTime as u64) << 32) | made.dwLowDateTime as u64))
+    }
+}
+
+/// shortcut: other systems (the BSDs, illumos) are not read yet, so every process is taken as
+/// alive and nothing is swept there; read their process start (kinfo_proc, psinfo) to sweep.
+#[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos", windows)))]
+fn started(_pid: u32) -> Option<Option<u64>> {
+    Some(None)
 }
 
 /// The `--user` option of `sealed`.
@@ -208,6 +377,7 @@ pub fn bounded(bounds: bool) -> Vec<&'static str> {
 /// probe that the runtime refused for want of those controllers turns the bounds off; any other
 /// failure (the image not pulled yet, a hiccup) keeps them on and is asked again next time.
 pub fn bounds_work(rt: &Path, image: &str) -> bool {
+    sweep(rt);
     let key = (rt.to_path_buf(), image.to_string());
     if let Some(k) = BOUNDS.lock().unwrap().get(&key) {
         return *k;
@@ -215,7 +385,7 @@ pub fn bounds_work(rt: &Path, image: &str) -> bool {
     let out = crate::tools::capture(
         {
             let mut c = crate::tools::command(rt);
-            c.args(["run", "--rm", "--pull=never", "--network=none", "--memory=64m", "--pids-limit=16", "--entrypoint", "true", image]);
+            c.args(["run", "--rm", "--pull=never", "--network=none", "--memory=64m", "--pids-limit=16", "--name", &name("bounds"), "--entrypoint", "true", image]);
             c
         },
         std::time::Duration::from_secs(60),
@@ -575,6 +745,107 @@ fn replaced(old: Option<String>, new: Option<String>) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    /// Every tool's name parses back to this process; names Coxswain never gives do not.
+    #[test]
+    fn container_names_are_coxswains_own_and_parse_back() {
+        use super::{name, parse_name};
+        let tools = ["stockfish", "calibre", "export", "media", "probe", "ocr", "clamscan", "freshclam", "whisper", "preview", "bounds"];
+        for tool in tools {
+            let n = name(tool);
+            assert!(n.starts_with(&format!("coxswain-{tool}-{}-", std::process::id())), "{n}");
+            let (pid, start) = parse_name(&n).unwrap_or_else(|| panic!("{n}"));
+            assert_eq!(pid, std::process::id());
+            assert!(start.is_some(), "{n}");
+        }
+        assert_eq!(parse_name("coxswain-stockfish-4242-0"), Some((4242, None)));
+        assert_eq!(parse_name("coxswain-stockfish-4242-77-3"), Some((4242, Some(77))));
+        for other in [
+            "coxswain-tika-1234abcd",
+            "coxswain-tika-12345678",
+            "coxswain-tika-test-4242",
+            "coxswain-preview-out.pdf",
+            "coxswain-stockfish-4242",
+            "coxswain-stockfish-4242-1-2-3",
+            "coxswain-Stockfish-4242-0",
+            "coxswain-stock-fish-4242-0-1",
+            "coxswain--4242-0",
+            "coxswain-stockfish-42a-0",
+            "coxswain-stockfish--0",
+            "mycoxswain-stockfish-4242-0",
+            "stockfish-4242-0",
+            "nginx",
+            "",
+        ] {
+            assert_eq!(parse_name(other), None, "{other}");
+        }
+    }
+
+    /// Only an idle container of Coxswain's whose run is gone is a leftover: never a running
+    /// one, another name, a live run's, or one whose start (0) was not known.
+    #[test]
+    fn only_idle_containers_of_runs_that_are_gone_are_leftovers() {
+        use super::{leftover, leftovers};
+        // pid 10 lives, started at 500; 11 lives, start unreadable; every other pid is gone.
+        let started = |pid: u32| match pid {
+            10 => Some(Some(500)),
+            11 => Some(None),
+            _ => None,
+        };
+        let is = |n: &str, s: &str| leftover(n, s, &started);
+        assert!(is("coxswain-stockfish-20-500-0", "storage"));
+        assert!(is("coxswain-stockfish-20-500-0", "Exited"));
+        assert!(is("coxswain-ocr-20-500-3", "created"));
+        // The pid is another program's now: it started at another time.
+        assert!(is("coxswain-stockfish-10-400-0", "storage"));
+        // The live run's own, idle or not.
+        assert!(!is("coxswain-stockfish-10-500-0", "storage"));
+        assert!(!is("coxswain-stockfish-10-500-0", "created"));
+        // Its start cannot be read: taken as alive.
+        assert!(!is("coxswain-stockfish-11-400-0", "storage"));
+        // Running, paused or on its way: never, whoever made it.
+        for s in ["running", "paused", "stopping", "removing", "restarting", "unknown", ""] {
+            assert!(!is("coxswain-stockfish-20-500-0", s), "{s}");
+        }
+        // Start 0: made where it could not be read (a Flatpak): never.
+        assert!(!is("coxswain-stockfish-20-0-0", "storage"));
+        // An older version's name: gone only when no process has its pid.
+        assert!(is("coxswain-stockfish-20-0", "storage"));
+        assert!(!is("coxswain-stockfish-10-0", "storage"));
+        assert!(!is("coxswain-stockfish-11-0", "storage"));
+        // Not Coxswain's.
+        assert!(!is("my-stockfish-20-500-0", "storage"));
+        assert!(!is("coxswain-tika-1234abcd", "exited"));
+
+        let ps = "\
+abc123 coxswain-stockfish-20-500-0 storage
+def456 coxswain-media-20-500-1 exited
+0a0a0a coxswain-stockfish-10-500-0 storage
+111111 coxswain-whisper-20-500-2 running
+222222 someone-else storage
+333333 coxswain-tika-1234abcd exited
+--rm coxswain-stockfish-20-500-9 storage
+444444 coxswain-stockfish-20-500-8 storage extra
+555555 coxswain-calibre-20-0 created
+666666 coxswain-media-20-500-4 Exited (0) 2 hours ago
+777777 coxswain-media-20-500-5 Up 3 minutes
+888888 coxswain-ocr-20-500-6 Created
+";
+        assert_eq!(
+            leftovers(ps, &started),
+            vec![("abc123", true), ("def456", false), ("444444", true), ("555555", false), ("666666", false), ("888888", false)]
+        );
+    }
+
+    /// This process is alive by `started`, with a start, and one that cannot exist is gone.
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos", windows))]
+    #[test]
+    fn this_process_has_a_start_and_a_missing_one_is_gone() {
+        let me = super::started(std::process::id());
+        assert!(matches!(me, Some(Some(_))), "{me:?}");
+        assert_eq!(me, super::started(std::process::id()));
+        assert_eq!(super::started(u32::MAX - 1), None);
+    }
+
     /// What a hijacked program could leave in `/out`: a link to a secret, a link in a folder
     /// that is a link, a hard link to a secret, a FIFO. Each is refused; a plain file is read;
     /// a file written over a link replaces the link and leaves the secret as it was.

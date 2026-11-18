@@ -199,7 +199,7 @@ fn run(how: &How, pdf: &Path, stop: &AtomicBool, said: &mut impl FnMut(Said)) ->
                         puller.join().map_err(|_| t!("convert.failed", "status" => "pull"))?
                     })?;
                 }
-                let container = format!("coxswain-ocr-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed));
+                let container = crate::images::name("ocr");
                 let mut c = crate::images::sealed(rt, path, &container, dir, Some(&scratch.0));
                 // The image's entry point is ocrmypdf.
                 c.args(["-w", "/src", image.as_str(), "--skip-text", "-l", &langs, &format!("/src/{name}"), "/out/out.pdf"]);
@@ -221,7 +221,7 @@ fn run(how: &How, pdf: &Path, stop: &AtomicBool, said: &mut impl FnMut(Said)) ->
             if stop.load(Ordering::Relaxed) {
                 crate::tools::kill_tree(&mut child);
                 if let Some((rt, name)) = &kill {
-                    let _ = crate::tools::command(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+                    crate::images::stop(rt, name);
                 }
                 return Err(t!("searchable.stopped"));
             }

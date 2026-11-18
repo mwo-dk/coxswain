@@ -16,7 +16,7 @@
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use crate::config::PreviewConfig;
@@ -613,11 +613,10 @@ pub enum Said<'a> {
     Line(&'a str),
 }
 
-static N: AtomicUsize = AtomicUsize::new(0);
 
 /// A name of its own for a container, so a run that is stopped can be killed.
 fn container_name() -> String {
-    format!("coxswain-media-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed))
+    crate::images::name("media")
 }
 
 /// The image of a container `how`, pulled when it is not there yet; `stop` ends the pull.
@@ -686,7 +685,7 @@ fn watch(
         if stop.load(Ordering::Relaxed) || late {
             crate::tools::kill_tree(&mut child);
             if let Some((rt, name)) = &kill {
-                let _ = crate::tools::command(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+                crate::images::stop(rt, name);
             }
             return Err(if late { t!("convert.timed_out", "seconds" => timeout.unwrap_or_default().as_secs()) } else { t!("media.stopped") });
         }
@@ -1066,7 +1065,7 @@ pub fn probe_file(cfg: &PreviewConfig, path: &Path) -> Option<Probe> {
             let (rt, rt_path) = crate::tools::container_runtime(cfg)?;
             let image = cfg.images.get(FFMPEG).filter(|i| !i.is_empty())?;
             crate::tools::image_size(&rt_path, image)?;
-            let name = format!("coxswain-probe-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed));
+            let name = crate::images::name("probe");
             let at = format!("/src/{}", inner_name(path));
             let mut c = crate::images::sealed_file(rt, &rt_path, &name, path, &at, None);
             c.args(["--entrypoint", "/ffprobe", image.as_str()]).args(base).arg(format!("file:{at}"));
@@ -1085,7 +1084,7 @@ pub fn probe_file(cfg: &PreviewConfig, path: &Path) -> Option<Probe> {
     if status.is_err()
         && let Some((rt, name)) = kill
     {
-        let _ = crate::tools::command(rt).args(["kill", &name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        crate::images::stop(&rt, &name);
     }
     let json = reader.join().ok()?;
     status.ok()?.success().then(|| parse_probe(&json)).flatten()

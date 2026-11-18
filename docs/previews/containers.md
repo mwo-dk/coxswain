@@ -22,6 +22,7 @@ the database) and sees your files read-only. Nothing is downloaded until you cli
 - [How to use it](#how-to-use-it)
 - [The images](#the-images)
 - [What a container may do](#what-a-container-may-do)
+  - [Leftovers of a run that was killed](#leftovers-of-a-run-that-was-killed)
 - [Pulling and removing images](#pulling-and-removing-images)
 - [Keeping images up to date](#keeping-images-up-to-date)
   - [Pinned images](#pinned-images)
@@ -128,7 +129,7 @@ Every run is `podman run` (or `docker run`) with:
 | `--user <you>` (docker, and podman run as root, on Linux and macOS) | Rootful docker or podman would leave root-owned files in the cache |
 | `-e HOME=/tmp` | The image cannot be written to, and your user has no home in it, so programs that keep a profile or a cache (LibreOffice, TeX Live, Java) keep it in the container's `/tmp`, which goes with the container |
 | `--user 0:0` (rootless podman) | In rootless podman the container's root is you, so an image whose own user is another one (Gotenberg's, OCRmyPDF's) can write its result to `/out`. Whether podman runs rootless is asked once, with `podman info` |
-| `--name coxswain-preview-<hash>` | So a run past the timeout can be killed (`coxswain-media-<n>`, `coxswain-probe-<n>` for ffmpeg's, ImageMagick's, GDAL's, OpenSCAD's and KiCad's runs, `coxswain-stockfish-<n>` for the chess engine's) |
+| `--name coxswain-<tool>-<pid>-<start>-<n>` | So a run that is stopped or past the timeout can be removed by name (`coxswain-preview-…`, `coxswain-media-…` and `coxswain-probe-…` for ffmpeg's, ImageMagick's, GDAL's, OpenSCAD's and KiCad's runs, `coxswain-stockfish-…` for the chess engine's), and a later run can tell its own leftovers ([Leftovers of a run that was killed](#leftovers-of-a-run-that-was-killed)) |
 | `--read-only --tmpfs /tmp:rw,size=1g --memory=3g --pids-limit=256 --cap-drop=ALL --security-opt no-new-privileges` | Nothing in the image can be changed, only a small `/tmp` in memory and the output folder can be written, memory and processes are bounded, and the program has no capabilities and cannot gain privileges. Every image runs so, LaTeX, LibreOffice and Kroki's as much as ffmpeg's, Whisper's, Tika's, calibre's and the chess engine's; where podman cannot bound memory and processes (its cgroup controllers not delegated), those two are left out |
 
 Inside, the commands are: `latexmk -pdf -interaction=nonstopmode -outdir=/out` for LaTeX,
@@ -149,7 +150,7 @@ held to the driver of the file's kind (`-if GPKG`, `-if GTiff` …) with `GDAL_P
 `openscad -o /out/… --export-format binstl --backend=manifold` for OpenSCAD, and `kicad-cli sch export …`
 and `kicad-cli pcb export …` for KiCad. The chess
 engine (`/stockfish`) gets no folder at all: it talks UCI over standard input and output, runs
-as the image's own user (nobody), and is named `coxswain-stockfish-<n>` so it is killed when the
+as the image's own user (nobody), and is named `coxswain-stockfish-…` so it is stopped and removed (`rm -f`) when the
 position changes or the view closes. ffmpeg and ImageMagick see one file only, not its folder: it is mounted
 read-only as `/src/in.<ending>`, so its name is never an argument. LaTeX runs without
 `-shell-escape`, so a document cannot run commands. ClamAV's two runs are held tighter still,
@@ -163,9 +164,32 @@ calibre's runs for [e-books](ebooks.md) are held tighter still: no mounts at all
 standard input, `sh -c` running `ebook-convert` and `ebook-meta` as nobody, with the same limits
 as ffmpeg's and ImageMagick's ([How calibre runs](ebooks.md#how-calibre-runs)).
 
-A run longer than the timeout (120 s by default) is stopped and its container killed. Make PDF
+A run longer than the timeout (120 s by default) is stopped and its container removed. Make PDF
 searchable, Convert video or audio, Convert or edit pictures, Convert geodata, Export 3D model and Export from KiCad have none: **Stop** ends them. Pulling
 the image is not counted.
+
+### Leftovers of a run that was killed
+
+`--rm` removes a container when it ends, but only while Coxswain's `podman run` lives to see it
+end. When Coxswain is killed or crashes during a run, podman can keep the container in its
+storage: `podman ps -a` does not list it, `podman ps -a --external` does, with the status
+*Storage*. It keeps its own layer on disk and holds its image, so the image cannot be removed
+(*image is in use by a container*).
+
+So once a run, before its first container starts, Coxswain removes such leftovers (`podman rm
+--storage <id>`, or `docker rm <id>`). It removes a container only when all of these hold:
+
+- its name is one Coxswain gives, `coxswain-<tool>-<pid>-<start>-<n>` (or an older version's
+  `coxswain-<tool>-<pid>-<n>`);
+- it does not run: it is in storage only, created, exited or dead;
+- the Coxswain that made it is gone: no process has its process id, or the process that has it
+  started at another time than `<start>` says, so it is another program that got the same id.
+
+A container of an older version has no start time in its name, so it goes only once no process
+has its id. Containers of any other name, images and anything else are never touched. On the BSDs
+and illumos, and inside a Flatpak (whose process ids the host does not see), Coxswain cannot
+read when a process started, so it removes nothing there; `podman ps -a --external` lists what
+is left, and `podman rm --storage <id>` removes one.
 
 ## Pulling and removing images
 
@@ -459,6 +483,14 @@ with files from elsewhere. In its container it has no network and sees only the 
 installed one is used when the image is not pulled or cannot read the file, under a policy that
 allows picture formats only. For ffmpeg the installed one comes first, as it is usually the
 better build for your machine.
+
+#### Why does `podman rmi` say an image is in use when nothing runs?
+
+A run that was killed (Coxswain closed by force, a crash) left its container in podman's storage,
+which holds the image. The next time Coxswain starts a container it removes those leftovers of
+its own ([Leftovers of a run that was killed](#leftovers-of-a-run-that-was-killed)). To remove
+them by hand, list them with `podman ps -a --external` and remove each with
+`podman rm --storage <id>`.
 
 #### Does a container run a server?
 

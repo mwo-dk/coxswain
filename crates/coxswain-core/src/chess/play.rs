@@ -482,8 +482,7 @@ impl Program {
         match self {
             Program::Installed(p) => (crate::tools::command(p), None),
             Program::Container { rt, path, image } => {
-                static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-                let name = format!("coxswain-stockfish-{}-{}", std::process::id(), N.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+                let name = crate::images::name("stockfish");
                 let mut c = crate::images::sealed_bare(rt, path, &name);
                 c.arg(image);
                 (c, Some((path.clone(), name)))
@@ -890,7 +889,7 @@ impl Drop for Engine {
         let _ = self.child.kill();
         let _ = self.child.wait();
         if let Some((rt, name)) = &self.container {
-            let _ = crate::tools::command(rt).args(["kill", name]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+            crate::images::stop(rt, name);
         }
     }
 }
