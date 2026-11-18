@@ -1,4 +1,4 @@
-"""The milestone gate of packaging/release-pr.py. Run: python3 -m unittest packaging/test_release_pr.py"""
+"""The milestone gate of packaging/release-pr.py. Run: python3 packaging/test_release_pr.py (not -m unittest: pip's `packaging` module shadows the folder)"""
 
 import importlib.util
 import json
