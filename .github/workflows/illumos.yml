@@ -51,7 +51,7 @@ jobs:
         with:
           packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
           recommends: false
-      - uses: vmactions/omnios-vm@9576f0b6d15e7696548409baa533bc0a339caf42 # v1.3.7
+      - uses: vmactions/omnios-vm@aeee92416495d9685b2997d954f6b063ae5b832d # v1.3.8
         with:
           disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "r151058"
@@ -136,7 +136,7 @@ jobs:
         with:
           packages: qemu-utils qemu-system-x86 ovmf # what each pinned vmactions action's install() asks for on x86_64
           recommends: false
-      - uses: vmactions/openindiana-vm@74a06af3be38c265a2d99d1af520d66a057ff222 # v1.1.9
+      - uses: vmactions/openindiana-vm@b0669479e0325a25198dc7ed2a4b6089e98f91b3 # v1.2.0
         with:
           disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "202604"
