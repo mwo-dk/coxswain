@@ -678,3 +678,90 @@ fn games_read_at_their_place_are_read_by_several_threads() {
     assert_eq!(built(&lib, 30).readers.load(Ordering::Relaxed), 1);
     remove(&gz);
 }
+
+/// Merged in ranges of positions on several threads, the index is byte for byte the one merged
+/// whole: from scratch (more runs than `FAN`, so in rounds too) and keeping an old index's games.
+#[test]
+fn an_index_merged_in_ranges_is_the_one_merged_whole() {
+    let d = Dir::new();
+    let texts: Vec<String> = random_lines(3000, 11).iter().map(|l| game("a", "b", 2000, 2100, 1990, "1-0", None, &l.join(" "))).collect();
+    let p = file(&d, "games.pgn", &texts);
+    let lib = opened_lib(&p);
+    let stamp = lib.stamp().to_string();
+    let made = |name: String, old: Option<(&Index, u32)>, ranges: usize| {
+        let dir = d.0.join(name);
+        std::fs::create_dir_all(&dir).unwrap();
+        let job = Job::default();
+        build_in(&lib, 0, &dir, old, &job, &stamp, ranges).unwrap();
+        let files = ["postings", "tree", "blocks"].map(|f| std::fs::read(dir.join(f)).unwrap());
+        (dir, files, job)
+    };
+    let (dir, whole, job) = made("whole".into(), None, 1);
+    let entries = job.entries.load(Ordering::Relaxed);
+    assert!(entries > (RUN * FAN) as u64, "{entries} entries: in rounds");
+    assert!(!whole[1].is_empty(), "a tree kept");
+    for ranges in [2, 5, 64] {
+        assert_eq!(made(format!("r{ranges}"), None, ranges).1, whole, "{ranges} ranges");
+    }
+    let old = Index::open(&dir).unwrap();
+    let kept = made("kept-whole".into(), Some((&old, 1500)), 1).1;
+    assert_eq!(made("kept-r5".into(), Some((&old, 1500)), 5).1, kept);
+    assert_eq!(kept, whole, "the same games");
+}
+
+/// Sorted runs of `n` entries each, written as the build writes them, in `d`: and their entries.
+fn made_runs(d: &Dir, n: usize, seed: u64) -> (Vec<Run>, u64) {
+    let mut all = 0;
+    let mut seed = seed;
+    let mut rnd = move || {
+        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        seed
+    };
+    let runs = (0..4)
+        .map(|r| {
+            // Some positions common, so they go over blocks and runs.
+            let mut es: Vec<Entry> = (0..n).map(|_| entry(if rnd() % 4 == 0 { rnd() % 16 } else { rnd() }, (rnd() >> 40) as u32, rnd() as u16)).collect();
+            es.sort_unstable();
+            let path = d.0.join(format!("run-{n}-{r}"));
+            let mut w = Writer::new(BufWriter::new(File::create(&path).unwrap()));
+            for e in es {
+                w.push(e).unwrap();
+            }
+            let (_, blocks, entries) = w.finish().unwrap();
+            all += entries;
+            Run { path, blocks }
+        })
+        .collect();
+    (runs, all)
+}
+
+/// The runs merged in `ranges` ranges and joined: the bytes, and the entries the merges read.
+fn merged_in(d: &Dir, runs: &[Run], ranges: usize) -> (Vec<u8>, u64) {
+    let job = Job::default();
+    let n = AtomicU64::new(0);
+    let segs = in_parts(runs, ranges, &job, |_, streams| {
+        let p = d.0.join(format!("seg-{}", n.fetch_add(1, Ordering::Relaxed)));
+        let mut w = Writer::new(BufWriter::new(File::create(&p)?));
+        merge(streams, &job, |e| w.push(e))?;
+        w.finish()?;
+        Ok(p)
+    })
+    .unwrap();
+    let mut w = Writer::new(vec![]);
+    join(&segs, &mut w).unwrap();
+    (w.finish().unwrap().0, job.merged.load(Ordering::Relaxed))
+}
+
+/// A merge in ranges reads each entry once, and at most a block a run more for each range's
+/// start and end: its work grows with the entries, not faster (counted, and n against 8n).
+#[test]
+fn a_merge_in_ranges_reads_each_entry_about_once() {
+    let d = Dir::new();
+    let ((small, _), (big, entries)) = (made_runs(&d, 20_000, 3), made_runs(&d, 160_000, 4));
+    let (whole, read) = merged_in(&d, &big, 1);
+    assert_eq!(read, entries, "merged whole: each entry once");
+    let (bytes, read) = merged_in(&d, &big, 8);
+    assert_eq!(bytes, whole);
+    assert!(read <= entries + 2 * 8 * 4 * BLOCK as u64, "{read} entries read of {entries}");
+    crate::assert_costs_at_most(10, || drop(merged_in(&d, &small, 8)), || drop(merged_in(&d, &big, 8)));
+}
