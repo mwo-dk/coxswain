@@ -54,6 +54,26 @@ test("old pictures: the core's endings, any case", async () => {
   assert.ok(!isOldPicture("a.tif"), "the list replaced");
 });
 
+test("keepsOne: a folder marked after files of another group takes that group's last copy", async () => {
+  const { keepsOne } = await pick("inside", "keepsOne");
+  const groups = [
+    { items: [{ path: "/a" }, { path: "/b" }] },
+    { items: [{ path: "/a/x" }, { path: "/b/x" }, { path: "/c/x" }] },
+  ];
+  assert.ok(keepsOne(groups, ["/c/x", "/a/x"], "/"), "b/x stays");
+  assert.ok(!keepsOne(groups, ["/c/x", "/a/x", "/b"], "/"), "b took b/x along: no x left");
+  assert.ok(!keepsOne(groups, ["/b", "/c/x", "/a/x"], "/"), "the other order too");
+  assert.ok(keepsOne(groups, ["/b", "/c/x"], "/"), "a/x stays");
+  assert.ok(!keepsOne(groups, ["/a", "/b"], "/"), "a folder group with every copy marked");
+  assert.ok(keepsOne(groups, ["/bb"], "/"), "a sibling that starts the same takes nothing");
+  assert.ok(!keepsOne([{ items: [{ path: "/" }, { path: "/x" }] }], ["/"], "/"), "the root takes everything");
+  const win = [{ items: [{ path: "C:\\p\\x" }, { path: "D:\\x" }] }];
+  assert.ok(keepsOne(win, ["C:\\p"], "\\"), "D:\\x stays");
+  assert.ok(!keepsOne(win, ["C:\\p", "D:\\"], "\\"), "a drive takes its files");
+  assert.ok(!keepsOne([{ items: [{ path: "C:/p/x" }, { path: "D:\\x" }] }], ["C:/p/", "D:\\x"], "\\"), "a folder written with / and a trailing one");
+  assert.ok(keepsOne(win, ["C:\\pp", "D:\\x"], "\\"), "a sibling that starts the same");
+});
+
 test("inside: the folder itself and below it, not a sibling that starts the same", async () => {
   const { inside } = await pick("inside");
   assert.ok(inside("/a/b", "/a/b", "/"));

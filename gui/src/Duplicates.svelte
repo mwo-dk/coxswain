@@ -2,7 +2,7 @@
   // Find duplicate files and folders (the engine is coxswain-core's dupes.rs): pick where to look,
   // scan, review the groups, mark the copies to remove, move them to the trash.
   import { ui, tab, otherTab, showInTab } from "./app.svelte.js";
-  import { invoke, convertFileSrc, size, date, basename, parent, previewKind, composing, inside as below } from "./lib.js";
+  import { invoke, convertFileSrc, size, date, basename, parent, previewKind, composing, inside as below, keepsOne } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
   const d = ui.modal;
@@ -77,9 +77,9 @@
   const inside = (p, roots) => roots.some((r) => below(p, r, ui.cfg.sep));
   const markedNow = () => Object.keys(d.marked).filter((p) => d.marked[p]);
 
-  /** Mark or unmark one copy; the last copy of a group that stays cannot be marked. */
-  function toggle(g, path) {
-    if (!d.marked[path] && g.items.filter((it) => !inside(it.path, markedNow())).length <= 1) {
+  /** Mark or unmark one copy; a mark that would leave any group without a copy is refused. */
+  function toggle(path) {
+    if (!d.marked[path] && !keepsOne(groups, [...markedNow(), path], ui.cfg.sep)) {
       d.error = t("dupes.keep_one");
       return;
     }
@@ -88,7 +88,7 @@
   }
 
   /** Mark all copies but the one `keep` picks, in every group it decides; the marks of the
-   *  others stay. The copy kept is never inside a folder marked here (folder groups come first). */
+   *  others stay. A set of marks that would leave a group without a copy is refused. */
   function rule(keep) {
     const m = {};
     for (const g of groups) {
@@ -100,6 +100,9 @@
       }
       for (const it of g.items) if (it !== k) m[it.path] = true;
     }
+    // A mark kept from before can hold a copy kept here (nested folders): the marks stay as they were.
+    if (!keepsOne(groups, Object.keys(m), ui.cfg.sep)) return void (d.error = t("dupes.keep_one"));
+    d.error = "";
     d.marked = m;
   }
   const newest = (g) => (g.folder ? null : g.items.reduce((a, b) => (b.modified > a.modified ? b : a)));
@@ -109,6 +112,7 @@
 
   async function trash() {
     const paths = marked;
+    if (!keepsOne(groups, paths, ui.cfg.sep)) return void (d.error = t("dupes.keep_one"));
     ui.modal = {
       kind: "confirm",
       feature: "duplicates",
@@ -219,7 +223,7 @@
           </div>
           {#each g.items as it (it.path)}
             <div class="copy" class:marked={d.marked[it.path]}>
-              <input type="checkbox" checked={!!d.marked[it.path]} onchange={() => toggle(g, it.path)} title={t("dupes.mark_tip")} />
+              <input type="checkbox" checked={!!d.marked[it.path]} onchange={(e) => (toggle(it.path), (e.currentTarget.checked = !!d.marked[it.path]))} title={t("dupes.mark_tip")} />
               {#if !g.folder && isImage(it.path)}<img src={convertFileSrc(it.path)} alt="" loading="lazy" />{:else}<span class="glyph">{g.folder ? "\u{f07b}" : "\u{f15b}"}</span>{/if}
               <span class="path" title={it.path}><bdi><span class="dir">{parent(it.path)}/</span>{basename(it.path)}</bdi></span>
               {#if it.modified}<span class="when">{date(it.modified)}</span>{/if}
