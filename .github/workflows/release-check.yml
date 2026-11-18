@@ -404,6 +404,11 @@ jobs:
     env:
       VER: ${{ needs.resolve.outputs.version }}
     steps:
+      # The tag's checkout: its Cargo.lock is what cargo install --locked builds with.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+          persist-credentials: false
       # The release pipeline publishes to crates.io after the release: wait for it.
       - name: On crates.io
         run: |
@@ -416,10 +421,12 @@ jobs:
         run: |
           # termux-docker starts a login shell that drops -e variables: the version goes into
           # the command (it is X.Y.Z, checked above).
-          docker run --rm termux/termux-docker:aarch64 bash -c "
+          docker run --rm -v "$PWD:/src:ro" termux/termux-docker:aarch64 bash -c "
             set -e
             # The Termux package server answers an error now and then: try again, with a fresh index.
-            for i in 1 2 3 4; do pkg install -y rust clang binutils >/dev/null && break; [ \"\$i\" = 4 ] && exit 1; sleep \$((i * 15)); pkg update -y >/dev/null 2>&1 || true; done
+            for i in 1 2 3 4; do pkg install -y rust clang binutils jq >/dev/null && break; [ \"\$i\" = 4 ] && exit 1; sleep \$((i * 15)); pkg update -y >/dev/null 2>&1 || true; done
+            mkdir ~/src && tar -C /src -cf - . | tar -C ~/src -xf - && cd ~/src
+            sh packaging/termux-rust.sh
             cargo install --locked coxswain --version $VER
             test \"\$(\$HOME/.cargo/bin/coxswain --version)\" = 'coxswain $VER'
             \$HOME/.cargo/bin/coxswain --help >/dev/null
