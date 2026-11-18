@@ -131,8 +131,10 @@ tools show for a zip Coxswain made). A folder made inside an archive (**F7**) is
 **Every change writes the archive anew.** Adding, renaming, moving within, making a folder and
 taking out all write a complete new archive next to the old one, in a hidden file ending in
 `.coxswain-tmp` (`.tools.zip.4711_9f3a1c2b.coxswain-tmp` for `tools.zip`, the middle part naming
-the app's run, so two apps never write the same file). Only when it is complete does it
-take the old one's place, with a rename in the same folder. If anything fails on the way, or
+the app's run, so two apps never write the same file). Only when it is complete and written to
+the disk does it take the old one's place, with a rename in the same folder. A move into an
+archive (**F6**) deletes the originals only after that; a move out of one takes the entries out of
+the archive only after the files that came out, and their folders, are on the disk. If anything fails on the way, or
 you stop it ([Stopping it](copy.md#stopping-it)), the new file is removed and the archive is
 exactly as it was, byte for byte. One archive is written at a time, also across the apps and
 windows that run: a second change waits for the first. Before it writes, Coxswain notes the
@@ -432,7 +434,8 @@ the target of **F5**.
 #### Is it safe to change an archive? What if the power goes off?
 
 The archive is written anew into a hidden `.….coxswain-tmp` file next to it and only then renamed
-over the old one. Until that rename the old archive is untouched; if something fails, the new file
+over the old one, once it is on the disk, so the power going just after never leaves an empty
+or short file in the archive's place. Until that rename the old archive is untouched; if something fails, the new file
 is removed, also when you stop it. After a crash, or the power going, the next start of Coxswain
 removes the `.….coxswain-tmp` files that write left (the run notes the folder as it starts), and
 nothing else. A folder that does not answer then (a network share gone) is left for the start

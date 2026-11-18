@@ -3248,6 +3248,10 @@ fn copy_entries(
         if secs > 0 {
             let _ = f.set_modified(crate::fs::epoch(secs));
         }
+        // A move takes it out of the archive next: on the disk first, as a move across disks.
+        if how.whole {
+            crate::fs::sync_file(&f).inspect_err(|_| drop(std::fs::remove_file(&tmp)))?;
+        }
         drop(f);
         crate::fs::put(&tmp, path).inspect_err(|_| drop(std::fs::remove_file(&tmp)))?;
         out.set(out.get() + 1);
@@ -4040,10 +4044,21 @@ fn rewrite(
         // As private as the archive was.
         Ok(()) => {
             dated_after(&tmp, archive);
-            std::fs::metadata(archive)
-                .and_then(|m| std::fs::set_permissions(&tmp, m.permissions()))
-                .or_else(|e| if exists { Err(e) } else { Ok(()) })
+            // On the disk before it takes the old one's place (a rename can be kept by a crash
+            // before the bytes are), and so before a move deletes what went into it. Synced
+            // through a handle that writes: Windows flushes no other.
+            File::options()
+                .write(true)
+                .open(&tmp)
+                .and_then(|f| crate::fs::sync_file(&f))
+                .and_then(|_| {
+                    std::fs::metadata(archive)
+                        .and_then(|m| std::fs::set_permissions(&tmp, m.permissions()))
+                        .or_else(|e| if exists { Err(e) } else { Ok(()) })
+                })
                 .and_then(|_| std::fs::rename(&tmp, archive))
+                .inspect_err(|_| drop(std::fs::remove_file(&tmp)))
+                .inspect(|_| crate::fs::sync_dir(archive.parent().unwrap_or(Path::new(""))))
         }
         Err(e) => {
             let _ = std::fs::remove_file(&tmp);
