@@ -2044,7 +2044,11 @@ impl Store {
                 "INSERT OR REPLACE INTO meta(key, value) VALUES ('meaning_digest', ?1)",
                 [d],
             )?,
-            None => db.execute("DELETE FROM meta WHERE key = 'meaning_digest'", [])?,
+            // The same model whose server gave no digest this time (it did not answer) keeps it.
+            None if !crate::meaning::same_model(&before, id) => {
+                db.execute("DELETE FROM meta WHERE key = 'meaning_digest'", [])?
+            }
+            None => 0,
         };
         Ok(())
     }
@@ -2992,7 +2996,7 @@ fn held(kept: &[(String, String)], path: &str) -> bool {
 
 /// Whether an error says the thing is not there: only then do its rows go.
 fn not_there(e: &std::io::Error) -> bool {
-    e.kind() == std::io::ErrorKind::NotFound
+    matches!(e.kind(), std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory)
 }
 
 /// Folders a test takes for ones the system refuses to list.
@@ -3041,7 +3045,9 @@ fn walk(
         let entries = match list(&dir) {
             Ok(entries) => entries,
             Err(e) => {
-                if !not_there(&e) {
+                // A folder that is still there but says it is not (a mount that failed) is
+                // not gone either.
+                if !not_there(&e) || dir.symlink_metadata().is_ok_and(|m| m.is_dir()) {
                     found.unlisted.extend(dir.to_str().map(String::from));
                 }
                 continue;
@@ -4669,11 +4675,19 @@ pub fn keep_current(
     // The watcher's changes are taken at once, also while a scan or a read goes on, into a set.
     let (waiting, over) = (Mutex::new(HashSet::new()), AtomicBool::new(false));
     std::thread::scope(|s| {
-        if let Some(changes) = &changes {
-            s.spawn(|| {
+        if let Some(changes) = changes {
+            let (waiting, over) = (&waiting, &over);
+            s.spawn(move || {
                 while !stop.load(Ordering::Relaxed) {
                     match changes.recv_timeout(Duration::from_millis(200)) {
-                        Ok(paths) => wait_for(&waiting, paths, &over),
+                        Ok(mut paths) => {
+                            // Only paths under the folders walked (where `refresh` looks): the
+                            // name index sends those of the whole machine.
+                            if let Some((roots, _)) = store.walked.lock().unwrap().as_ref() {
+                                paths.retain(|p| roots.iter().any(|r| p.starts_with(r)));
+                            }
+                            wait_for(waiting, paths, over)
+                        }
                         Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
                         Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
                     }
