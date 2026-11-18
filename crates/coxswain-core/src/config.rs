@@ -2464,6 +2464,9 @@ pub(crate) fn update_config<T>(
     };
     let (new, out) = edit(&text)?;
     if let Some(new) = new {
+        if crate::pick::choosing() {
+            return Err(crate::t!("pick.refused"));
+        }
         crate::fs::replace(&path, new.as_bytes(), false).map_err(|e| format!("{}: {e}", path.display()))?;
     }
     Ok(out)

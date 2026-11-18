@@ -5994,10 +5994,12 @@ pub fn main() {
                 None => Ok(r),
             }
         });
-        req.unwrap_or_else(|e| {
+        let req = req.unwrap_or_else(|e| {
             eprintln!("coxswain: {e}");
             std::process::exit(2)
-        })
+        });
+        coxswain_core::pick::keep_own_files();
+        req
     });
     // The panels are drawn on the terminal, standard output stays for the paths (as fzf does).
     let mut pick_out = pick.as_ref().map(|r| {

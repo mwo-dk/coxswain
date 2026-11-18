@@ -67,6 +67,9 @@ writes or edits a file, runs a command (the command line, the user menu) or writ
 refused with *The picker only chooses: it changes no files*, whether you reach it by its key,
 the action menu (**Shift+F10**), the command list (**F9**), a button or, in the desktop app, by
 dragging. Looking, marking, searching, sorting, the preview and moving about work as always.
+Coxswain's own `config.toml` and `state.json` are not written either: a step that would change a
+setting (*Read this folder too* in Find, say) is refused the same way, and a notice dismissed, a
+hint counted or a server allowed is kept only until the picker closes.
 
 The desktop app (`coxswain-gui --pick --multiple --filter rs,toml`): a bar with *Show all*,
 **Choose** and **Cancel**, the files that do not fit dimmed, and the F-keys of actions that change

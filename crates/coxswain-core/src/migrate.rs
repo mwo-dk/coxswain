@@ -227,6 +227,10 @@ fn rename(t: &mut dyn TableLike, renames: &[(&str, &str)], mut said: impl FnMut(
 /// it, so a half-written one never replaces it), and what changed kept in the state for the
 /// notice. An error says what could not be done; the app goes on.
 pub fn on_start() -> Result<(), String> {
+    // A picker writes nothing of Coxswain's own: the next normal start migrates.
+    if crate::pick::choosing() {
+        return Ok(());
+    }
     let Some(path) = crate::config::Config::path() else {
         return Ok(());
     };
