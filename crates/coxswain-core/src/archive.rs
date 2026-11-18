@@ -2431,6 +2431,7 @@ fn search_read_at(
                 };
                 if ok
                     && let Ok(mut f) = z.by_index(i)
+                    && crate::zip_dir::readable(&f).is_ok()
                     && !read(&[&name], &mut f)
                 {
                     break;
@@ -3455,6 +3456,7 @@ fn copy_entries(
                 })?,
                 (false, _) => z.by_index(i).map_err(io::Error::other)?,
             };
+            crate::zip_dir::readable(&e)?;
             // A wrong ZipCrypto password is only seen in what comes out: the check fails.
             let size = e.size();
             if encrypted && how.head.is_some() && size > PEEK_MAX {
