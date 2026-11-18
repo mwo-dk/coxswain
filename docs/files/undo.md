@@ -103,6 +103,10 @@ that:
 | macOS | no | the Trash gives nothing back to apps; the status line says so: use Finder's *Put Back* |
 | Windows | yes | the Recycle Bin |
 
+On FreeBSD, the other BSDs and Linux the file comes back as the bin's own **Restore** brings it
+([Bin](bin.md#restore-delete-for-good-empty)): never over a file that took its place since, and
+from the bin in your home folder to another disk too.
+
 The other operations undo the same way on every system. What undo takes away goes to the same
 trash, so you can get it back from there too.
 

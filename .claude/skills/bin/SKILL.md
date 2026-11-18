@@ -111,10 +111,10 @@ Not modelled, so not proven:
 - A busy bin: `fd::hold` takes the lock with `try_lock`, and when another Coxswain holds it the
   operation does nothing and says `bin.busy`. The model's `Free` waits instead; refusing is a
   step not taken, which no promise can break.
-- Undo after F8 (`undo::Record::undo` for a delete or a sync: the `trash` crate's
-  `restore_all`, or `xdg_trash::restore_in` on Termux and illumos) waits for the lock once for
-  the whole undo (Esc or Stop ends the wait, and the undo then does nothing); its steps are not
-  modelled.
+- Undo after F8 (`undo::Record::undo` for a delete or a sync: `fd::restore_held`, the body of
+  `restore_in` without taking the lock, since #977; `xdg_trash::restore_in` on Termux and
+  illumos) waits for the lock once for the whole undo (Esc or Stop ends the wait, and the undo
+  then does nothing); its own steps are those of `restore_in`, its lock taken by `fd::wait`.
 - An info file that is not UTF-8 or does not parse: `list_in` reads it lossily, so a raw
   `Path=` still lists the item, and joins an item's name as bytes, so a name that is not UTF-8
   is listed too (#900); one that does not parse at all is never a stray, and its item

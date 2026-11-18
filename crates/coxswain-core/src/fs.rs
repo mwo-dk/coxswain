@@ -1340,6 +1340,10 @@ pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Opt
             ))
         };
     }
+    // What the crate would copy and cannot (a link, a pipe): never handed to it (#978).
+    if !trash_takes(std::slice::from_ref(&path.to_path_buf())) {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, crate::t!("undo.no_trash")));
+    }
     // No other Coxswain empties the home bin while this put may be copying into it.
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios"))))]
     let _held = crate::bin::fd::wait(&crate::bin::fd::bins_for(path))?;
@@ -1349,16 +1353,34 @@ pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Opt
     crate::xdg_trash::put(path).map(Some)
 }
 
-/// Whether `trash` can take every one of `paths`. Only Coxswain's own trash (Termux, illumos)
-/// cannot: it takes nothing from another filesystem, such as the phone's storage or another
-/// ZFS dataset.
+/// Whether `trash` can take every one of `paths`. Coxswain's own trash (Termux, illumos) takes
+/// nothing from another filesystem, such as the phone's storage or another ZFS dataset. A
+/// freedesktop.org bin that would copy `path` into the home bin (`trash_renames` false) takes
+/// no link and no pipe, socket or device, nor a folder that holds one of the last three: the
+/// trash crate follows a link to a folder and makes empty files for ever, copies the bytes a
+/// link to a file leads to, and waits on a pipe for ever (#978).
 pub fn trash_takes(paths: &[PathBuf]) -> bool {
     #[cfg(any(target_os = "android", target_os = "illumos", target_os = "solaris"))]
     return paths.iter().all(|p| crate::xdg_trash::takes(p));
-    #[cfg(not(any(target_os = "android", target_os = "illumos", target_os = "solaris")))]
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+    return crate::tools::flatpak().is_some() || paths.iter().all(|p| trash_renames(p) || copies(p, true));
+    #[cfg(not(all(unix, not(any(target_os = "macos", target_os = "ios")))))]
     {
         let _ = paths;
         true
+    }
+}
+
+/// Whether the trash crate's copy takes `path` as it is: a file, or a folder of files, folders
+/// and (inside it, where the crate copies them as links) links. `top`: `path` is what was
+/// asked for, where a link is not taken.
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+fn copies(path: &Path, top: bool) -> bool {
+    match fs::symlink_metadata(path).map(|m| m.file_type()) {
+        Ok(t) if t.is_file() => true,
+        Ok(t) if t.is_symlink() => !top,
+        Ok(t) if t.is_dir() => fs::read_dir(path).is_ok_and(|rd| rd.flatten().all(|e| copies(&e.path(), false))),
+        _ => false,
     }
 }
 
@@ -2770,6 +2792,31 @@ mod tests {
         assert_eq!(err(rename(&d.join("src"), &d.join("a.zip"))), io::ErrorKind::Unsupported);
         assert!(fs::symlink_metadata(d.join("src/lnk")).unwrap().is_symlink());
         assert!(d.join("src/real.txt").exists());
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    /// What a bin that copies is not handed (#978): a link (to a folder it made empty files for
+    /// ever), a pipe, and a folder holding a pipe; a folder with a link inside goes.
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+    #[test]
+    fn a_bin_that_copies_is_not_handed_links_or_pipes() {
+        use std::os::unix::ffi::OsStrExt;
+        let d = tmp("bin-copies");
+        mkdir(&d.join("dir")).unwrap();
+        fs::write(d.join("dir/a.txt"), "a").unwrap();
+        std::os::unix::fs::symlink(d.join("dir"), d.join("link")).unwrap();
+        std::os::unix::fs::symlink("a.txt", d.join("dir/inner")).unwrap();
+        assert!(copies(&d.join("dir/a.txt"), true));
+        assert!(copies(&d.join("dir"), true), "a link inside is copied as a link");
+        assert!(!copies(&d.join("link"), true));
+        assert!(!copies(&d.join("nothing"), true));
+        let pipe = std::ffi::CString::new(d.join("dir/pipe").as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(pipe.as_ptr(), 0o600) }, 0);
+        assert!(!copies(&d.join("dir"), true));
+        // Where the bin takes it by a rename (the test home's disk), all of them still go.
+        if trash_renames(&d.join("link")) {
+            assert!(trash_takes(&[d.join("link"), d.join("dir")]));
+        }
         fs::remove_dir_all(d).unwrap();
     }
 
