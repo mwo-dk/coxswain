@@ -115,7 +115,7 @@ Nothing of its own while it works. Signs of it:
 - **Without it.** If the helper cannot be reached, each app indexes names by itself; text search
   and meaning then wait for the helper. An app on its own index looks for the helper again every
   30 seconds, and when one answers (a helper that was slow to start), it uses it from then on and
-  stops its own index. Before 2.38.0 it went on by itself until it was restarted.
+  stops its own index. Before 2.37.1 it went on by itself until it was restarted.
 - **Settings.** A change under *Finding files* starts a new helper
   with the new settings.
 
@@ -167,7 +167,7 @@ window is open. Otherwise reading happens only while an app runs and ten minutes
 No. The port is on loopback only, and a connection must bring the token, which is in a file only
 you can read. The other way round, a program of theirs that listens on the port cannot pose as
 your helper: an app dials only while your helper runs, and takes only an answer that brings the
-second token from that file. Before 2.38.0 an app dialled the port of an address a killed helper
+second token from that file. Before 2.37.1 an app dialled the port of an address a killed helper
 had left behind, whatever listened there.
 
 #### Two windows are open. Are my files read twice?
