@@ -122,6 +122,7 @@
     try {
       await invoke("compare_save", { force });
       wrote = true;
+      m.unsaved = false;
       asking = null;
       // Read again: where the lines of a side written start is known no more.
       const [c, f] = [cur, first];
