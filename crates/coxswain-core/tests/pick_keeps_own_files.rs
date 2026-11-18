@@ -53,7 +53,7 @@ fn sources() -> Vec<(PathBuf, String)> {
                     todo.push(p);
                 }
             } else if name.ends_with(".rs") {
-                let text = std::fs::read_to_string(&p).unwrap();
+                let text = std::fs::read_to_string(&p).unwrap().replace("\r\n", "\n");
                 // A file's tests write files of their own.
                 let text = text.split("#[cfg(test)]\nmod tests").next().unwrap().to_string();
                 out.push((p, text));
@@ -79,10 +79,10 @@ fn config_and_state_are_written_only_where_pick_mode_is_asked() {
             if code.contains("fs::replace(") && !allowed.iter().any(|a| p.ends_with(a)) {
                 // Elsewhere only a file of another kind (the helper's index.addr): the target,
                 // to the first comma even across lines, names neither file nor where they live.
-                let call = &text[text.lines().take(i).map(|l| l.len() + 1).sum::<usize>()..];
-                let call = &call[call.find("fs::replace(").unwrap() + "fs::replace(".len()..];
+                let call = code.split("fs::replace(").nth(1).unwrap().to_string();
+                let call = call + &text.lines().skip(i + 1).take(3).collect::<Vec<_>>().join(" ");
                 let target = call[..call.find(',').unwrap_or(call.len())].to_lowercase();
-                let settings = ["config", "state", "settings", "path()"].iter().any(|w| target.contains(w));
+                let settings = ["config", "cfg", "state", "settings", "path()", ".toml", ".json"].iter().any(|w| target.contains(w));
                 assert!(!settings, "{at}: config.toml and state.json are written through config::update_config or AppState::save_to");
             }
             let own = code.contains("Config::path()") || code.contains("AppState::path()");
