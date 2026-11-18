@@ -581,16 +581,26 @@ fn tar_named_at<'a, R: Read>(
 ) -> io::Result<()> {
     let mut start = None;
     let text = |b: &[u8]| String::from_utf8_lossy(b.strip_suffix(&[0]).unwrap_or(b)).into_owned();
-    let (mut long, mut link): (Option<String>, Option<String>) = (None, None);
+    // Read as the crate's own reading (`unpack_tar`, Extract) reads them: a GNU long name or
+    // link before a PAX one, the first PAX `path` of a record, each taken by the next entry.
+    let (mut long, mut link, mut pax_path, mut pax_link) = (None, None, None, None);
+    // A PAX `size`, or a sparse file: raw entries apply neither, so this list would not be what
+    // Extract and other tars read (#960). Refused, never read past.
+    // shortcut: a tar with a file of 8 GiB or more (PAX size) does not open; read them (#982).
+    let (mut sizes, mut pax) = (Vec::<Option<u64>>::new(), false);
+    let unsafe_tar = || io::Error::new(io::ErrorKind::InvalidData, crate::t!("err.tar_unsafe"));
     for e in entries.raw(true) {
         let mut e = e?;
         let at = *start.get_or_insert(e.raw_header_position());
         let t = e.header().entry_type();
-        if t.is_gnu_longname()
-            || t.is_gnu_longlink()
-            || t.is_pax_local_extensions()
-            || t.is_pax_global_extensions()
-        {
+        // A record without a tar's magic is an entry to the crate, not a record.
+        let known = e.header().as_gnu().is_some() || e.header().as_ustar().is_some();
+        let global = t.is_pax_global_extensions();
+        if global || known && (t.is_gnu_longname() || t.is_gnu_longlink() || t.is_pax_local_extensions()) {
+            // What is pending goes to a global record, which the crate takes for an entry.
+            if global && sizes.iter().any(|s| *s != Some(e.size())) {
+                return Err(unsafe_tar());
+            }
             if e.size() > TAR_META {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
@@ -599,29 +609,52 @@ fn tar_named_at<'a, R: Read>(
             }
             let mut buf = vec![];
             e.read_to_end(&mut buf)?;
+            // Given twice for one entry: the crate fails, so is refused here too.
+            let once = |had: bool| if had { Err(unsafe_tar()) } else { Ok(()) };
             if t.is_gnu_longname() {
+                once(long.is_some())?;
                 long = Some(text(&buf));
             } else if t.is_gnu_longlink() {
+                once(link.is_some())?;
                 link = Some(text(&buf));
-            } else if t.is_pax_local_extensions() {
+            } else {
+                // Records the crate cannot read (a value with a line break, as an ACL) are
+                // passed over by it too; every `size` is looked at, as it takes the first.
                 for x in tar::PaxExtensions::new(&buf).filter_map(Result::ok) {
                     match x.key_bytes() {
-                        b"path" => long = Some(text(x.value_bytes())),
-                        b"linkpath" => link = Some(text(x.value_bytes())),
+                        b"size" if global => return Err(unsafe_tar()),
+                        b"size" => sizes.push(x.value().ok().and_then(|v| v.parse().ok())),
+                        k if k.starts_with(b"GNU.sparse.") => return Err(unsafe_tar()),
+                        _ if global => {}
+                        b"path" => drop(pax_path.get_or_insert_with(|| text(x.value_bytes()))),
+                        b"linkpath" => drop(pax_link.get_or_insert_with(|| text(x.value_bytes()))),
                         _ => {}
                     }
+                }
+                if global {
+                    (long, link, pax_path, pax_link, pax) = (None, None, None, None, false);
+                    sizes.clear();
+                    start = None;
+                } else {
+                    once(pax)?;
+                    pax = true;
                 }
             }
             continue;
         }
-        let name = match long.take() {
+        if t.is_gnu_sparse() || sizes.iter().any(|s| *s != Some(e.size())) {
+            return Err(unsafe_tar());
+        }
+        let name = match long.take().or(pax_path.take()) {
             Some(n) => n,
             None => e.path()?.to_string_lossy().into_owned(),
         };
-        let link = match link.take() {
+        let link = match link.take().or(pax_link.take()) {
             Some(l) => Some(l),
             None => e.link_name()?.map(|l| l.to_string_lossy().into_owned()),
         };
+        (pax_path, pax_link, pax) = (None, None, false);
+        sizes.clear();
         start = None;
         if !f(
             name.trim_start_matches("./")
@@ -5530,6 +5563,104 @@ mod tests {
             (local.year(), local.month(), local.day(), local.hour())
         );
         assert_eq!(unix(t), now, "and back");
+    }
+
+    #[test]
+    fn tar_with_a_pax_size_or_a_sparse_file_is_refused_not_misread() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-pax-size-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let entry = |t: &mut tar::Builder<Vec<u8>>, ty: tar::EntryType, name: &str, size: u64, body: &[u8]| {
+            let mut h = tar::Header::new_gnu();
+            h.set_entry_type(ty);
+            h.set_size(size);
+            h.set_mode(0o644);
+            h.set_path(name).unwrap();
+            h.set_cksum();
+            t.append(&h, body).unwrap();
+        };
+        let pax = |key: &str, value: &str| {
+            let rest = format!(" {key}={value}\n");
+            let mut n = rest.len() + 1;
+            while (n.to_string() + &rest).len() != n {
+                n += 1;
+            }
+            format!("{n}{rest}").into_bytes()
+        };
+        // A whole entry's header and data, as another tar would read them.
+        let mut hidden = tar::Builder::new(Vec::new());
+        entry(&mut hidden, tar::EntryType::Regular, "hidden.txt", 6, b"hidden");
+        let hidden = hidden.get_ref().clone();
+        let write = |name: &str, f: &dyn Fn(&mut tar::Builder<Vec<u8>>)| {
+            let mut t = tar::Builder::new(Vec::new());
+            f(&mut t);
+            entry(&mut t, tar::EntryType::Regular, "last.txt", 4, b"last");
+            let p = d.join(name);
+            std::fs::write(&p, t.into_inner().unwrap()).unwrap();
+            p
+        };
+        let refused = |p: &Path| {
+            let before = std::fs::read(p).unwrap();
+            let e = list(p, 10).unwrap_err();
+            assert_eq!(e.to_string(), crate::t!("err.tar_unsafe"), "{}", p.display());
+            assert!(copy_out(p, "last.txt", &d.join("out"), None, false).is_err());
+            std::fs::create_dir_all(d.join("x")).unwrap();
+            assert!(extract(p, &d.join("x")).is_err());
+            assert_eq!(std::fs::read_dir(d.join("x")).unwrap().count(), 0, "nothing extracted");
+            // Never written anew short.
+            assert!(remove(p, &["last.txt".into()], None).is_err());
+            assert_eq!(std::fs::read(p).unwrap(), before, "untouched");
+        };
+        // The header says 0, the PAX record says the next header is the entry's data.
+        refused(&write("hides.tar", &|t| {
+            let rec = pax("size", &hidden.len().to_string());
+            entry(t, tar::EntryType::XHeader, "PaxHeaders/a", rec.len() as u64, &rec);
+            entry(t, tar::EntryType::Regular, "a", 0, &[]);
+            t.get_mut().extend_from_slice(&hidden);
+        }));
+        // The other way: the header's data holds an entry the PAX size says is not there.
+        refused(&write("shows.tar", &|t| {
+            let rec = pax("size", "0");
+            entry(t, tar::EntryType::XHeader, "PaxHeaders/a", rec.len() as u64, &rec);
+            entry(t, tar::EntryType::Regular, "a", hidden.len() as u64, &hidden);
+        }));
+        // A sparse file, old GNU or PAX: read raw, its data is not the file.
+        refused(&write("sparse.tar", &|t| {
+            entry(t, tar::EntryType::GNUSparse, "s", 0, &[]);
+        }));
+        refused(&write("pax-sparse.tar", &|t| {
+            let rec = pax("GNU.sparse.size", "1048576");
+            entry(t, tar::EntryType::XHeader, "PaxHeaders/s", rec.len() as u64, &rec);
+            entry(t, tar::EntryType::Regular, "s", 0, &[]);
+        }));
+        // Two sizes, one of them the header's, either way round: the crate takes the first.
+        for (name, first, second) in [("first.tar", "1024", "0"), ("second.tar", "0", "1024")] {
+            refused(&write(name, &|t| {
+                let mut rec = pax("size", first);
+                rec.extend(pax("size", second));
+                entry(t, tar::EntryType::XHeader, "PaxHeaders/a", rec.len() as u64, &rec);
+                entry(t, tar::EntryType::Regular, "a", 0, &[]);
+                t.get_mut().extend_from_slice(&hidden);
+            }));
+        }
+        // A PAX size that agrees with the header opens as before, next to a record the crate
+        // cannot read (GNU tar's ACL, its value over lines) and a long name that wins over the
+        // PAX path, as in Extract.
+        let p = write("agrees.tar", &|t| {
+            let mut rec = b"80 SCHILY.acl.access=user::rw-\nuser:nobody:r--\ngroup::r--\nmask::r--\nother::r--\n\n".to_vec();
+            rec.extend(pax("path", "pax-name"));
+            rec.extend(pax("size", "2"));
+            entry(t, tar::EntryType::XHeader, "PaxHeaders/a", rec.len() as u64, &rec);
+            entry(t, tar::EntryType::GNULongName, "././@LongLink", 9, b"long-name");
+            entry(t, tar::EntryType::Regular, "a", 2, b"ok");
+        });
+        let names: Vec<_> = list(&p, 10).unwrap().0.into_iter().map(|e| e.name).collect();
+        assert_eq!(names, ["long-name", "last.txt"]);
+        let to = extract(&p, &d.join("agrees")).unwrap();
+        assert_eq!(std::fs::read(to.join("long-name")).unwrap(), b"ok", "Extract agrees");
+        remove(&p, &["last.txt".into()], None).unwrap();
+        assert_eq!(list(&p, 10).unwrap().0.len(), 1);
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]

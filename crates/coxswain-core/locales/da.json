@@ -1129,6 +1129,7 @@
  "err.exists": "{path} findes allerede",
  "err.special_file": "{path} er et rør, en sokkel eller en enhed, som ikke kopieres",
  "err.not_packable": "{path} er et link, et rør eller en enhed, som et arkiv udelader, så intet blev flyttet",
+ "err.tar_unsafe": "Denne tar kan ikke åbnes sikkert: den indeholder en sparse-fil eller en fil, hvis størrelse er angivet uden for dens header, og den kan Coxswain endnu ikke læse",
  "err.is_folder": "{name} er en mappe",
  "err.key_twice": "{key} er givet til både {a} og {b} i [keys] i config.toml",
  "err.move_check": "{path} ændrede sig, mens den blev flyttet, eller kopien blev for kort, så den bliver, hvor den var",

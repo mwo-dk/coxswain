@@ -1170,6 +1170,7 @@
  "err.exists": "{path} existe déjà",
  "err.special_file": "{path} est un tube, une socket ou un périphérique, qui n’est pas copié",
  "err.not_packable": "{path} est un lien, un tube ou un périphérique, qu’une archive laisse de côté : rien n’a été déplacé",
+ "err.tar_unsafe": "Ce tar ne peut pas être ouvert sans risque : il contient un fichier creux, ou un fichier dont la taille est donnée à part de son en-tête, que Coxswain ne sait pas encore lire",
  "err.is_folder": "{name} est un dossier",
  "err.key_twice": "{key} est attribuée à la fois à {a} et à {b} dans [keys] de config.toml",
  "err.move_check": "{path} a changé pendant le déplacement, ou sa copie est trop courte : il reste où il était",

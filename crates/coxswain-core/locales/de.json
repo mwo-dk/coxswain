@@ -1129,6 +1129,7 @@
  "err.exists": "{path} existiert bereits",
  "err.special_file": "{path} ist eine Pipe, ein Socket oder ein Gerät, das nicht kopiert wird",
  "err.not_packable": "{path} ist ein Link, eine Pipe oder ein Gerät, das ein Archiv auslässt, daher wurde nichts verschoben",
+ "err.tar_unsafe": "Dieses tar lässt sich nicht sicher öffnen: Es enthält eine Sparse-Datei oder eine Datei, deren Größe getrennt von ihrem Header angegeben ist, und die kann Coxswain noch nicht lesen",
  "err.is_folder": "{name} ist ein Ordner",
  "err.key_twice": "{key} ist in [keys] von config.toml sowohl {a} als auch {b} zugewiesen",
  "err.move_check": "{path} hat sich beim Verschieben geändert, oder die Kopie ist zu kurz: Es bleibt, wo es war",

@@ -1129,6 +1129,7 @@
  "err.exists": "{path} badago jada",
  "err.special_file": "{path} hodi, socket edo gailu bat da, eta ez da kopiatzen",
  "err.not_packable": "{path} esteka, hodi edo gailu bat da, eta artxiboak kanpoan uzten du; beraz, ez da ezer mugitu",
+ "err.tar_unsafe": "Tar hau ezin da modu seguruan ireki: fitxategi barreiatu bat dauka, edo goiburutik kanpo tamaina adierazita duen fitxategi bat, eta Coxswain-ek oraindik ezin du irakurri",
  "err.is_folder": "{name} karpeta bat da",
  "err.key_twice": "{key} {a} eta {b} ekintzei emanda dago config.toml-eko [keys] atalean",
  "err.move_check": "{path} aldatu egin da mugitzen ari zela, edo kopia laburregia da; dagoen tokian geratzen da",

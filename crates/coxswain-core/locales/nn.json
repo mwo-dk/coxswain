@@ -1129,6 +1129,7 @@
  "err.exists": "{path} finst allereie",
  "err.special_file": "{path} er eit røyr, ein sokkel eller ei eining, som ikkje vert kopiert",
  "err.not_packable": "{path} er ei lenkje, eit røyr eller ei eining, som eit arkiv utelèt, så ingenting vart flytt",
+ "err.tar_unsafe": "Denne tar-fila kan ikkje opnast trygt: ho inneheld ei glissen fil, eller ei fil med storleiken oppgitt utanfor overskrifta, som Coxswain enno ikkje kan lese",
  "err.is_folder": "{name} er ei mappe",
  "err.key_twice": "{key} er gitt til både {a} og {b} under [keys] i config.toml",
  "err.move_check": "{path} endra seg medan han vart flytta, eller kopien vart for kort, så han blir der han var",

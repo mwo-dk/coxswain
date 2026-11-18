@@ -1170,6 +1170,7 @@
  "err.exists": "{path} existuje",
  "err.special_file": "{path} je roura, soket nebo zařízení, které se nekopíruje",
  "err.not_packable": "{path} je odkaz, roura nebo zařízení, které archiv vynechá, takže se nic nepřesunulo",
+ "err.tar_unsafe": "Tento tar nelze bezpečně otevřít: obsahuje řídký soubor nebo soubor, jehož velikost je uvedena mimo hlavičku, a ten Coxswain zatím neumí číst",
  "err.is_folder": "{name} je složka",
  "err.key_twice": "{key} je v [keys] souboru config.toml přiřazena k {a} i k {b}",
  "err.move_check": "{path} se během přesunu změnil, nebo je jeho kopie kratší, takže zůstává, kde byl",

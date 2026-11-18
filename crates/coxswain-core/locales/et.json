@@ -1129,6 +1129,7 @@
  "err.exists": "{path} on juba olemas",
  "err.special_file": "{path} on toru, sokkel või seade, mida ei kopeerita",
  "err.not_packable": "{path} on link, toru või seade, mille arhiiv välja jätab, seega midagi ei teisaldatud",
+ "err.tar_unsafe": "Seda tari ei saa turvaliselt avada: selles on hõre fail või fail, mille suurus on antud päisest eraldi, ja seda Coxswain veel lugeda ei oska",
  "err.is_folder": "{name} on kaust",
  "err.key_twice": "{key} on failis config.toml jaotises [keys] antud nii toimingule {a} kui ka {b}",
  "err.move_check": "{path} muutus teisaldamise ajal või jäi selle koopia lühemaks, nii et see jääb oma kohale",

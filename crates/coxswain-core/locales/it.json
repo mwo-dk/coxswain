@@ -1170,6 +1170,7 @@
  "err.exists": "{path} esiste già",
  "err.special_file": "{path} è una pipe, un socket o un dispositivo, che non viene copiato",
  "err.not_packable": "{path} è un collegamento, una pipe o un dispositivo, che un archivio tralascia, quindi non è stato spostato nulla",
+ "err.tar_unsafe": "Questo tar non può essere aperto in sicurezza: contiene un file sparso, o un file la cui dimensione è indicata a parte dalla sua intestazione, che Coxswain non sa ancora leggere",
  "err.is_folder": "{name} è una cartella",
  "err.key_twice": "{key} è assegnato sia a {a} sia a {b} in [keys] di config.toml",
  "err.move_check": "{path} è cambiato durante lo spostamento, o la sua copia è venuta corta, quindi resta dov’era",

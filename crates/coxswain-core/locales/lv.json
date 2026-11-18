@@ -1170,6 +1170,7 @@
  "err.exists": "{path} jau ir",
  "err.special_file": "{path} ir kanāls, ligzda vai ierīce, ko nekopē",
  "err.not_packable": "{path} ir saite, kanāls vai ierīce, ko arhīvs izlaiž, tāpēc nekas netika pārvietots",
+ "err.tar_unsafe": "Šo tar nevar droši atvērt: tajā ir retināts fails vai fails, kura izmērs norādīts atsevišķi no galvenes, un Coxswain to vēl nevar nolasīt",
  "err.is_folder": "{name} ir mape",
  "err.key_twice": "{key} config.toml sadaļā [keys] piešķirts gan {a}, gan {b}",
  "err.move_check": "{path} mainījās pārvietošanas laikā vai tā kopija iznāca īsāka, tāpēc tas paliek, kur bija",

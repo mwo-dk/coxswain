@@ -34,7 +34,7 @@ const KEPT: usize = 256;
 /// entries of 64 KB each, gigabytes to keep. Such a list is not kept; the archive is listed again.
 pub(crate) const KEPT_NAMES: usize = 64 << 20;
 /// What is kept changes form: an older form is never read.
-const FORM: &str = "1";
+const FORM: &str = "2";
 
 fn folder() -> Option<PathBuf> {
     Some(crate::helper::folder()?.join("archive-index"))
