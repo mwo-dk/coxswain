@@ -774,7 +774,8 @@ fn copy_out_or_in(
         }
         // The archive itself, or a folder that holds it: packed into itself, and a move would
         // then delete it with everything in it.
-        if same_file(src, &archive) || (src.is_dir() && inside(&archive, src)) {
+        let real = fs::canonicalize(&archive).unwrap_or_else(|_| archive.clone());
+        if real.ancestors().any(|a| same_file(a, src)) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 if whole { crate::t!("err.move_into_itself") } else { crate::t!("err.copy_into_itself") },
@@ -1258,6 +1259,15 @@ pub(crate) fn rename_locked_logged(
 ) -> io::Result<PathBuf> {
     writable(src)?;
     writable(dst)?;
+    // The archive's own name in another case (`Report.zip` to `report.zip`, where case does not
+    // count): a rename on disk, not a move into itself.
+    if let Some((a, inner)) = into_archive(dst)
+        && inner.is_empty()
+        && same_file(src, &a)
+        && src.file_name() != dst.file_name()
+    {
+        return rename_logged(src, dst, log);
+    }
     match (out_of_archive(src), into_archive(dst)) {
         // Within one archive: renamed there, the folder `dst` names, or a new name.
         (Some((a, from)), Some((b, to))) if a == b => {
@@ -3016,6 +3026,19 @@ mod tests {
         assert_eq!(err(rename(&zp, &zp)), io::ErrorKind::InvalidInput);
         assert_eq!(err(copy(&zp, &zp)), io::ErrorKind::InvalidInput);
         assert_eq!(err(rename(&d.join("box"), &zp)), io::ErrorKind::InvalidInput);
+        assert_eq!(err(copy(&d.join("box"), &zp)), io::ErrorKind::InvalidInput);
+        #[cfg(unix)]
+        {
+            // Reached through a link to it, too.
+            std::os::unix::fs::symlink(&zp, d.join("lnk.zip")).unwrap();
+            assert_eq!(err(rename(&zp, &d.join("lnk.zip"))), io::ErrorKind::InvalidInput);
+            fs::remove_file(d.join("lnk.zip")).unwrap();
+        }
+        // Its own name in another case, where case does not count: renamed, not lost.
+        if d.join("box/A.ZIP").exists() {
+            rename(&zp, &d.join("box/A.zip")).unwrap();
+            rename(&d.join("box/A.zip"), &zp).unwrap();
+        }
         assert_eq!(fs::read(&zp).unwrap(), held, "the archive is as it was");
         assert!(d.join("box/a.txt").exists());
         // Another file still goes in.

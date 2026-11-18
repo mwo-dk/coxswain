@@ -484,7 +484,7 @@ mod tests {
             std::fs::read_dir(&d).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
         assert_eq!(names.len(), 2, "{names:?}");
         // CI's Windows and macOS disks fold case, so there the refusal is proven.
-        assert!(folds || !cfg!(any(windows, target_os = "macos")));
+        assert!(folds || !cfg!(any(windows, target_os = "macos")), "this temporary folder minds case");
         std::fs::remove_dir_all(d).unwrap();
     }
 
