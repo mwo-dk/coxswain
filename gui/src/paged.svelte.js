@@ -100,7 +100,11 @@ export class Paged {
   refresh() {
     const generation = this.shown;
     const [a, b] = this.view;
-    invoke("tab_rows", { tab: this.id, generation, from: Math.max(a, this.from), to: Math.min(b, this.from + this.rows.length) }).then((r) => r && generation === this.shown && this.patch(r), () => {});
+    const from = Math.max(a, this.from);
+    const to = Math.min(b, this.from + this.rows.length);
+    // The view moved past the rows held while the marks changed: its own rows are on their way.
+    if (from >= to) return;
+    invoke("tab_rows", { tab: this.id, generation, from, to }).then((r) => r && generation === this.shown && this.patch(r), () => {});
   }
 
   /** The same rows without the first `n` (the current folder's `..` in a Miller column). */
