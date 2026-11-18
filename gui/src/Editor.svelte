@@ -11,6 +11,7 @@
   // modal, so F1 → Features and back keeps it; undo is this window's own.
   import { tick } from "svelte";
   import { ui, reloadAll, keyOf, lineHistory } from "./app.svelte.js";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { invoke, basename, parent } from "./lib.js";
   import { t } from "./i18n.svelte.js";
   import { hljs } from "./hl.js";
@@ -39,6 +40,11 @@
 
   const name = basename(m.path);
   const dirty = $derived(m.doc && m.text !== m.saved);
+  // Closing the app asks first while this holds unsaved text (App.svelte); Cancel keeps it open.
+  m.dirty = () => dirty;
+  $effect(() => {
+    if (!asking) m.quitAfter = false;
+  });
   const lines = $derived.by(() => {
     let n = 1;
     for (let i = m.text?.indexOf("\n") ?? -1; i >= 0; i = m.text.indexOf("\n", i + 1)) n++;
@@ -316,6 +322,7 @@
     ui.modal = m.back ?? null;
     kept.modal = null;
     if (m.wrote) reloadAll();
+    if (m.quitAfter) getCurrentWindow().close();
   }
 
   function tryClose() {

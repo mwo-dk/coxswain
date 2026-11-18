@@ -5,6 +5,7 @@
   // other files as hex rows, pictures side by side, over each other or as their difference.
   import { onDestroy, tick } from "svelte";
   import { ui, reloadAll } from "./app.svelte.js";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { invoke, convertFileSrc, basename, isOldPicture } from "./lib.js";
   import { t, tn } from "./i18n.svelte.js";
   import { hljs } from "./hl.js";
@@ -33,6 +34,11 @@
   let timer;
 
   const dirty = $derived(!!st.summary?.dirty?.some((d) => d));
+  // Closing the app asks first while this holds unsaved text (App.svelte); Cancel keeps it open.
+  m.dirty = () => dirty;
+  $effect(() => {
+    if (!asking) m.quitAfter = false;
+  });
   const total = $derived(st.total ?? 0);
   const shown = $derived(Math.ceil(height / ROW) + 2);
 
@@ -143,6 +149,7 @@
     invoke("compare_close");
     ui.modal = null;
     if (wrote) reloadAll();
+    if (m.quitAfter) getCurrentWindow().close();
   }
 
   const tryClose = () => (dirty ? (asking = "close") : close());

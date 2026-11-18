@@ -33,7 +33,7 @@ file that would change, before and after; nothing changes until you press **Ente
 5. Press **Enter** (*Plan*). The list shows every file that changes, its permissions and its
    date before → after.
 6. Press **Enter** again (*Change 12 items*). **Esc** or *Cancel* closes without changing
-   anything; while it runs, **Esc** stops it.
+   anything; while it runs, **Esc** stops it, and a click beside the dialog does nothing.
 
 ## Permissions
 

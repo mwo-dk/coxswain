@@ -29,6 +29,16 @@ test("quote: single quotes for a Unix shell, double for Windows' cmd", async () 
   assert.equal(quote(""), "''");
 });
 
+test("textWindowIn: the editor or Compare open, or under F1 over it; nothing else", async () => {
+  const { textWindowIn } = await pick("textWindowIn");
+  const editor = { kind: "editor", back: null };
+  const compare = { kind: "compare", back: null };
+  assert.equal(textWindowIn(editor), editor);
+  assert.equal(textWindowIn({ kind: "help", back: compare }), compare);
+  assert.equal(textWindowIn({ kind: "help", back: { kind: "search", back: null } }), null);
+  assert.equal(textWindowIn(null), null);
+});
+
 test("archive endings: the core's lists, the longest ending first", async () => {
   const { setArchiveEndings, isArchive, withEnding, takesPassword } = await pick("archive", "setArchiveEndings", "endingOf", "isArchive", "withEnding", "takesPassword");
   setArchiveEndings([[".tar.gz", ".tgz", ".tar", ".7z", ".zip"], [".7z", ".zip"]]);

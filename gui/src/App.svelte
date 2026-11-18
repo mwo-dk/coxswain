@@ -1,11 +1,11 @@
 <script>
-  import { untrack } from "svelte";
+  import { untrack, onMount, tick } from "svelte";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { listen } from "@tauri-apps/api/event";
   import { ui, openFind, init, gamesOf, tab, pane, otherTab, item, load, cd, up, openHistory, openSnapshots, openPackage, openGitView, switchBranch, newBranch, gitTool, openGitConfig, keyOf, makeSearchable, stopSearchable, watchJob, stopJob, makeExport, stopExport, scanViruses, stopViruses, longFiles, convertMedia, stopMedia, previewWith, makeChecksums, verifyChecksums, stopWork, splitFile, joinParts, convertEbook, stopEbook, transcribe, openSpace, openReplace, openAttrs, addTab, closeTab, goBack, goForward, openItem, pickItem, ociIndex, toggleMark, mark, pick, sortTab, readWhenShown, targets, reloadAll, refreshDisks, snapshot, setTheme, themeIds, themeName, nextView, measureFolders, columnMenu, subject, hooks, refreshUndo, actionLabel, visibleTabs, compareFolders, remoteRun, stopRemote, refreshBin, openBin, binAct } from "./app.svelte.js";
   import { failure } from "./errors.js";
-  import { invoke, keyString, basename, parent, quote, isArchive, diskName, packFormat, LOCKED, inside, keyOwner, fkeyAction, setModulesOff, moduleOff } from "./lib.js";
+  import { invoke, textWindowIn, keyString, basename, parent, quote, isArchive, diskName, packFormat, LOCKED, inside, keyOwner, fkeyAction, setModulesOff, moduleOff } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
   import Sidebar from "./Sidebar.svelte";
   import Pane from "./Pane.svelte";
@@ -96,6 +96,25 @@
     const snap = JSON.stringify(snapshot());
     const timer = setTimeout(() => saveSession(JSON.parse(snap)), 600);
     return () => clearTimeout(timer);
+  });
+
+  // Closing the window (its button, the window manager's key, Quit): unsaved text in the editor
+  // or Compare is asked about first, that window's own question, and the app closes after Save or
+  // Don't save; the session is written now, not 600 ms later. A picker just closes.
+  onMount(() => {
+    const off = getCurrentWindow().onCloseRequested(async (e) => {
+      if (ui.cfg.pick) return;
+      try {
+        const w = textWindowIn(ui.modal);
+        if (w && ui.modal !== w) (ui.modal = w), await tick();
+        if (w?.dirty?.()) return void (e.preventDefault(), (w.quitAfter = true), w.key(null, "quit"));
+        if (ready) await saveSession(snapshot());
+      } catch (err) {
+        // The window still closes: a failure here must not keep it open.
+        console.error(err);
+      }
+    });
+    return () => off.then((f) => f());
   });
 
   // Folders open in any tab reread themselves when something changes in them; so does a

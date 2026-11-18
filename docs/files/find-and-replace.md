@@ -56,7 +56,7 @@ Without *Regular expression* both fields are plain text: `$1`, `*` and `.` mean 
   cut around the change, with *…*. An unticked change shows its *after* struck through.
 - *Left out* (a fold in the desktop app, rows at the end in the terminal app): each file that
   had a match but cannot be changed, and why.
-- While it writes: *Writing file 3 of 7 · Esc stops*. **Esc** then stops after the file being
+- While it writes: *Writing file 3 of 7 · Esc stops*; a click beside the dialog does nothing. **Esc** then stops after the file being
   written; the files done so far stay done, and can be undone.
 - Afterwards the dialog closes, the panels are read again, and the status line says
   *Replaced 42 in 7 files · Ctrl+Z undoes it*. A file that could not be written opens a list
