@@ -4653,6 +4653,7 @@
  "modules.hint": "每个模块显示几种文件。关闭不想加载的模块：它们的文件就会像其他文件一样以文本或十六进制显示。没有任何模块会把你的文件发送到任何地方。",
  "modules.uses": "使用 {what}",
  "modules.images": "可能下载容器镜像",
+ "modules.not_built": "不在此构建中",
  "modules.off_notice": "以文本显示：{module} 已关闭。请在“设置”（{key}）→“模块”中开启。",
  "guide.modules": "不需要的查看器可以关闭，每个都列出它显示的格式和使用的东西。",
  "guide.modules_open": "选择模块",

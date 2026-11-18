@@ -78,6 +78,31 @@ pub fn find(id: &str) -> Option<&'static Module> {
     MODULES.iter().find(|m| m.id == id)
 }
 
+/// Whether the module called `id` is in this build: its cargo feature, on by default. One left
+/// out is off whatever `[modules] off` says.
+pub fn built(id: &str) -> bool {
+    match id {
+        "documents" => cfg!(feature = "documents"),
+        "office" => cfg!(feature = "office"),
+        "ebooks" => cfg!(feature = "ebooks"),
+        "latex" => cfg!(feature = "latex"),
+        "html" => cfg!(feature = "html"),
+        "diagrams" => cfg!(feature = "diagrams"),
+        "openscad" => cfg!(feature = "openscad"),
+        "kicad" => cfg!(feature = "kicad"),
+        "data" => cfg!(feature = "data"),
+        "media" => cfg!(feature = "media"),
+        "old_formats" => cfg!(feature = "old_formats"),
+        "geodata" => cfg!(feature = "geodata"),
+        "neural_networks" => cfg!(feature = "neural_networks"),
+        "games" => cfg!(feature = "games"),
+        "bom" => cfg!(feature = "bom"),
+        "provenance" => cfg!(feature = "provenance"),
+        "disk_images" => cfg!(feature = "disk_images"),
+        _ => false,
+    }
+}
+
 static OFF: RwLock<Vec<String>> = RwLock::new(Vec::new());
 
 #[cfg(test)]
@@ -93,6 +118,9 @@ pub fn set_off(off: &[String]) {
 
 /// Whether the module called `id` is on.
 pub fn on(id: &str) -> bool {
+    if !built(id) {
+        return false;
+    }
     #[cfg(test)]
     if let Some(off) = FORCE.with(|f| f.borrow().clone()) {
         return !off.iter().any(|o| o == id);
@@ -180,20 +208,27 @@ pub struct Row {
     pub on: bool,
     /// It may download a container image (a Network badge).
     pub downloads: bool,
+    /// It is in this build (`built`); one that is not is shown greyed and cannot be turned on.
+    pub built: bool,
 }
 
 pub fn rows(off: &[String]) -> Vec<Row> {
     MODULES
         .iter()
-        .map(|m| Row { id: m.id, feature: m.feature, label: m.label(), about: m.about(), docs: m.docs(), on: !off.iter().any(|o| o == m.id), downloads: !m.images.is_empty() })
+        .map(|m| {
+            let built = built(m.id);
+            let about = if built { m.about() } else { format!("{} · {}", crate::t!("modules.not_built"), m.about()) };
+            Row { id: m.id, feature: m.feature, label: m.label(), about, docs: m.docs(), on: built && !off.iter().any(|o| o == m.id), downloads: !m.images.is_empty(), built }
+        })
         .collect()
 }
 
-/// `off` with the module `id` turned on or off, in the order of `MODULES`.
+/// `off` with the module `id` turned on or off, in the order of `MODULES`; one not in this build
+/// stays as it is.
 pub fn toggled(off: &[String], id: &str, on: bool) -> Vec<String> {
     MODULES
         .iter()
-        .filter(|m| if m.id == id { !on } else { off.iter().any(|o| o == m.id) })
+        .filter(|m| if m.id == id && built(id) { !on } else { off.iter().any(|o| o == m.id) })
         .map(|m| m.id.to_string())
         .collect()
 }
@@ -248,6 +283,24 @@ mod tests {
             assert!(!m.endings().is_empty(), "{} lists its endings", m.id);
             assert!(m.id.chars().all(|c| c.is_ascii_lowercase() || c == '_'), "{}", m.id);
         }
+    }
+
+    /// A module left out of the build (CI builds one with every module out) is off, shown so in
+    /// Settings, and `[modules] off` cannot turn it on; the default build has every one.
+    #[test]
+    fn a_module_left_out_of_the_build_is_off_and_cannot_be_turned_on() {
+        FORCE.with(|f| *f.borrow_mut() = Some(vec![]));
+        for m in MODULES {
+            let b = built(m.id);
+            assert!(b || !cfg!(feature = "modules"), "{}: its feature is missing from `built` or Cargo.toml", m.id);
+            assert_eq!(on(m.id), b, "{}", m.id);
+            assert_eq!(off_for(m.kinds[0]).is_some(), !b, "{}", m.id);
+            assert_eq!(toggled(&[], m.id, false), if b { vec![m.id.to_string()] } else { vec![] }, "{}", m.id);
+        }
+        for r in rows(&[]) {
+            assert_eq!((r.on, r.built), (built(r.id), built(r.id)), "{}", r.id);
+        }
+        FORCE.with(|f| *f.borrow_mut() = None);
     }
 
     #[test]

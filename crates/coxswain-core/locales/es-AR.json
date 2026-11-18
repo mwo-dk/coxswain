@@ -4838,6 +4838,7 @@
  "modules.hint": "Cada módulo muestra algunos tipos de archivo. Desactivá los que no querés cargar: sus archivos se muestran entonces como texto o hexadecimal, como cualquier otro archivo. Ningún módulo manda tus archivos a ningún lado.",
  "modules.uses": "usa {what}",
  "modules.images": "puede descargar una imagen de contenedor",
+ "modules.not_built": "no está en esta compilación",
  "modules.off_notice": "Mostrado como texto: {module} está desactivado. Activalo en Configuración ({key}) → Módulos.",
  "guide.modules": "Los visores que no necesitás se pueden desactivar, cada uno con los formatos que muestra y lo que usa.",
  "guide.modules_open": "Elegir módulos",

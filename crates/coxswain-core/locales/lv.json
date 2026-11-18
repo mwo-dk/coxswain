@@ -4838,6 +4838,7 @@
  "modules.hint": "Katrs modulis rāda dažus failu veidus. Izslēdziet tos, kurus nevēlaties ielādēt: to faili tad tiek rādīti kā teksts vai heksadecimāli, tāpat kā jebkurš cits fails. Neviens modulis nekur nesūta jūsu failus.",
  "modules.uses": "izmanto {what}",
  "modules.images": "var lejupielādēt konteinera attēlu",
+ "modules.not_built": "nav šajā būvējumā",
  "modules.off_notice": "Rādīts kā teksts: {module} ir izslēgts. Ieslēdziet to: Iestatījumi ({key}) → Moduļi.",
  "guide.modules": "Skatītājus, kas jums nav vajadzīgi, var izslēgt, katru ar tā rādītajiem formātiem un to, ko tas izmanto.",
  "guide.modules_open": "Izvēlēties moduļus",

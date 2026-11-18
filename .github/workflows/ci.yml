@@ -148,6 +148,13 @@ jobs:
           }
           exit $code
       - run: cargo clippy --workspace --all-targets --locked
+      # A packager can leave modules out (coxswain-core's features, one per module): the build with
+      # every module left out has to compile, and each module then reports itself as not built.
+      - name: Every module left out
+        if: runner.os == 'Linux' && runner.arch == 'X64'
+        run: |
+          cargo check --workspace --all-targets --no-default-features --features coxswain-gui/custom-protocol --locked
+          cargo test -p coxswain-core --no-default-features --lib --locked modules::tests::a_module_left_out
 
       # The terminal app ships as a static musl binary (Homebrew, releases): whatever the
       # dependencies compile from C has to build for musl too, before a release finds out.

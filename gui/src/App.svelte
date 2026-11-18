@@ -112,7 +112,7 @@
   // Settings saved behind the page's back (the built-in model's download turned meaning on).
   listen("config-changed", async () => {
     ui.cfg = await invoke("get_config");
-    setModulesOff(ui.cfg.viewer_modules, ui.cfg.settings.modules_off);
+    setModulesOff(ui.cfg.viewer_modules, ui.cfg.settings.modules_off, ui.cfg.modules);
   });
   // A tab in the background is read again when it is shown.
   listen("dir-changed", (ev) => {

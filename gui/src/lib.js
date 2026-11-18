@@ -439,12 +439,13 @@ export function viewerReads(kind) {
 }
 
 /** The module that shows each kind (`modules::of`), and the modules turned off
- *  (`[modules] off`), set with the config and again when it changes (`setModulesOff`). */
+ *  (`[modules] off`) or left out of the build (`modules::built`), set with the config and again
+ *  when it changes (`setModulesOff`). */
 let moduleOf = {};
 let modulesOff = new Set();
-export function setModulesOff(of, off) {
+export function setModulesOff(of, off, rows) {
   moduleOf = of ?? {};
-  modulesOff = new Set(off ?? []);
+  modulesOff = new Set([...(off ?? []), ...(rows ?? []).filter((m) => !m.built).map((m) => m.id)]);
 }
 
 /** The module that would show a file of `kind`, when it is off (`modules::off_for`). */

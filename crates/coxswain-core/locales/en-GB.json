@@ -4751,6 +4751,7 @@
  "modules.hint": "Each module shows some kinds of file. Turn off the ones you do not want loaded: their files are then shown as text or hex, like any other file. No module sends your files anywhere.",
  "modules.uses": "uses {what}",
  "modules.images": "may download a container image",
+ "modules.not_built": "not in this build",
  "modules.off_notice": "Shown as text: {module} is off. Turn it on in Settings ({key}) → Modules.",
  "guide.modules": "Viewers you do not need can be turned off, each with the formats it shows and what it uses.",
  "guide.modules_open": "Choose modules",

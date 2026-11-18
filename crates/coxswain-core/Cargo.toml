@@ -14,6 +14,29 @@ description = "The shared core of Coxswain, the two-panel file manager: file ope
 # For the apps' tests only (their dev-dependency turns it on): the home, config, data and
 # cache folders lie in the temporary folder, never the developer's own (`dirs`).
 test-home = []
+# The modules (`modules::MODULES`), a feature each, all on by default. A module left out of a
+# build is off whatever `[modules] off` says, and Settings shows it greyed (`modules::built`).
+# The apps pass `modules` on: `cargo build -p coxswain --no-default-features --features
+# coxswain-core/games` builds the terminal app with the games module alone.
+default = ["modules"]
+modules = ["documents", "office", "ebooks", "latex", "html", "diagrams", "openscad", "kicad", "data", "media", "old_formats", "geodata", "neural_networks", "games", "bom", "provenance", "disk_images"]
+documents = []
+office = []
+ebooks = []
+latex = []
+html = []
+diagrams = []
+openscad = []
+kicad = []
+data = []
+media = []
+old_formats = []
+geodata = []
+neural_networks = []
+games = []
+bom = []
+provenance = []
+disk_images = []
 
 [dependencies]
 # Paths with their links followed, without Windows' `\\?\` in front (`fs::canonical`).

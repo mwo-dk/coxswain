@@ -4740,6 +4740,7 @@
  "modules.hint": "Varje modul visar vissa slags filer. Stäng av dem du inte vill ha inlästa: deras filer visas då som text eller hex, som vilken fil som helst. Ingen modul skickar dina filer någonstans.",
  "modules.uses": "använder {what}",
  "modules.images": "kan hämta en containeravbild",
+ "modules.not_built": "inte med i den här versionen",
  "modules.off_notice": "Visas som text: {module} är avstängd. Slå på den i Inställningar ({key}) → Moduler.",
  "guide.modules": "Visningar du inte behöver kan stängas av, var och en med formaten den visar och vad den använder.",
  "guide.modules_open": "Välj moduler",

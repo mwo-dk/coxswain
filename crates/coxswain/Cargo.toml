@@ -25,6 +25,11 @@ name = "cox"
 path = "src/bin/cox.rs"
 test = false
 
+[features]
+# Every module (coxswain-core's `modules`); `--no-default-features` leaves them all out.
+default = ["modules"]
+modules = ["coxswain-core/modules"]
+
 [dependencies]
 coxswain-core.workspace = true
 ratatui = { version = "0.30", default-features = false, features = ["crossterm", "layout-cache", "underline-color", "unstable-rendered-line-info"] }

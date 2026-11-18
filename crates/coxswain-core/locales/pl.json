@@ -4936,6 +4936,7 @@
  "modules.hint": "Każdy moduł pokazuje pewne rodzaje plików. Wyłącz te, których nie chcesz wczytywać: ich pliki są wtedy pokazywane jako tekst lub szesnastkowo, jak każdy inny plik. Żaden moduł nigdzie nie wysyła twoich plików.",
  "modules.uses": "używa: {what}",
  "modules.images": "może pobrać obraz kontenera",
+ "modules.not_built": "brak w tej kompilacji",
  "modules.off_notice": "Pokazano jako tekst: {module} jest wyłączony. Włącz go w Ustawienia ({key}) → Moduły.",
  "guide.modules": "Przeglądarki, których nie potrzebujesz, można wyłączyć, każdą z formatami, które pokazuje, i tym, czego używa.",
  "guide.modules_open": "Wybierz moduły",

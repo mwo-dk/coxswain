@@ -4838,6 +4838,7 @@
  "modules.hint": "Ogni modulo mostra alcuni tipi di file. Disattiva quelli che non vuoi caricare: i loro file sono allora mostrati come testo o esadecimale, come qualsiasi altro file. Nessun modulo invia i tuoi file da nessuna parte.",
  "modules.uses": "usa {what}",
  "modules.images": "può scaricare un’immagine di container",
+ "modules.not_built": "non incluso in questa build",
  "modules.off_notice": "Mostrato come testo: {module} è disattivato. Attivalo in Impostazioni ({key}) → Moduli.",
  "guide.modules": "I visualizzatori che non ti servono si possono disattivare, ognuno con i formati che mostra e ciò che usa.",
  "guide.modules_open": "Scegli i moduli",
