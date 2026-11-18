@@ -550,6 +550,38 @@ fn looking_for_an_index_keeps_an_old_live_build() {
     let _ = std::fs::remove_file(lists.join("4000024"));
 }
 
+/// What a build left half made goes at the next start while its run's list can still tell it
+/// ended, and at a clean exit for this run's own (its list goes then); whole indexes and other
+/// runs' builds stay.
+#[test]
+#[cfg(unix)]
+fn half_made_indexes_go_at_start_and_at_exit() {
+    let d = Dir::new();
+    let mk = |name: &str, whole: bool| {
+        let dir = d.0.join(name);
+        std::fs::create_dir_all(dir.join("runs")).unwrap();
+        if whole {
+            std::fs::write(dir.join("done"), "{}").unwrap();
+        }
+        dir
+    };
+    let dead = mk("00000000000000ab-4000025-0", false);
+    let dead_whole = mk("00000000000000ab-4000025-1", true);
+    let listless = mk("00000000000000ab-4000026-0", false);
+    let mine = mk(&format!("00000000000000ab-{}-0", crate::spill::run()), false);
+    let mine_whole = mk(&format!("00000000000000ab-{}-1", crate::spill::run()), true);
+    let lists = crate::helper::folder().unwrap().join("staging");
+    crate::fs::private_dir(&lists).unwrap();
+    std::fs::write(lists.join("4000025"), "").unwrap();
+    sweep_in(&d.0, ended);
+    let _ = std::fs::remove_file(lists.join("4000025"));
+    assert!(!dead.exists(), "ended: gone at start");
+    assert!(dead_whole.exists() && listless.exists() && mine.exists(), "whole, listless, live: kept at start");
+    sweep_in(&d.0, own);
+    assert!(!mine.exists(), "own: gone at exit");
+    assert!(mine_whole.exists() && listless.exists(), "whole, another run's: kept at exit");
+}
+
 /// The file changed and its table was read again (both apps do): a build still under way from
 /// the table before is stopped, as it would be out of date when done. Both apps ask `keep_up`.
 #[test]

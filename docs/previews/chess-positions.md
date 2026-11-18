@@ -140,10 +140,10 @@ in keeps its indexes; an empty folder where a network share or a disk is mounted
 `positions/<file name>`, with *Remove*. *Clear everything that can be built again* leaves the
 indexes, as building one again takes minutes. An index is removed only per database: by that
 row's *Remove*, by *Remove* in its games list (**I** in the terminal app), or when its database
-file is gone. Turning *Position index for every games table* off removes none. A build cut short by quitting or a crash
-leaves a half-made index; it is removed the next time *Disk use* lists the indexes or that
-database is shown. One still being built, by this or another Coxswain, is left alone however long
-the build takes.
+file is gone. Turning *Position index for every games table* off removes none. A build cut short by quitting leaves
+nothing: its half-made index is removed as Coxswain quits. One cut short by a crash is removed at
+the next start of either app. One still being built, by this or another Coxswain, is left alone
+however long the build takes.
 
 Measured on a 16-core machine on a database of 12.3 million games (a 12 GB PGN file):
 

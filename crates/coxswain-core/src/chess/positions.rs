@@ -1148,12 +1148,46 @@ fn read_done(dir: &Path) -> Option<Done> {
     serde_json::from_slice(&std::fs::read(dir.join("done")).ok()?).ok()
 }
 
-/// A half-made index folder (`<hash>-<run>-<n>`) whose run is known to have ended. One whose run
-/// keeps no list may still be building, however old the folder: it stays.
+/// The run that names an index folder (`<hash>-<run>-<n>`).
+fn run_of(dir: &Path) -> Option<String> {
+    let name = dir.file_name()?.to_string_lossy().into_owned();
+    name.split_once('-').and_then(|(_, r)| r.rsplit_once('-')).map(|(r, _)| r.to_string())
+}
+
+/// A half-made index folder whose run is known to have ended. One whose run keeps no list may
+/// still be building, however old the folder: it stays.
 fn ended(dir: &Path) -> bool {
-    let name = dir.file_name().unwrap_or_default().to_string_lossy().into_owned();
-    let run = name.split_once('-').and_then(|(_, r)| r.rsplit_once('-')).map(|(r, _)| r.to_string());
-    run.as_deref().and_then(crate::spill::alive) == Some(false)
+    run_of(dir).as_deref().and_then(crate::spill::alive) == Some(false)
+}
+
+/// The half-made index folders in `root` `gone` when `drop(dir)` says so; whole ones stay.
+fn sweep_in(root: &Path, drop: impl Fn(&Path) -> bool) {
+    for e in std::fs::read_dir(root).into_iter().flatten().flatten() {
+        let dir = e.path();
+        if !dir.join("done").exists() && drop(&dir) {
+            crate::spill::gone(&dir);
+        }
+    }
+}
+
+/// At start, while the lists of runs that ended are still there to tell them (`spill::at_start`):
+/// what their builds left half made goes.
+pub(crate) fn sweep_ended() {
+    if let Some(root) = folder() {
+        sweep_in(&root, ended);
+    }
+}
+
+fn own(dir: &Path) -> bool {
+    run_of(dir).as_deref() == Some(crate::spill::run())
+}
+
+/// At a clean exit, before this run's list goes (`spill::at_exit`): its own half-made folders
+/// go, as afterwards nothing could tell it ended.
+pub(crate) fn sweep_own() {
+    if let Some(root) = folder() {
+        sweep_in(&root, own);
+    }
 }
 
 /// The whole index folders of `path`, the newest first; each one a run that ended left half

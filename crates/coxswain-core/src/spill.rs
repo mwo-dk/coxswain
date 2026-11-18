@@ -384,6 +384,7 @@ pub fn at_exit() {
     if let Some(cache) = crate::helper::folder() {
         remove_own_in(&cache, run());
     }
+    crate::chess::positions::sweep_own();
     let mut j = JOURNAL.lock().unwrap_or_else(|e| e.into_inner());
     NO_JOURNAL.store(true, std::sync::atomic::Ordering::Relaxed);
     if let Some(held) = j.take() {
@@ -592,6 +593,7 @@ pub fn at_start() {
     sweep_ended();
     // Before the lists go: a sync's folder aside is known as an ended run's by its list.
     crate::compare::aside::sweep();
+    crate::chess::positions::sweep_ended();
     sweep_staging();
     prune_previews();
 }
