@@ -728,6 +728,12 @@ pub(crate) mod fd {
             Ok(h) => h,
             Err(e) => return busy(e),
         };
+        restore_held(bins, paths, free_name)
+    }
+
+    /// `restore_in`, its caller holding `bins`' locks already (an undo, which waits for them
+    /// once for all its items).
+    pub(crate) fn restore_held(bins: &[Bin], paths: &[PathBuf], free_name: bool) -> Done {
         let mut done = Done::default();
         for p in paths {
             let Some(item) = find(bins, p) else {

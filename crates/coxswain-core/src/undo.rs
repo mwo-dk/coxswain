@@ -130,7 +130,7 @@ fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
             && Some(i.name.as_os_str()) == Path::new(file).file_stem()
             && Path::new(&i.id).extension() == Path::new(file).extension()
     };
-    let mut item = os_limited::list()
+    let item = os_limited::list()
         .map_err(io::Error::other)?
         .into_iter()
         .filter(|i| {
@@ -143,14 +143,46 @@ fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
         })
         .max_by_key(|i| i.time_deleted)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, t!("undo.not_in_trash")))?;
+    #[cfg(not(windows))]
+    return restore_item(Path::new(&item.id), &want);
     // Restored under its whole name, which is also what the collision check looks at.
-    item.name = file.to_os_string();
+    #[cfg(windows)]
+    let item = trash::TrashItem { name: file.to_os_string(), ..item };
+    #[cfg(windows)]
     os_limited::restore_all([item]).map_err(|e| match e {
         trash::Error::RestoreCollision { .. } => {
             io::Error::new(io::ErrorKind::AlreadyExists, t!("undo.taken"))
         }
         e => io::Error::other(e),
     })
+}
+
+/// The freedesktop.org bin's item whose info file is `info` (`<bin>/info/<name>.trashinfo`, the
+/// crate's id for it) put back as the bin's Restore does (`bin::fd`): never over a file, and
+/// across disks too. The crate's `restore_all` claims the place with an empty file and then
+/// cannot rename from another disk, leaving that empty file (#977). The undo holds the locks.
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+fn restore_item(info: &Path, want: &Path) -> io::Result<()> {
+    let gone = || io::Error::new(io::ErrorKind::NotFound, t!("undo.not_in_trash"));
+    let (Some(bin), Some(name)) = (info.parent().and_then(Path::parent), info.file_stem()) else {
+        return Err(gone());
+    };
+    let bin = crate::bin::fd::Bin::at(bin.to_path_buf());
+    // Put back where the bin's info file says, which must be where the crate said (an info file
+    // with a relative path in the home bin is read otherwise by each).
+    let origin = fs::read(info).ok().and_then(|t| crate::bin::fd::parse(&String::from_utf8_lossy(&t), bin.top.as_deref()));
+    if origin.is_none_or(|(o, _)| comparable(&o) != want) {
+        return Err(gone());
+    }
+    let at = bin.dir.join("files").join(name);
+    let done = crate::bin::fd::restore_held(&[bin], &[at], false);
+    if done.done == 1 {
+        Ok(())
+    } else if !done.taken.is_empty() {
+        Err(io::Error::new(io::ErrorKind::AlreadyExists, t!("undo.taken")))
+    } else {
+        Err(io::Error::other(done.failed.join("; ")))
+    }
 }
 
 #[cfg(any(target_os = "android", target_os = "illumos", target_os = "solaris"))]
@@ -1129,6 +1161,43 @@ mod tests {
         assert_eq!((u.done, u.refused.len()), (0, 1));
         assert_eq!(fs::read_to_string(d.join("gone.txt")).unwrap(), "new");
         fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// Undo of a delete whose file went to the home bin from another disk: back across, with its
+    /// bytes, and no empty file left at its place (#977); a place taken since is refused and
+    /// kept.
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+    #[test]
+    fn undo_trash_restores_across_disks() {
+        let d = crate::fs::Scratch::named("undo-across");
+        let bin = d.join("Trash");
+        fs::create_dir_all(bin.join("files")).unwrap();
+        fs::create_dir_all(bin.join("info")).unwrap();
+        fs::create_dir_all(d.join("place")).unwrap();
+        let put = |name: &str| {
+            fs::write(bin.join("files").join(name), "bytes").unwrap();
+            let info = bin.join("info").join(format!("{name}.trashinfo"));
+            let at = d.join("place/report.txt");
+            fs::write(&info, format!("[Trash Info]\nPath={}\nDeletionDate=2026-11-18T12:00:00\n", at.display())).unwrap();
+            info
+        };
+        let info = put("report.txt");
+        cfs::ACROSS.set(true);
+        let r = restore_item(&info, &comparable(&d.join("place/report.txt")));
+        cfs::ACROSS.set(false);
+        r.unwrap();
+        assert_eq!(fs::read_to_string(d.join("place/report.txt")).unwrap(), "bytes");
+        assert!(fs::symlink_metadata(bin.join("files/report.txt")).is_err());
+        assert!(fs::symlink_metadata(&info).is_err());
+        // Its place taken since: refused, the file there and the item both kept.
+        fs::write(d.join("place/report.txt"), "new").unwrap();
+        let info = put("report.txt");
+        cfs::ACROSS.set(true);
+        let r = restore_item(&info, &comparable(&d.join("place/report.txt")));
+        cfs::ACROSS.set(false);
+        assert_eq!(r.unwrap_err().kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(fs::read_to_string(d.join("place/report.txt")).unwrap(), "new");
+        assert_eq!(fs::read_to_string(bin.join("files/report.txt")).unwrap(), "bytes");
     }
 
     /// An undo out of a bin another Coxswain is busy in waits, and Stop ends the wait: refused,

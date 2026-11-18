@@ -81,6 +81,13 @@ confirm and cancel, as before.
 Not every file system has a trash the system can use. The error names the file. Use
 **Shift+F8** to delete it for good, after checking.
 
+On FreeBSD, the other BSDs and Linux, a disk whose top folder you cannot write (a second disk
+mounted by the system, another ZFS dataset) has no bin of its own, and **F8** copies to the
+bin in your home folder instead. A link, a pipe, a socket or a device, and a folder that holds
+one of the last three, cannot be copied there. **F8** on one asks *No bin on this disk: delete …
+for good?* instead: **Yes** deletes it for good. Marked among other files, the others go to the
+bin and it stays where it is, named in the error.
+
 #### Where do deleted files go on Linux?
 
 To the freedesktop trash your desktop uses (`~/.local/share/Trash`, or a `.Trash-1000` folder at
