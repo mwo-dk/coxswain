@@ -45,8 +45,14 @@ fn full(dir: &Path, e: &Entry) -> Entry {
 pub struct Tabs(Mutex<HashMap<u64, List>>);
 
 impl Tabs {
+    /// The listings, also after a command panicked holding them: each listing is whole between
+    /// commands, so one panic must not stop every panel from listing until a restart.
+    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<u64, List>> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     fn with<T>(&self, tab: u64, f: impl FnOnce(&mut List) -> T) -> Res<T> {
-        let mut all = self.0.lock().map_err(|e| e.to_string())?;
+        let mut all = self.lock();
         all.get_mut(&tab).map(f).ok_or_else(|| format!("no listing for tab {tab}"))
     }
 }
@@ -116,9 +122,16 @@ pub struct TabListing {
     marks: Marks,
 }
 
+/// `from..to` within a listing of `len`: empty, never a panic, when the page asks for a view that
+/// lies past its end or before `from` (a view that moved on while marks were being changed).
+fn clamp(from: usize, to: usize, len: usize) -> (usize, usize) {
+    let to = to.min(len);
+    (from.min(to), to)
+}
+
 impl List {
     fn rows(&self, from: usize, to: usize, ctx: &Ctx) -> Rows {
-        let (from, to) = (from.min(self.entries.len()), to.min(self.entries.len()));
+        let (from, to) = clamp(from, to, self.entries.len());
         let part = &self.entries[from..to];
         let marked: Vec<bool> = part.iter().map(|e| self.marked.contains(&*e.path_in(&self.dir))).collect();
         let st = ctx.state.lock().unwrap_or_else(|e| e.into_inner());
@@ -261,7 +274,7 @@ pub async fn tab_list(
 ) -> Res<TabListing> {
     let (mut entries, meta) = read_listing(dir, show_hidden, sort, reverse, &ctx).await?;
     crate::compare::hide_same(&meta.dir, &mut entries);
-    let mut all = tabs.0.lock().map_err(|e| e.to_string())?;
+    let mut all = tabs.lock();
     let mut marked = HashSet::new();
     if let Some(old) = all.get_mut(&tab) {
         if old.generation > generation {
@@ -354,17 +367,13 @@ pub fn tab_pick(tab: u64, which: String, tabs: tauri::State<Tabs>) -> Res<Vec<Pi
 /// The page started (again): no listing of an earlier page is kept.
 #[tauri::command(async)]
 pub fn tab_reset(tabs: tauri::State<Tabs>) {
-    if let Ok(mut all) = tabs.0.lock() {
-        all.clear();
-    }
+    tabs.lock().clear();
 }
 
 /// A tab closed: its listing goes.
 #[tauri::command(async)]
 pub fn tab_drop(tab: u64, tabs: tauri::State<Tabs>) {
-    if let Ok(mut all) = tabs.0.lock() {
-        all.remove(&tab);
-    }
+    tabs.lock().remove(&tab);
 }
 
 #[cfg(test)]
@@ -402,6 +411,24 @@ mod tests {
         l.mark(MarkOp::None);
         l.mark(MarkOp::Paths(vec![PathBuf::from("/d").join("b.txt"), PathBuf::from("/elsewhere")]));
         assert_eq!(l.marks().done().count, 1, "only what the listing has");
+    }
+
+    #[test]
+    fn rows_asked_out_of_order_or_past_the_end_are_none() {
+        assert_eq!(clamp(10, 5, 100), (5, 5), "a view that moved on: no rows, no panic");
+        assert_eq!(clamp(60000, 400, 70000), (400, 400));
+        assert_eq!(clamp(90, 200, 100), (90, 100));
+        assert_eq!(clamp(200, 300, 100), (100, 100));
+        assert_eq!(clamp(3, 7, 100), (3, 7));
+    }
+
+    #[test]
+    fn a_panic_holding_the_listings_does_not_stop_listing() {
+        let tabs = Tabs::default();
+        tabs.lock().insert(1, list(&[("a", false)]));
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| tabs.with(1, |_| panic!("a command panicked"))));
+        assert!(tabs.0.is_poisoned());
+        assert_eq!(tabs.with(1, |l| l.entries.len()), Ok(1), "the next command still lists");
     }
 
     #[test]

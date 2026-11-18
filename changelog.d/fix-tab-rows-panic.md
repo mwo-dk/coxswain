@@ -1,0 +1,1 @@
+| **Marking in a large folder while it scrolls no longer stops the desktop app's panels from listing.** Changing the marks in a folder of more than 5000 entries and moving far away before the marks were done could make every panel show a lock error instead of its folder until the app was started again. | [Marking](panels/marking.md) |
