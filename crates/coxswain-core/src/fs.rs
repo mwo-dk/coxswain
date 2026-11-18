@@ -1360,13 +1360,28 @@ pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Opt
 /// trash crate follows a link to a folder and makes empty files for ever, copies the bytes a
 /// link to a file leads to, and waits on a pipe for ever (#978).
 pub fn trash_takes(paths: &[PathBuf]) -> bool {
+    paths.iter().all(|p| bin_takes(p, true))
+}
+
+/// `trash_takes` for one path. Not `deep`: a folder is not looked into (for the delete question,
+/// asked at once; the put looks again, deep).
+fn bin_takes(path: &Path, deep: bool) -> bool {
     #[cfg(any(target_os = "android", target_os = "illumos", target_os = "solaris"))]
-    return paths.iter().all(|p| crate::xdg_trash::takes(p));
+    return {
+        let _ = deep;
+        crate::xdg_trash::takes(path)
+    };
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
-    return crate::tools::flatpak().is_some() || paths.iter().all(|p| trash_renames(p) || copies(p, true));
+    return crate::tools::flatpak().is_some()
+        || if deep {
+            trash_renames(path) || copies(path, true)
+        } else {
+            // A file or a folder is taken without asking where its bin is (which may make one).
+            fs::symlink_metadata(path).is_ok_and(|m| m.is_file() || m.is_dir()) || trash_renames(path)
+        };
     #[cfg(not(all(unix, not(any(target_os = "macos", target_os = "ios")))))]
     {
-        let _ = paths;
+        let _ = (path, deep);
         true
     }
 }
@@ -1399,7 +1414,9 @@ pub(crate) fn trash_renames(path: &Path) -> bool {
             return true;
         }
         // ponytail: the top is the highest folder on the same device, not the mount point the
-        // trash crate looks up; a nested btrfs subvolume reads as a disk of its own.
+        // trash crate looks up; a nested btrfs subvolume reads as a disk of its own. A bind
+        // mount of the home bin's disk reads as that disk, though the crate copies across it.
+        // The upgrade is Coxswain's own put for a bin that copies (#997).
         let top = path.ancestors().skip(1).take_while(|a| fs::metadata(a).is_ok_and(|m| m.dev() == dev)).last();
         // SAFETY: getuid cannot fail.
         top.is_some_and(|t| disk_bin(t, unsafe { libc::getuid() }, dev))
@@ -1441,7 +1458,13 @@ pub struct DeletePlan {
 /// trash there (they are taken out, the archive written anew). Coxswain's own trash (Termux,
 /// illumos) takes nothing from another filesystem: that is deleted for good, and always asked.
 pub fn delete_plan(paths: &[PathBuf], forever: bool, inside_archive: bool) -> DeletePlan {
-    let takes = forever || inside_archive || trash_takes(paths);
+    // A bin that copies: for good only when it takes none of them, so one link among many files
+    // is refused by the put alone and the rest still go to the bin (#978). Coxswain's own trash
+    // takes all or none.
+    let own = cfg!(any(target_os = "android", target_os = "illumos", target_os = "solaris"));
+    let takes = forever
+        || inside_archive
+        || if own { trash_takes(paths) } else { paths.iter().any(|p| bin_takes(p, false)) };
     plan_delete(forever, inside_archive, takes, crate::termux::active())
 }
 

@@ -144,7 +144,7 @@ fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
         .max_by_key(|i| i.time_deleted)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, t!("undo.not_in_trash")))?;
     #[cfg(not(windows))]
-    return restore_item(Path::new(&item.id));
+    return restore_item(Path::new(&item.id), &want);
     // Restored under its whole name, which is also what the collision check looks at.
     #[cfg(windows)]
     let item = trash::TrashItem { name: file.to_os_string(), ..item };
@@ -162,12 +162,20 @@ fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
 /// across disks too. The crate's `restore_all` claims the place with an empty file and then
 /// cannot rename from another disk, leaving that empty file (#977). The undo holds the locks.
 #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
-fn restore_item(info: &Path) -> io::Result<()> {
+fn restore_item(info: &Path, want: &Path) -> io::Result<()> {
+    let gone = || io::Error::new(io::ErrorKind::NotFound, t!("undo.not_in_trash"));
     let (Some(bin), Some(name)) = (info.parent().and_then(Path::parent), info.file_stem()) else {
-        return Err(io::Error::new(io::ErrorKind::NotFound, t!("undo.not_in_trash")));
+        return Err(gone());
     };
-    let at = bin.join("files").join(name);
-    let done = crate::bin::fd::restore_held(&[crate::bin::fd::Bin::at(bin.to_path_buf())], &[at], false);
+    let bin = crate::bin::fd::Bin::at(bin.to_path_buf());
+    // Put back where the bin's info file says, which must be where the crate said (an info file
+    // with a relative path in the home bin is read otherwise by each).
+    let origin = fs::read(info).ok().and_then(|t| crate::bin::fd::parse(&String::from_utf8_lossy(&t), bin.top.as_deref()));
+    if origin.is_none_or(|(o, _)| comparable(&o) != want) {
+        return Err(gone());
+    }
+    let at = bin.dir.join("files").join(name);
+    let done = crate::bin::fd::restore_held(&[bin], &[at], false);
     if done.done == 1 {
         Ok(())
     } else if !done.taken.is_empty() {
@@ -1175,7 +1183,7 @@ mod tests {
         };
         let info = put("report.txt");
         cfs::ACROSS.set(true);
-        let r = restore_item(&info);
+        let r = restore_item(&info, &comparable(&d.join("place/report.txt")));
         cfs::ACROSS.set(false);
         r.unwrap();
         assert_eq!(fs::read_to_string(d.join("place/report.txt")).unwrap(), "bytes");
@@ -1185,7 +1193,7 @@ mod tests {
         fs::write(d.join("place/report.txt"), "new").unwrap();
         let info = put("report.txt");
         cfs::ACROSS.set(true);
-        let r = restore_item(&info);
+        let r = restore_item(&info, &comparable(&d.join("place/report.txt")));
         cfs::ACROSS.set(false);
         assert_eq!(r.unwrap_err().kind(), io::ErrorKind::AlreadyExists);
         assert_eq!(fs::read_to_string(d.join("place/report.txt")).unwrap(), "new");
