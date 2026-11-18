@@ -64,7 +64,10 @@ refuses (exit 3) while the version in `Cargo.toml` has no published release, so 
 is never bumped past; finish it first (fix, then `gh workflow run release.yml` on `master`), or
 pass `--unreleased-ok` to skip it on purpose. It also refuses (exit 4, listing them) while the
 new version's GitHub milestone (`X.Y.Z`) has open issues, those labelled `post-release` or titled
-"After the release…" aside: a release is done when its milestone is empty. `--open-issues-ok`
+"After the release…" aside: a release is done when its milestone is empty. A new version with no
+milestone of its own is held by every open milestone above the current version up to the next
+minor, so a week of fixes only does not skip the planned minor's issues; a patch release between
+Sundays gets a milestone of its own first. `--open-issues-ok`
 releases anyway, the owner's decision only. Until then `.github/unreleased.sh` turns the
 Release runs of later pushes and the nightly run red, naming the version.
 

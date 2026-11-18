@@ -97,7 +97,7 @@ jobs:
           if [ "$REHEARSAL" = true ]; then
             # The version tomorrow's release pull request makes; exit 2: no rows, nothing to rehearse.
             # Exit 3: the current version has no published release, so tomorrow's would skip it.
-            # Exit 4: the new version's milestone still has open issues (listed).
+            # Exit 4: open milestone issues hold the new version (listed).
             rc=0; next=$(python3 packaging/release-pr.py --next) || rc=$?
             if [ "$rc" = 2 ]; then
               echo "::notice title=No rehearsal::changelog.d/ has no rows: nothing to release tomorrow."
@@ -250,6 +250,11 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           [ "$(python3 packaging/release-pr.py)" = "${TAG#v}" ] || { echo "::error::release-pr.py did not make $TAG"; exit 1; }
+          # The test jobs ran on master's commit: what release-pr.py wrote is checked here, against
+          # that commit (still HEAD), so a fault shows today and not on tomorrow's pull request.
+          python3 tools/docs-check.py --base "$(git rev-parse HEAD)" || { echo "::error::the docs check fails on $TAG's release changes"; exit 1; }
+          python3 tools/msrv-check.py || { echo "::error::the MSRV check fails on $TAG's release changes"; exit 1; }
+          cargo test -p coxswain-core --locked --test docs || { echo "::error::the docs tests fail on $TAG's release changes"; exit 1; }
           git -c user.name="Coxswain rehearsal" -c user.email="rehearsal@invalid" commit -qam "Rehearsal of $TAG"
           git push -q "https://x-access-token:$GH_TOKEN@github.com/$REPO.git" "HEAD:refs/heads/rehearsal/$TAG"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
