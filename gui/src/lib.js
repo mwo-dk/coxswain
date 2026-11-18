@@ -69,6 +69,20 @@ export function textWindowIn(modal) {
 
 /** Whether `path` is `folder` or below it; `folder` may end with `sep` (a root). */
 export const inside = (path, folder, sep) => path === folder || path.startsWith(folder.endsWith(sep) ? folder : folder + sep);
+/** Whether every group of Find duplicates still keeps a copy with `marks` gone: one that is not
+ *  marked and not inside a marked folder (a folder takes the files of other groups along). Each
+ *  copy's folders are looked up, so a tick costs the same with 50,000 groups marked; on Windows
+ *  a folder written with `/` counts too. */
+export const keepsOne = (groups, marks, sep) => {
+  const m = new Set(marks);
+  const seps = sep === "\\" ? "\\/" : sep;
+  const gone = (p) => {
+    if (m.has(p)) return true;
+    for (let i = 0; i < p.length; i++) if (seps.includes(p[i]) && (m.has(p.slice(0, i)) || m.has(p.slice(0, i + 1)))) return true;
+    return false;
+  };
+  return groups.every((g) => g.items.some((it) => !gone(it.path)));
+};
 /** `list` without its entry at `i`: one of two equal entries (config.toml may name one twice) goes, not both. */
 export const without = (list, i) => list.filter((_, j) => j !== i);
 export const basename = (p) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
