@@ -75,6 +75,13 @@ that changed are read.
 A share has no UUID Coxswain can read, so it is known by its path. While the path is gone its text
 is kept out of sight like a disk's, but it is not found at another path.
 
+#### A network folder inside my home folder dropped. Is it read again when it is back?
+
+No. A folder the helper cannot list for now (an sshfs or NFS mount that dropped, a folder the system
+refuses, a read error) keeps its text and its vectors, and its files are still found. When it
+answers again, only the files that changed are read. Only a folder that is not there any more
+loses its text. An empty folder where a disk was mounted is not told apart yet: its text goes.
+
 #### How do I get rid of an old disk's text?
 
 **Remove** next to it under *Folders read*, or take it out of `text_roots`.
