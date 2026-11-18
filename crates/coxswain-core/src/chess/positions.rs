@@ -1262,6 +1262,7 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
         if let Some(k) = key {
             close(k, sums.take(), &mut tree)?;
         }
+        job.done.fetch_add(pushed % BLOCK as u64, Ordering::Relaxed);
         post.finish()?;
         tree.flush()?;
         Ok((pp, tp))
