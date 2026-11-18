@@ -94,4 +94,4 @@ can do the work instead ([Model servers](../search/servers.md)).
 The builds target Windows 10 and 11 on ARM64; they are tested on Windows 11.
 
 ---
-[← Previous: macOS](macos.md) · [Next: Questions, collected →](../faq.md)
+[← Previous: macOS](macos.md) · [Next: Plugins →](../plugins/README.md)

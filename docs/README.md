@@ -55,6 +55,8 @@ mindmap
       FreeBSD, other BSDs, illumos
       Linux, Android, ChromeOS
       macOS, Windows
+    Plugins
+      The design, not yet built
 ```
 
 ## [Panels and keys](panels/README.md)
@@ -265,6 +267,15 @@ mindmap
 | [ChromeOS](systems/chromeos.md) | Both apps in ChromeOS's Linux: which .deb, installing, sharing ChromeOS folders, the helper, no GPU for meaning search, what was checked |
 | [macOS](systems/macos.md) | The folder prompts (TCC) and what to answer, what is never read on a Mac (~/Library but iCloud Drive, Photos and Music libraries), Full Disk Access, ad-hoc signing and asking again after updates, search by meaning on the GPU without a server |
 | [Windows on ARM](systems/windows-arm.md) | Native ARM64 builds of both apps: which file, installing, WinGet, from the x64 build to the ARM one, search by meaning |
+
+## [Plugins](plugins/README.md)
+
+A design, not yet built: how plugins will teach Coxswain new file formats.
+
+| Page | What it covers |
+|---|---|
+| [Plugins](plugins/README.md) | The area's pages and the related issues |
+| [The plugin design](plugins/design.md) | Two kinds with one contract, what a plugin may read, its UI in each app, theming, threads, trusted programs and services, installing, file types, search and caches, games moving to bragd's plugin, SDKs and tools, the list of plugins, open points, examples for users and a minimal plugin in every planned language |
 
 ## [Questions, collected](faq.md)
 

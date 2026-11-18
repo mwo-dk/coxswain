@@ -173,6 +173,7 @@ what you see, the settings, and the questions people ask.
 | [Customising](docs/customise/README.md) | Settings, themes, looks, your own theme, languages, keys, glyphs |
 | [Reference](docs/reference/README.md) | The terminal app, flags, every config key, privacy, updates, where files are kept, disk use, security, licences and bills of materials, performance |
 | [Systems](docs/systems/README.md) | FreeBSD, NetBSD, OpenBSD, illumos, TrueNAS, Linux on ARM, Flatpak, Nix, Termux on Android, ChromeOS, macOS, Windows on ARM |
+| [Plugins](docs/plugins/README.md) | The plugin design, not yet built: two kinds with one contract, the sandbox, UI, file types, search, SDKs, examples |
 | [Questions, collected](docs/faq.md) | The common questions, linked to their full answers |
 | [Changelog](docs/changelog.md) | Every version, newest first; the last ten are below |
 
