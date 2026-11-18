@@ -70,5 +70,19 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - run: npm audit --audit-level=high
+      # npm audit has no allow list: fail on any high or critical advisory except the accepted ones.
+      # GHSA-fc5q-39xc-vjpf (picomatch ReDoS, no fixed version yet): build tools only (vite,
+      # svelte-check), nothing of it ships. Drop it once picomatch has a fix.
+      - run: |
+          npm audit --json | node -e '
+            const accepted = ["GHSA-fc5q-39xc-vjpf"];
+            const report = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            const bad = [];
+            for (const v of Object.values(report.vulnerabilities ?? {}))
+              for (const via of v.via)
+                if (typeof via === "object" && ["high", "critical"].includes(via.severity)
+                    && !accepted.some((id) => via.url.endsWith(id)))
+                  bad.push(v.name + ": " + via.title + " " + via.url);
+            if (bad.length) { console.error(bad.join("\n")); process.exit(1); }
+          '
         working-directory: gui
