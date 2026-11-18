@@ -1183,12 +1183,26 @@ fn move_file(src: &Path, to: &Path, before: &fs::Metadata) -> io::Result<()> {
                 crate::t!("err.move_check", "path" => src.display()),
             ));
         }
-        fs::remove_file(src)
+        remove_entry(src)
     })();
     if checked.is_err() {
-        let _ = fs::remove_file(to);
+        let _ = remove_entry(to);
     }
     checked
+}
+
+/// Remove one entry that is no folder: a file, or a link as a link, never what it leads to. On
+/// Windows a link to a folder and a junction are removed as folders, which `remove_file`
+/// refuses ("Access is denied").
+fn remove_entry(path: &Path) -> io::Result<()> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::FileTypeExt;
+        if fs::symlink_metadata(path)?.file_type().is_symlink_dir() {
+            return fs::remove_dir(path);
+        }
+    }
+    fs::remove_file(path)
 }
 
 /// The error for a pipe, a socket or a device, which are not copied or moved.
@@ -1351,7 +1365,7 @@ pub fn delete_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
     if fs::symlink_metadata(path)?.is_dir() {
         fs::remove_dir_all(path)
     } else {
-        fs::remove_file(path)
+        remove_entry(path)
     }
 }
 
@@ -2952,6 +2966,30 @@ mod tests {
         if trash_renames(&d.join("link")) {
             assert!(trash_takes(&[d.join("link"), d.join("dir")]));
         }
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A link to a folder (a junction on Windows) is deleted for good as a link, and moved to
+    /// another disk without staying behind; what it leads to is never touched (#980).
+    #[test]
+    fn a_link_to_a_folder_is_deleted_and_moved_as_a_link() {
+        let d = tmp("folder-link");
+        mkdir(&d.join("target")).unwrap();
+        fs::write(d.join("target/keep.txt"), "k").unwrap();
+        crate::pinned::link_dir(&d.join("target"), &d.join("gone"));
+        delete(&d.join("gone")).unwrap();
+        assert!(fs::symlink_metadata(d.join("gone")).is_err());
+        mkdir(&d.join("src")).unwrap();
+        crate::pinned::link_dir(&d.join("target"), &d.join("src/link"));
+        ACROSS.set(true);
+        let moved = rename(&d.join("src"), &d.join("dst"));
+        ACROSS.set(false);
+        moved.unwrap();
+        assert!(fs::symlink_metadata(d.join("src")).is_err(), "not left behind");
+        assert!(fs::symlink_metadata(d.join("dst/link")).unwrap().file_type().is_symlink());
+        delete(&d.join("dst/link")).unwrap();
+        assert!(fs::symlink_metadata(d.join("dst/link")).is_err());
+        assert_eq!(fs::read_to_string(d.join("target/keep.txt")).unwrap(), "k");
         fs::remove_dir_all(d).unwrap();
     }
 
