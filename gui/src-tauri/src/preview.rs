@@ -636,7 +636,7 @@ mod tests {
         let mut d = b"bplist00".to_vec();
         let mut offsets = vec![];
         for o in objects {
-            offsets.push(d.len() as u8);
+            offsets.push(u8::try_from(d.len()).expect("a fixture of one-byte offsets"));
             d.extend(o);
         }
         let table = d.len() as u64;
@@ -669,7 +669,7 @@ mod tests {
         assert_eq!(text(bplist(&doubling(0, 3, false))).unwrap().matches("<string>x1234</string>").count(), 8, "a sane one is shown");
         assert_eq!(text(bplist(&doubling(0, 3, true))).unwrap().matches("<string>x1234</string>").count(), 8, "long counts as the crate reads them");
         assert_eq!(text(bplist(&doubling(0, 60, false))).unwrap_err(), t!("render.too_large"));
-        assert_eq!(text(bplist(&doubling(0, 60, true))).unwrap_err(), t!("render.too_large"));
+        assert_eq!(text(bplist(&doubling(0, 40, true))).unwrap_err(), t!("render.too_large"));
         // A fault after the bomb: the crate builds the bomb first, so it is counted first.
         let mut bad_after = vec![vec![0xa2, 1, 200]];
         bad_after.extend(doubling(1, 60, false));
