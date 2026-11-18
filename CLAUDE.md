@@ -130,8 +130,8 @@ These rules hold for every contributor and every Claude session in this reposito
 ## Building and checking
 
 - **Local GUI builds:** `cd gui && npm run build`, then `cargo build --release -p coxswain-gui`
-  embeds `gui/dist` (default feature `custom-protocol`). `npx tauri dev -- --no-default-features`
-  for the live dev server; without that flag dev loads `dist` too.
+  embeds `gui/dist` (default feature `custom-protocol`). `npx tauri dev -- --no-default-features --features
+  modules` for the live dev server; without that flag dev loads `dist` too.
 - **Check before pushing:** `cargo test --workspace`, and for GUI changes
   `cd gui && npx svelte-check && npm test && npm run build`. For workflow changes
   `python3 tools/workflow-shell-check.py` (`bash -n` and shellcheck on every `run:` script and

@@ -120,6 +120,25 @@ names what was changed.
 The release builds have every module. They are all in one program; turning one off means it is
 not used, not that it is left out of the build.
 
+## Building without some modules
+
+When you build Coxswain from source, each module is a cargo feature of `coxswain-core` named
+after it (`games`, `documents`, `disk_images` …), all on by default. To leave some out, turn the
+default features off and name the modules you want:
+
+```sh
+cargo build --release -p coxswain --no-default-features --features coxswain-core/games,coxswain-core/documents
+cargo build --release -p coxswain-gui --no-default-features --features custom-protocol,coxswain-core/games
+```
+
+A module left out is off whatever `[modules] off` says: Settings → *Modules* shows it greyed
+(`[-]` in the terminal app, a dimmed box in the desktop app) with *not in this build*, and it
+cannot be turned on there. Its files are shown as text or hex, as with a module turned off.
+
+For now this leaves the module's viewer unused, not its code out of the program: the libraries
+the modules use are shared with search, Enter into mailboxes and the chess engine, and the
+desktop app's viewers are bundled by its web build, which a cargo feature does not reach.
+
 ## Questions
 
 #### Why does a PDF or a game show as text now?
@@ -146,8 +165,9 @@ the program your system gives it. Turn the module on again to open it on Coxswai
 
 #### Can I leave a module out of the build?
 
-Not yet: every build has every module, and turning one off means it is not used. Leaving
-modules out when building from source is planned.
+Yes, when you build from source: each module is a cargo feature, all on by default (see
+[Building without some modules](#building-without-some-modules)). Settings → *Modules* then shows
+the ones left out greyed, marked *not in this build*. The release builds have every module.
 
 #### What happened to bom_viewer, provenance_viewer and ebooks?
 

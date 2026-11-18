@@ -4844,6 +4844,7 @@
  "modules.hint": "Chaque module affiche certains types de fichiers. Désactivez ceux que vous ne voulez pas charger : leurs fichiers sont alors affichés en texte ou en hexadécimal, comme tout autre fichier. Aucun module n’envoie vos fichiers nulle part.",
  "modules.uses": "utilise {what}",
  "modules.images": "peut télécharger une image de conteneur",
+ "modules.not_built": "absent de cette compilation",
  "modules.off_notice": "Affiché en texte : {module} est désactivé. Activez-le dans Réglages ({key}) → Modules.",
  "guide.modules": "Les visionneuses dont vous n’avez pas besoin peuvent être désactivées, chacune avec les formats qu’elle affiche et ce qu’elle utilise.",
  "guide.modules_open": "Choisir les modules",

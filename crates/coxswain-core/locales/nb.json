@@ -4746,6 +4746,7 @@
  "modules.hint": "Hver modul viser noen slags filer. Slå av dem du ikke vil ha lastet inn: filene deres vises da som tekst eller heks, som enhver annen fil. Ingen modul sender filene dine noe sted.",
  "modules.uses": "bruker {what}",
  "modules.images": "kan laste ned et containerbilde",
+ "modules.not_built": "ikke med i denne utgaven",
  "modules.off_notice": "Vist som tekst: {module} er slått av. Slå den på i Innstillinger ({key}) → Moduler.",
  "guide.modules": "Visninger du ikke trenger, kan slås av, hver med formatene den viser og hva den bruker.",
  "guide.modules_open": "Velg moduler",

@@ -4844,6 +4844,7 @@
  "modules.hint": "Kiekvienas modulis rodo kai kurias failų rūšis. Išjunkite tuos, kurių nenorite įkelti: jų failai tada rodomi kaip tekstas arba šešioliktainiu pavidalu, kaip bet kuris kitas failas. Joks modulis niekur nesiunčia jūsų failų.",
  "modules.uses": "naudoja {what}",
  "modules.images": "gali atsisiųsti konteinerio atvaizdą",
+ "modules.not_built": "nėra šiame darinyje",
  "modules.off_notice": "Rodoma kaip tekstas: {module} išjungtas. Įjunkite jį: Parametrai ({key}) → Moduliai.",
  "guide.modules": "Nereikalingas peržiūros programas galima išjungti, kiekvieną su jos rodomais formatais ir tuo, ką ji naudoja.",
  "guide.modules_open": "Pasirinkti modulius",

@@ -1966,7 +1966,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                         }
                     }
                 }
-                Row::Module(m) => lines.extend(pair(&format!(" [{}] {}", if m.on { "x" } else { " " }, m.label), &m.about, st)),
+                Row::Module(m) => lines.extend(pair(&format!(" [{}] {}", if !m.built { "-" } else if m.on { "x" } else { " " }, m.label), &m.about, st)),
                 // The kind, then what is used and the choice.
                 Row::PreviewTool(r) => {
                     let choice = if !r.can_choose { String::new() } else if r.choice.is_empty() { t!("ptools.choice.default", "value" => choice_label("preview_prefer", &cfg.preview.prefer)) } else if r.choice == "container" && !r.container { t!("ptools.choice.container_no_image") } else { t!(&format!("ptools.choice.{}", r.choice)) };

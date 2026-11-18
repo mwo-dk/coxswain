@@ -4746,6 +4746,7 @@
  "modules.hint": "Iga moodul näitab mõnda liiki faile. Lülita välja need, mida sa laadida ei taha: nende failid näidatakse siis tekstina või kuueteistkümnendkoodis nagu iga teine fail. Ükski moodul ei saada su faile kuhugi.",
  "modules.uses": "kasutab: {what}",
  "modules.images": "võib alla laadida konteineri tõmmise",
+ "modules.not_built": "pole selles järgus",
  "modules.off_notice": "Näidatud tekstina: {module} on väljas. Lülita see sisse: Sätted ({key}) → Moodulid.",
  "guide.modules": "Vaated, mida sa ei vaja, saab välja lülitada, igaüks koos näidatavate vormingute ja kasutatavaga.",
  "guide.modules_open": "Vali moodulid",

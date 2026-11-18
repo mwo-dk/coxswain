@@ -50,6 +50,9 @@ test("a file whose module is off is previewed as text", async () => {
   assert.equal(moduleOff("chess"), "games");
   assert.equal(previewKind({ name: "paper.pdf", is_dir: false }), "pdf");
   assert.equal(moduleOff("pdf"), null);
+  // Left out of the build: off whatever `[modules] off` says.
+  setModulesOff({ pdf: "documents" }, [], [{ id: "documents", built: false }]);
+  assert.equal(moduleOff("pdf"), "documents");
   setModulesOff({}, []);
   assert.equal(previewKind({ name: "club.pgn", is_dir: false }), "chess");
 });

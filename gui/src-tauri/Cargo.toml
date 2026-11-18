@@ -28,9 +28,11 @@ toml_edit = "0.25.15"
 [features]
 # Serve the built frontend (gui/dist) from inside the binary. Without it a plain `cargo build`
 # loads the dev server at localhost:1420, which only `tauri dev` starts: run that one as
-# `npx tauri dev -- --no-default-features`.
-default = ["custom-protocol"]
+# `npx tauri dev -- --no-default-features --features modules`.
+default = ["custom-protocol", "modules"]
 custom-protocol = ["tauri/custom-protocol"]
+# Every module (coxswain-core's `modules`).
+modules = ["coxswain-core/modules"]
 
 # Dragging files out of the window; on Linux and the BSDs GTK's own (`native_drag`).
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]
