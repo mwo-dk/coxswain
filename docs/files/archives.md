@@ -180,8 +180,8 @@ through an installed 7-Zip instead, read-only, like a disk image
 
 - **A tar with a sparse file, or with a file whose size is given in a PAX record apart from its
   header** (a file of 8 GiB or more in a tar made by Python, `tar -S`), does not open yet: the
-  status line says *This tar cannot be opened safely*, and nothing in it is listed, copied,
-  extracted or changed. Other programs read such an entry's size differently than a plain
+  status line says *This tar cannot be opened safely*, and it is not extracted or changed (the
+  entries before the first such one may still show in the preview). Other programs read such an entry's size differently than a plain
   reading does, so what is listed could differ from what comes out. Use `tar` or `bsdtar` for
   these for now.
 - **An archive inside an archive** opens like the outer one: **Enter** on `mid.zip` inside
