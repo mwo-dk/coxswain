@@ -3215,6 +3215,14 @@ fn copy_entries(
     // Files written whole, and whether all those `only` names are: nothing after them is read.
     let out = std::cell::Cell::new(0usize);
     let all_out = || how.only.is_some_and(|only| out.get() >= only.len());
+    // What this pass wrote, by the path asked for and the one it took, and the same paths folded
+    // as a file system that ignores case (and Unicode form) sees them.
+    let written = std::cell::RefCell::new(std::collections::HashMap::<PathBuf, PathBuf>::new());
+    let folded = std::cell::RefCell::new(std::collections::HashSet::<String>::new());
+    let fold = |p: &Path| {
+        use unicode_normalization::UnicodeNormalization;
+        p.to_string_lossy().nfc().collect::<String>().to_lowercase()
+    };
     // `secs`: the entry's modified time, which the file out of the archive keeps (0: none).
     // Written under a passing name (noted, so a kill leaves nothing that looks whole) and given
     // its own only when whole.
@@ -3225,9 +3233,23 @@ fn copy_entries(
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        if std::fs::symlink_metadata(path).is_ok() {
-            return Err(crate::fs::exists(path));
-        }
+        // A name given twice: the later entry takes the earlier one's place, as tar does.
+        let again = written.borrow().get(path).cloned();
+        let asked = path;
+        let free;
+        let path = match &again {
+            Some(took) => took.as_path(),
+            None if std::fs::symlink_metadata(path).is_err() => path,
+            // Only its case (or Unicode form) differs from one written here, on a file system
+            // that ignores those: both kept, the later as `name (2).ext`, as a copy keeps both.
+            // shortcut: a program's permission bits go to the name asked for, not `name (2)` (#994).
+            None if folded.borrow().contains(&fold(path)) => {
+                let name = path.file_name().unwrap_or_default().to_string_lossy();
+                free = crate::fs::free_name(path.parent().unwrap_or(Path::new("")), &name);
+                &free
+            }
+            None => return Err(crate::fs::exists(path)),
+        };
         let tmp = crate::fs::beside(path);
         let mut f = File::create_new(&tmp)?;
         // Stop is looked at on every read; a file stopped or failed half way goes.
@@ -3248,10 +3270,19 @@ fn copy_entries(
             let _ = f.set_modified(crate::fs::epoch(secs));
         }
         drop(f);
-        crate::fs::put(&tmp, path).inspect_err(|_| drop(std::fs::remove_file(&tmp)))?;
-        out.set(out.get() + 1);
-        if let Some(wrote) = how.wrote {
-            wrote(path);
+        if again.is_some() {
+            std::fs::rename(&tmp, path)
+        } else {
+            crate::fs::put(&tmp, path)
+        }
+        .inspect_err(|_| drop(std::fs::remove_file(&tmp)))?;
+        if again.is_none() {
+            written.borrow_mut().insert(asked.to_path_buf(), path.to_path_buf());
+            folded.borrow_mut().insert(fold(asked));
+            out.set(out.get() + 1);
+            if let Some(wrote) = how.wrote {
+                wrote(path);
+            }
         }
         Ok(())
     };
@@ -4549,6 +4580,57 @@ pub fn copy_out_files(archive: &Path, names: &[String], dest: &Path, password: O
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A name given twice comes out once, the later entry's; names that differ only in case
+    /// both come out, the later as `name (2)` where the file system ignores case (#966).
+    #[test]
+    fn a_name_twice_or_in_two_cases_comes_out() {
+        use zip::write::SimpleFileOptions;
+        let d = std::env::temp_dir().join(format!("coxswain-name-twice-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("probe"), b"").unwrap();
+        let ignores_case = d.join("PROBE").exists();
+        // The zip crate writes no name twice: the second written as `b.txt`, then named `a.txt`
+        // in its local header and the directory.
+        let zp = d.join("twice.zip");
+        let mut w = zip::ZipWriter::new(io::Cursor::new(Vec::new()));
+        for (name, text) in [("a.txt", "old"), ("b.txt", "new"), ("x.h", "lower"), ("X.h", "upper")] {
+            w.start_file(name, SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored)).unwrap();
+            io::Write::write_all(&mut w, text.as_bytes()).unwrap();
+        }
+        let mut bytes = w.finish().unwrap().into_inner();
+        for at in bytes.windows(5).enumerate().filter(|(_, b)| *b == b"b.txt").map(|(i, _)| i).collect::<Vec<_>>() {
+            bytes[at] = b'a';
+        }
+        std::fs::write(&zp, bytes).unwrap();
+        let to = extract(&zp, &d.join("x")).unwrap();
+        let mut got: Vec<_> = std::fs::read_dir(&to).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
+        got.sort();
+        let read = |n: &str| std::fs::read_to_string(to.join(n)).unwrap();
+        assert_eq!(read("a.txt"), "new", "the later one");
+        if ignores_case {
+            assert_eq!(got, ["X (2).h", "a.txt", "x.h"]);
+            assert_eq!((read("x.h"), read("X (2).h")), ("lower".into(), "upper".into()));
+        } else {
+            assert_eq!(got, ["X.h", "a.txt", "x.h"]);
+        }
+        // A tar's folder copied out (F5) gives what Extract gives: the later one.
+        let tp = d.join("twice.tar");
+        let mut t = tar::Builder::new(File::create(&tp).unwrap());
+        for text in ["old", "new"] {
+            let mut h = tar::Header::new_gnu();
+            h.set_size(3);
+            h.set_mode(0o644);
+            t.append_data(&mut h, "docs/a.txt", text.as_bytes()).unwrap();
+        }
+        t.into_inner().unwrap();
+        let out = copy_out(&tp, "docs", &d.join("f5"), None, false).unwrap();
+        assert_eq!(std::fs::read_to_string(out.join("a.txt")).unwrap(), "new");
+        let to = extract(&tp, &d.join("e")).unwrap();
+        assert_eq!(std::fs::read_to_string(to.join("docs/a.txt")).unwrap(), "new");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
 
     /// A SCID database in a 7z, too large to look at there: offered to be unpacked beside the
     /// 7z, in a folder of its name, all three files; unpacked whole by the Copy job in one pass
