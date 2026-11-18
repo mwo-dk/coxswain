@@ -887,8 +887,9 @@ fn copy_entry(src: &Path, to: &Path) -> io::Result<()> {
         let link = fs::read_link(src)?;
         #[cfg(unix)]
         return std::os::unix::fs::symlink(link, to);
+        // The link's own type: a folder link or junction whose folder is gone is one still.
         #[cfg(windows)]
-        return if src.is_dir() {
+        return if std::os::windows::fs::FileTypeExt::is_symlink_dir(&ft) {
             std::os::windows::fs::symlink_dir(link, to)
         } else {
             std::os::windows::fs::symlink_file(link, to)
@@ -2980,7 +2981,7 @@ mod tests {
         delete(&d.join("gone")).unwrap();
         assert!(fs::symlink_metadata(d.join("gone")).is_err());
         mkdir(&d.join("src")).unwrap();
-        crate::pinned::link_dir(&d.join("target"), &d.join("src/link"));
+        crate::pinned::link_dir(&d.join("target"), &d.join("src").join("link"));
         ACROSS.set(true);
         let moved = rename(&d.join("src"), &d.join("dst"));
         ACROSS.set(false);
