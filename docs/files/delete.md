@@ -124,6 +124,8 @@ question.
 #### Does deleting a symbolic link delete what it points at?
 
 No. The link itself is removed (or moved to the trash); the file or folder it points at stays.
+On Windows the same holds for a link to a folder and a junction, with **Shift+F8** too, and a
+move to another drive takes the link along instead of leaving it in both places.
 
 #### Can I stop a delete?
 
