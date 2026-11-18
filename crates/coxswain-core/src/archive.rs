@@ -3238,6 +3238,9 @@ fn copy_entries(
         let asked = path;
         let free;
         let path = match &again {
+            // A move takes the name out of the archive next, both entries: the earlier one
+            // would be lost, so it is refused as before.
+            Some(_) if how.whole => return Err(crate::fs::exists(path)),
             Some(took) => took.as_path(),
             None if std::fs::symlink_metadata(path).is_err() => path,
             // Only its case (or Unicode form) differs from one written here, on a file system
@@ -3279,6 +3282,7 @@ fn copy_entries(
         if again.is_none() {
             written.borrow_mut().insert(asked.to_path_buf(), path.to_path_buf());
             folded.borrow_mut().insert(fold(asked));
+            folded.borrow_mut().insert(fold(path));
             out.set(out.get() + 1);
             if let Some(wrote) = how.wrote {
                 wrote(path);
@@ -4591,29 +4595,23 @@ mod tests {
         std::fs::create_dir_all(&d).unwrap();
         std::fs::write(d.join("probe"), b"").unwrap();
         let ignores_case = d.join("PROBE").exists();
-        // The zip crate writes no name twice: the second written as `b.txt`, then named `a.txt`
-        // in its local header and the directory.
-        let zp = d.join("twice.zip");
-        let mut w = zip::ZipWriter::new(io::Cursor::new(Vec::new()));
-        for (name, text) in [("a.txt", "old"), ("b.txt", "new"), ("x.h", "lower"), ("X.h", "upper")] {
-            w.start_file(name, SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored)).unwrap();
+        // Names that differ only in case, in a zip (the zip crate reads a name given twice once).
+        let zp = d.join("case.zip");
+        let mut w = zip::ZipWriter::new(File::create(&zp).unwrap());
+        for (name, text) in [("x.h", "lower"), ("X.h", "upper")] {
+            w.start_file(name, SimpleFileOptions::default()).unwrap();
             io::Write::write_all(&mut w, text.as_bytes()).unwrap();
         }
-        let mut bytes = w.finish().unwrap().into_inner();
-        for at in bytes.windows(5).enumerate().filter(|(_, b)| *b == b"b.txt").map(|(i, _)| i).collect::<Vec<_>>() {
-            bytes[at] = b'a';
-        }
-        std::fs::write(&zp, bytes).unwrap();
+        w.finish().unwrap();
         let to = extract(&zp, &d.join("x")).unwrap();
         let mut got: Vec<_> = std::fs::read_dir(&to).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
         got.sort();
         let read = |n: &str| std::fs::read_to_string(to.join(n)).unwrap();
-        assert_eq!(read("a.txt"), "new", "the later one");
         if ignores_case {
-            assert_eq!(got, ["X (2).h", "a.txt", "x.h"]);
+            assert_eq!(got, ["X (2).h", "x.h"]);
             assert_eq!((read("x.h"), read("X (2).h")), ("lower".into(), "upper".into()));
         } else {
-            assert_eq!(got, ["X.h", "a.txt", "x.h"]);
+            assert_eq!(got, ["X.h", "x.h"]);
         }
         // A tar's folder copied out (F5) gives what Extract gives: the later one.
         let tp = d.join("twice.tar");
@@ -4629,6 +4627,9 @@ mod tests {
         assert_eq!(std::fs::read_to_string(out.join("a.txt")).unwrap(), "new");
         let to = extract(&tp, &d.join("e")).unwrap();
         assert_eq!(std::fs::read_to_string(to.join("docs/a.txt")).unwrap(), "new");
+        // Moved out (F6), the name is refused: taking it out would take both entries.
+        assert!(copy_out(&tp, "docs", &d.join("f6"), None, true).is_err());
+        assert_eq!(list(&tp, 10).unwrap().0.len(), 2, "nothing taken out");
         std::fs::remove_dir_all(&d).unwrap();
     }
 
