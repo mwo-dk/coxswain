@@ -1183,8 +1183,17 @@ fn own(dir: &Path) -> bool {
 }
 
 /// At a clean exit, before this run's list goes (`spill::at_exit`): its own half-made folders
-/// go, as afterwards nothing could tell it ended.
+/// go, as afterwards nothing could tell it ended. Its builds are stopped first, so none writes
+/// on (or, on Windows, holds a file open) while its folder goes.
 pub(crate) fn sweep_own() {
+    let jobs: Vec<Arc<Job>> = JOBS.lock().unwrap_or_else(|e| e.into_inner()).as_ref().map(|j| j.values().cloned().collect()).unwrap_or_default();
+    jobs.iter().for_each(|j| j.stop.store(true, Ordering::Relaxed));
+    // shortcut: a build that does not see its stop within 2 s may leave its folder (Windows), as
+    // the program is ending; a stop seen sooner in every phase would close that.
+    let until = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    while jobs.iter().any(|j| j.phase.load(Ordering::Relaxed) < 2) && std::time::Instant::now() < until {
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
     if let Some(root) = folder() {
         sweep_in(&root, own);
     }
