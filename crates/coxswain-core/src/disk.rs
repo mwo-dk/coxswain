@@ -64,7 +64,7 @@ const OWN: &[(&str, &[&str], bool)] = &[
         &["search.db", "search.db-wal", "search.db-shm"],
         true,
     ),
-    ("index", &["index.bin", "index.tmp"], true),
+    ("index", &["index.bin"], true),
     ("previews", &["previews"], true),
     ("peek", &["peek", "nested", "archive-index", "locked"], true),
     ("inside", &[], true),
