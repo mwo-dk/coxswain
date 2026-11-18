@@ -18,8 +18,9 @@ past it would leave it unpublished for good (2.33.0 was), so its release run is 
 Exits 4, changing nothing, while the new version's GitHub milestone (named X.Y.Z) has open issues:
 a release is done when its milestone is empty. Issues labelled `post-release` or titled "After the
 release…" (verifying the channels) are left open on purpose and do not count. When the new version
-has no milestone (a patch, say), every open milestone above the current version up to the next
-minor holds it instead, so a week of fixes only does not skip the planned minor's open issues.
+has no milestone of its own, every open milestone above the current version up to the next minor
+holds it instead, so a week of fixes only does not skip the planned minor's open issues (a patch
+release between Sundays gets a milestone of its own first).
 Run from the repository's root.
 """
 import datetime
