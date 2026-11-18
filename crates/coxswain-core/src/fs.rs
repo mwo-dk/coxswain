@@ -1909,6 +1909,8 @@ pub fn beneath(dir: &Path, rel: &str) -> Option<PathBuf> {
 pub struct Watch {
     watcher: Option<crate::DirWatcher>,
     rx: std::sync::mpsc::Receiver<notify::Result<notify::Event>>,
+    /// The folders asked for, and those of them watched (`watch_dirs`).
+    asked: Vec<PathBuf>,
     watched: Vec<PathBuf>,
     settle: Settle,
 }
@@ -1919,6 +1921,7 @@ impl Default for Watch {
         Watch {
             watcher: notify::Watcher::new(tx, notify::Config::default()).ok(),
             rx,
+            asked: vec![],
             watched: vec![],
             settle: Settle::default(),
         }
@@ -1929,23 +1932,17 @@ impl Watch {
     /// Watch these folders and no others. A folder that cannot be watched (gone, inside an
     /// archive or a history) is left out.
     pub fn set(&mut self, dirs: Vec<PathBuf>) {
-        use notify::Watcher;
-        if dirs == self.watched {
+        if dirs == self.asked {
             return;
         }
-        let Some(w) = self.watcher.as_mut() else {
-            return;
-        };
-        for d in self.watched.iter().filter(|d| !dirs.contains(d)) {
-            let _ = w.unwatch(d);
+        if let Some(w) = self.watcher.as_mut() {
+            self.watched = watch_dirs(w, &self.watched, &dirs, &[]);
         }
-        for d in dirs.iter().filter(|d| !self.watched.contains(d)) {
-            let _ = w.watch(d, notify::RecursiveMode::NonRecursive);
-        }
-        self.watched = dirs;
+        self.asked = dirs;
     }
 
-    /// The paths changed since the last time, once they have settled; empty until then.
+    /// The paths changed since the last time, once they have settled; empty until then. A
+    /// folder a change names itself, and one not watched yet, is watched again (`watch_dirs`).
     pub fn changed(&mut self) -> Vec<PathBuf> {
         let now = std::time::Instant::now();
         let paths: Vec<PathBuf> = self
@@ -1956,8 +1953,29 @@ impl Watch {
             .flat_map(|e| e.paths)
             .collect();
         self.settle.add(paths, now);
-        self.settle.take(now)
+        let paths = self.settle.take(now);
+        if !paths.is_empty()
+            && let Some(w) = self.watcher.as_mut()
+        {
+            self.watched = watch_dirs(w, &self.watched, &self.asked, &paths);
+        }
+        paths
     }
+}
+
+/// Watch `dirs` with `w` (not their subfolders) and no others, `watched` the folders watched
+/// now; gives those that are. A folder whose watch failed (not there yet, the watch limit
+/// reached) is left out, so it is tried again next time. One that `changed` names itself (removed,
+/// maybe made again) is watched again: its watch was of the folder that went (inotify, kqueue).
+pub fn watch_dirs(w: &mut impl notify::Watcher, watched: &[PathBuf], dirs: &[PathBuf], changed: &[PathBuf]) -> Vec<PathBuf> {
+    let again = |d: &PathBuf| changed.contains(d);
+    for d in watched.iter().filter(|d| !dirs.contains(d) || again(d)) {
+        let _ = w.unwatch(d);
+    }
+    dirs.iter()
+        .filter(|d| (watched.contains(d) && !again(d)) || w.watch(d, notify::RecursiveMode::NonRecursive).is_ok())
+        .cloned()
+        .collect()
 }
 
 /// The folders in `dirs` that these changed paths are, or are in. macOS names a change by its
@@ -2490,6 +2508,49 @@ mod tests {
                 .any(|p| p.file_name().is_some_and(|n| n == "new.txt")),
             "{got:?}"
         );
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A watched folder removed and made again (`rm -rf build && mkdir build`) is watched again:
+    /// a file written into the new one is heard (#958). Windows keeps the folder while watched.
+    #[test]
+    #[cfg(not(windows))]
+    fn watch_follows_a_folder_made_again() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-again-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let mut w = Watch::default();
+        w.set(vec![d.clone()]);
+        let heard = |w: &mut Watch, what: &dyn Fn(&[PathBuf]) -> bool| {
+            let end = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(10));
+            let mut got: Vec<PathBuf> = vec![];
+            while !what(&got) && std::time::Instant::now() < end {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                got.extend(w.changed());
+            }
+            got
+        };
+        std::fs::remove_dir_all(&d).unwrap();
+        std::fs::create_dir_all(&d).unwrap();
+        let got = heard(&mut w, &|got| !changed_dirs(std::slice::from_ref(&d), got).is_empty());
+        assert!(!changed_dirs(std::slice::from_ref(&d), &got).is_empty(), "made again: {got:?}");
+        std::fs::write(d.join("after.txt"), "x").unwrap();
+        let got = heard(&mut w, &|got| !changed_dirs(std::slice::from_ref(&d), got).is_empty());
+        assert!(!changed_dirs(std::slice::from_ref(&d), &got).is_empty(), "written into the new folder: {got:?}");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A folder whose watch failed (not there yet) is tried again, not taken for watched.
+    #[test]
+    fn watch_tries_a_failed_folder_again() {
+        let d = std::env::temp_dir().join(format!("coxswain-test-later-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let (tx, _rx) = std::sync::mpsc::channel();
+        let mut w: crate::DirWatcher = notify::Watcher::new(tx, notify::Config::default()).unwrap();
+        let watched = watch_dirs(&mut w, &[], std::slice::from_ref(&d), &[]);
+        assert!(watched.is_empty(), "not there: not watched");
+        std::fs::create_dir_all(&d).unwrap();
+        assert_eq!(watch_dirs(&mut w, &watched, std::slice::from_ref(&d), &[]), [d.clone()], "there now: watched");
         std::fs::remove_dir_all(d).unwrap();
     }
 

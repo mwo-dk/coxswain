@@ -1,0 +1,1 @@
+| **A folder removed and made again while open is followed again.** When a script ran `rm -rf build && mkdir build` in a folder a tab showed, files written into the new folder no longer showed until you left it and came back, in both apps; a folder that could not be watched when opened is now tried again too. | [Panels](panels/README.md) |
