@@ -5,7 +5,7 @@
 //! On start, both apps rewrite an older config once, its comments and order kept, and a notice
 //! says what changed.
 
-use toml_edit::{DocumentMut, Item, Key, TableLike};
+use toml_edit::{DocumentMut, Item, Key, Table, TableLike};
 
 /// (table, old key, new key).
 pub const RENAMED: &[(&str, &str, &str)] = &[
@@ -46,7 +46,15 @@ pub fn rewrite(text: &str) -> Result<Option<(String, Vec<String>)>, String> {
     }
     prefer_tool(&mut doc, &mut said);
     switches(&mut doc, &mut said);
-    Ok((!said.is_empty()).then(|| (doc.to_string(), said)))
+    if said.is_empty() {
+        return Ok(None);
+    }
+    let mut out = doc.to_string();
+    // toml_edit writes the comments and blank lines it keeps with \n: a CRLF file stays CRLF.
+    if text.contains("\r\n") && !text.replace("\r\n", "").contains('\n') {
+        out = out.replace("\r\n", "\n").replace('\n', "\r\n");
+    }
+    Ok(Some((out, said)))
 }
 
 /// 2.33 chose per kind of file, not per tool: `[preview] prefer_tool` (`latex`, `d2`,
@@ -90,6 +98,8 @@ pub const SWITCHES: &[(Option<&str>, &str, &str)] = &[(None, "bom_viewer", "bom"
 fn switches(doc: &mut DocumentMut, said: &mut Vec<String>) {
     // Put above the first table once all are moved, `[modules]` too when it is the only one.
     let mut notes = String::new();
+    // An emptied table's comments: put above the table after it once `[modules]` is made.
+    let mut hidden: Vec<(&str, String)> = vec![];
     for &(table, key, module) in SWITCHES {
         let t = match table {
             None => Some(doc.as_table_mut() as &mut dyn TableLike),
@@ -97,12 +107,24 @@ fn switches(doc: &mut DocumentMut, said: &mut Vec<String>) {
         };
         let Some(old) = t.and_then(|t| take(t, key, table.is_none())) else { continue };
         notes.push_str(old.1.as_deref().unwrap_or(""));
+        // `preview = { ebooks = false }` left empty goes, its comments kept like a top-level key's.
+        if let Some(name) = table.filter(|n| doc.get(n).and_then(Item::as_inline_table).is_some_and(|t| t.is_empty())) {
+            let on_line = doc.get(name).and_then(Item::as_inline_table).and_then(|t| t.decor().suffix()).and_then(|s| s.as_str()).map(str::trim).filter(|s| s.starts_with('#')).map(|s| format!("{s}\n"));
+            if let Some((_, note)) = take(doc.as_table_mut(), name, true) {
+                notes.push_str(note.as_deref().unwrap_or(""));
+            }
+            notes.push_str(on_line.as_deref().unwrap_or(""));
+        }
         // A `[preview]` with nothing left in it is not written as an empty header.
-        if let Some(name) = table.filter(|n| doc.get(n).and_then(Item::as_table).is_some_and(|t| t.iter().all(|(_, i)| !i.is_value()))) {
-            // Its comment goes on to the table after it before its header is hidden.
-            let note = doc.get(name).and_then(Item::as_table).and_then(|t| t.decor().prefix()).and_then(|p| p.as_str()).filter(|p| p.contains('#')).map(str::to_string);
-            if let Some(note) = note {
-                keep_note_after(doc, name, note);
+        if let Some(name) = table.filter(|n| doc.get(n).and_then(Item::as_table).is_some_and(|t| t.get_values().is_empty())) {
+            // Its comments, above the header and on its line, go on to the table after it.
+            if let Some(t) = doc.get(name).and_then(Item::as_table) {
+                let above = t.decor().prefix().and_then(|p| p.as_str()).filter(|p| p.contains('#')).unwrap_or("");
+                let on_line = t.decor().suffix().and_then(|s| s.as_str()).map(str::trim).filter(|s| s.starts_with('#'));
+                let note = format!("{above}{}", on_line.map_or(String::new(), |s| format!("{s}\n")));
+                if !note.is_empty() {
+                    hidden.push((name, note));
+                }
             }
             if let Some(t) = doc.get_mut(name).and_then(Item::as_table_mut) {
                 t.set_implicit(true);
@@ -118,8 +140,12 @@ fn switches(doc: &mut DocumentMut, said: &mut Vec<String>) {
             said.push(format!("{name} = false (add \"{module}\" to [modules] off yourself)"));
         }
     }
+    for (name, note) in hidden {
+        let after = doc.get(name).and_then(Item::as_table).map(|t| t as *const Table);
+        put_above_next(doc, after, note);
+    }
     if !notes.is_empty() {
-        keep_note(doc, notes);
+        put_above_next(doc, None, notes);
     }
 }
 
@@ -138,7 +164,7 @@ fn turn_off(doc: &mut DocumentMut, module: &str) -> bool {
 }
 
 /// `key` taken out of `t`, with the comment above it when it has one and `carry`: that goes to
-/// the value after it, or, with none, back to the caller (`keep_note`). Without `carry` (in a
+/// the value after it, or, with none, back to the caller (`put_above_next`). Without `carry` (in a
 /// table, where it was about that key alone) it goes with the key.
 fn take(t: &mut dyn TableLike, key: &str, carry: bool) -> Option<(Item, Option<String>)> {
     let names: Vec<String> = t.iter().filter(|(k, i)| *k == key || i.is_value()).map(|(k, _)| k.to_string()).collect();
@@ -156,47 +182,81 @@ fn take(t: &mut dyn TableLike, key: &str, carry: bool) -> Option<(Item, Option<S
     }
 }
 
-/// A comment above the last top-level value (a file's own heading): above the first table, or,
-/// with no table, at the end of the file.
-fn keep_note(doc: &mut DocumentMut, note: String) {
-    let first = doc.iter().filter(|(_, i)| i.as_table().is_some_and(|t| !t.is_implicit())).map(|(k, _)| k.to_string()).min_by_key(|k| doc.get(k).and_then(Item::as_table).and_then(|t| t.position()).unwrap_or(isize::MAX));
-    put_above(doc, first, note);
-}
-
-/// `note` (the comment of the table `name`, about to lose its header) above the table that
-/// prints next: a sub-table of it or the next top-level one, else the file's end.
-fn keep_note_after(doc: &mut DocumentMut, name: &str, note: String) {
-    let pos = |i: &Item| i.as_table().and_then(|t| t.position()).unwrap_or(isize::MAX);
-    let shown = |i: &Item| i.as_table().is_some_and(|t| !t.is_implicit());
-    let here = doc.get(name).map_or(isize::MAX, pos);
-    let child = doc.get(name).and_then(Item::as_table).and_then(|t| t.iter().filter(|(_, i)| shown(i) && pos(i) > here).min_by_key(|(_, i)| pos(i)).map(|(k, i)| (pos(i), Some(k.to_string()))));
-    let next = doc.iter().filter(|(k, i)| *k != name && shown(i) && pos(i) > here).min_by_key(|(_, i)| pos(i)).map(|(k, i)| (pos(i), Some(k.to_string())));
-    let (note_to_child, target) = match (child, next) {
-        (Some(c), Some(n)) if n.0 < c.0 => (false, n.1),
-        (Some(c), _) => (true, c.1),
-        (None, n) => (false, n.and_then(|n| n.1)),
-    };
-    if note_to_child {
-        if let Some(t) = target.and_then(|k| doc.get_mut(name).and_then(Item::as_table_mut)?.get_mut(&k)?.as_table_mut()) {
-            let was = t.decor().prefix().and_then(|p| p.as_str()).unwrap_or("").to_string();
-            t.decor_mut().set_prefix(format!("{note}{was}"));
-        }
-    } else {
-        put_above(doc, target, note);
-    }
-}
-
-fn put_above(doc: &mut DocumentMut, table: Option<String>, note: String) {
-    match table.and_then(|k| doc.get_mut(&k)).and_then(Item::as_table_mut) {
+/// `note` above the first table printed after the table `after` (from the top with `None`), at
+/// any depth (a sub-table, or `[themes.mine]` whose `[themes]` is never written), else at the
+/// file's end.
+fn put_above_next(doc: &mut DocumentMut, after: Option<*const Table>, note: String) {
+    let order = printed(doc.as_table());
+    let from = after.and_then(|a| order.iter().position(|&(_, _, t)| std::ptr::eq(t, a))).map_or(0, |i| i + 1);
+    let target = order[from..].iter().find(|(_, shown, _)| *shown).map(|&(n, _, _)| n);
+    match target.and_then(|n| nth_mut(doc.as_table_mut(), &mut { n })) {
         Some(t) => {
             let was = t.decor().prefix().and_then(|p| p.as_str()).unwrap_or("").to_string();
             t.decor_mut().set_prefix(format!("{note}{was}"));
         }
         None => {
-            let was = doc.trailing().as_str().unwrap_or("").to_string();
+            let mut was = doc.trailing().as_str().unwrap_or("").to_string();
+            if !was.is_empty() && !was.ends_with('\n') {
+                was.push('\n');
+            }
             doc.set_trailing(format!("{was}{note}"));
         }
     }
+}
+
+/// The tables under `root` as toml_edit prints them: (their number in `nth_mut`'s walk, whether
+/// a header is written, the table). Its own walk and order: a table without a position (one
+/// made here) follows the one before it, and an implicit table is written once it has values.
+fn printed(root: &Table) -> Vec<(usize, bool, &Table)> {
+    fn walk<'a>(t: &'a Table, out: &mut Vec<&'a Table>) {
+        for (_, i) in t.iter() {
+            match i {
+                Item::Table(c) if !c.is_dotted() => {
+                    out.push(c);
+                    walk(c, out);
+                }
+                Item::ArrayOfTables(a) => a.iter().for_each(|c| {
+                    out.push(c);
+                    walk(c, out);
+                }),
+                _ => {}
+            }
+        }
+    }
+    let mut all = vec![];
+    walk(root, &mut all);
+    let mut last = root.position().unwrap_or(0);
+    let mut order: Vec<(isize, usize, bool, &Table)> = all
+        .into_iter()
+        .enumerate()
+        .map(|(n, t)| {
+            last = t.position().unwrap_or(last);
+            (last, n, !(t.is_implicit() && t.get_values().is_empty()), t)
+        })
+        .collect();
+    order.sort_by_key(|o| o.0);
+    order.into_iter().map(|(_, n, shown, t)| (n, shown, t)).collect()
+}
+
+/// The `n`th table of `printed`'s walk.
+fn nth_mut<'a>(t: &'a mut Table, n: &mut usize) -> Option<&'a mut Table> {
+    for (_, i) in t.iter_mut() {
+        let children: Vec<&mut Table> = match i {
+            Item::Table(c) if !c.is_dotted() => vec![c],
+            Item::ArrayOfTables(a) => a.iter_mut().collect(),
+            _ => vec![],
+        };
+        for c in children {
+            if *n == 0 {
+                return Some(c);
+            }
+            *n -= 1;
+            if let Some(found) = nth_mut(c, n) {
+                return Some(found);
+            }
+        }
+    }
+    None
 }
 
 /// Every key of `t` in its place, the old ones under their new names with their comments. Where
@@ -317,25 +377,52 @@ max_results = 500
         let (new, _) = rewrite("[preview.tools]\noffice = \"local\"\n[preview]\n# cal\nebooks = false\n").unwrap().unwrap();
         assert!(!new.contains("[preview]\n") && !new.contains("# cal"), "{new}");
         assert_eq!(crate::config::Config::parse(&new).unwrap().preview.tools["office"], "local");
-        // Comments survive (toml_edit writes a comment's line end as \n, CRLF or not): no table at all, and a [preview] whose only value was ebooks.
+        // Comments survive, and a CRLF file stays CRLF: no table at all, and a [preview] whose only value was ebooks.
         for nl in ["\n", "\r\n"] {
             let fix = |t: &str| t.replace('\n', nl);
             let (new, _) = rewrite(&fix("# heading\nbom_viewer = true\n")).unwrap().unwrap();
-            assert_eq!(new, "# heading\n", "{new:?}");
+            assert_eq!(new, fix("# heading\n"), "{new:?}");
             assert_eq!(rewrite(&new).unwrap(), None, "once");
             let (new, _) = rewrite(&fix("# top\nbom_viewer = true\n\n# about preview\n[preview]\nebooks = true\n\n# about modules\n[modules]\noff = []\n")).unwrap().unwrap();
-            assert!(new.contains("# about preview\n") && new.contains("# about modules") && new.contains("# top") && !new.contains("[preview]"), "{new:?}");
+            assert!(new.contains(&fix("# about preview\n")) && new.contains("# about modules") && new.contains("# top") && !new.contains("[preview]"), "{new:?}");
             assert_eq!(rewrite(&new).unwrap(), None, "once");
             let (new, _) = rewrite(&fix("# about preview\n[preview]\nebooks = true\n")).unwrap().unwrap();
-            assert_eq!(new, "# about preview\n", "{new:?}");
+            assert_eq!(new, fix("# about preview\n"), "{new:?}");
             let (new, _) = rewrite(&fix("# about preview\n[preview]\nebooks = true\n[themes.mine]\nfg = \"#fff\"\n")).unwrap().unwrap();
-            assert!(new.contains("# about preview\n") && !new.contains("[preview]"), "{new:?}");
+            assert_eq!(new, fix("# about preview\n[themes.mine]\nfg = \"#fff\"\n"), "{new:?}");
             let (new, _) = rewrite(&fix("# about preview\n[preview]\nebooks = true\n[preview.tools]\noffice = \"local\"\n")).unwrap().unwrap();
-            assert_eq!(new, "# about preview\n[preview.tools]\noffice = \"local\"\n", "{new:?}");
+            assert_eq!(new, fix("# about preview\n[preview.tools]\noffice = \"local\"\n"), "{new:?}");
+            // A comment on the header's own line goes with the one above it.
+            let (new, _) = rewrite(&fix("[preview]  # x\nebooks = true\n[themes.mine]\nfg = \"#fff\"\n")).unwrap().unwrap();
+            assert_eq!(new, fix("# x\n[themes.mine]\nfg = \"#fff\"\n"), "{new:?}");
+            // A file's heading stays on top when the only table left is a sub-table of [preview].
+            let (new, _) = rewrite(&fix("# top\nbom_viewer = true\n[preview]\nebooks = true\n[preview.tools]\noffice = \"local\"\n")).unwrap().unwrap();
+            assert_eq!(new, fix("# top\n[preview.tools]\noffice = \"local\"\n"), "{new:?}");
+            assert_eq!(rewrite(&new).unwrap(), None, "once");
+            // [preview.tools] made from prefer_tool is a table the comments go above too.
+            let (new, _) = rewrite(&fix("# top\nbom_viewer = true\n# about preview\n[preview]\nprefer_tool = { d2 = \"container\" }\nebooks = true\n")).unwrap().unwrap();
+            assert!(new.starts_with(&fix("# top\n# about preview\n")), "{new:?}");
+            // [modules] made for ebooks = false: the comment goes above it, not below.
+            let (new, _) = rewrite(&fix("# about preview\n[preview]\nebooks = false\n")).unwrap().unwrap();
+            assert!(new.starts_with(&fix("# about preview\n[modules]")), "{new:?}");
+            // A dotted sub-table keeps [preview] written: its comments stay there, once.
+            let (new, _) = rewrite(&fix("# about preview\n[preview]  # x\ntools.office = \"local\"\nebooks = true\n[modules]\noff = []\n")).unwrap().unwrap();
+            assert_eq!((new.matches("# about preview").count(), new.matches("# x").count()), (1, 1), "{new:?}");
+            assert!(new.contains("[preview]"), "{new:?}");
+            // A file that ends in a comment without a line end: the moved one goes on a line of its own.
+            let (new, _) = rewrite(&fix("# about preview\n[preview]\nebooks = true\n# end")).unwrap().unwrap();
+            assert!(new.contains("# end") && new.contains("# about preview") && !new.contains("# end#"), "{new:?}");
         }
         // On one line too.
         let (new, _) = rewrite("preview = { ebooks = false }\n").unwrap().unwrap();
         assert_eq!(crate::config::Config::parse(&new).unwrap().modules.off, ["ebooks"], "{new}");
+        assert!(!new.contains("preview"), "no empty preview = {{}} left:\n{new}");
+        let (new, _) = rewrite("# about preview\npreview = { ebooks = true }\ntheme = \"nc\"\n").unwrap().unwrap();
+        assert_eq!(new, "# about preview\ntheme = \"nc\"\n");
+        let (new, _) = rewrite("preview = { ebooks = false }  # no calibre\n[keys]\n").unwrap().unwrap();
+        assert!(new.contains("# no calibre\n") && !new.contains("preview"), "{new}");
+        let (new, _) = rewrite("preview = { ebooks = true, timeout = 60 }\n").unwrap().unwrap();
+        assert_eq!(crate::config::Config::parse(&new).unwrap().preview.timeout, 60, "{new}");
     }
 
     #[test]
