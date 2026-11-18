@@ -1066,7 +1066,9 @@
           {#if kind === "video_other" || kind === "audio_other"}<p class="more">{t(kind === "video_other" ? "media.frame_note" : "media.wave_note", { key: ui.cfg.actions.open?.[1] ?? "Enter" })}</p>{/if}
           <div class="media" class:checker={!["video_other", "audio_other"].includes(kind)}><img src={convertFileSrc(conv.result.file)} alt={e.name} /></div>
         {:else if conv.result?.kind === "svg"}
-          <div class="media svg"><img src={convertFileSrc(conv.result.file)} alt={e.name} /></div>
+          <!-- Hidden until loaded: WebKit paints an SVG <img> that is still loading its @font-face
+               fonts (D2's) without its text, and does not paint it again when they arrive (#882). -->
+          {#key conv.result.file}<div class="media svg"><img class="loading" src={convertFileSrc(conv.result.file)} alt={e.name} onload={(ev) => ev.currentTarget.classList.remove("loading")} onerror={(ev) => ev.currentTarget.classList.remove("loading")} /></div>{/key}
         {:else if conv.result?.kind === "html"}
           <article class="markdown">{@html clean(conv.result.text)}</article>
         {:else if conv.result?.kind === "json"}
@@ -1789,6 +1791,9 @@
     background: #fff;
     border-radius: var(--r);
     padding: 8px;
+  }
+  .media.svg img.loading {
+    visibility: hidden;
   }
   .schema {
     margin-top: 10px;
