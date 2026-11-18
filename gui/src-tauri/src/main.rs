@@ -51,7 +51,9 @@ pub struct Ctx {
     state: Mutex<AppState>,
     /// The first start: the first-run guide opens.
     guide: bool,
-    /// Folders shown in the panes, watched so they reread themselves.
+    /// Folders shown in the panes, watched so they reread themselves: those asked for, and
+    /// those of them watched (`fs::watch_dirs`).
+    asked: Mutex<Vec<PathBuf>>,
     watched: Mutex<Vec<PathBuf>>,
     watcher: Mutex<Option<coxswain_core::DirWatcher>>,
     /// What Coxswain last put on the clipboard, and whether it was a cut.
@@ -2513,17 +2515,11 @@ fn held_keys(_: &tauri::Window) -> (bool, bool) {
 /// Watch exactly these folders (not their subfolders).
 #[tauri::command]
 fn watch_dirs(dirs: Vec<PathBuf>, ctx: tauri::State<Ctx>) -> Res<()> {
-    use notify::{RecursiveMode, Watcher};
     let mut watched = ctx.watched.lock().map_err(|e| e.to_string())?;
     let mut w = ctx.watcher.lock().map_err(|e| e.to_string())?;
     let Some(w) = w.as_mut() else { return Ok(()) };
-    for d in watched.iter().filter(|d| !dirs.contains(d)) {
-        let _ = w.unwatch(d);
-    }
-    for d in dirs.iter().filter(|d| !watched.contains(d)) {
-        let _ = w.watch(d, RecursiveMode::NonRecursive);
-    }
-    *watched = dirs;
+    *ctx.asked.lock().map_err(|e| e.to_string())? = dirs.clone();
+    *watched = coxswain_core::fs::watch_dirs(w, &watched, &dirs, &[]);
     Ok(())
 }
 
@@ -2550,9 +2546,18 @@ fn start_watcher(app: &tauri::AppHandle) -> Option<coxswain_core::DirWatcher> {
             if paths.is_empty() {
                 continue;
             }
-            paths.iter().for_each(|p| app.state::<Ctx>().sizer.forget(p));
-            let watched = app.state::<Ctx>().watched.lock().map(|w| w.clone()).unwrap_or_default();
-            let changed = coxswain_core::fs::changed_dirs(&watched, &paths);
+            let ctx = app.state::<Ctx>();
+            paths.iter().for_each(|p| ctx.sizer.forget(p));
+            // A folder removed and made again is watched again, and one not watched yet is tried.
+            // Locked in `watch_dirs`'s order, `asked` last, so a call meanwhile is not undone.
+            let asked = {
+                let (Ok(mut watched), Ok(mut w), Ok(asked)) = (ctx.watched.lock(), ctx.watcher.lock(), ctx.asked.lock()) else { continue };
+                if let Some(w) = w.as_mut() {
+                    *watched = coxswain_core::fs::watch_dirs(w, &watched, &asked, &paths);
+                }
+                asked.clone()
+            };
+            let changed = coxswain_core::fs::changed_dirs(&asked, &paths);
             if !changed.is_empty() {
                 let _ = app.emit("dir-changed", changed);
             }
@@ -3072,6 +3077,7 @@ fn main() {
             st
         }),
         cfg: std::sync::RwLock::new(cfg),
+        asked: Mutex::default(),
         watched: Mutex::default(),
         watcher: Mutex::default(),
         clip: Mutex::default(),
