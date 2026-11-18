@@ -138,7 +138,8 @@ panels and their repository's `.git`. Both read a folder again once the changes 
 quarter of a second without another, or every two seconds while they keep coming, as during a
 build or a copy); in the terminal app the git line follows. Both also read again after their own
 operations and on **Ctrl+R** (*Refresh*). A folder removed and made again while it is open (a build
-that empties its output folder) is followed on, in its new form.
+that empties its output folder) is followed on, in its new form; on Windows once you go into it
+again.
 
 #### Which folder does a relative path start from?
 

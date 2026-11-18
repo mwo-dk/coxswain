@@ -1967,13 +1967,15 @@ impl Watch {
 /// now; gives those that are. A folder whose watch failed (not there yet, the watch limit
 /// reached) is left out, so it is tried again next time. One that `changed` names itself (removed,
 /// maybe made again) is watched again: its watch was of the folder that went (inotify, kqueue).
+/// One not there is not asked for: FSEvents restarts its whole stream for each watch asked.
 pub fn watch_dirs(w: &mut impl notify::Watcher, watched: &[PathBuf], dirs: &[PathBuf], changed: &[PathBuf]) -> Vec<PathBuf> {
+    let changed: std::collections::HashSet<&PathBuf> = changed.iter().collect();
     let again = |d: &PathBuf| changed.contains(d);
     for d in watched.iter().filter(|d| !dirs.contains(d) || again(d)) {
         let _ = w.unwatch(d);
     }
     dirs.iter()
-        .filter(|d| (watched.contains(d) && !again(d)) || w.watch(d, notify::RecursiveMode::NonRecursive).is_ok())
+        .filter(|d| (watched.contains(d) && !again(d)) || (d.is_dir() && w.watch(d, notify::RecursiveMode::NonRecursive).is_ok()))
         .cloned()
         .collect()
 }
@@ -2535,8 +2537,9 @@ mod tests {
         let got = heard(&mut w, &|got| !changed_dirs(std::slice::from_ref(&d), got).is_empty());
         assert!(!changed_dirs(std::slice::from_ref(&d), &got).is_empty(), "made again: {got:?}");
         std::fs::write(d.join("after.txt"), "x").unwrap();
-        let got = heard(&mut w, &|got| !changed_dirs(std::slice::from_ref(&d), got).is_empty());
-        assert!(!changed_dirs(std::slice::from_ref(&d), &got).is_empty(), "written into the new folder: {got:?}");
+        let after = |got: &[PathBuf]| got.iter().any(|p| p.file_name().is_some_and(|n| n == "after.txt"));
+        let got = heard(&mut w, &after);
+        assert!(after(&got), "written into the new folder: {got:?}");
         std::fs::remove_dir_all(d).unwrap();
     }
 

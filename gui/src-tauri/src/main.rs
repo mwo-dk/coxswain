@@ -2549,12 +2549,14 @@ fn start_watcher(app: &tauri::AppHandle) -> Option<coxswain_core::DirWatcher> {
             let ctx = app.state::<Ctx>();
             paths.iter().for_each(|p| ctx.sizer.forget(p));
             // A folder removed and made again is watched again, and one not watched yet is tried.
-            let asked = ctx.asked.lock().map(|a| a.clone()).unwrap_or_default();
-            if let (Ok(mut watched), Ok(mut w)) = (ctx.watched.lock(), ctx.watcher.lock())
-                && let Some(w) = w.as_mut()
-            {
-                *watched = coxswain_core::fs::watch_dirs(w, &watched, &asked, &paths);
-            }
+            // Locked in `watch_dirs`'s order, `asked` last, so a call meanwhile is not undone.
+            let asked = {
+                let (Ok(mut watched), Ok(mut w), Ok(asked)) = (ctx.watched.lock(), ctx.watcher.lock(), ctx.asked.lock()) else { continue };
+                if let Some(w) = w.as_mut() {
+                    *watched = coxswain_core::fs::watch_dirs(w, &watched, &asked, &paths);
+                }
+                asked.clone()
+            };
             let changed = coxswain_core::fs::changed_dirs(&asked, &paths);
             if !changed.is_empty() {
                 let _ = app.emit("dir-changed", changed);
