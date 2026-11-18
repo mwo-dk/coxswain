@@ -56,8 +56,10 @@ open it outside the pane:
   stops after two and a half seconds for the whole database.
 - **Let a document run programs.** LaTeX runs without `-shell-escape`, and latexmk without the
   `latexmkrc` a project may carry (it is Perl); only your own `~/.latexmkrc` is read. pandoc
-  runs with `--sandbox`, PlantUML may include files from the diagram's folder only, and
-  containers have no network. LibreOffice converts a document in a profile of its own with all
+  runs with `--sandbox`, PlantUML may include files from the diagram's folder only (an
+  installed `plantuml` is not run in a folder whose name holds a `"`: it says *plantuml is not
+  available*, and the container draws it), an installed `d2` runs with `--bundle=false`, so it
+  fetches none of the icons and pictures a diagram names, and containers have no network. LibreOffice converts a document in a profile of its own with all
   macros off (macro security "very high" behind that), no trusted folders, links never updated,
   links from untrusted documents blocked, and no recalculation of a spreadsheet as it loads, so
   a document neither runs its macros nor fetches what it links: a picture, a section or an
@@ -97,6 +99,7 @@ open it outside the pane:
 |---|---|
 | Pulling a container image | After your click on the engine or **Pull**; weekly or monthly for the images already pulled when *Keep images up to date* is on (desktop app, not on battery) |
 | tectonic's package bundle | When tectonic builds a document; tectonic's own design |
+| Typst Universe packages (`@preview/…`) | When an installed typst builds a document that imports one it does not have yet; typst's own design ([Typst](documents.md#typst)) |
 
 Nothing else: every library (Mermaid, KaTeX, SheetJS, draw.io's viewer, Netron, Graphviz, …) ships inside
 the app, and previews of every kind are blocked from the web.

@@ -548,8 +548,8 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
         }
         ("plantuml", _) => {
             // A diagram may include files from its own folder, and nothing from the web.
-            let java = std::env::var("JAVA_TOOL_OPTIONS").map(|o| format!("{o} ")).unwrap_or_default();
-            c.env("PLANTUML_SECURITY_PROFILE", "ALLOWLIST").env("JAVA_TOOL_OPTIONS", format!("{java}-Dplantuml.allowlist.path=\"{}\"", dir.display()));
+            let java = plantuml_java_options(std::env::var("JAVA_TOOL_OPTIONS").ok(), dir).ok_or_else(|| t!("convert.not_available", "program" => which_one))?;
+            c.env("PLANTUML_SECURITY_PROFILE", "ALLOWLIST").env("JAVA_TOOL_OPTIONS", java);
             c.args(["-tsvg", "-pipe"]);
             return capture(c, Some(path), timeout, file, None);
         }
@@ -569,7 +569,7 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
             c.args(ghostscript(path)).arg(format!("-sOutputFile={}", file.display())).arg(path);
         }
         (t, _) if kroki(t).is_some() => {
-            c.args(&kroki(t).unwrap_or_default()[1..]);
+            c.args(installed_kroki_args(t));
             return capture(c, Some(path), timeout, file, None);
         }
         ("pandoc", _) => {
@@ -583,6 +583,26 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
         }
     }
     wait(c, timeout, None)
+}
+
+/// An installed program's arguments for one of Kroki's kinds. d2 bundles by default: it fetches
+/// every icon and picture a diagram names, from the web too; the preview keeps it to the text.
+fn installed_kroki_args(kind: &str) -> Vec<&'static str> {
+    let own: &[&str] = if kind == "d2" { &["--bundle=false"] } else { &[] };
+    own.iter().chain(&kroki(kind).unwrap_or_default()[1..]).copied().collect()
+}
+
+/// The installed PlantUML's `JAVA_TOOL_OPTIONS`: the user's own, then the allowlist of the
+/// diagram's folder in double quotes. The JVM has no escape inside quotes, so a folder whose name
+/// holds a `"` (or a control character) would add options of its own (a `-javaagent:` from that
+/// folder): `None`, and the installed program is not run there.
+fn plantuml_java_options(user: Option<String>, dir: &Path) -> Option<String> {
+    let dir = dir.to_string_lossy();
+    if dir.chars().any(|ch| ch == '"' || ch.is_control()) {
+        return None;
+    }
+    let user = user.map(|o| format!("{o} ")).unwrap_or_default();
+    Some(format!("{user}-Dplantuml.allowlist.path=\"{dir}\""))
 }
 
 /// How a media preview runs with the engine `kind:which_one` (`local:magick`,
@@ -1167,6 +1187,22 @@ fn last_lines(s: &str, n: usize) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn installed_plantuml_keeps_the_folder_quoted() {
+        let plain = plantuml_java_options(Some("-Xmx1g".into()), Path::new("/home/u/my diagrams")).unwrap();
+        assert_eq!(plain, "-Xmx1g -Dplantuml.allowlist.path=\"/home/u/my diagrams\"");
+        assert_eq!(plantuml_java_options(None, Path::new("/d/it's")).unwrap(), "-Dplantuml.allowlist.path=\"/d/it's\"");
+        // A quote in the name would end the value and add a Java agent from the folder.
+        assert_eq!(plantuml_java_options(None, Path::new("/d/x\" -javaagent:a.jar -Dz=\"y")), None);
+        assert_eq!(plantuml_java_options(Some("-Xmx1g".into()), Path::new("/d/a\nb")), None);
+    }
+
+    #[test]
+    fn installed_d2_does_not_bundle() {
+        assert_eq!(installed_kroki_args("d2"), ["--bundle=false", "-", "-"]);
+        assert_eq!(installed_kroki_args("ditaa"), ["--svg", "-", "-"]);
+    }
 
     #[test]
     fn engines_follow_preferences() {
