@@ -215,7 +215,7 @@ test("fkeyAction: pick mode greys out the F-keys of refused actions", async () =
   assert.equal(fkeyAction(undefined, null, []), undefined);
 });
 
-test("the columns view's other folders are watched, and only while they are shown", async () => {
+test("the columns view's other folders are watched with the tab's, and only those it lists", async () => {
   const { watchList } = await pick("watchList");
   const git = (t) => (t.git ? [`${t.git}/.git`] : []);
   const tab = { dir: "/p/a", columns: ["/", "/p", "/p/a/new"], git: "/p" };

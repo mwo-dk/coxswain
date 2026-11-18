@@ -40,15 +40,17 @@
   $effect(() => () => {
     gone = true;
     drop([...ancestors, peek]);
-    t.columns = [];
   });
 
   // The columns' folders are watched with the tab's (App's `watchList`); one that changed is read
   // again. The watch on a folder goes when its column does.
   let rereadUp = $state(0);
   let rereadPeek = $state(0);
+  // The tab it set is cleared: the view stays when the pane shows another tab in columns too.
   $effect(() => {
-    t.columns = [...ancestors.map((c) => c.dir), ...(peek ? [peek.dir] : [])];
+    const tab = t;
+    tab.columns = [...ancestors.map((c) => c.dir), ...(peek ? [peek.dir] : [])];
+    return () => (tab.columns = []);
   });
   $effect(() => {
     const off = listen("dir-changed", (ev) => {

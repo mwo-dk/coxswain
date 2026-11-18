@@ -84,10 +84,10 @@ export const keepsOne = (groups, marks, sep) => {
   return groups.every((g) => g.items.some((it) => !gone(it.path)));
 };
 /** `list` without its entry at `i`: one of two equal entries (config.toml may name one twice) goes, not both. */
+export const without = (list, i) => list.filter((_, j) => j !== i);
 /** The folders to watch: each tab's own, the columns view's other columns, `extra(t)` (a
  *  repository's), then `more`; each once. */
 export const watchList = (tabs, extra, more) => [...new Set([...tabs.flatMap((t) => [t.dir, ...t.columns, ...extra(t)]), ...more].filter(Boolean))];
-export const without = (list, i) => list.filter((_, j) => j !== i);
 export const basename = (p) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
 export const parent = (p) => {
   const sep = p.includes("\\") && !p.includes("/") ? "\\" : "/";
