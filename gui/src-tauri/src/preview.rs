@@ -212,7 +212,7 @@ pub async fn cert_info(path: PathBuf) -> Res<Vec<Cert>> {
 
 fn certs(path: &Path) -> Res<Vec<Cert>> {
     use x509_parser::prelude::*;
-    let data = std::fs::read(path).map_err(|e| e.to_string())?;
+    let data = whole(path)?;
     let now = ASN1Time::now().timestamp();
     let describe = |c: &X509Certificate| {
         let names = c
@@ -258,6 +258,22 @@ fn certs(path: &Path) -> Res<Vec<Cert>> {
     Ok(vec![describe(&c)])
 }
 
+/// The whole file, when it is no larger than the preview reads whole (`viewers::MAX_WHOLE`):
+/// a file merely named `.pem` or `.plist` may be a disk image of gigabytes.
+fn whole(path: &Path) -> Res<Vec<u8>> {
+    let max = coxswain_core::viewers::MAX_WHOLE;
+    let f = File::open(path).map_err(|e| e.to_string())?;
+    if f.metadata().map_err(|e| e.to_string())?.len() > max {
+        return Err(t!("render.too_large"));
+    }
+    let mut v = vec![];
+    f.take(max + 1).read_to_end(&mut v).map_err(|e| e.to_string())?;
+    if v.len() as u64 > max {
+        return Err(t!("render.too_large"));
+    }
+    Ok(v)
+}
+
 // ---------------------------------------------------------------- e-mail
 
 #[derive(Serialize)]
@@ -294,13 +310,110 @@ pub async fn mail_preview(path: PathBuf) -> Res<Mail> {
 #[tauri::command]
 pub async fn plist_xml(path: PathBuf) -> Res<String> {
     crate::here(&path)?;
-    crate::blocking(move || {
-        let v = plist::Value::from_file(&path).map_err(|e| e.to_string())?;
-        let mut out = vec![];
-        v.to_writer_xml(&mut out).map_err(|e| e.to_string())?;
-        Ok(String::from_utf8_lossy(&out).into_owned())
-    })
-    .await
+    crate::blocking(move || plist_text(&path)).await
+}
+
+fn plist_text(path: &Path) -> Res<String> {
+    let max = coxswain_core::viewers::MAX_WHOLE;
+    let data = whole(path)?;
+    if !binary_plist_fits(&data, max) {
+        return Err(t!("render.too_large"));
+    }
+    let v = plist::Value::from_reader(std::io::Cursor::new(data)).map_err(|e| e.to_string())?;
+    let mut out = vec![];
+    v.to_writer_xml(&mut out).map_err(|e| e.to_string())?;
+    // A binary list is smaller than its XML: the text shown has the same limit.
+    if out.len() as u64 > max {
+        return Err(t!("render.too_large"));
+    }
+    Ok(String::from_utf8_lossy(&out).into_owned())
+}
+
+/// Whether a binary property list stays within `max` once built as a tree. Its objects are
+/// shared by reference, and the `plist` crate refuses cycles only: a few kilobytes whose arrays
+/// each name the next one twice grow exponentially. The objects are walked in the crate's own
+/// order, each counted as often as it is reached (64 per object, a string's or data's bytes, a
+/// container's references and slots), with one running total, so a fault the crate stops at
+/// (`true`: it refuses the file) comes only after what it would have built is counted.
+fn binary_plist_fits(d: &[u8], max: u64) -> bool {
+    const NODE: u64 = 64;
+    // Deeper than any real list; a deep tree is also dropped by recursion.
+    const DEPTH: usize = 512;
+    let per_ref = 8 + std::mem::size_of::<plist::Value>() as u64;
+    if !d.starts_with(b"bplist00") || d.len() < 40 {
+        return true;
+    }
+    let be = |at: usize, n: usize| -> Option<u64> { d.get(at..at.checked_add(n)?).map(|b| b.iter().fold(0u64, |a, &x| a << 8 | x as u64)) };
+    let t = d.len() - 32;
+    let (off_size, ref_size) = (d[t + 6] as usize, d[t + 7] as usize);
+    let (Some(n), Some(top), Some(table)) = (be(t + 8, 8), be(t + 16, 8), be(t + 24, 8)) else { return true };
+    if !(1..=8).contains(&off_size) || !(1..=8).contains(&ref_size) || top >= n {
+        return true;
+    }
+    // More objects than could each be built once is too large already.
+    if n > max / NODE {
+        return false;
+    }
+    let n = n as usize;
+    // An object's own cost, and for a container where its references start and how many.
+    let object = |i: usize| -> Option<(u64, usize, usize, bool)> {
+        let o = be(usize::try_from(table).ok()?.checked_add(i.checked_mul(off_size)?)?, off_size)? as usize;
+        let marker = *d.get(o)?;
+        let (count, head) = match marker & 0xf {
+            0xf if matches!(marker >> 4, 0x4 | 0x5 | 0x6 | 0xa | 0xc | 0xd) => {
+                // As the crate reads it: the size byte's two low bits.
+                let size = 1usize << (*d.get(o + 1)? & 0x3);
+                (be(o + 2, size)?, 2 + size)
+            }
+            c => (c as u64, 1),
+        };
+        let refs = match marker >> 4 {
+            0x4 | 0x5 => return Some((NODE.saturating_add(count), 0, 0, false)),
+            0x6 => return Some((NODE.saturating_add(count.saturating_mul(2)), 0, 0, false)),
+            0xa | 0xc => count,
+            0xd => count.checked_mul(2)?,
+            _ => return Some((NODE, 0, 0, false)),
+        };
+        // The crate reads all of them before it builds the first: they must be in the file.
+        let refs = usize::try_from(refs).ok()?;
+        let start = o + head;
+        d.get(start..start.checked_add(refs.checked_mul(ref_size)?)?)?;
+        Some((NODE.saturating_add((refs as u64).saturating_mul(per_ref)), start, refs, marker >> 4 == 0xd))
+    };
+    let mut total = 0u64;
+    let mut on_path = vec![false; n];
+    // Each open container: itself, where its references start, the next one, how many, a dict.
+    let mut stack: Vec<(usize, usize, usize, usize, bool)> = vec![];
+    let mut next = Some(top as usize);
+    loop {
+        if let Some(k) = next.take() {
+            if k >= n || on_path[k] {
+                return true;
+            }
+            let Some((cost, start, refs, dict)) = object(k) else { return true };
+            total = total.saturating_add(cost);
+            if total > max || stack.len() >= DEPTH {
+                return false;
+            }
+            if refs > 0 {
+                on_path[k] = true;
+                stack.push((k, start, 0, refs, dict));
+            }
+            continue;
+        }
+        let Some(open) = stack.last_mut() else { return true };
+        let (k, start, j, refs, dict) = *open;
+        if j == refs {
+            on_path[k] = false;
+            stack.pop();
+            continue;
+        }
+        open.2 += 1;
+        // A dict's keys come first in the file, its values after; the crate takes them in pairs.
+        let at = if dict { if j % 2 == 0 { j / 2 } else { refs / 2 + j / 2 } } else { j };
+        let Some(r) = be(start + at * ref_size, ref_size) else { return true };
+        next = Some(usize::try_from(r).unwrap_or(usize::MAX));
+    }
 }
 
 // ---------------------------------------------------------------- facts
@@ -516,6 +629,66 @@ fn kind_name(code: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A binary property list of these objects, the first the top one, one-byte offsets and
+    /// references.
+    fn bplist(objects: &[Vec<u8>]) -> Vec<u8> {
+        let mut d = b"bplist00".to_vec();
+        let mut offsets = vec![];
+        for o in objects {
+            offsets.push(u8::try_from(d.len()).expect("a fixture of one-byte offsets"));
+            d.extend(o);
+        }
+        let table = d.len() as u64;
+        d.extend(&offsets);
+        d.extend([0, 0, 0, 0, 0, 0, 1, 1]);
+        d.extend((offsets.len() as u64).to_be_bytes());
+        d.extend(0u64.to_be_bytes());
+        d.extend(table.to_be_bytes());
+        d
+    }
+
+    /// `depth` arrays from `from` on, each naming the next twice, and a string at the bottom:
+    /// a few hundred bytes that build 2^depth strings. `long`: counts in the long form, with a
+    /// size byte the crate reads by its two low bits only.
+    fn doubling(from: u8, depth: u8, long: bool) -> Vec<Vec<u8>> {
+        let mut v: Vec<Vec<u8>> = (from..from + depth).map(|i| if long { vec![0xaf, 0x14, 2, i + 1, i + 1] } else { vec![0xa2, i + 1, i + 1] }).collect();
+        v.push(b"Ux1234".to_vec());
+        v
+    }
+
+    #[test]
+    fn a_property_list_that_grows_when_built_is_refused() {
+        let d = std::env::temp_dir().join(format!("coxswain-plist-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let file = d.join("x.plist");
+        let text = |bytes: Vec<u8>| {
+            std::fs::write(&file, bytes).unwrap();
+            plist_text(&file)
+        };
+        assert_eq!(text(bplist(&doubling(0, 3, false))).unwrap().matches("<string>x1234</string>").count(), 8, "a sane one is shown");
+        assert_eq!(text(bplist(&doubling(0, 3, true))).unwrap().matches("<string>x1234</string>").count(), 8, "long counts as the crate reads them");
+        assert_eq!(text(bplist(&doubling(0, 60, false))).unwrap_err(), t!("render.too_large"));
+        assert_eq!(text(bplist(&doubling(0, 40, true))).unwrap_err(), t!("render.too_large"));
+        // A fault after the bomb: the crate builds the bomb first, so it is counted first.
+        let mut bad_after = vec![vec![0xa2, 1, 200]];
+        bad_after.extend(doubling(1, 60, false));
+        assert_eq!(text(bplist(&bad_after)).unwrap_err(), t!("render.too_large"));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn a_huge_certificate_or_list_is_not_read() {
+        let d = std::env::temp_dir().join(format!("coxswain-whole-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let big = d.join("disk.pem");
+        // Sparse: nothing is written, the size alone says it is too large.
+        File::create(&big).unwrap().set_len(coxswain_core::viewers::MAX_WHOLE + 1).unwrap();
+        assert_eq!(certs(&big).err(), Some(t!("render.too_large")));
+        std::fs::write(d.join("small.pem"), "-----BEGIN CERTIFICATE-----\nnot one\n-----END CERTIFICATE-----\n").unwrap();
+        assert_eq!(certs(&d.join("small.pem")).err(), Some(t!("err.no_certificate")));
+        std::fs::remove_dir_all(d).unwrap();
+    }
 
     /// A song inside a zip, previewed from memory, has its facts read from those bytes.
     #[test]
