@@ -74,8 +74,8 @@ sentences](../search/diagrams.md).)
   pulls docker.io/plantuml/plantuml:latest (about 141 MB)* under it.
 - **D2 and the other kinds:** the same, with **d2** (when installed) and **podman kroki:latest**;
   the first run says *First run pulls docker.io/yuzutech/kroki:latest (about 1.2 GB)*. An
-  installed `d2` runs with `--bundle=false`: an `icon:` or picture the diagram names is not
-  fetched, from the web or from the disk, and is left out of the preview.
+  installed `d2` runs with `--bundle=false`: an `icon:` or picture the diagram names on the web
+  is not fetched and is left out of the preview; one on the disk may still be shown.
   A kind with no program of its own, without podman or docker, says *ditaa has no program of
   its own here: install podman or docker, and Kroki's image draws it.* with **Settings →
   Previews**.

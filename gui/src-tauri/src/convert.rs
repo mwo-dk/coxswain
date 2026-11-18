@@ -586,7 +586,7 @@ fn build(cfg: &PreviewConfig, tool: &str, engine: &str, path: &Path, out: &Path,
 }
 
 /// An installed program's arguments for one of Kroki's kinds. d2 bundles by default: it fetches
-/// every icon and picture a diagram names, from the web too; the preview keeps it to the text.
+/// every icon and picture a diagram names from the web; the preview fetches none.
 fn installed_kroki_args(kind: &str) -> Vec<&'static str> {
     let own: &[&str] = if kind == "d2" { &["--bundle=false"] } else { &[] };
     own.iter().chain(&kroki(kind).unwrap_or_default()[1..]).copied().collect()
@@ -595,8 +595,11 @@ fn installed_kroki_args(kind: &str) -> Vec<&'static str> {
 /// The installed PlantUML's `JAVA_TOOL_OPTIONS`: the user's own, then the allowlist of the
 /// diagram's folder in double quotes. The JVM has no escape inside quotes, so a folder whose name
 /// holds a `"` (or a control character) would add options of its own (a `-javaagent:` from that
-/// folder): `None`, and the installed program is not run there.
+/// folder): `None`, and the installed program is not run there. The same for a path-list
+/// separator (`:`, `;` on Windows): PlantUML splits the allowlist on it, so it would allow a
+/// second folder the name chooses.
 fn plantuml_java_options(user: Option<String>, dir: &Path) -> Option<String> {
+    std::env::join_paths([dir]).ok()?;
     let dir = dir.to_string_lossy();
     if dir.chars().any(|ch| ch == '"' || ch.is_control()) {
         return None;
@@ -1196,6 +1199,9 @@ mod tests {
         // A quote in the name would end the value and add a Java agent from the folder.
         assert_eq!(plantuml_java_options(None, Path::new("/d/x\" -javaagent:a.jar -Dz=\"y")), None);
         assert_eq!(plantuml_java_options(Some("-Xmx1g".into()), Path::new("/d/a\nb")), None);
+        // A separator in the name would allow a second folder: the allowlist is a path list.
+        let other = if cfg!(windows) { "C:\\d\\x;C:\\Users" } else { "/d/x:/home" };
+        assert_eq!(plantuml_java_options(None, Path::new(other)), None);
     }
 
     #[test]
