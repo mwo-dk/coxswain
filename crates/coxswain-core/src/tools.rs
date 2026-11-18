@@ -860,6 +860,36 @@ pub fn wait(child: &mut Child, timeout: Duration) -> std::io::Result<ExitStatus>
     }
 }
 
+/// What a program wrote, to its end, of which the last 64 KiB are kept: the pipe stays open
+/// until it is done, so a tool that says much is not stopped by a closed pipe.
+pub fn tail(mut r: impl Read) -> String {
+    const CAP: usize = 64 * 1024;
+    let (mut keep, mut buf) = (Vec::new(), [0u8; 8192]);
+    loop {
+        let n = match r.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => break,
+        };
+        keep.extend_from_slice(&buf[..n]);
+        if keep.len() > 2 * CAP {
+            keep.drain(..keep.len() - CAP);
+        }
+    }
+    String::from_utf8_lossy(&keep[keep.len().saturating_sub(CAP)..]).into_owned()
+}
+
+/// What a program wrote, read to its end like `tail`; `None` when that was more than `max`
+/// bytes (the rest is read and thrown away), so a cut result is never taken for a whole one.
+pub fn capped(r: impl Read, max: u64) -> Option<Vec<u8>> {
+    let mut r = r.take(max + 1);
+    let mut v = vec![];
+    let _ = r.read_to_end(&mut v);
+    let _ = std::io::copy(&mut r.into_inner(), &mut std::io::sink());
+    (v.len() as u64 <= max).then_some(v)
+}
+
 /// `program` with `args` at the lowest priority, no input, its output kept up to `max` bytes;
 /// `None` when it fails or runs past `timeout`.
 pub fn output(
@@ -946,6 +976,21 @@ pub fn low(program: &std::path::Path) -> Command {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tail_reads_to_the_end_and_keeps_the_last_part() {
+        let said = "x".repeat(300 * 1024) + "\nthe error\n";
+        let kept = tail(said.as_bytes());
+        assert_eq!(kept.len(), 64 * 1024);
+        assert!(kept.ends_with("the error\n"));
+    }
+
+    #[test]
+    fn capped_never_passes_a_cut_output() {
+        assert_eq!(capped(&b"12345"[..], 5).as_deref(), Some(&b"12345"[..]));
+        assert_eq!(capped(&b"123456"[..], 5), None);
+        assert_eq!(capped(&b""[..], 5).as_deref(), Some(&b""[..]));
+    }
 
     #[test]
     #[cfg(unix)]

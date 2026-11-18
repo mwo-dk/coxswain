@@ -942,8 +942,8 @@ pub fn diagram_svg(cfg: &PreviewConfig, kind: &str, text: &str) -> Result<String
     Ok(svg)
 }
 
-/// `c` given `input` on its standard input; its output (8 MB at most) when it ends well
-/// within `timeout`.
+/// `c` given `input` on its standard input; its output when it ends well within `timeout`,
+/// and a fault when that output is more than 8 MB.
 fn feed(c: Command, input: &[u8], timeout: Duration) -> Result<Vec<u8>, String> {
     let mut c = crate::tools::hosted(c);
     let mut child = crate::tools::own_group(&mut c).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
@@ -953,24 +953,16 @@ fn feed(c: Command, input: &[u8], timeout: Duration) -> Result<Vec<u8>, String> 
             let _ = pipe.write_all(&data);
         });
     }
-    let out = child.stdout.take().map(|o| std::thread::spawn(move || {
-        let mut v = vec![];
-        let _ = o.take(8 << 20).read_to_end(&mut v);
-        v
-    }));
-    let err = child.stderr.take().map(|e| std::thread::spawn(move || {
-        let mut v = vec![];
-        let _ = e.take(64 << 10).read_to_end(&mut v);
-        v
-    }));
+    // Both pipes are read to the end, so a program that says or draws much is not stopped.
+    let out = child.stdout.take().map(|o| std::thread::spawn(move || crate::tools::capped(o, 8 << 20)));
+    let err = child.stderr.take().map(|e| std::thread::spawn(move || crate::tools::tail(e)));
     let status = crate::tools::wait(&mut child, timeout).map_err(|e| e.to_string())?;
     let out = out.and_then(|t| t.join().ok()).unwrap_or_default();
     let err = err.and_then(|t| t.join().ok()).unwrap_or_default();
     if status.success() {
-        Ok(out)
+        out.ok_or_else(|| t!("render.too_large"))
     } else {
-        let e = String::from_utf8_lossy(&err);
-        Err(e.lines().rev().map(plain).find(|l| !l.is_empty()).unwrap_or_else(|| t!("convert.failed", "status" => status)))
+        Err(err.lines().rev().map(plain).find(|l| !l.is_empty()).unwrap_or_else(|| t!("convert.failed", "status" => status)))
     }
 }
 
@@ -1115,6 +1107,20 @@ fn inline(s: &str, attrs: &std::collections::HashMap<String, String>) -> String 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A program that says much on its standard error still draws; more output than the
+    /// limit is a fault, never a cut result.
+    #[test]
+    #[cfg(unix)]
+    fn feed_reads_both_pipes_to_the_end() {
+        let limit = crate::test_limit(Duration::from_secs(20));
+        let mut c = Command::new("sh");
+        c.args(["-c", "cat >/dev/null; head -c 300000 /dev/zero | tr '\\0' w >&2; echo '<svg/>'"]);
+        assert_eq!(feed(c, b"a -> b", limit).unwrap(), b"<svg/>\n");
+        let mut c = Command::new("sh");
+        c.args(["-c", "head -c 9000000 /dev/zero"]);
+        assert_eq!(feed(c, b"", limit), Err(t!("render.too_large")));
+    }
 
     fn folder(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("coxswain-export-{name}-{}", std::process::id()));

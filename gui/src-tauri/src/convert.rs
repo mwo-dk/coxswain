@@ -1116,7 +1116,7 @@ fn wait(c: Command, timeout: Duration, container: Option<(&Path, &str)>) -> Res<
     let mut c = coxswain_core::tools::hosted(c);
     let mut child = coxswain_core::tools::own_group(&mut c).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
     let err = child.stderr.take();
-    let reader = std::thread::spawn(move || err.map(tail).unwrap_or_default());
+    let reader = std::thread::spawn(move || err.map(coxswain_core::tools::tail).unwrap_or_default());
     let status = wait_child(&mut child, timeout, container)?;
     let stderr = reader.join().unwrap_or_default();
     if status.success() { Ok(()) } else { Err(last_lines(&stderr, 12).unwrap_or_else(|| t!("convert.failed", "status" => status))) }
@@ -1124,30 +1124,27 @@ fn wait(c: Command, timeout: Duration, container: Option<(&Path, &str)>) -> Res<
 
 /// Run with `input` on stdin and its stdout saved as `file`.
 fn capture(c: Command, input: Option<&Path>, timeout: Duration, file: &Path, container: Option<(&Path, &str)>) -> Res<()> {
+    // The file itself is the program's input: opened before anything starts, never in memory.
+    let stdin = match input {
+        Some(p) => Stdio::from(std::fs::File::open(p).map_err(|e| e.to_string())?),
+        None => Stdio::null(),
+    };
     let mut c = coxswain_core::tools::hosted(c);
-    let mut child = coxswain_core::tools::own_group(&mut c).stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() }).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
-    if let (Some(p), Some(mut stdin)) = (input, child.stdin.take()) {
-        let data = std::fs::read(p).map_err(|e| e.to_string())?;
-        std::thread::spawn(move || {
-            let _ = stdin.write_all(&data);
-        });
-    }
-    let (mut so, se) = (child.stdout.take(), child.stderr.take());
-    let out_reader = std::thread::spawn(move || {
-        let mut v = vec![];
-        if let Some(o) = so.as_mut() {
-            let _ = o.take(50 << 20).read_to_end(&mut v);
-        }
-        v
-    });
-    let err_reader = std::thread::spawn(move || se.map(tail).unwrap_or_default());
+    let mut child = coxswain_core::tools::own_group(&mut c).stdin(stdin).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn().map_err(|e| e.to_string())?;
+    let (so, se) = (child.stdout.take(), child.stderr.take());
+    let out_reader = std::thread::spawn(move || so.map(|o| coxswain_core::tools::capped(o, 50 << 20)).unwrap_or_default());
+    let err_reader = std::thread::spawn(move || se.map(coxswain_core::tools::tail).unwrap_or_default());
     let status = wait_child(&mut child, timeout, container)?;
-    let stdout = out_reader.join().unwrap_or_default();
+    let stdout = out_reader.join().ok().flatten();
     let stderr = err_reader.join().unwrap_or_default();
-    if !status.success() || stdout.is_empty() {
+    if !status.success() {
         return Err(last_lines(&stderr, 12).unwrap_or_else(|| t!("convert.failed", "status" => status)));
     }
-    std::fs::write(file, stdout).map_err(|e| e.to_string())
+    match stdout {
+        None => Err(t!("render.too_large")),
+        Some(v) if v.is_empty() => Err(last_lines(&stderr, 12).unwrap_or_else(|| t!("convert.failed", "status" => status))),
+        Some(v) => std::fs::write(file, v).map_err(|e| e.to_string()),
+    }
 }
 
 /// Wait within `timeout`; on timeout kill it (`tools::wait`) and its container.
@@ -1159,28 +1156,14 @@ fn wait_child(child: &mut std::process::Child, timeout: Duration, container: Opt
             }
             Err(t!("convert.timed_out", "seconds" => timeout.as_secs()))
         }
-        r => r.map_err(|e| e.to_string()),
-    }
-}
-
-/// What a program wrote, to its end, of which the last 64 KiB are kept: the pipe stays open
-/// until it is done, so a tool that says much is not stopped by a closed pipe.
-fn tail(mut r: impl Read) -> String {
-    const CAP: usize = 64 * 1024;
-    let (mut keep, mut buf) = (Vec::new(), [0u8; 8192]);
-    loop {
-        let n = match r.read(&mut buf) {
-            Ok(0) => break,
-            Ok(n) => n,
-            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-            Err(_) => break,
-        };
-        keep.extend_from_slice(&buf[..n]);
-        if keep.len() > 2 * CAP {
-            keep.drain(..keep.len() - CAP);
+        Err(e) => {
+            // Never left running nor unreaped, whatever went wrong.
+            coxswain_core::tools::kill_tree(child);
+            let _ = child.wait();
+            Err(e.to_string())
         }
+        Ok(s) => Ok(s),
     }
-    String::from_utf8_lossy(&keep[keep.len().saturating_sub(CAP)..]).into_owned()
 }
 
 fn last_lines(s: &str, n: usize) -> Option<String> {
@@ -1238,14 +1221,6 @@ mod tests {
         std::fs::File::options().write(true).open(d.join("chapters/one.typ")).unwrap().set_modified(later).unwrap();
         assert_ne!(cache_dir(&main, &main, "typst", "local:typst").unwrap(), before, "a chapter changed");
         std::fs::remove_dir_all(d).unwrap();
-    }
-
-    #[test]
-    fn tail_reads_to_the_end_and_keeps_the_last_part() {
-        let said = "x".repeat(300 * 1024) + "\nthe error\n";
-        let kept = tail(said.as_bytes());
-        assert_eq!(kept.len(), 64 * 1024);
-        assert!(kept.ends_with("the error\n"));
     }
 
     #[test]

@@ -133,6 +133,8 @@ the app, and previews of every kind are blocked from the web.
 | draw.io | 32 MB | Cut off, does not parse |
 | A neural network model drawn by Netron, and each file next to it that it reads | 512 MiB | *Netron cannot draw it:* and the reason; the facts still show |
 | E-mail text | 200,000 characters | – |
+| Certificates (`.pem` `.crt` `.cer` `.der`) and property lists (`.plist`, and the XML shown for one) | 64 MB | *Too large to preview* |
+| A diagram drawn by a tool (PlantUML, D2 and the other kinds) | 50 MB of picture; 8 MB inside an AsciiDoc document | *Too large to preview*, never a cut picture |
 | Tool runs | `[preview] timeout`, 120 s, for all the steps of one preview together | *Stopped after 120 s (the timeout in [preview])* |
 | A tool's own output kept (GDAL's descriptions and the like) | 4 MB | The rest is read and dropped |
 | [Geodata](geodata.md) maps | 8 layers, 50,000 features a layer, 400,000 points in all, 64 MB of a layer's shapes | The rest is left out of the map; past 64 MB, *Too many shapes to draw* |

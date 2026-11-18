@@ -1,0 +1,1 @@
+| **A file named like a certificate or a property list no longer fills the memory.** One over 64 MB says *Too large to preview* instead of being read whole, and a diagram tool that says much while drawing is no longer stopped, while one that draws more than its limit says so instead of showing a cut picture. | [Limits](previews/safety.md#limits) |

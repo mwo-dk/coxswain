@@ -212,7 +212,7 @@ pub async fn cert_info(path: PathBuf) -> Res<Vec<Cert>> {
 
 fn certs(path: &Path) -> Res<Vec<Cert>> {
     use x509_parser::prelude::*;
-    let data = std::fs::read(path).map_err(|e| e.to_string())?;
+    let data = whole(path)?;
     let now = ASN1Time::now().timestamp();
     let describe = |c: &X509Certificate| {
         let names = c
@@ -258,6 +258,22 @@ fn certs(path: &Path) -> Res<Vec<Cert>> {
     Ok(vec![describe(&c)])
 }
 
+/// The whole file, when it is no larger than the preview reads whole (`viewers::MAX_WHOLE`):
+/// a file merely named `.pem` or `.plist` may be a disk image of gigabytes.
+fn whole(path: &Path) -> Res<Vec<u8>> {
+    let max = coxswain_core::viewers::MAX_WHOLE;
+    let f = File::open(path).map_err(|e| e.to_string())?;
+    if f.metadata().map_err(|e| e.to_string())?.len() > max {
+        return Err(t!("render.too_large"));
+    }
+    let mut v = vec![];
+    f.take(max + 1).read_to_end(&mut v).map_err(|e| e.to_string())?;
+    if v.len() as u64 > max {
+        return Err(t!("render.too_large"));
+    }
+    Ok(v)
+}
+
 // ---------------------------------------------------------------- e-mail
 
 #[derive(Serialize)]
@@ -295,9 +311,13 @@ pub async fn mail_preview(path: PathBuf) -> Res<Mail> {
 pub async fn plist_xml(path: PathBuf) -> Res<String> {
     crate::here(&path)?;
     crate::blocking(move || {
-        let v = plist::Value::from_file(&path).map_err(|e| e.to_string())?;
+        let v = plist::Value::from_reader(std::io::Cursor::new(whole(&path)?)).map_err(|e| e.to_string())?;
         let mut out = vec![];
         v.to_writer_xml(&mut out).map_err(|e| e.to_string())?;
+        // A binary list is smaller than its XML: the text shown has the same limit.
+        if out.len() as u64 > coxswain_core::viewers::MAX_WHOLE {
+            return Err(t!("render.too_large"));
+        }
         Ok(String::from_utf8_lossy(&out).into_owned())
     })
     .await
@@ -516,6 +536,19 @@ fn kind_name(code: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_huge_certificate_or_list_is_not_read() {
+        let d = std::env::temp_dir().join(format!("coxswain-whole-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let big = d.join("disk.pem");
+        // Sparse: nothing is written, the size alone says it is too large.
+        File::create(&big).unwrap().set_len(coxswain_core::viewers::MAX_WHOLE + 1).unwrap();
+        assert_eq!(certs(&big).unwrap_err(), t!("render.too_large"));
+        std::fs::write(d.join("small.pem"), "-----BEGIN CERTIFICATE-----\nnot one\n-----END CERTIFICATE-----\n").unwrap();
+        assert_eq!(certs(&d.join("small.pem")).unwrap_err(), t!("err.no_certificate"));
+        std::fs::remove_dir_all(d).unwrap();
+    }
 
     /// A song inside a zip, previewed from memory, has its facts read from those bytes.
     #[test]
