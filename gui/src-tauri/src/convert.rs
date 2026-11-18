@@ -15,7 +15,6 @@ use coxswain_core::config::PreviewConfig;
 use coxswain_core::t;
 use serde::Serialize;
 use std::hash::{Hash, Hasher};
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::collections::BTreeMap;

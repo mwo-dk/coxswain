@@ -684,9 +684,9 @@ mod tests {
         let big = d.join("disk.pem");
         // Sparse: nothing is written, the size alone says it is too large.
         File::create(&big).unwrap().set_len(coxswain_core::viewers::MAX_WHOLE + 1).unwrap();
-        assert_eq!(certs(&big).unwrap_err(), t!("render.too_large"));
+        assert_eq!(certs(&big).err(), Some(t!("render.too_large")));
         std::fs::write(d.join("small.pem"), "-----BEGIN CERTIFICATE-----\nnot one\n-----END CERTIFICATE-----\n").unwrap();
-        assert_eq!(certs(&d.join("small.pem")).unwrap_err(), t!("err.no_certificate"));
+        assert_eq!(certs(&d.join("small.pem")).err(), Some(t!("err.no_certificate")));
         std::fs::remove_dir_all(d).unwrap();
     }
 
