@@ -3849,6 +3849,7 @@ fn rewrite(
                                         io::Error::other(e)
                                     }
                                 })?;
+                            crate::zip_dir::readable(&from)?;
                             let opts = zip::write::SimpleFileOptions::default()
                                 .compression_method(zip::CompressionMethod::Deflated)
                                 .last_modified_time(from.last_modified().unwrap_or_default())
@@ -3883,6 +3884,7 @@ fn rewrite(
                             io::Error::other(e)
                         }
                     })?;
+                    crate::zip_dir::readable(&e)?;
                     // ZipCrypto's own check lets about one wrong password in 256 through: the
                     // file is read to its end, where its checksum tells.
                     io::copy(&mut e, &mut io::sink()).map_err(|_| locked())?;
