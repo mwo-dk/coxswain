@@ -78,14 +78,26 @@ impl Central {
             .override_compressed_size(self.packed)
             .override_uncompressed_size(self.size)
             .override_crc(self.crc);
-        zip::read::read_zipfile_from_stream_with_options(file, options)
+        let f = zip::read::read_zipfile_from_stream_with_options(file, options)
             .map_err(io::Error::other)?
             .ok_or_else(|| {
                 io::Error::new(
                     io::ErrorKind::InvalidData,
                     "no file at its place in the zip",
                 )
-            })
+            })?;
+        readable(&f)?;
+        Ok(f)
+    }
+}
+
+/// The zip crate (9.5 on) opens an entry packed by a method it was not built to read and fails
+/// at its first read; this fails at once, as before, so a search passes the entry over and an
+/// error names the method rather than a locked file.
+pub(crate) fn readable<R: Read>(f: &zip::read::ZipFile<'_, R>) -> io::Result<()> {
+    match f.compression() {
+        zip::CompressionMethod::Stored | zip::CompressionMethod::Deflated => Ok(()),
+        m => Err(io::Error::other(format!("compression method not supported: {m:?}"))),
     }
 }
 

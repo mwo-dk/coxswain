@@ -373,9 +373,10 @@ pub fn drives_within(wait: Duration) -> Option<Vec<Drive>> {
 /// which also says which are removable.
 #[cfg(any(target_os = "linux", target_os = "macos", windows))]
 fn mounted_drives() -> Vec<Drive> {
-    let list = sysinfo::Disks::new_with_refreshed_list();
-    list.list()
-        .iter()
+    let Ok(list) = sysinfo::Disks::new_with_refreshed_list() else {
+        return Vec::new();
+    };
+    list.iter()
         .map(|d| Drive {
             label: String::new(),
             device: d.name().to_string_lossy().into_owned(),

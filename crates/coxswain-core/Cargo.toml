@@ -28,7 +28,7 @@ notify = "8"
 regex = "1"
 serde_json = "1"
 ureq = { version = "3", features = ["platform-verifier"] }
-zip = { version = "9.0.4", default-features = false, features = ["deflate-flate2-zlib-rs", "aes-crypto"] }
+zip = { version = "9.7", default-features = false, features = ["deflate-flate2-zlib-rs", "aes-crypto"] }
 tar = "0.4.46"
 flate2 = "1.1.10"
 blake3 = "1.8.7"
@@ -67,7 +67,7 @@ ruzstd = "0.9.0"
 miniz_oxide = { version = "0.9.1", features = ["block-boundary"] }
 # Windows cabinets (.cab), read only: our own reader (MSZIP, LZX from this crate, Quantum).
 lzxd = "0.2.7"
-sevenz-rust2 = { version = "0.24.1", features = ["aes256"] }
+sevenz-rust2 = { version = "0.25", features = ["aes256"] }
 # F3 on a Parquet file in the terminal app: its columns and first rows. Pure Rust codecs only
 # (snappy, gzip, lz4, brotli); a zstd file shows its columns and row count.
 parquet = { version = "60", default-features = false, features = ["snap", "flate2-zlib-rs", "lz4", "brotli"] }
@@ -88,8 +88,8 @@ similar = "3.2.0"
 image = { version = "0.25.10", default-features = false, features = ["tiff", "tga", "pnm", "dds", "hdr", "exr", "qoi", "ff", "png", "jpeg", "gif", "webp", "bmp"] }
 # JPEG XL, in pure Rust; no colour management library (lcms2 is C).
 jxl-oxide = { version = "0.12.6", default-features = false, features = ["image", "rayon"] }
-# Outlook's `.msg` is a compound file (OLE); the version tauri's `infer` already brings.
-cfb = "0.15"
+# Outlook's `.msg` is a compound file (OLE); not the one tauri's `infer` brings (0.14).
+cfb = "0.16"
 
 # statfs(2) for the ZFS dataset a folder is on, and chflags(2) for file flags.
 [dev-dependencies]
@@ -102,7 +102,7 @@ libc = "0.2"
 # Android (Termux) has no desktop trash, and on illumos the trash crate cannot find the mount
 # points: xdg_trash.rs is Coxswain's own.
 [target.'cfg(not(any(target_os = "android", target_os = "illumos", target_os = "solaris")))'.dependencies]
-trash = "5.2.9"
+trash = "5.4"
 
 # Folders watched with kqueue on the BSDs (`kq`); notify depends on it there already.
 [target.'cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))'.dependencies]
@@ -111,7 +111,7 @@ kqueue = "1.2.1"
 # The drives (`machine::drives`), where sysinfo knows the system and says which are removable;
 # elsewhere `machine::mounted` reads them: sysinfo's FreeBSD free space is wrong.
 [target.'cfg(any(target_os = "linux", target_os = "macos", windows))'.dependencies]
-sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
+sysinfo = { version = "0.40", default-features = false, features = ["disk"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Wdk_Foundation", "Win32_Foundation", "Wdk_Storage_FileSystem", "Win32_Globalization", "Win32_NetworkManagement_IpHelper", "Win32_Security", "Win32_Security_Authorization", "Win32_System_IO", "Win32_System_JobObjects", "Win32_System_Power", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Console", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
