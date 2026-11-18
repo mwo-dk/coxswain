@@ -53,7 +53,7 @@ fn sources() -> Vec<(PathBuf, String)> {
                     todo.push(p);
                 }
             } else if name.ends_with(".rs") {
-                let text = std::fs::read_to_string(&p).unwrap();
+                let text = std::fs::read_to_string(&p).unwrap().replace("\r\n", "\n");
                 // A file's tests write files of their own.
                 let text = text.split("#[cfg(test)]\nmod tests").next().unwrap().to_string();
                 out.push((p, text));
@@ -65,6 +65,7 @@ fn sources() -> Vec<(PathBuf, String)> {
 
 /// A new way to write either file would slip past `keep_own_files`: config.toml and state.json
 /// are replaced only in the functions that ask it, and by the 1.x migration, which asks it too.
+/// Outside those files `fs::replace` writes only targets that name neither file.
 /// shortcut: a path taken on one line and written on another is not seen; a review must catch that.
 #[test]
 fn config_and_state_are_written_only_where_pick_mode_is_asked() {
@@ -75,8 +76,14 @@ fn config_and_state_are_written_only_where_pick_mode_is_asked() {
         for (i, line) in text.lines().enumerate() {
             let code = line.split("//").next().unwrap();
             let at = format!("{}:{}", p.display(), i + 1);
-            if code.contains("fs::replace(") {
-                assert!(allowed.iter().any(|a| p.ends_with(a)), "{at}: config.toml and state.json are written through config::update_config or AppState::save_to");
+            if code.contains("fs::replace(") && !allowed.iter().any(|a| p.ends_with(a)) {
+                // Elsewhere only a file of another kind (the helper's index.addr): the target,
+                // to the first comma even across lines, names neither file nor where they live.
+                let call = code.split("fs::replace(").nth(1).unwrap().to_string();
+                let call = call + &text.lines().skip(i + 1).take(3).collect::<Vec<_>>().join(" ");
+                let target = call[..call.find(',').unwrap_or(call.len())].to_lowercase();
+                let settings = ["config", "cfg", "state", "settings", "path()", ".toml", ".json"].iter().any(|w| target.contains(w));
+                assert!(!settings, "{at}: config.toml and state.json are written through config::update_config or AppState::save_to");
             }
             let own = code.contains("Config::path()") || code.contains("AppState::path()");
             let writes = ["fs::write(", "File::create(", "OpenOptions::new(", "fs::remove_file(", "fs::rename("].iter().any(|w| code.contains(w));
