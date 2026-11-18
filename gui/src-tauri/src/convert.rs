@@ -15,7 +15,7 @@ use coxswain_core::config::PreviewConfig;
 use coxswain_core::t;
 use serde::Serialize;
 use std::hash::{Hash, Hasher};
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::collections::BTreeMap;
@@ -1149,20 +1149,20 @@ fn capture(c: Command, input: Option<&Path>, timeout: Duration, file: &Path, con
 
 /// Wait within `timeout`; on timeout kill it (`tools::wait`) and its container.
 fn wait_child(child: &mut std::process::Child, timeout: Duration, container: Option<(&Path, &str)>) -> Res<std::process::ExitStatus> {
-    match coxswain_core::tools::wait(child, timeout) {
-        Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {
-            if let Some((rt, name)) = container {
-                let _ = coxswain_core::tools::command(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
-            }
-            Err(t!("convert.timed_out", "seconds" => timeout.as_secs()))
-        }
-        Err(e) => {
-            // Never left running nor unreaped, whatever went wrong.
+    let r = coxswain_core::tools::wait(child, timeout);
+    if let Err(e) = &r {
+        // Never left running, its container neither, whatever went wrong. A timed-out child
+        // is killed and reaped by `tools::wait` already: its pid may be another's by now.
+        if e.kind() != std::io::ErrorKind::TimedOut {
             coxswain_core::tools::kill_tree(child);
-            let _ = child.wait();
-            Err(e.to_string())
         }
-        Ok(s) => Ok(s),
+        if let Some((rt, name)) = container {
+            let _ = coxswain_core::tools::command(rt).args(["kill", name]).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        }
+    }
+    match r {
+        Err(e) if e.kind() == std::io::ErrorKind::TimedOut => Err(t!("convert.timed_out", "seconds" => timeout.as_secs())),
+        r => r.map_err(|e| e.to_string()),
     }
 }
 

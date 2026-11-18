@@ -881,13 +881,14 @@ pub fn tail(mut r: impl Read) -> String {
 }
 
 /// What a program wrote, read to its end like `tail`; `None` when that was more than `max`
-/// bytes (the rest is read and thrown away), so a cut result is never taken for a whole one.
+/// bytes (the rest is read and thrown away) or the read failed, so a cut result is never taken
+/// for a whole one.
 pub fn capped(r: impl Read, max: u64) -> Option<Vec<u8>> {
-    let mut r = r.take(max + 1);
+    let mut r = r.take(max.saturating_add(1));
     let mut v = vec![];
-    let _ = r.read_to_end(&mut v);
+    let read = r.read_to_end(&mut v);
     let _ = std::io::copy(&mut r.into_inner(), &mut std::io::sink());
-    (v.len() as u64 <= max).then_some(v)
+    (read.is_ok() && v.len() as u64 <= max).then_some(v)
 }
 
 /// `program` with `args` at the lowest priority, no input, its output kept up to `max` bytes;

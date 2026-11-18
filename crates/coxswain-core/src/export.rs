@@ -956,7 +956,10 @@ fn feed(c: Command, input: &[u8], timeout: Duration) -> Result<Vec<u8>, String> 
     // Both pipes are read to the end, so a program that says or draws much is not stopped.
     let out = child.stdout.take().map(|o| std::thread::spawn(move || crate::tools::capped(o, 8 << 20)));
     let err = child.stderr.take().map(|e| std::thread::spawn(move || crate::tools::tail(e)));
-    let status = crate::tools::wait(&mut child, timeout).map_err(|e| e.to_string())?;
+    let status = crate::tools::wait(&mut child, timeout).map_err(|e| {
+        crate::tools::kill_tree(&mut child);
+        e.to_string()
+    })?;
     let out = out.and_then(|t| t.join().ok()).unwrap_or_default();
     let err = err.and_then(|t| t.join().ok()).unwrap_or_default();
     if status.success() {
