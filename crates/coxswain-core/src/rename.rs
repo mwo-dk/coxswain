@@ -211,7 +211,16 @@ pub fn apply(dir: &Path, plan: &[Planned]) -> Result<(), String> {
         }
     }
     for (i, p) in moves.iter().enumerate() {
-        if let Err(e) = std::fs::rename(tmp(i), dir.join(&p.to)) {
+        let to = dir.join(&p.to);
+        // Every file of the batch is under a passing name now, so what stands at `to` is a real
+        // clash: a name this batch just gave, in another case on a disk that does not mind it,
+        // or a file another program made since the check above. A rename would replace it.
+        let done = if std::fs::symlink_metadata(&to).is_ok() {
+            Err(crate::t!("rename.conflict_taken"))
+        } else {
+            std::fs::rename(tmp(i), &to).map_err(|e| e.to_string())
+        };
+        if let Err(e) = done {
             // The ones already under their new names go back through their temporary ones.
             (0..i).for_each(|j| drop(std::fs::rename(dir.join(&moves[j].to), tmp(j))));
             back(0, moves.len());
@@ -442,6 +451,40 @@ mod tests {
         assert!(apply(&d, &stale).is_err());
         assert_eq!(std::fs::read_to_string(d.join("c")).unwrap(), "C");
         assert!(d.join("a").exists());
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Two new names that are one name to the disk (only their case differs, on a disk that
+    /// does not mind the case): the second is refused, never written over the first, and the
+    /// batch is taken back (#979). Where case counts, both are made.
+    #[test]
+    fn rename_two_names_one_to_the_disk_are_refused() {
+        let d = std::env::temp_dir().join(format!("coxswain-rename-case-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("IMG1.jpg"), "one").unwrap();
+        std::fs::write(d.join("img2.jpg"), "two").unwrap();
+        let folds = d.join("img1.JPG").exists();
+        let both = vec![
+            Planned { from: "IMG1.jpg".into(), to: "IMG.jpg".into(), conflict: None },
+            Planned { from: "img2.jpg".into(), to: "img.jpg".into(), conflict: None },
+        ];
+        let r = apply(&d, &both);
+        if folds {
+            assert!(r.is_err(), "the second name is the first one to this disk");
+            assert_eq!(std::fs::read_to_string(d.join("IMG1.jpg")).unwrap(), "one");
+            assert_eq!(std::fs::read_to_string(d.join("img2.jpg")).unwrap(), "two");
+            assert!(!d.join("IMG.jpg").exists());
+        } else {
+            r.unwrap();
+            assert_eq!(std::fs::read_to_string(d.join("IMG.jpg")).unwrap(), "one");
+            assert_eq!(std::fs::read_to_string(d.join("img.jpg")).unwrap(), "two");
+        }
+        let names: Vec<String> =
+            std::fs::read_dir(&d).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        assert_eq!(names.len(), 2, "{names:?}");
+        // CI's Windows and macOS disks fold case, so there the refusal is proven.
+        assert!(folds || !cfg!(any(windows, target_os = "macos")));
         std::fs::remove_dir_all(d).unwrap();
     }
 

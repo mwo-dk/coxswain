@@ -115,7 +115,7 @@ of them first, or move the other one out of the way.
 
 No. Coxswain refuses it with *A folder cannot be moved into itself*, also when one of the two
 paths goes through a link (on FreeBSD `/home` is a link to `/usr/home`), and inside an archive.
-Nothing is changed.
+Nothing is changed. The same for `a.zip`, or a folder holding it, moved into `a.zip` itself.
 
 #### How do I rename inside an archive?
 

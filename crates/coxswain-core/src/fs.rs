@@ -772,6 +772,14 @@ fn copy_out_or_in(
         if crate::archive::read_only(&archive) {
             return Err(crate::disk_image::read_only());
         }
+        // The archive itself, or a folder that holds it: packed into itself, and a move would
+        // then delete it with everything in it.
+        if same_file(src, &archive) || (src.is_dir() && inside(&archive, src)) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                if whole { crate::t!("err.move_into_itself") } else { crate::t!("err.copy_into_itself") },
+            ));
+        }
         let name = src
             .file_name()
             .ok_or_else(|| {
@@ -1278,7 +1286,7 @@ pub(crate) fn rename_locked_logged(
         }
         (None, Some(_)) => {
             packable(src)?;
-            let to = copy_locked(src, dst, password)?;
+            let to = copy_out_or_in(src, dst, password, true)?;
             delete(src)?;
             Ok(to)
         }
@@ -2991,6 +2999,30 @@ mod tests {
         delete(&d.join("dst/link")).unwrap();
         assert!(fs::symlink_metadata(d.join("dst/link")).is_err());
         assert_eq!(fs::read_to_string(d.join("target/keep.txt")).unwrap(), "k");
+        fs::remove_dir_all(d).unwrap();
+    }
+
+    /// An archive moved or copied into itself, or a folder that holds it moved into it (#976),
+    /// is refused, and the archive is still there with what it held.
+    #[test]
+    fn an_archive_is_not_moved_into_itself() {
+        let d = tmp("into-itself");
+        mkdir(&d.join("box")).unwrap();
+        fs::write(d.join("box/a.txt"), "a").unwrap();
+        let zp = d.join("box/a.zip");
+        crate::archive::create(&zp, &[d.join("box/a.txt")]).unwrap();
+        let held = fs::read(&zp).unwrap();
+        let err = |r: io::Result<PathBuf>| r.unwrap_err().kind();
+        assert_eq!(err(rename(&zp, &zp)), io::ErrorKind::InvalidInput);
+        assert_eq!(err(copy(&zp, &zp)), io::ErrorKind::InvalidInput);
+        assert_eq!(err(rename(&d.join("box"), &zp)), io::ErrorKind::InvalidInput);
+        assert_eq!(fs::read(&zp).unwrap(), held, "the archive is as it was");
+        assert!(d.join("box/a.txt").exists());
+        // Another file still goes in.
+        fs::write(d.join("b.txt"), "b").unwrap();
+        rename(&d.join("b.txt"), &zp).unwrap();
+        assert!(!d.join("b.txt").exists());
+        assert!(list_with_archive(&zp, true).unwrap().0.iter().any(|e| e.name == "b.txt"));
         fs::remove_dir_all(d).unwrap();
     }
 
