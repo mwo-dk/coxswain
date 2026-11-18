@@ -58,8 +58,12 @@ open it outside the pane:
   `latexmkrc` a project may carry (it is Perl); only your own `~/.latexmkrc` is read. pandoc
   runs with `--sandbox`, PlantUML may include files from the diagram's folder only, and
   containers have no network. LibreOffice converts a document in a profile of its own with all
-  macros off (macro security "very high" behind that) and links never updated, so a document
-  neither runs its macros nor fetches what it links. ffmpeg reads real media formats only
+  macros off (macro security "very high" behind that), no trusted folders, links never updated,
+  links from untrusted documents blocked, and no recalculation of a spreadsheet as it loads, so
+  a document neither runs its macros nor fetches what it links: a picture, a section or an
+  object linked to a web address stays out, and so does a `WEBSERVICE` formula's answer. This
+  holds for the search index and for the preview alike; LibreOffice in a container has no
+  network at all. ffmpeg reads real media formats only
   (`-protocol_whitelist file`, `-format_whitelist`), so no playlist in a file reaches another
   file; ImageMagick runs under Coxswain's policy (picture formats only, no helper programs);
   GDAL reads with the one driver of the file's kind (`-if`), so a file cannot point it at an
@@ -157,6 +161,15 @@ Because files use web pictures to report that they were opened. The app's conten
 policy lets the webview load only the app itself and files on your disk, so an `https://`
 picture in a Markdown file, notebook or book stays an empty box. Press **Enter** to open the
 file in a program that fetches it.
+
+#### Can an office document report that it was opened?
+
+Not through Coxswain. A Word, OpenDocument or older Office file can link a picture, a section
+or an object to a web address, which LibreOffice could fetch, depending on its settings. When
+Coxswain has LibreOffice make a preview or read a file for the search index, its own profile
+keeps every link from being fetched or updated, so the pane shows an empty frame where the
+linked picture would be. Press **Enter** to open the file in LibreOffice itself, where its own
+settings decide about links.
 
 #### Why does the preview only show the start of a big file?
 

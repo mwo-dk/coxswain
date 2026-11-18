@@ -245,12 +245,18 @@ pub fn office(path: &Path, max: u64) -> Option<String> {
 }
 
 /// What LibreOffice must never do with a document it only converts: run its macros (all macro
-/// execution off, and security level 3, "very high", behind it), or fetch what it links (Writer
-/// links: 0 is never; Calc links: 1 is never). One item per line, as LibreOffice writes them.
-const LIBREOFFICE_SETTINGS: [&str; 5] = [
+/// execution off, and security level 3, "very high", behind it), or fetch what it links: no
+/// trusted folder (a document there may update its links itself), no link from an untrusted
+/// document, Writer links 0 (never), Calc links 1 (never), and no recalculation on load (1,
+/// never), which would run a `WEBSERVICE` formula. Not `DisableActiveContent`: it draws an
+/// embedded formula or chart as an empty box. One item per line, as LibreOffice writes them.
+const LIBREOFFICE_SETTINGS: [&str; 8] = [
     r#"<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>true</value></prop></item>"#,
     r#"<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>"#,
     r#"<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="SecureURL" oor:op="fuse"><value></value></prop></item>"#,
+    r#"<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="BlockUntrustedRefererLinks" oor:op="fuse"><value>true</value></prop></item>"#,
+    r#"<item oor:path="/org.openoffice.Office.Calc/Formula/Load"><prop oor:name="ODFRecalcMode" oor:op="fuse"><value>1</value></prop></item>"#,
+    r#"<item oor:path="/org.openoffice.Office.Calc/Formula/Load"><prop oor:name="OOXMLRecalcMode" oor:op="fuse"><value>1</value></prop></item>"#,
     r#"<item oor:path="/org.openoffice.Office.Writer/Content/Update"><prop oor:name="Link" oor:op="fuse"><value>0</value></prop></item>"#,
     r#"<item oor:path="/org.openoffice.Office.Calc/Content/Update"><prop oor:name="Link" oor:op="fuse"><value>1</value></prop></item>"#,
 ];
@@ -375,6 +381,100 @@ mod tests {
         std::fs::remove_dir_all(d).unwrap();
     }
 
+    /// With LibreOffice installed (it is not on CI): a document whose picture, section and OLE
+    /// object are linked to a listener on 127.0.0.1. A profile that trusts the document's folder
+    /// and always updates links makes LibreOffice fetch them; the same profile once Coxswain has
+    /// put its settings in fetches nothing. It guards the settings as a whole: emptying the
+    /// trusted folders and never updating links each close it, the rest are defence in depth.
+    #[test]
+    fn a_converting_libreoffice_fetches_no_linked_content() {
+        use std::io::{Read, Write};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let Some(soffice) = program("soffice") else {
+            return;
+        };
+        let server = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = server.local_addr().unwrap().port();
+        let hits = std::sync::Arc::new(AtomicUsize::new(0));
+        let seen = hits.clone();
+        // Ends with the test process: accept blocks until then.
+        std::thread::spawn(move || {
+            for mut c in server.incoming().flatten() {
+                seen.fetch_add(1, Ordering::SeqCst);
+                // A connection that sends nothing must not keep the next one out.
+                let _ = c.set_read_timeout(Some(std::time::Duration::from_secs(1)));
+                let _ = c.read(&mut [0; 4096]);
+                let _ = c.write_all(b"HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\n\r\n");
+            }
+        });
+        let d = std::env::temp_dir().join(format!("coxswain-lo-links-{}", std::process::id()));
+        let docs = d.join("docs");
+        std::fs::create_dir_all(&docs).unwrap();
+        let doc = docs.join("linked.fodt");
+        let link = |what: &str| {
+            format!(
+                r#"xlink:href="http://127.0.0.1:{port}/{what}" xlink:type="simple" xlink:show="embed""#
+            )
+        };
+        std::fs::write(&doc, format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<office:document xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" office:version="1.3" office:mimetype="application/vnd.oasis.opendocument.text"><office:body><office:text>
+<text:p>Linked<draw:frame draw:name="p" text:anchor-type="as-char" svg:width="2cm" svg:height="2cm"><draw:image {} xlink:actuate="onLoad"/></draw:frame></text:p>
+<text:section text:name="s"><text:section-source {}/><text:p>old</text:p></text:section>
+<text:p><draw:frame draw:name="o" text:anchor-type="as-char" svg:width="2cm" svg:height="2cm"><draw:object {} xlink:actuate="onLoad"/></draw:frame></text:p>
+</office:text></office:body></office:document>"#,
+            link("picture.png"), link("section.odt"), link("object.ods")
+        )).unwrap();
+        let profile = d.join("profile");
+        let settings = profile.join("user").join("registrymodifications.xcu");
+        std::fs::create_dir_all(settings.parent().unwrap()).unwrap();
+        std::fs::write(&settings, format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<oor:items xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="SecureURL" oor:op="fuse"><value><it>{}</it></value></prop></item>
+<item oor:path="/org.openoffice.Office.Writer/Content/Update"><prop oor:name="Link" oor:op="fuse"><value>2</value></prop></item>
+</oor:items>
+"#,
+            file_url(&docs.to_string_lossy())
+        )).unwrap();
+        let convert = || {
+            let url = format!(
+                "-env:UserInstallation={}",
+                file_url(&profile.to_string_lossy())
+            );
+            let out = d.join("out");
+            let args = [
+                OsStr::new(&url),
+                OsStr::new("--headless"),
+                OsStr::new("--norestore"),
+                OsStr::new("--convert-to"),
+                OsStr::new("pdf"),
+                OsStr::new("--outdir"),
+                out.as_os_str(),
+                doc.as_os_str(),
+            ];
+            tools::output(&soffice, &args, crate::test_limit(TIMEOUT), 64 * 1024).is_some()
+                && out.join("linked.pdf").exists()
+        };
+        // A LibreOffice that cannot convert here (a sandboxed package) proves nothing either way.
+        if !convert() {
+            return;
+        }
+        assert!(
+            hits.load(Ordering::SeqCst) > 0,
+            "without Coxswain's settings LibreOffice fetches the links"
+        );
+        hits.store(0, Ordering::SeqCst);
+        lock_profile(&profile).unwrap();
+        assert!(convert());
+        assert_eq!(
+            hits.load(Ordering::SeqCst),
+            0,
+            "with them it fetches nothing"
+        );
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
     #[test]
     fn a_profile_folder_is_a_url_with_its_odd_letters_encoded() {
         assert_eq!(
@@ -488,7 +588,12 @@ mod tests {
         }
         if program("soffice").is_some() {
             std::fs::write(d.join("memo.txt"), "Fuel budget for flight seven\n").unwrap();
+            // A profile of the test's own, never the developer's.
             let s = std::process::Command::new(program("soffice").unwrap())
+                .arg(format!(
+                    "-env:UserInstallation={}",
+                    file_url(&d.join("lo").to_string_lossy())
+                ))
                 .args(["--headless", "--convert-to", "doc", "--outdir"])
                 .arg(&d)
                 .arg(d.join("memo.txt"))
