@@ -3247,6 +3247,10 @@ fn copy_entries(
         if secs > 0 {
             let _ = f.set_modified(crate::fs::epoch(secs));
         }
+        // A move takes it out of the archive next: on the disk first, as a move across disks.
+        if how.whole {
+            f.sync_all()?;
+        }
         drop(f);
         crate::fs::put(&tmp, path).inspect_err(|_| drop(std::fs::remove_file(&tmp)))?;
         out.set(out.get() + 1);
@@ -4036,10 +4040,20 @@ fn rewrite(
         // As private as the archive was.
         Ok(()) => {
             dated_after(&tmp, archive);
-            std::fs::metadata(archive)
-                .and_then(|m| std::fs::set_permissions(&tmp, m.permissions()))
-                .or_else(|e| if exists { Err(e) } else { Ok(()) })
+            // On the disk before it takes the old one's place (a rename can be kept by a crash
+            // before the bytes are), and so before a move deletes what went into it. Synced
+            // through a handle that writes: Windows flushes no other.
+            File::options()
+                .write(true)
+                .open(&tmp)
+                .and_then(|f| f.sync_all())
+                .and_then(|_| {
+                    std::fs::metadata(archive)
+                        .and_then(|m| std::fs::set_permissions(&tmp, m.permissions()))
+                        .or_else(|e| if exists { Err(e) } else { Ok(()) })
+                })
                 .and_then(|_| std::fs::rename(&tmp, archive))
+                .inspect(|_| sync_folder(archive))
         }
         Err(e) => {
             let _ = std::fs::remove_file(&tmp);
@@ -4052,6 +4066,18 @@ fn rewrite(
         remember(archive, pw);
     }
     done
+}
+
+/// The folder that holds `path`, on the disk: a rename into it is kept. Unix only (Windows
+/// keeps a rename with the file); a file system that cannot sync a folder is left as it is.
+fn sync_folder(path: &Path) {
+    #[cfg(unix)]
+    if let Some(dir) = path.parent() {
+        let dir = if dir.as_os_str().is_empty() { Path::new(".") } else { dir };
+        let _ = File::open(dir).and_then(|d| d.sync_all());
+    }
+    #[cfg(not(unix))]
+    let _ = path;
 }
 
 /// Take `inner` (files, or folders and everything in them) out of the archive: it is written
