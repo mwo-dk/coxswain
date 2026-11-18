@@ -95,7 +95,7 @@ impl Central {
 /// at its first read; this fails at once, as before, so a search passes the entry over and an
 /// error names the method rather than a locked file.
 pub(crate) fn readable<R: Read>(f: &zip::read::ZipFile<'_, R>) -> io::Result<()> {
-    match f.compression_method() {
+    match f.compression() {
         zip::CompressionMethod::Stored | zip::CompressionMethod::Deflated => Ok(()),
         m => Err(io::Error::other(format!("compression method not supported: {m:?}"))),
     }
