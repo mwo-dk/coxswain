@@ -52,10 +52,11 @@ const FORM: u32 = 1;
 const BLOCK: usize = 4096;
 /// A position this many entries reach has its tree kept in `tree`.
 const HOT: usize = 32;
-/// Entries a thread sorts at a time before they go to the disk: 16 bytes each.
-const RUN: usize = 1 << 21;
-/// Runs merged at once (files open together).
-const FAN: usize = 96;
+/// Entries a thread sorts at a time before they go to the disk: 16 bytes each (few in the
+/// tests, so they have many runs).
+const RUN: usize = if cfg!(test) { 1 << 13 } else { 1 << 21 };
+/// Runs merged at once, by each thread (few in the tests, so they merge in rounds).
+const FAN: usize = if cfg!(test) { 4 } else { 96 };
 /// Games read into one batch for the threads that play them out, at most.
 const BATCH: usize = 256;
 /// A batch is closed once its games' text is this long.
@@ -497,33 +498,163 @@ fn read_block(r: &mut impl Read, buf: &mut Vec<u8>, out: &mut Vec<Entry>) -> io:
     Ok(true)
 }
 
-/// A file of blocks read through in order.
-struct Stream {
-    r: BufReader<File>,
+/// A file of blocks read through in order: its entries of positions `from` up to `to`.
+struct Stream<R = BufReader<File>> {
+    r: R,
     buf: Vec<u8>,
     block: Vec<Entry>,
     at: usize,
+    from: u64,
+    to: Option<u64>,
+    /// Entries read, those outside the positions too: the work, counted.
+    read: u64,
 }
 
 impl Stream {
     fn open(p: &Path) -> io::Result<Stream> {
-        Ok(Stream { r: BufReader::with_capacity(64 << 10, File::open(p)?), buf: vec![], block: vec![], at: 0 })
-    }
-
-    fn next(&mut self) -> io::Result<Option<Entry>> {
-        if self.at == self.block.len() {
-            if !read_block(&mut self.r, &mut self.buf, &mut self.block)? {
-                return Ok(None);
-            }
-            self.at = 0;
-        }
-        self.at += 1;
-        Ok(Some(self.block[self.at - 1]))
+        Ok(Stream { r: BufReader::with_capacity(64 << 10, File::open(p)?), buf: vec![], block: vec![], at: 0, from: 0, to: None, read: 0 })
     }
 }
 
-/// The streams merged in order, to `each`; `stop` asked every block's worth.
-fn merge(mut streams: Vec<Stream>, stop: &AtomicBool, mut each: impl FnMut(Entry) -> io::Result<()>) -> io::Result<()> {
+impl<R: Read> Stream<R> {
+    fn next(&mut self) -> io::Result<Option<Entry>> {
+        loop {
+            if self.at == self.block.len() {
+                if !read_block(&mut self.r, &mut self.buf, &mut self.block)? {
+                    return Ok(None);
+                }
+                self.at = 0;
+            }
+            let e = self.block[self.at];
+            let key = parts(e).0;
+            self.at += 1;
+            self.read += 1;
+            if self.to.is_some_and(|t| key >= t) {
+                // Past its range: nothing more, without reading on.
+                self.at -= 1;
+                return Ok(None);
+            }
+            if key >= self.from {
+                return Ok(Some(e));
+            }
+        }
+    }
+}
+
+/// A run on the disk: its sorted entries, and each block's first position and place.
+struct Run {
+    path: PathBuf,
+    blocks: Vec<(u64, u64)>,
+}
+
+/// A part of a file, read in pieces, the file opened for each: the many merged at once on
+/// several threads hold no file open (a Mac lets a program have 256).
+struct Span {
+    path: PathBuf,
+    at: u64,
+    end: u64,
+    buf: Vec<u8>,
+    pos: usize,
+}
+
+impl Read for Span {
+    fn read(&mut self, out: &mut [u8]) -> io::Result<usize> {
+        if self.pos == self.buf.len() {
+            if self.at >= self.end {
+                return Ok(0);
+            }
+            let mut f = File::open(&self.path)?;
+            f.seek(SeekFrom::Start(self.at))?;
+            self.buf.clear();
+            f.take((self.end - self.at).min(64 << 10)).read_to_end(&mut self.buf)?;
+            self.pos = 0;
+            if self.buf.is_empty() {
+                self.end = self.at;
+                return Ok(0);
+            }
+            self.at += self.buf.len() as u64;
+        }
+        let n = out.len().min(self.buf.len() - self.pos);
+        out[..n].copy_from_slice(&self.buf[self.pos..self.pos + n]);
+        self.pos += n;
+        Ok(n)
+    }
+}
+
+/// `run`'s entries of positions `from` up to `to`: only the blocks that can hold them are read.
+fn span(run: &Run, from: u64, to: Option<u64>) -> Stream<Span> {
+    // The first position may start in the block before the first one that starts with it.
+    let first = run.blocks.partition_point(|b| b.0 < from).saturating_sub(1);
+    let last = to.map_or(run.blocks.len(), |t| run.blocks.partition_point(|b| b.0 < t));
+    let at = run.blocks.get(first).map_or(0, |b| b.1);
+    let end = run.blocks.get(last).map_or(u64::MAX, |b| b.1);
+    Stream { r: Span { path: run.path.clone(), at, end, buf: vec![], pos: 0 }, buf: vec![], block: vec![], at: 0, from, to, read: 0 }
+}
+
+/// Threads that play the games out, and merge their runs.
+fn workers() -> usize {
+    std::thread::available_parallelism().map_or(2, |n| n.get()).div_ceil(2).clamp(1, 8)
+}
+
+/// The runs merged in up to `ranges` ranges of positions, of about the same entries each (from
+/// the runs' blocks), on `workers()` threads: what `part` made of each range's merge, in order.
+/// Each part is merged as the whole would be, so its output joined in order is the whole's.
+fn in_parts<T: Send>(runs: &[Run], ranges: usize, job: &Job, part: impl Fn(usize, Vec<Stream<Span>>) -> io::Result<T> + Sync) -> io::Result<Vec<T>> {
+    let mut keys: Vec<u64> = runs.iter().flat_map(|r| r.blocks.iter().map(|b| b.0)).collect();
+    keys.sort_unstable();
+    // Each range's first position: the first from 0.
+    let mut from = vec![0u64];
+    for i in 1..ranges.max(1) {
+        if let Some(&k) = keys.get(i * keys.len() / ranges)
+            && k > *from.last().expect("one")
+        {
+            from.push(k);
+        }
+    }
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let made: Mutex<Vec<Option<T>>> = Mutex::new((0..from.len()).map(|_| None).collect());
+    let failed: Mutex<Option<io::Error>> = Mutex::new(None);
+    std::thread::scope(|s| {
+        for _ in 0..workers().min(from.len()) {
+            s.spawn(|| {
+                loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed);
+                    if i >= from.len() || job.stop.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    match part(i, runs.iter().map(|r| span(r, from[i], from.get(i + 1).copied())).collect()) {
+                        Ok(t) => made.lock().unwrap_or_else(|e| e.into_inner())[i] = Some(t),
+                        Err(e) => {
+                            failed.lock().unwrap_or_else(|e| e.into_inner()).get_or_insert(e);
+                            job.stop.store(true, Ordering::Relaxed);
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+    });
+    if let Some(e) = failed.into_inner().unwrap_or_else(|e| e.into_inner()) {
+        return Err(e);
+    }
+    made.into_inner().unwrap_or_else(|e| e.into_inner()).into_iter().map(|t| t.ok_or_else(stopped)).collect()
+}
+
+/// The parts' files (sorted runs of positions in order) joined into `w` and removed.
+fn join<W: Write>(files: &[PathBuf], w: &mut Writer<W>) -> io::Result<()> {
+    for p in files {
+        let mut s = Stream::open(p)?;
+        while let Some(e) = s.next()? {
+            w.push(e)?;
+        }
+        let _ = std::fs::remove_file(p);
+    }
+    Ok(())
+}
+
+/// The streams merged in order, to `each`; `job.stop` asked every block's worth, and the
+/// entries read added to `job.merged`.
+fn merge<R: Read>(mut streams: Vec<Stream<R>>, job: &Job, mut each: impl FnMut(Entry) -> io::Result<()>) -> io::Result<()> {
     let mut heap = BinaryHeap::new();
     for (i, s) in streams.iter_mut().enumerate() {
         if let Some(e) = s.next()? {
@@ -537,10 +668,11 @@ fn merge(mut streams: Vec<Stream>, stop: &AtomicBool, mut each: impl FnMut(Entry
             heap.push(std::cmp::Reverse((next, i)));
         }
         n += 1;
-        if n.is_multiple_of(BLOCK) && stop.load(Ordering::Relaxed) {
+        if n.is_multiple_of(BLOCK) && job.stop.load(Ordering::Relaxed) {
             return Err(stopped());
         }
     }
+    job.merged.fetch_add(streams.iter().map(|s| s.read).sum(), Ordering::Relaxed);
     Ok(())
 }
 
@@ -840,6 +972,8 @@ struct Job {
     most: AtomicU64,
     /// Entries sorted into runs, for the merge's progress.
     entries: AtomicU64,
+    /// Entries the merges read: the work, counted.
+    merged: AtomicU64,
     /// The index was removed while this ran: its folders go once it has let them go.
     removed: AtomicBool,
 }
@@ -886,9 +1020,9 @@ fn now() -> u64 {
 
 /// The games' entries, from game `from` on, played out and sorted in runs in `runs/`; `stop`
 /// asked between games. The runs' files.
-fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usize, dir: &Path, job: &Job) -> io::Result<Vec<PathBuf>> {
-    let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).div_ceil(2).clamp(1, 8);
-    let made: Mutex<Vec<PathBuf>> = Mutex::new(vec![]);
+fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usize, dir: &Path, job: &Job) -> io::Result<Vec<Run>> {
+    let threads = workers();
+    let made: Mutex<Vec<Run>> = Mutex::new(vec![]);
     let failed: Mutex<Option<io::Error>> = Mutex::new(None);
     let n = AtomicU64::new(0);
     let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<(u32, String)>>(threads * 2);
@@ -905,8 +1039,9 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
         for &e in buf.iter() {
             w.push(e)?;
         }
-        job.entries.fetch_add(w.finish()?.2, Ordering::Relaxed);
-        made.lock().unwrap_or_else(|e| e.into_inner()).push(p);
+        let (_, blocks, entries) = w.finish()?;
+        job.entries.fetch_add(entries, Ordering::Relaxed);
+        made.lock().unwrap_or_else(|e| e.into_inner()).push(Run { path: p, blocks });
         buf.clear();
         Ok(())
     };
@@ -995,7 +1130,8 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
 
 /// Builds the index of `lib` (its table whole) into `dir`: from scratch, or keeping the entries
 /// of `old` for its games before `keep`.
-fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, job: &Job, stamp: &str) -> io::Result<Done> {
+/// `ranges`: the ranges of positions merged apart, on several threads (`in_parts`).
+fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, job: &Job, stamp: &str, ranges: usize) -> io::Result<Done> {
     // The file's size and tail now, while it is still the file the table read: taken at the
     // end, a file replaced meanwhile and then grown would keep this table's entries.
     let (size, tail) = sized(&lib.path, stamp);
@@ -1013,25 +1149,32 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
     // The rows' Elos, years and results, 8 bytes a game, for the sums.
     let mut info = vec![Info::default(); count as usize];
     lib.each_rec(count, |i, r| info[i as usize] = Info::of(r))?;
-    // Merged in rounds of `FAN` until few are left.
+    // Merged in rounds of `FAN` until few are left, each round in ranges of positions on
+    // several threads.
     let mut n = 0usize;
     while runs.len() > FAN {
         let rest = runs.split_off(FAN);
+        let segs = in_parts(&runs, ranges, job, |i, streams| {
+            let p = runs_dir.join(format!("merged-{n}-{i}"));
+            let mut w = Writer::new(BufWriter::with_capacity(1 << 20, File::create(&p)?));
+            merge(streams, job, |e| w.push(e))?;
+            w.finish()?;
+            Ok(p)
+        })?;
         let p = runs_dir.join(format!("merged-{n}"));
         n += 1;
         let mut w = Writer::new(BufWriter::with_capacity(1 << 20, File::create(&p)?));
-        merge(runs.iter().map(|r| Stream::open(r)).collect::<io::Result<_>>()?, &job.stop, |e| w.push(e))?;
-        w.finish()?;
+        join(&segs, &mut w)?;
+        let (_, blocks, _) = w.finish()?;
         for r in &runs {
-            let _ = std::fs::remove_file(r);
+            let _ = std::fs::remove_file(&r.path);
         }
         runs = rest;
-        runs.push(p);
+        runs.push(Run { path: p, blocks });
     }
-    let mut streams: Vec<Stream> = runs.iter().map(|r| Stream::open(r)).collect::<io::Result<_>>()?;
     let mut total = 0u64;
     if let Some((old, keep)) = old {
-        // The old entries of the games kept: a stream of its own, without the rest.
+        // The old entries of the games kept: a run of its own, without the rest.
         let p = runs_dir.join("old");
         let mut w = Writer::new(BufWriter::with_capacity(1 << 20, File::create(&p)?));
         let mut s = Stream::open(&old.dir.join("postings"))?;
@@ -1040,20 +1183,13 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
                 w.push(e)?;
             }
         }
-        w.finish()?;
-        streams.push(Stream::open(&p)?);
+        let (_, blocks, _) = w.finish()?;
+        runs.push(Run { path: p, blocks });
         total += old.done.entries;
     }
     total += job.entries.load(Ordering::Relaxed);
     job.done.store(0, Ordering::Relaxed);
     job.of.store(total.max(1), Ordering::Relaxed);
-    let mut post = Writer::new(BufWriter::with_capacity(1 << 20, File::create(dir.join("postings"))?));
-    let mut tree = BufWriter::with_capacity(1 << 20, File::create(dir.join("tree"))?);
-    // The position being merged: its entries, until it has `HOT`, then its sums.
-    let mut group: Vec<(u32, u16)> = vec![];
-    let mut sums: Option<Vec<Sums>> = None;
-    let mut key = None;
-    let mut last_game = None;
     let at = |g: u32| info.get(g as usize).copied();
     let close = |key: u64, sums: Option<Vec<Sums>>, tree: &mut BufWriter<File>| -> io::Result<()> {
         let Some(mut s) = sums else { return Ok(()) };
@@ -1065,51 +1201,77 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
         }
         Ok(())
     };
-    merge(streams, &job.stop, |e| {
-        let (k, g, c) = parts(e);
-        if key != Some(k) {
-            if let Some(old) = key {
-                close(old, sums.take(), &mut tree)?;
-            }
-            (key, last_game) = (Some(k), None);
-            group.clear();
-        }
-        if post.last == Some(e) {
-            return Ok(());
-        }
-        post.push(e)?;
-        job.done.fetch_add(1, Ordering::Relaxed);
-        match sums.as_mut() {
-            Some(s) => {
-                let Some(i) = at(g) else { return Ok(()) };
-                let reach = s.iter_mut().find(|x| x.code == REACH).expect("the position's own");
-                if last_game != Some(g) {
-                    reach.add(g, &i);
+    // Each range of positions merged into postings and a tree of its own, on several threads; a
+    // position is in one range, so they are joined in order into the whole's files.
+    let segs = in_parts(&runs, ranges, job, |i, streams| {
+        let (pp, tp) = (runs_dir.join(format!("postings-{i}")), runs_dir.join(format!("tree-{i}")));
+        let mut post = Writer::new(BufWriter::with_capacity(1 << 20, File::create(&pp)?));
+        let mut tree = BufWriter::with_capacity(1 << 20, File::create(&tp)?);
+        // The position being merged: its entries, until it has `HOT`, then its sums.
+        let mut group: Vec<(u32, u16)> = vec![];
+        let mut sums: Option<Vec<Sums>> = None;
+        let mut key = None;
+        let mut last_game = None;
+        let mut pushed = 0u64;
+        merge(streams, job, |e| {
+            let (k, g, c) = parts(e);
+            if key != Some(k) {
+                if let Some(old) = key {
+                    close(old, sums.take(), &mut tree)?;
                 }
-                if c & !BLACK != END {
-                    match s.iter_mut().find(|x| x.code == c) {
-                        Some(x) => x.add(g, &i),
-                        None => {
-                            let mut x = Sums::new(c);
-                            x.add(g, &i);
-                            s.push(x);
+                (key, last_game) = (Some(k), None);
+                group.clear();
+            }
+            if post.last == Some(e) {
+                return Ok(());
+            }
+            post.push(e)?;
+            pushed += 1;
+            if pushed.is_multiple_of(BLOCK as u64) {
+                job.done.fetch_add(BLOCK as u64, Ordering::Relaxed);
+            }
+            match sums.as_mut() {
+                Some(s) => {
+                    let Some(i) = at(g) else { return Ok(()) };
+                    let reach = s.iter_mut().find(|x| x.code == REACH).expect("the position's own");
+                    if last_game != Some(g) {
+                        reach.add(g, &i);
+                    }
+                    if c & !BLACK != END {
+                        match s.iter_mut().find(|x| x.code == c) {
+                            Some(x) => x.add(g, &i),
+                            None => {
+                                let mut x = Sums::new(c);
+                                x.add(g, &i);
+                                s.push(x);
+                            }
                         }
                     }
                 }
-            }
-            None => {
-                group.push((g, c));
-                if group.len() >= HOT {
-                    sums = Some(tally(&group, &at));
-                    group.clear();
+                None => {
+                    group.push((g, c));
+                    if group.len() >= HOT {
+                        sums = Some(tally(&group, &at));
+                        group.clear();
+                    }
                 }
             }
+            last_game = Some(g);
+            Ok(())
+        })?;
+        if let Some(k) = key {
+            close(k, sums.take(), &mut tree)?;
         }
-        last_game = Some(g);
-        Ok(())
+        post.finish()?;
+        tree.flush()?;
+        Ok((pp, tp))
     })?;
-    if let Some(k) = key {
-        close(k, sums.take(), &mut tree)?;
+    let mut post = Writer::new(BufWriter::with_capacity(1 << 20, File::create(dir.join("postings"))?));
+    let mut tree = BufWriter::with_capacity(1 << 20, File::create(dir.join("tree"))?);
+    for (pp, tp) in &segs {
+        join(std::slice::from_ref(pp), &mut post)?;
+        io::copy(&mut File::open(tp)?, &mut tree)?;
+        let _ = std::fs::remove_file(tp);
     }
     let (post, blocks, entries) = post.finish()?;
     post.into_inner().map_err(|e| e.into_error())?.sync_all()?;
@@ -1319,7 +1481,7 @@ pub fn estimate(lib: &Library, depth: u32) -> (u64, u64) {
         g += step;
     }
     let entries = sum * count as u64 / seen.max(1);
-    let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).div_ceil(2).clamp(1, 8) as u64;
+    let threads = workers() as u64;
     (entries * BYTES_PER_ENTRY, (entries / (ENTRIES_PER_SECOND * threads)).max(1))
 }
 
@@ -1402,7 +1564,7 @@ pub fn build(lib: Arc<Library>, depth: u32) {
         let old = opened(&path);
         // Kept: the old games but the last (a game cut short at the end may have grown).
         let keep = old.as_ref().filter(|o| o.done.depth == depth && grown(o, &path)).map(|o| o.done.games.saturating_sub(1));
-        let made = build_in(&lib, depth, &dir, old.as_deref().zip(keep), &j, &stamp);
+        let made = build_in(&lib, depth, &dir, old.as_deref().zip(keep), &j, &stamp, workers() * 4);
         if made.is_err() {
             let _ = std::fs::remove_dir_all(&dir);
         }
