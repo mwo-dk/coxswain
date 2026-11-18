@@ -523,6 +523,65 @@ fn an_ended_builds_half_made_index_goes() {
     let _ = std::fs::remove_file(lists.join("4000021"));
 }
 
+/// Looking for a database's index leaves a half-made one alone while its run may still be
+/// building it, however old the folder looks (a run that keeps no list, #932), and removes it
+/// once its run is known to have ended.
+#[test]
+#[cfg(unix)]
+fn looking_for_an_index_keeps_an_old_live_build() {
+    let d = Dir::new();
+    let p = d.0.join("long.pgn");
+    let listless = folder().unwrap().join(format!("{}-4000023-0", key_name(&p)));
+    let ended = folder().unwrap().join(format!("{}-4000024-0", key_name(&p)));
+    for dir in [&listless, &ended] {
+        std::fs::create_dir_all(dir.join("runs")).unwrap();
+        // An hour old: older than any wait for a folder to grow.
+        let old = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+        std::fs::File::open(dir).unwrap().set_modified(old).unwrap();
+    }
+    let lists = crate::helper::folder().unwrap().join("staging");
+    crate::fs::private_dir(&lists).unwrap();
+    std::fs::write(lists.join("4000024"), "").unwrap();
+    assert_eq!(crate::spill::alive("4000023"), None, "no list: not known to have ended");
+    assert!(folders(&p).is_empty());
+    assert!(listless.join("runs").exists(), "no list: kept, however old");
+    assert!(!ended.exists(), "ended: gone");
+    let _ = std::fs::remove_dir_all(&listless);
+    let _ = std::fs::remove_file(lists.join("4000024"));
+}
+
+/// What a build left half made goes at the next start while its run's list can still tell it
+/// ended, and at a clean exit for this run's own (its list goes then); whole indexes and other
+/// runs' builds stay.
+#[test]
+#[cfg(unix)]
+fn half_made_indexes_go_at_start_and_at_exit() {
+    let d = Dir::new();
+    let mk = |name: &str, whole: bool| {
+        let dir = d.0.join(name);
+        std::fs::create_dir_all(dir.join("runs")).unwrap();
+        if whole {
+            std::fs::write(dir.join("done"), "{}").unwrap();
+        }
+        dir
+    };
+    let dead = mk("00000000000000ab-4000025-0", false);
+    let dead_whole = mk("00000000000000ab-4000025-1", true);
+    let listless = mk("00000000000000ab-4000026-0", false);
+    let mine = mk(&format!("00000000000000ab-{}-0", crate::spill::run()), false);
+    let mine_whole = mk(&format!("00000000000000ab-{}-1", crate::spill::run()), true);
+    let lists = crate::helper::folder().unwrap().join("staging");
+    crate::fs::private_dir(&lists).unwrap();
+    std::fs::write(lists.join("4000025"), "").unwrap();
+    sweep_in(&d.0, ended);
+    let _ = std::fs::remove_file(lists.join("4000025"));
+    assert!(!dead.exists(), "ended: gone at start");
+    assert!(dead_whole.exists() && listless.exists() && mine.exists(), "whole, listless, live: kept at start");
+    sweep_in(&d.0, own);
+    assert!(!mine.exists(), "own: gone at exit");
+    assert!(mine_whole.exists() && listless.exists(), "whole, another run's: kept at exit");
+}
+
 /// The file changed and its table was read again (both apps do): a build still under way from
 /// the table before is stopped, as it would be out of date when done. Both apps ask `keep_up`.
 #[test]
