@@ -317,4 +317,4 @@ The questions people ask most, with a short answer and a link to the full one. E
 - **Why does `--settings=meaning` open the Overview now?** 2.0 takes only an area or an option's name: use `--settings=search_meaning` (and `ask_model`, `overview`, `search_cloud` for 1.x's `ask`, `news`, `cloud`). [Answer](customise/settings.md#why-does---settingsmeaning-open-the-overview-now)
 
 ---
-[← Previous: Windows on ARM](systems/windows-arm.md) · [Next: Changelog →](changelog.md)
+[← Previous: The plugin design](plugins/design.md) · [Next: Changelog →](changelog.md)
