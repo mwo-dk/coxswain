@@ -223,6 +223,16 @@ add them to an archive that already exists, open both archives and copy across w
 A folder of the archive's name is already in the target. Rename or remove it, or extract into
 another folder.
 
+#### What happens when an archive holds the same name twice?
+
+The later entry is the one you get, as tar and other programs give it, with **Ctrl+E** and with
+**F5** on a folder of the archive. A move out (**F6**) of such a name is refused, as taking it out
+of the archive would take both entries. Names that differ only in case (`xt_CONNMARK.h` and
+`xt_connmark.h`) on macOS and Windows, whose disks ignore case: out of a zip or a 7z, and with
+**F5** out of any archive, both come out, the later as `xt_connmark (2).h`, as a copy keeps both
+files; **Ctrl+E** of a tar still keeps only the later one. On Linux and the BSDs they come out
+under their own names.
+
 #### Can I stop packing or extracting?
 
 Yes: **Esc** on the progress line in the terminal app, **Stop** (or **Esc** on it) in the

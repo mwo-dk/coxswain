@@ -1,0 +1,1 @@
+| **An archive with a name given twice, or names that differ only in case on macOS and Windows, extracts.** The later entry of a name wins, as in tar; out of a zip or 7z, a name that differs only in case comes out as `name (2)`. | [Pack and extract](files/pack-and-extract.md#what-happens-when-an-archive-holds-the-same-name-twice) |
