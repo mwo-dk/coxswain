@@ -1,0 +1,1 @@
+| **A game analysed again with other variations gets its marks and evaluations on the right moves.** An analysis taken from the cache, for example after a saved annotated PGN is opened again, put them on the moves of a variation. | [Analysing a whole game](previews/chess-play.md#analysing-a-whole-game) |

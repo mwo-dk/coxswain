@@ -175,10 +175,16 @@ impl Reviewer {
         let file = cached(&key, &settings(chess), game);
         let shared = Arc::new(Mutex::new(Review { total: plies.len(), ..Default::default() }));
         let stop = Arc::new(AtomicBool::new(false));
-        if let Some(r) = file.as_ref().and_then(|f| std::fs::read(f).ok()).and_then(|b| serde_json::from_slice::<Review>(&b).ok())
+        if let Some(mut r) = file.as_ref().and_then(|f| std::fs::read(f).ok()).and_then(|b| serde_json::from_slice::<Review>(&b).ok())
             && r.done
             && r.error.is_none()
+            && r.plies.len() == plies.len()
         {
+            // The kept moves' nodes are those of the game analysed first: the same main line
+            // with other variations numbers its moves otherwise.
+            for (p, &n) in r.plies.iter_mut().zip(&plies) {
+                p.node = n;
+            }
             *shared.lock().unwrap_or_else(|e| e.into_inner()) = r;
             return Reviewer { shared, stop };
         }
@@ -444,6 +450,12 @@ mod tests {
         std::fs::remove_file(&p).unwrap();
         let again = Reviewer::start(&Program::Installed(p.clone()), &chess, &g).now();
         assert!(again.done && again.plies.len() == 3, "{again:?}");
+        // The same moves with a variation: from the cache too, on this game's own moves.
+        let v = pgn::parse("1.e4 e5 (1...c5 2.Nf3) 2.Nf3 *");
+        assert_ne!(line(&v), line(&g), "other node numbers");
+        let again = Reviewer::start(&Program::Installed(p.clone()), &chess, &v).now();
+        assert!(again.done, "{again:?}");
+        assert_eq!(again.plies.iter().map(|p| p.node).collect::<Vec<_>>(), line(&v));
         std::fs::remove_dir_all(&d).unwrap();
     }
 
