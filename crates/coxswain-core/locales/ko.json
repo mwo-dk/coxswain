@@ -4649,6 +4649,7 @@
  "modules.uses": "사용: {what}",
  "modules.images": "컨테이너 이미지를 내려받을 수 있음",
  "modules.not_built": "이 빌드에 없음",
+ "modules.not_built_notice": "텍스트로 표시됨: {module}이(가) 이 빌드에 없습니다.",
  "modules.off_notice": "텍스트로 표시됨: {module}이(가) 꺼져 있습니다. 설정({key}) → 모듈에서 켜세요.",
  "guide.modules": "필요 없는 뷰어는 끌 수 있으며, 각각 보여 주는 형식과 사용하는 것이 표시됩니다.",
  "guide.modules_open": "모듈 선택",

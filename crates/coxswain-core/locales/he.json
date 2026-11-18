@@ -4845,6 +4845,7 @@
  "modules.uses": "משתמש ב־{what}",
  "modules.images": "עשוי להוריד תמונת קונטיינר",
  "modules.not_built": "לא כלול בבנייה זו",
+ "modules.not_built_notice": "מוצג כטקסט: {module} לא כלול בבנייה זו.",
  "modules.off_notice": "מוצג כטקסט: {module} כבוי. הפעילו אותו בהגדרות ({key}) ← מודולים.",
  "guide.modules": "אפשר לכבות מציגים שאינכם צריכים, כל אחד עם הפורמטים שהוא מציג ומה שהוא משתמש בו.",
  "guide.modules_open": "בחירת מודולים",

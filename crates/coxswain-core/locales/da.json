@@ -4747,6 +4747,7 @@
  "modules.uses": "bruger {what}",
  "modules.images": "kan hente et container-image",
  "modules.not_built": "ikke med i denne udgave",
+ "modules.not_built_notice": "Vist som tekst: {module} er ikke med i denne udgave.",
  "modules.off_notice": "Vist som tekst: {module} er slået fra. Slå det til i Indstillinger ({key}) → Moduler.",
  "guide.modules": "Visninger, du ikke har brug for, kan slås fra, hver med de formater, den viser, og hvad den bruger.",
  "guide.modules_open": "Vælg moduler",

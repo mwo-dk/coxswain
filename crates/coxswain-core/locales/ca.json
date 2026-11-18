@@ -4845,6 +4845,7 @@
  "modules.uses": "fa servir {what}",
  "modules.images": "pot baixar una imatge de contenidor",
  "modules.not_built": "no és en aquesta compilació",
+ "modules.not_built_notice": "Es mostra com a text: {module} no és en aquesta compilació.",
  "modules.off_notice": "Mostrat com a text: {module} està desactivat. Activa’l a Paràmetres ({key}) → Mòduls.",
  "guide.modules": "Els visors que no necessitis es poden desactivar, cadascun amb els formats que mostra i el que fa servir.",
  "guide.modules_open": "Tria els mòduls",

@@ -4747,6 +4747,7 @@
  "modules.uses": "erabiltzen du: {what}",
  "modules.images": "edukiontzi-irudi bat deskarga dezake",
  "modules.not_built": "ez dago konpilazio honetan",
+ "modules.not_built_notice": "Testu gisa erakutsia: {module} ez dago konpilazio honetan.",
  "modules.off_notice": "Testu gisa erakutsita: {module} desaktibatuta dago. Aktibatu Ezarpenak ({key}) → Moduluak atalean.",
  "guide.modules": "Behar ez dituzun ikustaileak desaktiba daitezke, bakoitza erakusten dituen formatuekin eta erabiltzen duenarekin.",
  "guide.modules_open": "Aukeratu moduluak",

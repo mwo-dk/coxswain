@@ -4758,6 +4758,7 @@
  "modules.uses": "uses {what}",
  "modules.images": "may download a container image",
  "modules.not_built": "not in this build",
+ "modules.not_built_notice": "Shown as text: {module} is not in this build.",
  "modules.off_notice": "Shown as text: {module} is off. Turn it on in Settings ({key}) → Modules.",
  "guide.modules": "Viewers you do not need can be turned off, each with the formats it shows and what it uses.",
  "guide.modules_open": "Choose modules",

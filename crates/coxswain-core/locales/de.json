@@ -4747,6 +4747,7 @@
  "modules.uses": "nutzt {what}",
  "modules.images": "kann ein Container-Image herunterladen",
  "modules.not_built": "nicht in diesem Build",
+ "modules.not_built_notice": "Als Text gezeigt: {module} ist nicht in diesem Build.",
  "modules.off_notice": "Als Text gezeigt: {module} ist aus. Schalte es in den Einstellungen ({key}) → Module ein.",
  "guide.modules": "Ansichten, die du nicht brauchst, lassen sich ausschalten, jede mit den Formaten, die sie zeigt, und dem, was sie nutzt.",
  "guide.modules_open": "Module wählen",

@@ -20,6 +20,7 @@ itself: Coxswain keeps the list of modules you turned off, not of those you turn
 - [What stays whatever is off](#what-stays-whatever-is-off)
 - [config.toml](#configtoml)
 - [The older switches](#the-older-switches)
+- [Building without some modules](#building-without-some-modules)
 - [Questions](#questions)
 
 ## How to use it
@@ -118,7 +119,7 @@ and its module is on. Your comments and the rest of the file stay as they were, 
 names what was changed.
 
 The release builds have every module. They are all in one program; turning one off means it is
-not used, not that it is left out of the build.
+not used, not that it is left out of the build (for that, see below).
 
 ## Building without some modules
 
@@ -132,7 +133,7 @@ cargo build --release -p coxswain-gui --no-default-features --features custom-pr
 ```
 
 A module left out is off whatever `[modules] off` says: Settings → *Modules* shows it greyed
-(`[-]` in the terminal app, a dimmed box in the desktop app) with *not in this build*, and it
+(`[-]` and dimmed in the terminal app, a box that cannot be ticked in the desktop app) with *not in this build*, and it
 cannot be turned on there. Its files are shown as text or hex, as with a module turned off.
 
 For now this leaves the module's viewer unused, not its code out of the program: the libraries
@@ -145,7 +146,8 @@ desktop app's viewers are bundled by its web build, which a cargo feature does n
 
 The module that shows it is off. Turn it on again in Settings (**F12** in both apps, **Ctrl+,**
 in the desktop app) → *Modules*, and the file shows as before; the panel you are in shows it at
-once.
+once. If Settings shows it greyed, *not in this build*, it was left out when this copy was built
+from source ([Building without some modules](#building-without-some-modules)).
 
 #### Does turning a module off stop Find reading those files?
 
