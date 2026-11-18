@@ -11,6 +11,7 @@ on:
     # other change is tested on it nightly and in every Release run (CLAUDE.md, Shipping).
     paths:
       - "packaging/termux/**"
+      - "packaging/termux-rust.sh"
       - ".github/workflows/termux.yml"
   workflow_dispatch:
 
