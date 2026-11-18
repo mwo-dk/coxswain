@@ -310,17 +310,109 @@ pub async fn mail_preview(path: PathBuf) -> Res<Mail> {
 #[tauri::command]
 pub async fn plist_xml(path: PathBuf) -> Res<String> {
     crate::here(&path)?;
-    crate::blocking(move || {
-        let v = plist::Value::from_reader(std::io::Cursor::new(whole(&path)?)).map_err(|e| e.to_string())?;
-        let mut out = vec![];
-        v.to_writer_xml(&mut out).map_err(|e| e.to_string())?;
-        // A binary list is smaller than its XML: the text shown has the same limit.
-        if out.len() as u64 > coxswain_core::viewers::MAX_WHOLE {
-            return Err(t!("render.too_large"));
+    crate::blocking(move || plist_text(&path)).await
+}
+
+fn plist_text(path: &Path) -> Res<String> {
+    let max = coxswain_core::viewers::MAX_WHOLE;
+    let data = whole(path)?;
+    if !binary_plist_fits(&data, max) {
+        return Err(t!("render.too_large"));
+    }
+    let v = plist::Value::from_reader(std::io::Cursor::new(data)).map_err(|e| e.to_string())?;
+    let mut out = vec![];
+    v.to_writer_xml(&mut out).map_err(|e| e.to_string())?;
+    // A binary list is smaller than its XML: the text shown has the same limit.
+    if out.len() as u64 > max {
+        return Err(t!("render.too_large"));
+    }
+    Ok(String::from_utf8_lossy(&out).into_owned())
+}
+
+/// Whether a binary property list stays within `max` once built as a tree. Its objects are
+/// shared by reference, and the `plist` crate refuses cycles only: a few kilobytes whose arrays
+/// each name the next one twice grow exponentially. Each object counts 64 bytes plus its text
+/// or data, as often as it is reached. Anything malformed is `true`: the crate refuses it.
+fn binary_plist_fits(d: &[u8], max: u64) -> bool {
+    const NODE: u64 = 64;
+    if !d.starts_with(b"bplist") || d.len() < 40 {
+        return true;
+    }
+    let be = |at: usize, n: usize| -> Option<u64> { d.get(at..at.checked_add(n)?).map(|b| b.iter().fold(0u64, |a, &x| a << 8 | x as u64)) };
+    let t = d.len() - 32;
+    let (off_size, ref_size) = (d[t + 6] as usize, d[t + 7] as usize);
+    let (Some(n), Some(top), Some(table)) = (be(t + 8, 8), be(t + 16, 8), be(t + 24, 8)) else { return true };
+    if !(1..=8).contains(&off_size) || !(1..=8).contains(&ref_size) || top >= n {
+        return true;
+    }
+    // More objects than could each be built once is too large already.
+    if n > max / NODE {
+        return false;
+    }
+    let n = n as usize;
+    // An object's own weight and the objects it names.
+    let object = |i: usize| -> Option<(u64, Vec<usize>)> {
+        let o = be(usize::try_from(table).ok()?.checked_add(i * off_size)?, off_size)? as usize;
+        let marker = *d.get(o)?;
+        let (count, head) = match marker & 0xf {
+            0xf if matches!(marker >> 4, 0x4 | 0x5 | 0x6 | 0xa | 0xc | 0xd) => {
+                let k = *d.get(o + 1)?;
+                let size = 1usize << (k & 0xf).min(3);
+                (be(o + 2, size)?, 2 + size)
+            }
+            c => (c as u64, 1),
+        };
+        let refs = |per: u64| -> Option<Vec<usize>> {
+            let total = usize::try_from(count.checked_mul(per)?).ok()?;
+            let start = o + head;
+            d.get(start..start.checked_add(total.checked_mul(ref_size)?)?)?;
+            (0..total).map(|j| be(start + j * ref_size, ref_size).map(|r| r as usize)).collect()
+        };
+        Some(match marker >> 4 {
+            0x4 | 0x5 => (NODE + count, vec![]),
+            0x6 => (NODE + count.saturating_mul(2), vec![]),
+            0xa | 0xc => (NODE, refs(1)?),
+            0xd => (NODE, refs(2)?),
+            _ => (NODE, vec![]),
+        })
+    };
+    // Depth first without recursion: each object's whole weight, once.
+    const TODO: u64 = u64::MAX;
+    let mut weight = vec![TODO; n];
+    let mut on_path = vec![false; n];
+    let mut stack: Vec<(usize, Vec<usize>, u64)> = vec![];
+    let Some((w, kids)) = object(top as usize) else { return true };
+    on_path[top as usize] = true;
+    stack.push((top as usize, kids, w));
+    while let Some((i, kids, acc)) = stack.last_mut() {
+        let Some(k) = kids.pop() else {
+            let (i, acc) = (*i, *acc);
+            stack.pop();
+            on_path[i] = false;
+            weight[i] = acc;
+            if let Some(parent) = stack.last_mut() {
+                parent.2 = parent.2.saturating_add(acc);
+                if parent.2 > max {
+                    return false;
+                }
+            }
+            continue;
+        };
+        if k >= n || on_path[k] {
+            return true;
         }
-        Ok(String::from_utf8_lossy(&out).into_owned())
-    })
-    .await
+        if weight[k] != TODO {
+            *acc = acc.saturating_add(weight[k]);
+            if *acc > max {
+                return false;
+            }
+            continue;
+        }
+        let Some((w, grandkids)) = object(k) else { return true };
+        on_path[k] = true;
+        stack.push((k, grandkids, w));
+    }
+    weight[top as usize] <= max
 }
 
 // ---------------------------------------------------------------- facts
@@ -536,6 +628,39 @@ fn kind_name(code: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A binary property list of `depth` arrays, each naming the next twice, and a string at
+    /// the bottom: a few hundred bytes that build 2^depth strings.
+    fn doubling_plist(depth: u8) -> Vec<u8> {
+        let mut d = b"bplist00".to_vec();
+        let mut offsets = vec![];
+        for i in 0..depth {
+            offsets.push(d.len() as u8);
+            d.extend([0xa2, i + 1, i + 1]);
+        }
+        offsets.push(d.len() as u8);
+        d.extend(b"Ux1234");
+        let table = d.len() as u64;
+        d.extend(&offsets);
+        d.extend([0, 0, 0, 0, 0, 0, 1, 1]);
+        d.extend((offsets.len() as u64).to_be_bytes());
+        d.extend(0u64.to_be_bytes());
+        d.extend(table.to_be_bytes());
+        d
+    }
+
+    #[test]
+    fn a_property_list_that_grows_when_built_is_refused() {
+        let d = std::env::temp_dir().join(format!("coxswain-plist-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let small = d.join("small.plist");
+        std::fs::write(&small, doubling_plist(3)).unwrap();
+        assert_eq!(plist_text(&small).unwrap().matches("<string>x1234</string>").count(), 8, "a sane one is shown");
+        let bomb = d.join("bomb.plist");
+        std::fs::write(&bomb, doubling_plist(60)).unwrap();
+        assert_eq!(plist_text(&bomb).unwrap_err(), t!("render.too_large"));
+        std::fs::remove_dir_all(d).unwrap();
+    }
 
     #[test]
     fn a_huge_certificate_or_list_is_not_read() {

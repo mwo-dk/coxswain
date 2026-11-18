@@ -133,7 +133,7 @@ the app, and previews of every kind are blocked from the web.
 | draw.io | 32 MB | Cut off, does not parse |
 | A neural network model drawn by Netron, and each file next to it that it reads | 512 MiB | *Netron cannot draw it:* and the reason; the facts still show |
 | E-mail text | 200,000 characters | – |
-| Certificates (`.pem` `.crt` `.cer` `.der`) and property lists (`.plist`, and the XML shown for one) | 64 MB | *Too large to preview* |
+| Certificates (`.pem` `.crt` `.cer` `.der`) and property lists (`.plist`, as read, as built and as the XML shown) | 64 MB | *Too large to preview* |
 | What a tool prints as the preview (PlantUML's and D2's pictures and the other diagram kinds, reStructuredText's page, DuckDB's tables) | 50 MB; 8 MB for a diagram inside an AsciiDoc document | *Too large to preview*, never a cut result |
 | Tool runs | `[preview] timeout`, 120 s, for all the steps of one preview together | *Stopped after 120 s (the timeout in [preview])* |
 | A tool's own output kept (GDAL's descriptions and the like) | 4 MB | The rest is read and dropped |
