@@ -331,11 +331,16 @@ fn plist_text(path: &Path) -> Res<String> {
 
 /// Whether a binary property list stays within `max` once built as a tree. Its objects are
 /// shared by reference, and the `plist` crate refuses cycles only: a few kilobytes whose arrays
-/// each name the next one twice grow exponentially. Each object counts 64 bytes plus its text
-/// or data, as often as it is reached. Anything malformed is `true`: the crate refuses it.
+/// each name the next one twice grow exponentially. The objects are walked in the crate's own
+/// order, each counted as often as it is reached (64 per object, a string's or data's bytes, a
+/// container's references and slots), with one running total, so a fault the crate stops at
+/// (`true`: it refuses the file) comes only after what it would have built is counted.
 fn binary_plist_fits(d: &[u8], max: u64) -> bool {
     const NODE: u64 = 64;
-    if !d.starts_with(b"bplist") || d.len() < 40 {
+    // Deeper than any real list; a deep tree is also dropped by recursion.
+    const DEPTH: usize = 512;
+    let per_ref = 8 + std::mem::size_of::<plist::Value>() as u64;
+    if !d.starts_with(b"bplist00") || d.len() < 40 {
         return true;
     }
     let be = |at: usize, n: usize| -> Option<u64> { d.get(at..at.checked_add(n)?).map(|b| b.iter().fold(0u64, |a, &x| a << 8 | x as u64)) };
@@ -350,69 +355,65 @@ fn binary_plist_fits(d: &[u8], max: u64) -> bool {
         return false;
     }
     let n = n as usize;
-    // An object's own weight and the objects it names.
-    let object = |i: usize| -> Option<(u64, Vec<usize>)> {
-        let o = be(usize::try_from(table).ok()?.checked_add(i * off_size)?, off_size)? as usize;
+    // An object's own cost, and for a container where its references start and how many.
+    let object = |i: usize| -> Option<(u64, usize, usize, bool)> {
+        let o = be(usize::try_from(table).ok()?.checked_add(i.checked_mul(off_size)?)?, off_size)? as usize;
         let marker = *d.get(o)?;
         let (count, head) = match marker & 0xf {
             0xf if matches!(marker >> 4, 0x4 | 0x5 | 0x6 | 0xa | 0xc | 0xd) => {
-                let k = *d.get(o + 1)?;
-                let size = 1usize << (k & 0xf).min(3);
+                // As the crate reads it: the size byte's two low bits.
+                let size = 1usize << (*d.get(o + 1)? & 0x3);
                 (be(o + 2, size)?, 2 + size)
             }
             c => (c as u64, 1),
         };
-        let refs = |per: u64| -> Option<Vec<usize>> {
-            let total = usize::try_from(count.checked_mul(per)?).ok()?;
-            let start = o + head;
-            d.get(start..start.checked_add(total.checked_mul(ref_size)?)?)?;
-            (0..total).map(|j| be(start + j * ref_size, ref_size).map(|r| r as usize)).collect()
+        let refs = match marker >> 4 {
+            0x4 | 0x5 => return Some((NODE.saturating_add(count), 0, 0, false)),
+            0x6 => return Some((NODE.saturating_add(count.saturating_mul(2)), 0, 0, false)),
+            0xa | 0xc => count,
+            0xd => count.checked_mul(2)?,
+            _ => return Some((NODE, 0, 0, false)),
         };
-        Some(match marker >> 4 {
-            0x4 | 0x5 => (NODE + count, vec![]),
-            0x6 => (NODE + count.saturating_mul(2), vec![]),
-            0xa | 0xc => (NODE, refs(1)?),
-            0xd => (NODE, refs(2)?),
-            _ => (NODE, vec![]),
-        })
+        // The crate reads all of them before it builds the first: they must be in the file.
+        let refs = usize::try_from(refs).ok()?;
+        let start = o + head;
+        d.get(start..start.checked_add(refs.checked_mul(ref_size)?)?)?;
+        Some((NODE.saturating_add((refs as u64).saturating_mul(per_ref)), start, refs, marker >> 4 == 0xd))
     };
-    // Depth first without recursion: each object's whole weight, once.
-    const TODO: u64 = u64::MAX;
-    let mut weight = vec![TODO; n];
+    let mut total = 0u64;
     let mut on_path = vec![false; n];
-    let mut stack: Vec<(usize, Vec<usize>, u64)> = vec![];
-    let Some((w, kids)) = object(top as usize) else { return true };
-    on_path[top as usize] = true;
-    stack.push((top as usize, kids, w));
-    while let Some((i, kids, acc)) = stack.last_mut() {
-        let Some(k) = kids.pop() else {
-            let (i, acc) = (*i, *acc);
-            stack.pop();
-            on_path[i] = false;
-            weight[i] = acc;
-            if let Some(parent) = stack.last_mut() {
-                parent.2 = parent.2.saturating_add(acc);
-                if parent.2 > max {
-                    return false;
-                }
+    // Each open container: itself, where its references start, the next one, how many, a dict.
+    let mut stack: Vec<(usize, usize, usize, usize, bool)> = vec![];
+    let mut next = Some(top as usize);
+    loop {
+        if let Some(k) = next.take() {
+            if k >= n || on_path[k] {
+                return true;
             }
-            continue;
-        };
-        if k >= n || on_path[k] {
-            return true;
-        }
-        if weight[k] != TODO {
-            *acc = acc.saturating_add(weight[k]);
-            if *acc > max {
+            let Some((cost, start, refs, dict)) = object(k) else { return true };
+            total = total.saturating_add(cost);
+            if total > max || stack.len() >= DEPTH {
                 return false;
             }
+            if refs > 0 {
+                on_path[k] = true;
+                stack.push((k, start, 0, refs, dict));
+            }
             continue;
         }
-        let Some((w, grandkids)) = object(k) else { return true };
-        on_path[k] = true;
-        stack.push((k, grandkids, w));
+        let Some(open) = stack.last_mut() else { return true };
+        let (k, start, j, refs, dict) = *open;
+        if j == refs {
+            on_path[k] = false;
+            stack.pop();
+            continue;
+        }
+        open.2 += 1;
+        // A dict's keys come first in the file, its values after; the crate takes them in pairs.
+        let at = if dict { if j % 2 == 0 { j / 2 } else { refs / 2 + j / 2 } } else { j };
+        let Some(r) = be(start + at * ref_size, ref_size) else { return true };
+        next = Some(usize::try_from(r).unwrap_or(usize::MAX));
     }
-    weight[top as usize] <= max
 }
 
 // ---------------------------------------------------------------- facts
@@ -629,17 +630,15 @@ fn kind_name(code: &str) -> String {
 mod tests {
     use super::*;
 
-    /// A binary property list of `depth` arrays, each naming the next twice, and a string at
-    /// the bottom: a few hundred bytes that build 2^depth strings.
-    fn doubling_plist(depth: u8) -> Vec<u8> {
+    /// A binary property list of these objects, the first the top one, one-byte offsets and
+    /// references.
+    fn bplist(objects: &[Vec<u8>]) -> Vec<u8> {
         let mut d = b"bplist00".to_vec();
         let mut offsets = vec![];
-        for i in 0..depth {
+        for o in objects {
             offsets.push(d.len() as u8);
-            d.extend([0xa2, i + 1, i + 1]);
+            d.extend(o);
         }
-        offsets.push(d.len() as u8);
-        d.extend(b"Ux1234");
         let table = d.len() as u64;
         d.extend(&offsets);
         d.extend([0, 0, 0, 0, 0, 0, 1, 1]);
@@ -649,16 +648,32 @@ mod tests {
         d
     }
 
+    /// `depth` arrays from `from` on, each naming the next twice, and a string at the bottom:
+    /// a few hundred bytes that build 2^depth strings. `long`: counts in the long form, with a
+    /// size byte the crate reads by its two low bits only.
+    fn doubling(from: u8, depth: u8, long: bool) -> Vec<Vec<u8>> {
+        let mut v: Vec<Vec<u8>> = (from..from + depth).map(|i| if long { vec![0xaf, 0x14, 2, i + 1, i + 1] } else { vec![0xa2, i + 1, i + 1] }).collect();
+        v.push(b"Ux1234".to_vec());
+        v
+    }
+
     #[test]
     fn a_property_list_that_grows_when_built_is_refused() {
         let d = std::env::temp_dir().join(format!("coxswain-plist-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
-        let small = d.join("small.plist");
-        std::fs::write(&small, doubling_plist(3)).unwrap();
-        assert_eq!(plist_text(&small).unwrap().matches("<string>x1234</string>").count(), 8, "a sane one is shown");
-        let bomb = d.join("bomb.plist");
-        std::fs::write(&bomb, doubling_plist(60)).unwrap();
-        assert_eq!(plist_text(&bomb).unwrap_err(), t!("render.too_large"));
+        let file = d.join("x.plist");
+        let text = |bytes: Vec<u8>| {
+            std::fs::write(&file, bytes).unwrap();
+            plist_text(&file)
+        };
+        assert_eq!(text(bplist(&doubling(0, 3, false))).unwrap().matches("<string>x1234</string>").count(), 8, "a sane one is shown");
+        assert_eq!(text(bplist(&doubling(0, 3, true))).unwrap().matches("<string>x1234</string>").count(), 8, "long counts as the crate reads them");
+        assert_eq!(text(bplist(&doubling(0, 60, false))).unwrap_err(), t!("render.too_large"));
+        assert_eq!(text(bplist(&doubling(0, 60, true))).unwrap_err(), t!("render.too_large"));
+        // A fault after the bomb: the crate builds the bomb first, so it is counted first.
+        let mut bad_after = vec![vec![0xa2, 1, 200]];
+        bad_after.extend(doubling(1, 60, false));
+        assert_eq!(text(bplist(&bad_after)).unwrap_err(), t!("render.too_large"));
         std::fs::remove_dir_all(d).unwrap();
     }
 
