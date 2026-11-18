@@ -101,6 +101,14 @@ pub struct Repo {
     pub pinned: bool,
 }
 
+/// What a picker saved (`pick::keep_own_files`): read back instead of the file, so a notice
+/// dismissed or a server allowed holds until the picker closes. One state per run.
+static PICKED_STATE: std::sync::Mutex<Option<AppState>> = std::sync::Mutex::new(None);
+
+fn picked_state() -> Option<AppState> {
+    crate::pick::choosing().then(|| PICKED_STATE.lock().unwrap_or_else(|e| e.into_inner()).clone()).flatten()
+}
+
 impl AppState {
     pub fn path() -> Option<PathBuf> {
         Some(crate::dirs::data_dir()?.join("coxswain").join("state.json"))
@@ -111,6 +119,9 @@ impl AppState {
     /// never destroys it, nor an earlier one.
     /// One that cannot be read gives defaults that are never saved over it.
     pub fn load_from(path: &Path) -> AppState {
+        if let Some(st) = picked_state() {
+            return st;
+        }
         let bytes = match std::fs::read(path) {
             Ok(b) => b,
             Err(e) if e.kind() == io::ErrorKind::NotFound => return AppState::default(),
@@ -174,6 +185,12 @@ impl AppState {
     }
 
     pub fn save_to(&self, path: &Path) -> io::Result<()> {
+        // A picker changes nothing of Coxswain's own, and says nothing of it: what was changed
+        // holds for this run, in memory.
+        if crate::pick::choosing() {
+            *PICKED_STATE.lock().unwrap_or_else(|e| e.into_inner()) = Some(self.clone());
+            return Ok(());
+        }
         if self.unreadable {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
@@ -192,6 +209,9 @@ impl AppState {
     /// A missing or corrupt file leaves the copy as it is; one that cannot be read is never
     /// saved over.
     pub fn reload_from(&mut self, path: &Path) {
+        if let Some(st) = picked_state() {
+            return *self = st;
+        }
         match std::fs::read(path) {
             Ok(bytes) => {
                 if let Ok(st) = serde_json::from_slice(&bytes) {

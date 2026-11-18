@@ -2985,6 +2985,10 @@ fn main() {
     coxswain_core::fs::lock_down();
     // What a write of an archive cut short by a crash left beside it.
     std::thread::spawn(coxswain_core::spill::at_start);
+    // A picker writes nothing of Coxswain's own, from here on (the migration below neither).
+    if std::env::args_os().nth(1).is_some_and(|a| a.to_str().is_some_and(|a| a == "--pick" || a.starts_with("--pick="))) {
+        coxswain_core::pick::keep_own_files();
+    }
     // A config.toml of 1.x gets the names of 2.0, once.
     if let Err(e) = coxswain_core::migrate::on_start() {
         eprintln!("coxswain: {e}");

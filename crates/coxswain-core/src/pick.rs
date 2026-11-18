@@ -200,6 +200,22 @@ fn extensions(s: &str) -> Vec<String> {
     list.split(',').map(|e| e.trim().trim_start_matches("*.").trim_start_matches('.').to_lowercase()).filter(|e| !e.is_empty()).collect()
 }
 
+static CHOOSING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// This run is a picker: from now on Coxswain's own config.toml is not written (a change is
+/// refused, `pick.refused`), nor migrated, and state.json is not either (quietly: a hint
+/// counted, a notice dismissed or a server allowed is kept in memory until the picker closes).
+/// Every write of either goes through `config::update_config` or `AppState::save_to`, which
+/// ask `choosing`.
+pub fn keep_own_files() {
+    CHOOSING.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Whether `keep_own_files` was called in this run.
+pub fn choosing() -> bool {
+    CHOOSING.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// Whether `a` changes files, runs a command or writes settings: a picker only chooses, so
 /// pick mode refuses these from every way to reach them (keys, the action menu, F9).
 pub fn changes_files(a: Action) -> bool {
