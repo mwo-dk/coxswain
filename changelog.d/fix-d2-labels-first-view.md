@@ -1,0 +1,1 @@
+| **A D2 diagram shows its labels the first time.** In the desktop app the preview of a `.d2` file (and the other kinds drawn by Kroki) showed boxes and arrows without their text until the cursor went away and back; the picture is now shown once it has loaded, fonts included. | [D2, ditaa, svgbob and the others](previews/diagrams.md#d2-ditaa-svgbob-and-the-others) |
