@@ -2726,6 +2726,11 @@ pub fn copy_out(
         ));
     }
     let (archive, inner, _held) = resolve(archive, inner, false)?;
+    // A tar's list in memory, as `copy_out_files` has it: a name given twice is then known, and
+    // the later file comes out, however the list was kept before.
+    if matches!(kind(&archive), Some(Kind::Tar(_))) {
+        items(&archive)?;
+    }
     copy_out_with(
         &archive,
         &inner,
@@ -4801,8 +4806,7 @@ mod tests {
         }
         t.into_inner().unwrap();
         let held = std::fs::read(&one).unwrap();
-        // Its list in memory, as the panel showing it holds it: the name is known to come twice.
-        items(&one).unwrap();
+        // Before it was ever listed and after.
         for pass in ["fresh", "listed"] {
             let out = d.join(format!("one-{pass}"));
             std::fs::create_dir_all(&out).unwrap();
@@ -4855,12 +4859,13 @@ mod tests {
         for p in [&plain, &gz] {
             for pass in ["fresh", "listed"] {
                 let at = format!("{} {pass}", p.display());
-                assert_eq!(stream(&p.join("a.txt"), text).unwrap(), "newer", "{at}");
-                assert_eq!(stream_at(&p.join("a.txt"), 2, |r, _| text(r), false).unwrap(), "wer", "{at}");
+                // Copied out first: "fresh", with no list of it made before.
                 let out = d.join(format!("out-{}-{pass}", p.file_name().unwrap().to_string_lossy()));
                 std::fs::create_dir_all(&out).unwrap();
                 let got = copy_out(p, "a.txt", &out, None, false).unwrap();
                 assert_eq!(std::fs::read_to_string(got).unwrap(), "newer", "{at}");
+                assert_eq!(stream(&p.join("a.txt"), text).unwrap(), "newer", "{at}");
+                assert_eq!(stream_at(&p.join("a.txt"), 2, |r, _| text(r), false).unwrap(), "wer", "{at}");
                 let many = out.join("many");
                 std::fs::create_dir_all(&many).unwrap();
                 let (made, r) = copy_out_files(p, &["a.txt".into(), "b.txt".into()], &many, None);
@@ -4903,6 +4908,21 @@ mod tests {
         std::fs::write(d.join("c.txt"), "c").unwrap();
         assert!(crate::fs::copy(&d.join("c.txt"), &zp).is_err(), "nothing added");
         assert_eq!(std::fs::read(&zp).unwrap(), zip, "the zip as it was");
+        // A folder given again whose Unicode path names a file: the raw names cannot say what the
+        // crate hides, so the zip is refused as any with a name twice.
+        let mut xt = vec![1u8];
+        xt.extend(flate2_crc(b"d/").to_le_bytes());
+        xt.extend(b"x.txt");
+        let mut extra = 0x7075u16.to_le_bytes().to_vec();
+        extra.extend((xt.len() as u16).to_le_bytes());
+        extra.extend(&xt);
+        let crafted = hand_zip(&[("d/", b"", b""), ("d/", b"", &extra), ("a.txt", b"old", b""), ("a.txt", b"newer", b"")]);
+        let cp = d.join("crafted.zip");
+        std::fs::write(&cp, &crafted).unwrap();
+        assert!(crate::fs::copy(&d.join("c.txt"), &cp).is_err(), "nothing added");
+        assert!(crate::fs::rename(&cp.join("a.txt"), &out.join("moved")).is_err(), "not moved");
+        assert!(!out.join("moved").exists());
+        assert_eq!(std::fs::read(&cp).unwrap(), crafted, "the crafted zip as it was");
         // A folder given twice (as in some jars) loses nothing: still written to.
         let jar = d.join("folder-twice.zip");
         std::fs::write(&jar, hand_zip(&[("d/", b"", b""), ("d/", b"", b""), ("d/a.txt", b"a", b"")])).unwrap();

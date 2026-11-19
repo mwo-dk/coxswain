@@ -172,7 +172,8 @@ fn directory(file: &mut (impl Read + Seek)) -> io::Result<(u64, u64, u64, u64)> 
 
 /// Whether each entry the `zip` crate leaves out of the zip in `file` (`read`: how many it reads)
 /// is a folder given again by its raw name (`d/` twice, as in some jars), so nothing is lost by
-/// writing the zip anew. No (or unsure) when one may be a file.
+/// writing the zip anew. No (or unsure) when one may be a file, and whenever a name is no UTF-8
+/// or has an Info-ZIP Unicode path.
 pub(crate) fn only_folders_twice(file: &mut (impl Read + Seek), read: usize) -> io::Result<bool> {
     let (start, size, count, _) = match directory(file) {
         Ok(d) => d,
@@ -191,8 +192,23 @@ pub(crate) fn only_folders_twice(file: &mut (impl Read + Seek), read: usize) -> 
         if r.read_exact(&mut name).is_err() {
             return Ok(false);
         }
-        let skip = u16_at(&head, 30) as u64 + u16_at(&head, 32) as u64;
-        io::copy(&mut (&mut r).take(skip), &mut io::sink())?;
+        let mut extra = vec![0; u16_at(&head, 30) as usize];
+        if r.read_exact(&mut extra).is_err() {
+            return Ok(false);
+        }
+        io::copy(&mut (&mut r).take(u16_at(&head, 32) as u64), &mut io::sink())?;
+        // A name the crate may read otherwise (no UTF-8, or given again in a Unicode path): the
+        // raw names do not say which entries it hides.
+        let mut x = extra.as_slice();
+        while x.len() >= 4 {
+            if u16_at(x, 0) == 0x7075 {
+                return Ok(false);
+            }
+            x = x.get(4 + u16_at(x, 2) as usize..).unwrap_or_default();
+        }
+        if std::str::from_utf8(&name).is_err() {
+            return Ok(false);
+        }
         if name.ends_with(b"/") && !folders.insert(name.clone()) {
             again += 1;
         }
