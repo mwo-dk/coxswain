@@ -226,8 +226,9 @@ another folder.
 #### What happens when an archive holds the same name twice?
 
 The later entry is the one you get, as tar and other programs give it, with **Ctrl+E** and with
-**F5** on a folder of the archive. A move out (**F6**) of such a name is refused, as taking it out
-of the archive would take both entries. Names that differ only in case (`xt_CONNMARK.h` and
+**F5** on a folder of the archive, and in a tar also with **F5** on the file itself. A move out
+(**F6**) of such a name, the file or a folder holding it, is refused before anything is written,
+as taking it out of the archive would take both entries; the archive keeps both. Names that differ only in case (`xt_CONNMARK.h` and
 `xt_connmark.h`) on macOS and Windows, whose disks ignore case: out of a zip or a 7z, and with
 **F5** out of any archive, both come out, the later as `xt_connmark (2).h`, as a copy keeps both
 files; **Ctrl+E** of a tar still keeps only the later one. On Linux and the BSDs they come out

@@ -1,0 +1,1 @@
+| **Moving a file out of a tar that holds its name twice is refused; copying it gives the later one.** Before, a move took the older and deleted both. | [Pack and extract](files/pack-and-extract.md#what-happens-when-an-archive-holds-the-same-name-twice) |

@@ -3147,6 +3147,23 @@ fn copy_out_with(
     password: Option<&str>,
     how: Copy,
 ) -> io::Result<()> {
+    // A move of a name the archive gives twice (a tar's, a 7z's) would take both entries out of
+    // it and keep one: refused before anything is written (#1021).
+    if how.whole && how.head.is_none() && !inner.is_empty() {
+        let prefix = format!("{inner}/");
+        let all = items(archive)?;
+        let mut seen = std::collections::HashSet::new();
+        if let Some(it) = all
+            .iter()
+            .filter(|it| !it.dir && (it.name == inner || it.name.starts_with(&prefix)))
+            .find(|it| !seen.insert(it.name))
+        {
+            return Err(crate::fs::exists(&match it.name.strip_prefix(&prefix) {
+                Some(rest) => to.join(rest),
+                None => to.to_path_buf(),
+            }));
+        }
+    }
     let (mut any, mut used) = (false, false);
     let r = copy_entries(archive, inner, to, password, how, &mut any, &mut used);
     // Stopped, what came out stays, unless it all must (a move).
@@ -3693,7 +3710,8 @@ fn copy_entries(
         // Files of a list: from a place before the first of them, when all their places are known.
         let from = crate::tar_index::load(archive)
             .and_then(|all| match how.only {
-                None => all.into_iter().find(|l| l.name == inner && !l.dir),
+                // A name given twice: from the later entry, the one that comes out, as tar gives it.
+                None => all.into_iter().rfind(|l| l.name == inner && !l.dir),
                 Some(only) => {
                     let wanted: Vec<_> = all.into_iter().filter(|l| !l.dir && only.contains(&l.name)).collect();
                     if wanted.len() == only.len() { wanted.into_iter().min_by_key(|l| l.at) } else { None }
@@ -3712,9 +3730,17 @@ fn copy_entries(
             })
             .transpose()?
             .flatten();
+        // Entries named `inner` this pass meets: it stops after the last of them, the one that
+        // comes out (from the later one: just that one).
+        let mut named: usize = 1;
         let mut tar = match from {
             Some(r) => tar::Archive::new(r),
-            None => tar_reader(archive, k)?,
+            None => {
+                if !inner.is_empty() && how.only.is_none() {
+                    named = items(archive)?.iter().filter(|it| it.name == inner && !it.dir).count();
+                }
+                tar_reader(archive, k)?
+            }
         };
         tar_named(tar.entries()?, |name, _, e| {
             let Some(path) = place(&name) else {
@@ -3731,7 +3757,11 @@ fn copy_entries(
                 let secs = e.header().mtime().unwrap_or(0);
                 write(&path, e, secs)?;
                 // The one file asked for is out (or all those `only` names): nothing after it is unpacked.
-                if name == inner || all_out() {
+                let last = name == inner && {
+                    named = named.saturating_sub(1);
+                    named == 0
+                };
+                if last || all_out() {
                     return Ok(false);
                 }
             } else {
@@ -4682,6 +4712,31 @@ mod tests {
         // Moved out (F6), the name is refused: taking it out would take both entries.
         assert!(copy_out(&tp, "docs", &d.join("f6"), None, true).is_err());
         assert_eq!(list(&tp, 10).unwrap().0.len(), 2, "nothing taken out");
+        // One file named twice, appended as `tar -r` does: F5 gives the later, F6 is refused
+        // before anything is written, and the tar keeps both (a move once took the older out
+        // and deleted both).
+        let one = d.join("one.tar");
+        let mut t = tar::Builder::new(File::create(&one).unwrap());
+        for text in ["old", "newer"] {
+            let mut h = tar::Header::new_gnu();
+            h.set_size(text.len() as u64);
+            h.set_mode(0o644);
+            t.append_data(&mut h, "a.txt", text.as_bytes()).unwrap();
+        }
+        t.into_inner().unwrap();
+        let held = std::fs::read(&one).unwrap();
+        // Before it was listed and after (from its list's places).
+        for pass in ["fresh", "listed"] {
+            let out = d.join(format!("one-{pass}"));
+            std::fs::create_dir_all(&out).unwrap();
+            let got = copy_out(&one, "a.txt", &out, None, false).unwrap();
+            assert_eq!(std::fs::read_to_string(got).unwrap(), "newer", "{pass}");
+            let err = crate::fs::rename(&one.join("a.txt"), &out.join("moved.txt")).unwrap_err();
+            assert_eq!(err.kind(), io::ErrorKind::AlreadyExists, "{pass}");
+            assert!(!out.join("moved.txt").exists(), "{pass}: nothing written");
+            assert_eq!(std::fs::read(&one).unwrap(), held, "{pass}: the tar as it was");
+            list(&one, 10).unwrap();
+        }
         std::fs::remove_dir_all(&d).unwrap();
     }
 
