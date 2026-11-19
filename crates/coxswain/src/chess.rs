@@ -131,6 +131,8 @@ pub struct Viewer {
     /// to narrow it, the move chosen).
     played: Option<PlayedLine>,
     picking: Option<(String, usize)>,
+    /// Opened in pick mode: nothing is written (a saved line, the position index).
+    pub read_only: bool,
     /// A new PGN waiting for its place to be chosen (`saving_key`).
     saving: Option<Saving>,
     /// An engine line being stepped through: the board shows it, the engine stays on the game.
@@ -248,6 +250,7 @@ impl Viewer {
             pick: 0,
             played: None,
             picking: None,
+            read_only: false,
             saving: None,
             browse: None,
             analysis: cfg.chess.analysis,
@@ -645,6 +648,9 @@ impl Viewer {
     /// `text` as a new PGN file: next to this one, or, for a game from an archive, where the
     /// user says (`Saving`).
     fn save(&mut self, word: &'static str, text: String) {
+        if self.read_only {
+            return self.said = Some(t!("pick.refused"));
+        }
         match play::origin(&self.path) {
             Ok(Some(origin)) => self.saving = Some(Saving { word, text, origin, folder: None }),
             Ok(None) => self.said = Some(play::save_where(&self.path, None, &play::Where::Beside, word, &text).unwrap_or_else(|e| e)),
@@ -994,6 +1000,9 @@ impl Viewer {
 
     /// i: the position index built, or its build stopped; I: removed.
     fn index_key(&mut self, remove: bool) {
+        if self.read_only {
+            return self.said = Some(t!("pick.refused"));
+        }
         let (Some(lib), Some(st)) = (self.lib.clone(), self.pos_index.clone()) else { return };
         if !st.can {
             return;
@@ -2511,6 +2520,14 @@ mod tests {
         }
         v.key(key(KeyCode::Enter), None);
         assert_eq!(v.played.as_ref().map(|l| l.moves[0].san.as_str()), Some("Nc3"));
+        // In pick mode the line is not saved, nor the position index built.
+        v.read_only = true;
+        v.key(key(KeyCode::Char('s')), None);
+        assert!(!d.join("g line.pgn").exists());
+        assert_eq!(v.said.take().as_deref(), Some(t!("pick.refused").as_ref()));
+        v.index_key(false);
+        assert_eq!(v.said.take().as_deref(), Some(t!("pick.refused").as_ref()));
+        v.read_only = false;
         v.key(key(KeyCode::Char('s')), None);
         let saved = std::fs::read_to_string(d.join("g line.pgn")).unwrap();
         assert!(saved.contains("1. e4 e5 2. Nf3 d6 3. Nc3 *") && saved.contains("Morphy"), "{saved}");

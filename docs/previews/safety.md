@@ -57,8 +57,9 @@ open it outside the pane:
 - **Let a document run programs.** LaTeX runs without `-shell-escape`, and latexmk without the
   `latexmkrc` a project may carry (it is Perl); only your own `~/.latexmkrc` is read. pandoc
   runs with `--sandbox`, PlantUML may include files from the diagram's folder only (an
-  installed `plantuml` is not run in a folder whose name holds a `"` or a `:` (`;` on Windows):
-  it says *plantuml is not available*, and the container engine button draws it), an installed
+  installed `plantuml` is not run in a folder whose name holds a `"`: it says *plantuml is not
+  available*, and the container engine button draws it; in a folder whose name holds a `:`
+  (`;` on Windows) it draws the diagram but includes nothing), an installed
   `d2` runs with `--bundle=false`, so it fetches none of the icons and pictures a diagram names
   from the web, and containers have no network. LibreOffice converts a document in a profile of
   its own with all macros off (macro security "very high" behind that), no trusted folders, links never updated,

@@ -594,18 +594,18 @@ fn installed_kroki_args(kind: &str) -> Vec<&'static str> {
 /// The installed PlantUML's `JAVA_TOOL_OPTIONS`: the user's own, then the allowlist of the
 /// diagram's folder in double quotes. The JVM has no escape inside quotes, so a folder whose name
 /// holds a `"` (or a control character) would add options of its own (a `-javaagent:` from that
-/// folder): `None`, and the installed program is not run there. The same for a path-list
-/// separator (`:`, `;` on Windows): PlantUML splits the allowlist on it, so it would allow a
-/// second folder the name chooses.
+/// folder): `None`, and the installed program is not run there. A path-list separator (`:`, `;`
+/// on Windows) would allow a second folder the name chooses, since PlantUML splits the allowlist
+/// on it: such a folder gets no allowlist, so the diagram is drawn but includes nothing.
 fn plantuml_java_options(user: Option<String>, dir: &Path) -> Option<String> {
     // Not `env::join_paths`: on Windows it quotes a `;` instead of refusing it.
     let separator = if cfg!(windows) { ';' } else { ':' };
     let dir = dir.to_string_lossy();
-    if dir.chars().any(|ch| ch == '"' || ch == separator || ch.is_control()) {
+    if dir.chars().any(|ch| ch == '"' || ch.is_control()) {
         return None;
     }
-    let user = user.map(|o| format!("{o} ")).unwrap_or_default();
-    Some(format!("{user}-Dplantuml.allowlist.path=\"{dir}\""))
+    let allow = (!dir.contains(separator)).then(|| format!("-Dplantuml.allowlist.path=\"{dir}\""));
+    Some(user.into_iter().chain(allow).collect::<Vec<_>>().join(" "))
 }
 
 /// How a media preview runs with the engine `kind:which_one` (`local:magick`,
@@ -1182,9 +1182,11 @@ mod tests {
         // A quote in the name would end the value and add a Java agent from the folder.
         assert_eq!(plantuml_java_options(None, Path::new("/d/x\" -javaagent:a.jar -Dz=\"y")), None);
         assert_eq!(plantuml_java_options(Some("-Xmx1g".into()), Path::new("/d/a\nb")), None);
-        // A separator in the name would allow a second folder: the allowlist is a path list.
+        // A separator in the name would allow a second folder (the allowlist is a path list):
+        // drawn with no allowlist, so nothing is included, rather than refused.
         let other = if cfg!(windows) { "C:\\d\\x;C:\\Users" } else { "/d/x:/home" };
-        assert_eq!(plantuml_java_options(None, Path::new(other)), None);
+        assert_eq!(plantuml_java_options(None, Path::new(other)).unwrap(), "");
+        assert_eq!(plantuml_java_options(Some("-Xmx1g".into()), Path::new(other)).unwrap(), "-Xmx1g");
     }
 
     #[test]
