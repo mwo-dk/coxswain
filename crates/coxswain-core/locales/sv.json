@@ -315,6 +315,7 @@
  "archive.part_missing": "{name} saknas: en 7z delad i delar öppnas bara med alla sina delar, numrerade utan luckor",
  "archive.zip_part_missing": "{name} saknas: en zip delad i delar öppnas bara med alla sina delar, numrerade utan luckor",
  "archive.zip_parts_zip64": "En så stor zip delad i delar (zip64) läses inte: slå först ihop dess delar (zip -s 0)",
+ "archive.zip_name_twice": "Den här zip-filen har ett namn två gånger: skriven på nytt skulle bara den ena finnas kvar, så den lämnas oförändrad",
  "archive.cab_too_much": "Det här cabinet skulle packa upp mer än 4 GB för att nå filerna: kopiera ut färre åt gången",
  "archive.cab_part_missing": "Det här cabinet ingår i en uppsättning: {name} måste ligga i samma mapp",
  "archive.nested_too_deep": "Arkiv i arkiv öppnas högst {depth} nivåer ner: kopiera ut detta med F5 för att öppna det",

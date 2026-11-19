@@ -315,6 +315,7 @@
  "archive.part_missing": "{name} mangler: en 7z delt i dele kan kun åbnes med alle sine dele, nummereret uden huller",
  "archive.zip_part_missing": "{name} mangler: en zip delt i dele kan kun åbnes med alle sine dele, nummereret uden huller",
  "archive.zip_parts_zip64": "En så stor zip delt i dele (zip64) læses ikke: saml først dens dele (zip -s 0)",
+ "archive.zip_name_twice": "Denne zip indeholder et navn to gange: skrevet på ny ville kun det ene blive tilbage, så den forbliver uændret",
  "archive.cab_too_much": "Dette cabinet ville pakke mere end 4 GB ud for at nå disse filer: kopiér færre ud ad gangen",
  "archive.cab_part_missing": "Dette cabinet er en del af et sæt: {name} skal ligge i samme mappe",
  "archive.nested_too_deep": "Arkiver i arkiver åbnes højst {depth} niveauer ned: kopiér dette ud med F5 for at åbne det",

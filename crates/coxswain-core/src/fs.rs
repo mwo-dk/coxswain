@@ -1260,9 +1260,9 @@ pub(crate) fn rename_locked_logged(
     writable(src)?;
     writable(dst)?;
     // The archive's own name in another case (`Report.zip` to `report.zip`, where case does not
-    // count): a rename on disk, not a move into itself. Only that: another name of the same file
-    // (a hard link, a link to it) is refused below as a move into itself.
-    let name = |p: &Path| p.file_name().map(|n| n.to_string_lossy().to_lowercase());
+    // count, or only its Unicode form): a rename on disk, not a move into itself. Only that:
+    // another name of the same file (a hard link, a link to it) is refused below.
+    let name = |p: &Path| p.file_name().map(|n| crate::archive::fold(Path::new(n)));
     if let Some((a, inner)) = into_archive(dst)
         && inner.is_empty()
         && same_file(src, &a)

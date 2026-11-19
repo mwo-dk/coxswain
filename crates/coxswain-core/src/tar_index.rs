@@ -24,6 +24,9 @@ pub(crate) struct Listed {
     pub name: String,
     pub size: u64,
     pub dir: bool,
+    /// A file, not a folder, a link or a device. A list kept without it is not read, so it is
+    /// made again once.
+    pub file: bool,
     pub modified: u64,
     pub at: u64,
 }
@@ -1149,15 +1152,16 @@ pub(crate) fn entry_from(archive: &Path, pack: crate::archive::Pack, name: &str,
     let (at, size, mut data) = if plain {
         let (mut found, mut tar) = (None, tar::Archive::new(File::open(archive)?));
         crate::archive::tar_named(tar.entries_with_seek()?, |n, _, e| {
+            // A name given twice: the later file, the one that comes out, as tar gives it.
             if n == name && e.header().entry_type().is_file() {
                 found = Some((0, e.size(), Some(e.raw_file_position())));
             }
-            Ok(found.is_none())
+            Ok(true)
         })?;
         let Some(f) = found else { return Ok(None) };
         f
     } else {
-        let Some(l) = load(archive).and_then(|all| all.into_iter().find(|l| l.name == name && !l.dir)) else { return Ok(None) };
+        let Some(l) = load(archive).and_then(|all| all.into_iter().rfind(|l| l.name == name && l.file)) else { return Ok(None) };
         (l.at, l.size, None)
     };
     if offset == 0 || offset >= size {
@@ -1329,7 +1333,7 @@ mod tests {
         std::fs::write(&xz, b"no longer an archive").unwrap();
         assert!(load(&xz).is_none());
         // A list of names too long to keep is not kept.
-        save(&xz, &[Listed { name: "n".repeat(KEPT_NAMES + 1), size: 0, dir: false, modified: 0, at: 0 }]);
+        save(&xz, &[Listed { name: "n".repeat(KEPT_NAMES + 1), size: 0, dir: false, file: true, modified: 0, at: 0 }]);
         assert!(load(&xz).is_none());
         std::fs::remove_dir_all(d).unwrap();
     }

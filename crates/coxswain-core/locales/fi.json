@@ -315,6 +315,7 @@
  "archive.part_missing": "{name} puuttuu: osiin jaettu 7z aukeaa vain, kun kaikki sen osat ovat mukana aukottomasti numeroituina",
  "archive.zip_part_missing": "{name} puuttuu: osiin jaettu zip aukeaa vain, kun kaikki sen osat ovat mukana aukottomasti numeroituina",
  "archive.zip_parts_zip64": "Näin suurta osiin jaettua zipiä (zip64) ei lueta: yhdistä ensin sen osat (zip -s 0)",
+ "archive.zip_name_twice": "Tässä zipissä on sama nimi kahdesti: uudelleen kirjoitettuna vain toinen säilyisi, joten se jätetään ennalleen",
  "archive.cab_too_much": "Tämä cabinet purkaisi yli 4 Gt päästäkseen näihin tiedostoihin: kopioi vähemmän kerralla",
  "archive.cab_part_missing": "Tämä cabinet kuuluu sarjaan: {name} täytyy olla samassa kansiossa",
  "archive.nested_too_deep": "Arkistojen sisällä olevat arkistot avautuvat enintään {depth} tason syvyyteen: kopioi tämä ulos F5:llä avataksesi sen",

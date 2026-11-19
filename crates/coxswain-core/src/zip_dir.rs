@@ -124,7 +124,7 @@ fn u64_at(b: &[u8], i: usize) -> u64 {
 
 /// Where the central directory starts, how long it is, how many entries it has, and how many
 /// bytes come before the zip (a program it is appended to).
-fn directory(file: &mut (impl Read + Seek)) -> io::Result<(u64, u64, u64, u64)> {
+pub(crate) fn directory(file: &mut (impl Read + Seek)) -> io::Result<(u64, u64, u64, u64)> {
     let len = file.seek(SeekFrom::End(0))?;
     let tail = len.min(22 + 65_535);
     file.seek(SeekFrom::Start(len - tail))?;

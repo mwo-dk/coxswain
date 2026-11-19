@@ -281,6 +281,7 @@
  "archive.part_missing": "缺少 {name}：分割的 7z 需要所有分割檔齊全、編號連續才能開啟",
  "archive.zip_part_missing": "缺少 {name}：分割的 zip 需要所有分割檔齊全、編號連續才能開啟",
  "archive.zip_parts_zip64": "不讀取這麼大的分割 zip（zip64）：請先合併其分割檔（zip -s 0）",
+ "archive.zip_name_twice": "這個 zip 中有一個名稱出現兩次：重新寫入只會保留其中一個，因此保持不變",
  "archive.cab_too_much": "要取得這些檔案，這個 cabinet 需要解壓縮超過 4 GB：請每次少複製一些",
  "archive.cab_part_missing": "這個 cabinet 屬於一組檔案：{name} 必須在同一個資料夾",
  "archive.nested_too_deep": "壓縮檔中的壓縮檔最多只開到 {depth} 層：請用 F5 把這個複製出來再開啟",
