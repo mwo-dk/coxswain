@@ -47,5 +47,28 @@ class Holding(unittest.TestCase):
         self.assertEqual(self.numbers("2.40.0", "2.39.0"), [])
 
 
+class Arguments(unittest.TestCase):
+    # A word main() does not know once ran the real release (bumped Cargo.toml, deleted changelog.d/).
+    def run_main(self, *args):
+        import contextlib, io, sys, tempfile
+        with tempfile.TemporaryDirectory() as d, contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            old_argv, old_cwd = sys.argv, os.getcwd()
+            sys.argv = ["release-pr.py", *args]
+            os.chdir(d)  # an empty folder: anything past the guard would fail or touch nothing real
+            try:
+                return rp.main(), os.listdir(d)
+            finally:
+                sys.argv = old_argv
+                os.chdir(old_cwd)
+
+    def test_help_changes_nothing(self):
+        self.assertEqual(self.run_main("--help"), (0, []))
+        self.assertEqual(self.run_main("-h", "--unreleased-ok"), (0, []))
+
+    def test_unknown_word_changes_nothing(self):
+        self.assertEqual(self.run_main("--bogus"), (64, []))
+        self.assertEqual(self.run_main("--next", "--dry-run"), (64, []))
+
+
 if __name__ == "__main__":
     unittest.main()

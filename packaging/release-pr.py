@@ -2,6 +2,7 @@
 """The release pull request's changes, made in the checkout it runs in (CLAUDE.md, Shipping).
 
     packaging/release-pr.py --next    print the next version and change nothing
+    packaging/release-pr.py --help    print this and change nothing (any other word: exit 64)
     --unreleased-ok                   (with either) go on although the current version has no
                                       published GitHub release (the owner's decision only)
     --open-issues-ok                  (with either) go on although the new version's milestone
@@ -105,6 +106,13 @@ def main() -> int:
     unreleased_ok = "--unreleased-ok" in args
     open_ok = "--open-issues-ok" in args
     args = [a for a in args if a not in ("--unreleased-ok", "--open-issues-ok")]
+    if args in (["-h"], ["--help"]):
+        print(__doc__)
+        return 0
+    if args not in ([], ["--next"]):
+        # An unknown word must never fall through to the real release (a --help once did).
+        print(f"release-pr.py: unknown arguments {' '.join(args)}; changed nothing.\n{__doc__}", file=sys.stderr)
+        return 64
     frags = sorted(Path("changelog.d").glob("*.md"))
     if not frags:
         print("changelog.d/ has no rows: nothing to release.", file=sys.stderr)
