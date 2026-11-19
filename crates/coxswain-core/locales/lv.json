@@ -320,6 +320,7 @@
  "archive.part_missing": "Trūkst {name}: daļās sadalīts 7z atveras tikai ar visām daļām, numurētām bez iztrūkumiem",
  "archive.zip_part_missing": "Trūkst {name}: daļās sadalīts zip atveras tikai ar visām daļām, numurētām bez iztrūkumiem",
  "archive.zip_parts_zip64": "Tik liels daļās sadalīts zip (zip64) netiek lasīts: vispirms apvienojiet tā daļas (zip -s 0)",
+ "archive.zip_name_twice": "Šajā zip viens nosaukums ir divreiz: pārrakstot paliktu tikai viens no tiem, tāpēc tas tiek atstāts nemainīts",
  "archive.cab_too_much": "Šis cabinet, lai sasniegtu šos failus, izpakotu vairāk nekā 4 GB: kopējiet mazāk vienlaikus",
  "archive.cab_part_missing": "Šis cabinet ir kopas daļa: {name} jābūt tajā pašā mapē",
  "archive.nested_too_deep": "Arhīvi arhīvos atveras līdz {depth} līmeņiem: izkopējiet šo ar F5, lai to atvērtu",

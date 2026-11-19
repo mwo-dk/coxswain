@@ -320,6 +320,7 @@
  "archive.part_missing": "{name} manque : un 7z découpé en parties ne s’ouvre qu’avec toutes ses parties, numérotées sans trou",
  "archive.zip_part_missing": "{name} manque : un zip découpé en parties ne s’ouvre qu’avec toutes ses parties, numérotées sans trou",
  "archive.zip_parts_zip64": "Un zip découpé en parties aussi grand (zip64) n’est pas lu : réunissez d’abord ses parties (zip -s 0)",
+ "archive.zip_name_twice": "Ce zip contient un nom deux fois : réécrit, il n’en garderait qu’un des deux, il est donc laissé tel quel",
  "archive.cab_too_much": "Ce cabinet décompresserait plus de 4 Go pour atteindre ces fichiers : copiez-en moins à la fois",
  "archive.cab_part_missing": "Ce cabinet fait partie d'un jeu : {name} doit se trouver dans le même dossier",
  "archive.nested_too_deep": "Les archives dans des archives s’ouvrent jusqu’à {depth} niveaux : copiez celle-ci avec F5 pour l’ouvrir",

@@ -281,6 +281,7 @@
  "archive.part_missing": "缺少 {name}：分卷的 7z 需要所有分卷齐全、编号连续才能打开",
  "archive.zip_part_missing": "缺少 {name}：分卷的 zip 需要所有分卷齐全、编号连续才能打开",
  "archive.zip_parts_zip64": "不读取这么大的分卷 zip（zip64）：请先合并其分卷（zip -s 0）",
+ "archive.zip_name_twice": "这个 zip 中有一个名称出现两次：重新写入只会保留其中一个，因此保持不变",
  "archive.cab_too_much": "要取到这些文件，这个 cabinet 需要解压超过 4 GB：请每次少复制一些",
  "archive.cab_part_missing": "这个 cabinet 属于一组文件：{name} 必须在同一个文件夹",
  "archive.nested_too_deep": "压缩包中的压缩包最多只打开 {depth} 层：请用 F5 把这个复制出来再打开",

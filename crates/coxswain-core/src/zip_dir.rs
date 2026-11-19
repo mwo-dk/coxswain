@@ -170,6 +170,52 @@ fn directory(file: &mut (impl Read + Seek)) -> io::Result<(u64, u64, u64, u64)> 
     Ok((start + before, size, count, before))
 }
 
+/// Whether each entry the `zip` crate leaves out of the zip in `file` (`read`: how many it reads)
+/// is a folder given again by its raw name (`d/` twice, as in some jars), so nothing is lost by
+/// writing the zip anew. No (or unsure) when one may be a file, and whenever a name is no UTF-8
+/// or has an Info-ZIP Unicode path.
+pub(crate) fn only_folders_twice(file: &mut (impl Read + Seek), read: usize) -> io::Result<bool> {
+    let (start, size, count, _) = match directory(file) {
+        Ok(d) => d,
+        Err(e) if is_unsure(&e) => return Ok(false),
+        Err(e) => return Err(e),
+    };
+    file.seek(SeekFrom::Start(start))?;
+    let mut r = BufReader::with_capacity(1 << 16, file.take(size));
+    let (mut head, mut name) = ([0u8; 46], vec![]);
+    let (mut folders, mut again) = (std::collections::HashSet::new(), 0u64);
+    for _ in 0..count {
+        if r.read_exact(&mut head).is_err() || head[..4] != *b"PK\x01\x02" {
+            return Ok(false);
+        }
+        name.resize(u16_at(&head, 28) as usize, 0);
+        if r.read_exact(&mut name).is_err() {
+            return Ok(false);
+        }
+        let mut extra = vec![0; u16_at(&head, 30) as usize];
+        if r.read_exact(&mut extra).is_err() {
+            return Ok(false);
+        }
+        io::copy(&mut (&mut r).take(u16_at(&head, 32) as u64), &mut io::sink())?;
+        // A name the crate may read otherwise (no UTF-8, or given again in a Unicode path): the
+        // raw names do not say which entries it hides.
+        let mut x = extra.as_slice();
+        while x.len() >= 4 {
+            if u16_at(x, 0) == 0x7075 {
+                return Ok(false);
+            }
+            x = x.get(4 + u16_at(x, 2) as usize..).unwrap_or_default();
+        }
+        if std::str::from_utf8(&name).is_err() {
+            return Ok(false);
+        }
+        if name.ends_with(b"/") && !folders.insert(name.clone()) {
+            again += 1;
+        }
+    }
+    Ok(count.checked_sub(again) == Some(read as u64))
+}
+
 /// Each entry of the zip in `file`, in the order of its directory, to `each` until it says to
 /// stop. `Unsure` (`is_unsure`) when the `zip` crate should read it.
 pub(crate) fn entries<R: Read + Seek>(

@@ -310,6 +310,7 @@
  "archive.part_missing": "{name} がありません: 分割された 7z は、欠番のないすべての部分がそろったときだけ開きます",
  "archive.zip_part_missing": "{name} がありません: 分割された zip は、欠番のないすべての部分がそろったときだけ開きます",
  "archive.zip_parts_zip64": "これほど大きい分割 zip (zip64) は読みません: 先に部分を結合してください (zip -s 0)",
+ "archive.zip_name_twice": "この zip には同じ名前が 2 つあります。書き直すと片方しか残らないため、変更せずにそのままにします",
  "archive.cab_too_much": "このキャビネットはこれらのファイルに届くまでに 4 GB 以上を展開します。一度にコピーする数を減らしてください",
  "archive.cab_part_missing": "このキャビネットはセットの一部です。{name} が同じフォルダーに必要です",
  "archive.nested_too_deep": "アーカイブの中のアーカイブは {depth} 階層まで開けます: これは F5 でコピーして取り出してから開いてください",

@@ -315,6 +315,7 @@
  "archive.part_missing": "{name} fehlt: Ein in Teile zerlegtes 7z öffnet sich nur mit allen Teilen, lückenlos nummeriert",
  "archive.zip_part_missing": "{name} fehlt: Ein in Teile zerlegtes Zip öffnet sich nur mit allen Teilen, lückenlos nummeriert",
  "archive.zip_parts_zip64": "Ein so großes in Teile zerlegtes Zip (zip64) wird nicht gelesen: zuerst seine Teile zusammenfügen (zip -s 0)",
+ "archive.zip_name_twice": "Dieses Zip enthält einen Namen zweimal: neu geschrieben bliebe nur einer der beiden erhalten, daher bleibt es unverändert",
  "archive.cab_too_much": "Dieses Cabinet würde für diese Dateien mehr als 4 GB entpacken: weniger auf einmal herauskopieren",
  "archive.cab_part_missing": "Dieses Cabinet gehört zu einem Satz: {name} muss im selben Ordner liegen",
  "archive.nested_too_deep": "Archive in Archiven öffnen sich höchstens {depth} Ebenen tief: Kopieren Sie dieses mit F5 heraus, um es zu öffnen",

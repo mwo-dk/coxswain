@@ -325,6 +325,7 @@
  "archive.part_missing": "Brak {name}: 7z podzielony na części otwiera się tylko ze wszystkimi częściami, numerowanymi bez luk",
  "archive.zip_part_missing": "Brak {name}: zip podzielony na części otwiera się tylko ze wszystkimi częściami, numerowanymi bez luk",
  "archive.zip_parts_zip64": "Tak duży zip podzielony na części (zip64) nie jest czytany: najpierw połącz jego części (zip -s 0)",
+ "archive.zip_name_twice": "Ten zip zawiera jedną nazwę dwa razy: po ponownym zapisaniu zostałaby tylko jedna z nich, więc pozostaje bez zmian",
  "archive.cab_too_much": "Ten cabinet rozpakowałby ponad 4 GB, by dotrzeć do tych plików: kopiuj mniej naraz",
  "archive.cab_part_missing": "Ten cabinet należy do zestawu: {name} musi być w tym samym folderze",
  "archive.nested_too_deep": "Archiwa w archiwach otwierają się najwyżej do {depth} poziomów: skopiuj to na zewnątrz klawiszem F5, aby je otworzyć",
