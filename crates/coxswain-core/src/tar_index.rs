@@ -1151,12 +1151,14 @@ pub(crate) fn entry_from(archive: &Path, pack: crate::archive::Pack, name: &str,
     // tar, where its data does, found by seeking from header to header.
     let (at, size, mut data) = if plain {
         let (mut found, mut tar) = (None, tar::Archive::new(File::open(archive)?));
+        // A name given twice (as the list in memory says): the later file, the one that comes
+        // out, as tar gives it; else the first, and nothing after it is read.
+        let twice = crate::archive::listed_twice(archive, &|n| n == name);
         crate::archive::tar_named(tar.entries_with_seek()?, |n, _, e| {
-            // A name given twice: the later file, the one that comes out, as tar gives it.
             if n == name && e.header().entry_type().is_file() {
                 found = Some((0, e.size(), Some(e.raw_file_position())));
             }
-            Ok(true)
+            Ok(twice || found.is_none())
         })?;
         let Some(f) = found else { return Ok(None) };
         f

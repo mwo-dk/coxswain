@@ -591,6 +591,8 @@ fn tar_named_at<'a, R: Read>(
     let unsafe_tar = || io::Error::new(io::ErrorKind::InvalidData, crate::t!("err.tar_unsafe"));
     for e in entries.raw(true) {
         let mut e = e?;
+        #[cfg(test)]
+        HEADERS.with(|n| n.set(n.get() + 1));
         let at = *start.get_or_insert(e.raw_header_position());
         let t = e.header().entry_type();
         // A record without a tar's magic is an entry to the crate, not a record.
@@ -3167,7 +3169,7 @@ fn copy_out_with(
         // A zip's list can hide it: the zip crate reads such a name once.
         if kind(archive) == Some(Kind::Zip) {
             let z = zip::ZipArchive::new(BufReader::new(Joined::open(archive)?)).map_err(io::Error::other)?;
-            zip_read_whole(archive, z.len())?;
+            zip_read_whole(archive, &z)?;
         }
     }
     let (mut any, mut used) = (false, false);
@@ -3722,7 +3724,11 @@ fn copy_entries(
                 }
                 left
             }
-            None if how.only.is_some() || !inner.is_empty() => tar_files_named(archive, k, &wanted)?,
+            // Counted only when the list in memory gives one twice: else one file is read up to
+            // it and no further, as before.
+            None if (how.only.is_some() || !inner.is_empty()) && listed_twice(archive, &wanted) => {
+                tar_files_named(archive, k, &wanted)?
+            }
             None => Default::default(),
         };
         // From a place before the one file (its last), or before the first of a list's files, when
@@ -3792,22 +3798,29 @@ fn copy_entries(
     Ok(())
 }
 
-/// A zip whose directory has more entries than the `read` the zip crate gives (a name given
-/// twice, which it reads once): written anew it would lose one, so that is refused.
-fn zip_read_whole(archive: &Path, read: usize) -> io::Result<()> {
-    match crate::zip_dir::directory(&mut BufReader::new(Joined::open(archive)?)) {
-        Ok((_, _, count, _)) if count != read as u64 => {
-            Err(io::Error::new(io::ErrorKind::InvalidData, crate::t!("archive.zip_name_twice")))
-        }
-        Err(e) if !crate::zip_dir::is_unsure(&e) => Err(e),
-        _ => Ok(()),
+/// A zip that gives a file's name twice, which the zip crate reads once: written anew (or with
+/// the name taken out) it would lose one, so that is refused. A folder given twice loses nothing.
+fn zip_read_whole<R: Read + Seek>(archive: &Path, z: &zip::ZipArchive<R>) -> io::Result<()> {
+    if !z.has_duplicate_names() || crate::zip_dir::only_folders_twice(&mut BufReader::new(Joined::open(archive)?), z.len())? {
+        return Ok(());
     }
+    Err(io::Error::new(io::ErrorKind::InvalidData, crate::t!("archive.zip_name_twice")))
 }
 
 /// `p` as a file system that ignores case (and Unicode form) sees it.
 pub(crate) fn fold(p: &Path) -> String {
     use unicode_normalization::UnicodeNormalization;
     p.to_string_lossy().nfc().collect::<String>().to_lowercase()
+}
+
+/// Whether the archive's list in memory gives a name `wanted` twice (a file, a link or a device;
+/// not a folder). No list in memory: no.
+pub(crate) fn listed_twice(archive: &Path, wanted: &dyn Fn(&str) -> bool) -> bool {
+    let Some(all) = stamp(archive).ok().and_then(|s| cached(archive, s)) else {
+        return false;
+    };
+    let mut seen = std::collections::HashSet::new();
+    all.iter().filter(|it| !it.dir && wanted(it.name)).any(|it| !seen.insert(it.name))
 }
 
 /// How many files (not folders, links or devices) of each name `wanted` a tar holds: a pass
@@ -3977,7 +3990,7 @@ fn rewrite(
             if exists {
                 let mut z = zip::ZipArchive::new(BufReader::new(Joined::open(archive)?))
                     .map_err(io::Error::other)?;
-                zip_read_whole(archive, z.len())?;
+                zip_read_whole(archive, &z)?;
                 let mut first_locked = None;
                 for i in 0..z.len() {
                     crate::stop::check()?;
@@ -4689,6 +4702,12 @@ pub fn one_pass(paths: &[PathBuf], dest: &Path) -> Option<(PathBuf, Vec<String>)
 
 #[cfg(test)]
 thread_local! {
+    /// Tar headers read on this thread.
+    static HEADERS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+thread_local! {
     /// Times `copy_entries` went through an archive on this thread.
     static PASSES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
@@ -4782,7 +4801,8 @@ mod tests {
         }
         t.into_inner().unwrap();
         let held = std::fs::read(&one).unwrap();
-        // Before it was listed and after (from its list's places).
+        // Its list in memory, as the panel showing it holds it: the name is known to come twice.
+        items(&one).unwrap();
         for pass in ["fresh", "listed"] {
             let out = d.join(format!("one-{pass}"));
             std::fs::create_dir_all(&out).unwrap();
@@ -4863,21 +4883,46 @@ mod tests {
         let d = std::env::temp_dir().join(format!("coxswain-zip-twice-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
-        // Stored entries, written by hand: the zip crate will not write a name twice.
-        let crc = |b: &[u8]| {
-            let mut c = flate2::Crc::new();
-            c.update(b);
-            c.sum()
-        };
         let mut unicode = vec![1u8];
-        unicode.extend(crc(b"b.txt").to_le_bytes());
+        unicode.extend(flate2_crc(b"b.txt").to_le_bytes());
         unicode.extend(b"b.txt");
         let mut extra = 0x7075u16.to_le_bytes().to_vec();
         extra.extend((unicode.len() as u16).to_le_bytes());
         extra.extend(&unicode);
-        let entries: [(&str, &[u8], &[u8]); 3] = [("d/a.txt", b"old", b""), ("d/a.txt", b"newer", b""), ("b.txt", b"bee", &extra)];
+        let zip = hand_zip(&[("d/a.txt", b"old", b""), ("d/a.txt", b"newer", b""), ("b.txt", b"bee", &extra)]);
+        let zp = d.join("twice.zip");
+        std::fs::write(&zp, &zip).unwrap();
+        assert_eq!(zip::ZipArchive::new(File::open(&zp).unwrap()).unwrap().len(), 2, "the zip crate reads it once");
+        let out = d.join("out");
+        std::fs::create_dir_all(&out).unwrap();
+        for inner in ["d/a.txt", "d"] {
+            assert!(crate::fs::rename(&zp.join(inner), &out.join("moved")).is_err(), "{inner}");
+            assert!(!out.join("moved").exists(), "{inner}: nothing written");
+            assert_eq!(std::fs::read(&zp).unwrap(), zip, "{inner}: the zip as it was");
+        }
+        std::fs::write(d.join("c.txt"), "c").unwrap();
+        assert!(crate::fs::copy(&d.join("c.txt"), &zp).is_err(), "nothing added");
+        assert_eq!(std::fs::read(&zp).unwrap(), zip, "the zip as it was");
+        // A folder given twice (as in some jars) loses nothing: still written to.
+        let jar = d.join("folder-twice.zip");
+        std::fs::write(&jar, hand_zip(&[("d/", b"", b""), ("d/", b"", b""), ("d/a.txt", b"a", b"")])).unwrap();
+        crate::fs::copy(&d.join("c.txt"), &jar).unwrap();
+        let names: Vec<_> = list(&jar, 10).unwrap().0.into_iter().map(|e| e.name).collect();
+        assert!(names.iter().any(|n| n == "c.txt") && names.iter().any(|n| n == "d/a.txt"), "{names:?}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    fn flate2_crc(b: &[u8]) -> u32 {
+        let mut c = flate2::Crc::new();
+        c.update(b);
+        c.sum()
+    }
+
+    /// A zip of stored entries (name, data, extra field), written by hand: the zip crate will not
+    /// write a name twice.
+    fn hand_zip(entries: &[(&str, &[u8], &[u8])]) -> Vec<u8> {
         let (mut zip, mut central) = (vec![], vec![]);
-        for (name, data, x) in entries {
+        for &(name, data, x) in entries {
             let at = zip.len() as u32;
             let head = |sig: u32| {
                 let mut h = sig.to_le_bytes().to_vec();
@@ -4887,7 +4932,7 @@ mod tests {
                 for v in [20u16, 0, 0, 0, 0x21] {
                     h.extend(v.to_le_bytes());
                 }
-                h.extend(crc(data).to_le_bytes());
+                h.extend(flate2_crc(data).to_le_bytes());
                 h.extend((data.len() as u32).to_le_bytes());
                 h.extend((data.len() as u32).to_le_bytes());
                 h.extend((name.len() as u16).to_le_bytes());
@@ -4908,24 +4953,51 @@ mod tests {
         zip.extend(&central);
         zip.extend(0x0605_4b50u32.to_le_bytes());
         zip.extend([0u8; 4]);
-        zip.extend(3u16.to_le_bytes());
-        zip.extend(3u16.to_le_bytes());
+        zip.extend((entries.len() as u16).to_le_bytes());
+        zip.extend((entries.len() as u16).to_le_bytes());
         zip.extend((central.len() as u32).to_le_bytes());
         zip.extend(start.to_le_bytes());
         zip.extend([0u8; 2]);
-        let zp = d.join("twice.zip");
-        std::fs::write(&zp, &zip).unwrap();
-        assert_eq!(zip::ZipArchive::new(File::open(&zp).unwrap()).unwrap().len(), 2, "the zip crate reads it once");
-        let out = d.join("out");
-        std::fs::create_dir_all(&out).unwrap();
-        for inner in ["d/a.txt", "d"] {
-            assert!(crate::fs::rename(&zp.join(inner), &out.join("moved")).is_err(), "{inner}");
-            assert!(!out.join("moved").exists(), "{inner}: nothing written");
-            assert_eq!(std::fs::read(&zp).unwrap(), zip, "{inner}: the zip as it was");
-        }
-        std::fs::write(d.join("c.txt"), "c").unwrap();
-        assert!(crate::fs::copy(&d.join("c.txt"), &zp).is_err(), "nothing added");
-        assert_eq!(std::fs::read(&zp).unwrap(), zip, "the zip as it was");
+        zip
+    }
+
+    /// One file early in a large plain tar, its list in memory as a panel holds it, is read (a
+    /// stream, from a byte on, copied out) with as many headers read in a tar 8 times as large:
+    /// never through the rest of the tar.
+    #[test]
+    fn an_early_file_of_a_large_tar_is_read_without_the_rest() {
+        let d = std::env::temp_dir().join(format!("coxswain-tar-early-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let headers = |n: usize| {
+            let p = d.join(format!("{n}.tar"));
+            let mut t = tar::Builder::new(File::create(&p).unwrap());
+            for i in 0..=n {
+                let name = if i == 0 { "first.txt".to_string() } else { format!("f{i}.txt") };
+                let mut h = tar::Header::new_gnu();
+                h.set_size(5);
+                h.set_mode(0o644);
+                t.append_data(&mut h, name, &b"hello"[..]).unwrap();
+            }
+            t.finish().unwrap();
+            drop(t);
+            items(&p).unwrap();
+            HEADERS.with(|h| h.set(0));
+            let text = |r: &mut dyn Read| {
+                let mut s = String::new();
+                r.read_to_string(&mut s)?;
+                Ok(s)
+            };
+            assert_eq!(stream(&p.join("first.txt"), text).unwrap(), "hello");
+            assert_eq!(stream_at(&p.join("first.txt"), 1, |r, _| text(r), false).unwrap(), "ello");
+            let out = d.join(format!("out-{n}"));
+            std::fs::create_dir_all(&out).unwrap();
+            copy_out(&p, "first.txt", &out, None, false).unwrap();
+            HEADERS.with(|h| h.get())
+        };
+        let (one, eight) = (headers(500), headers(4000));
+        assert_eq!(one, eight, "as many headers read in a tar 8 times as large");
+        assert!(one < 20, "{one} headers read for the first file");
         std::fs::remove_dir_all(&d).unwrap();
     }
 

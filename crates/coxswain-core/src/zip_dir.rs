@@ -124,7 +124,7 @@ fn u64_at(b: &[u8], i: usize) -> u64 {
 
 /// Where the central directory starts, how long it is, how many entries it has, and how many
 /// bytes come before the zip (a program it is appended to).
-pub(crate) fn directory(file: &mut (impl Read + Seek)) -> io::Result<(u64, u64, u64, u64)> {
+fn directory(file: &mut (impl Read + Seek)) -> io::Result<(u64, u64, u64, u64)> {
     let len = file.seek(SeekFrom::End(0))?;
     let tail = len.min(22 + 65_535);
     file.seek(SeekFrom::Start(len - tail))?;
@@ -168,6 +168,36 @@ pub(crate) fn directory(file: &mut (impl Read + Seek)) -> io::Result<(u64, u64, 
         .and_then(|s| s.checked_sub(start))
         .ok_or_else(unsure)?;
     Ok((start + before, size, count, before))
+}
+
+/// Whether each entry the `zip` crate leaves out of the zip in `file` (`read`: how many it reads)
+/// is a folder given again by its raw name (`d/` twice, as in some jars), so nothing is lost by
+/// writing the zip anew. No (or unsure) when one may be a file.
+pub(crate) fn only_folders_twice(file: &mut (impl Read + Seek), read: usize) -> io::Result<bool> {
+    let (start, size, count, _) = match directory(file) {
+        Ok(d) => d,
+        Err(e) if is_unsure(&e) => return Ok(false),
+        Err(e) => return Err(e),
+    };
+    file.seek(SeekFrom::Start(start))?;
+    let mut r = BufReader::with_capacity(1 << 16, file.take(size));
+    let (mut head, mut name) = ([0u8; 46], vec![]);
+    let (mut folders, mut again) = (std::collections::HashSet::new(), 0u64);
+    for _ in 0..count {
+        if r.read_exact(&mut head).is_err() || head[..4] != *b"PK\x01\x02" {
+            return Ok(false);
+        }
+        name.resize(u16_at(&head, 28) as usize, 0);
+        if r.read_exact(&mut name).is_err() {
+            return Ok(false);
+        }
+        let skip = u16_at(&head, 30) as u64 + u16_at(&head, 32) as u64;
+        io::copy(&mut (&mut r).take(skip), &mut io::sink())?;
+        if name.ends_with(b"/") && !folders.insert(name.clone()) {
+            again += 1;
+        }
+    }
+    Ok(count.checked_sub(again) == Some(read as u64))
 }
 
 /// Each entry of the zip in `file`, in the order of its directory, to `each` until it says to
