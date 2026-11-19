@@ -398,11 +398,14 @@ impl Viewer {
             }
         }
         if p.done && matches!(lib.format, Format::Pgn | Format::Xiangqi) && self.pos_asking.is_none() && self.pos_index_asked.is_none_or(|t| t.elapsed().as_millis() >= 1000) {
-            let (lib, cfg) = (lib.clone(), self.chess.clone());
+            let (lib, cfg, read_only) = (lib.clone(), self.chess.clone(), self.read_only);
             let (tx, rx) = std::sync::mpsc::channel();
             std::thread::spawn(move || {
                 let r = (!chess::positions::outdated(&lib)).then(|| {
-                    chess::positions::keep_up(&lib, &cfg);
+                    // A picker builds no index, not even the one kept up by itself.
+                    if !read_only {
+                        chess::positions::keep_up(&lib, &cfg);
+                    }
                     let st = chess::positions::status(&lib, chess::positions::depth_of(&cfg.position_depth));
                     (st, chess::positions::generation())
                 });
