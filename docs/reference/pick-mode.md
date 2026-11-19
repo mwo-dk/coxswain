@@ -63,7 +63,7 @@ folder among the marked files, a file without the extension asked for, two with 
 is not chosen: the status line says why.
 
 A picker only chooses, so it changes nothing: every action that copies, moves, renames, deletes,
-writes or edits a file, runs a command (the command line, the user menu) or writes settings is
+writes or edits a file (a chess line saved too), builds or removes a chess position index, runs a command (the command line, the user menu) or writes settings is
 refused with *The picker only chooses: it changes no files*, whether you reach it by its key,
 the action menu (**Shift+F10**), the command list (**F9**), a button or, in the desktop app, by
 dragging. Looking, marking, searching, sorting, the preview and moving about work as always.

@@ -363,9 +363,13 @@ pub async fn chess_position_games(path: PathBuf, fen: String, ctx: tauri::State<
 #[tauri::command]
 pub async fn chess_index_status(path: PathBuf, ctx: tauri::State<'_, crate::Ctx>) -> Res<chess::positions::Status> {
     let cfg = ctx.cfg().chess.clone();
+    let picking = ctx.pick.is_some();
     tauri::async_runtime::spawn_blocking(move || {
         let lib = library(&path)?;
-        chess::positions::keep_up(&lib, &cfg);
+        // A picker builds no index, not even the one kept up by itself.
+        if !picking {
+            chess::positions::keep_up(&lib, &cfg);
+        }
         Ok(chess::positions::status(&lib, chess::positions::depth_of(&cfg.position_depth)))
     })
     .await

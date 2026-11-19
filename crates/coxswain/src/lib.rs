@@ -2666,6 +2666,7 @@ impl App {
         }
         match chess::Viewer::open(path, &self.cfg, &self.theme).map(|v| v.with_index(self.index.clone())) {
             Ok(mut v) => {
+                v.read_only = self.pick.is_some();
                 if let Some(snippet) = hit {
                     v.at_hit(snippet);
                 }
@@ -4827,6 +4828,7 @@ impl App {
                 chess::Outcome::Open(path, game) => match chess::Viewer::open(&path, &self.cfg, &self.theme) {
                     Ok(next) => {
                         let mut next = next.with_index(self.index.clone());
+                        next.read_only = self.pick.is_some();
                         next.at_game(game);
                         self.dialog = Some(Dialog::Chess(Box::new(next)));
                     }
