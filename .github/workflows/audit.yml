@@ -72,11 +72,13 @@ jobs:
           node-version: 24
       # npm audit has no allow list: fail on any high or critical advisory except the accepted ones.
       # GHSA-fc5q-39xc-vjpf (picomatch ReDoS, no fixed version yet): build tools only (vite,
-      # svelte-check), nothing of it ships. Drop it once picomatch has a fix.
+      # svelte-check), nothing of it ships. Drop it once picomatch has a fix. An audit that gave no
+      # report (the registry did not answer) fails too: a run without one proves nothing.
       - run: |
           npm audit --json | node -e '
             const accepted = ["GHSA-fc5q-39xc-vjpf"];
             const report = JSON.parse(require("fs").readFileSync(0, "utf8"));
+            if (report.error || !report.vulnerabilities) { console.error("npm audit gave no report: " + JSON.stringify(report.error ?? report)); process.exit(1); }
             const bad = [];
             for (const v of Object.values(report.vulnerabilities ?? {}))
               for (const via of v.via)

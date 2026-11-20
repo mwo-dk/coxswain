@@ -13,8 +13,8 @@ for i in 1 2 3 4; do
     echo "::error title=Termux rust::rustc $have from the Termux repository; the locked crates need $need"; exit 1
   fi
   echo "::warning::rustc $have is older than $need (try $i of 3): rust from packages.termux.dev"
-  echo "deb https://packages.termux.dev/apt/termux-main stable main" > $PREFIX/etc/apt/sources.list
-  rm -rf $PREFIX/etc/termux/chosen_mirrors
+  echo "deb https://packages.termux.dev/apt/termux-main stable main" > "$PREFIX/etc/apt/sources.list"
+  rm -rf "$PREFIX/etc/termux/chosen_mirrors"
   sleep $((20 * i))
   apt-get update -q || true
   apt-get install -y --only-upgrade rust || true
