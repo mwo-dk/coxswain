@@ -1121,10 +1121,10 @@ mod tests {
     fn feed_reads_both_pipes_to_the_end() {
         let limit = crate::test_limit(Duration::from_secs(20));
         let mut c = Command::new("sh");
-        c.args(["-c", "cat >/dev/null; head -c 300000 /dev/zero | tr '\\0' w >&2; echo '<svg/>'"]);
+        c.args(["-c", "cat >/dev/null; dd if=/dev/zero bs=1000 count=300 2>/dev/null | tr '\\0' w >&2; echo '<svg/>'"]);
         assert_eq!(feed(c, b"a -> b", limit).unwrap(), b"<svg/>\n");
         let mut c = Command::new("sh");
-        c.args(["-c", "head -c 9000000 /dev/zero"]);
+        c.args(["-c", "dd if=/dev/zero bs=1000000 count=9 2>/dev/null"]);
         assert_eq!(feed(c, b"", limit), Err(t!("render.too_large")));
     }
 
