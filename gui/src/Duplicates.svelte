@@ -2,7 +2,7 @@
   // Find duplicate files and folders (the engine is coxswain-core's dupes.rs): pick where to look,
   // scan, review the groups, mark the copies to remove, move them to the trash.
   import { ui, tab, otherTab, showInTab } from "./app.svelte.js";
-  import { invoke, convertFileSrc, size, date, basename, parent, previewKind, composing, inside as below, keepsOne } from "./lib.js";
+  import { invoke, convertFileSrc, size, date, basename, parent, previewKind, composing, inside as below, keepsOne, taken } from "./lib.js";
   import { t, tn, num } from "./i18n.svelte.js";
 
   const d = ui.modal;
@@ -90,20 +90,21 @@
   /** Mark all copies but the one `keep` picks, in every group it decides; the marks of the
    *  others stay. A set of marks that would leave a group without a copy is refused. */
   function rule(keep) {
-    const m = {};
+    // A set each copy's folders are looked up in: a rule over 50,000 groups does not slow with the marks.
+    const m = new Set();
     for (const g of groups) {
-      const left = g.items.filter((it) => !inside(it.path, Object.keys(m)));
+      const left = g.items.filter((it) => !taken(it.path, m, ui.cfg.sep));
       const k = left.length ? keep({ ...g, items: left }) : null;
       if (!k) {
-        for (const it of g.items) if (d.marked[it.path]) m[it.path] = true;
+        for (const it of g.items) if (d.marked[it.path]) m.add(it.path);
         continue;
       }
-      for (const it of g.items) if (it !== k) m[it.path] = true;
+      for (const it of g.items) if (it !== k) m.add(it.path);
     }
     // A mark kept from before can hold a copy kept here (nested folders): the marks stay as they were.
-    if (!keepsOne(groups, Object.keys(m), ui.cfg.sep)) return void (d.error = t("dupes.keep_one"));
+    if (!keepsOne(groups, [...m], ui.cfg.sep)) return void (d.error = t("dupes.keep_one"));
     d.error = "";
-    d.marked = m;
+    d.marked = Object.fromEntries([...m].map((p) => [p, true]));
   }
   const newest = (g) => (g.folder ? null : g.items.reduce((a, b) => (b.modified > a.modified ? b : a)));
   const oldest = (g) => (g.folder ? null : g.items.reduce((a, b) => (b.modified < a.modified ? b : a)));
@@ -125,8 +126,9 @@
           const stopped = await invoke("delete", { paths, forever: false });
           if (stopped) return void (ui.status = stopped);
           // What was in a trashed folder went with it; the waste is counted again as dupes.rs does.
+          const gone = new Set(paths);
           const drop = (g, key) => {
-            const list = g[key].filter((x) => !inside(x.path ?? x, paths));
+            const list = g[key].filter((x) => !taken(x.path ?? x, gone, ui.cfg.sep));
             return { ...g, [key]: list, wasted: g.size * (list.length - 1) };
           };
           d.report.folders = d.report.folders.map((g) => drop(g, "paths")).filter((g) => g.paths.length > 1);

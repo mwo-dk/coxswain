@@ -65,7 +65,7 @@ test("old pictures: the core's endings, any case", async () => {
 });
 
 test("keepsOne: a folder marked after files of another group takes that group's last copy", async () => {
-  const { keepsOne } = await pick("inside", "keepsOne");
+  const { keepsOne } = await pick("taken", "keepsOne");
   const groups = [
     { items: [{ path: "/a" }, { path: "/b" }] },
     { items: [{ path: "/a/x" }, { path: "/b/x" }, { path: "/c/x" }] },
