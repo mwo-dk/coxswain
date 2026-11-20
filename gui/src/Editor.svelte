@@ -13,7 +13,7 @@
   import { ui, reloadAll, keyOf, lineHistory } from "./app.svelte.js";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { invoke, basename, parent } from "./lib.js";
-  import { t } from "./i18n.svelte.js";
+  import { t, tn } from "./i18n.svelte.js";
   import { hljs } from "./hl.js";
 
   const m = ui.modal;
@@ -262,7 +262,7 @@
     insert(out + v.slice(from));
     area.setSelectionRange(0, 0);
     show(0);
-    said = t("editor.replaced", { n });
+    said = tn("editor.replaced", n);
     bar = null;
   }
 
