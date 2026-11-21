@@ -531,6 +531,7 @@ jobs:
           disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "14.5"
           usesh: true
+          mem: 12288 # three LTO links at once outgrow the default 6 GB (rustc was killed in the 21 Nov rehearsal)
           prepare: sh packaging/pkg-retry.sh pkg install -y rust pkgconf webkit2-gtk_41 gtk3 libsoup3 librsvg2-rust
           run: |
             set -e
@@ -608,6 +609,7 @@ jobs:
           disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "10.1"
           usesh: true
+          mem: 12288 # three LTO links at once outgrow the default 6 GB (rustc was killed in the 21 Nov rehearsal)
           prepare: |
             /usr/sbin/pkg_add pkgin || true
             # The image has no X: the base system's X sets (libraries, headers and .pc files),
@@ -626,6 +628,7 @@ jobs:
           disable-cache: "true" # no VM image cache: the 10 GB go to compiled dependencies (.github/actions/target-cache)
           release: "7.9"
           usesh: true
+          mem: 12288 # three LTO links at once outgrow the default 6 GB (rustc was killed in the 21 Nov rehearsal)
           prepare: |
             sh packaging/pkg-retry.sh pkg_add -u
             sh packaging/pkg-retry.sh pkg_add rust webkitgtk41 librsvg
