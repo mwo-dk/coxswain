@@ -1141,14 +1141,27 @@ pub(crate) mod tests {
         assert!(!making.exists());
     }
 
+    /// The kept folder of a run that ended: a lock nobody holds and one file. Made under another
+    /// name and then given its own, whole, as `keep_dir` does: every `apply` of another test
+    /// sweeps the temporary folder, and a sweep that met it between its lock and its file took
+    /// the lock away and left the file, a folder with no lock, which stays for ten minutes.
+    #[cfg(unix)]
+    fn dead_dir(tag: &str) -> PathBuf {
+        let name = format!("test-{tag}-{}", std::process::id());
+        let aside = std::env::temp_dir().join(format!("coxswain-aside-{name}"));
+        private_dir(&aside).unwrap();
+        std::fs::write(aside.join(".lock"), "").unwrap();
+        std::fs::write(aside.join("0"), "was").unwrap();
+        let dead = std::env::temp_dir().join(format!("coxswain-replace-{name}"));
+        std::fs::rename(&aside, &dead).unwrap();
+        dead
+    }
+
     #[cfg(unix)]
     #[test]
     fn kept_folders_of_ended_runs_are_swept_and_ours_are_kept() {
         let held = keep_dir().unwrap();
-        let dead = std::env::temp_dir().join(format!("coxswain-replace-test-dead-{}", std::process::id()));
-        private_dir(&dead).unwrap();
-        std::fs::write(dead.join(".lock"), "").unwrap();
-        std::fs::write(dead.join("0"), "was").unwrap();
+        let dead = dead_dir("dead");
         // A lock no one holds is a run that ended, however new it is: gone at the first sweep
         // (Remove in Disk use), not ten minutes later. Another test's run may hold the dead
         // folder's lock for a moment while it sweeps it too.
