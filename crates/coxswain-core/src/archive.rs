@@ -3818,9 +3818,6 @@ pub(crate) fn fold(p: &Path) -> String {
     p.to_string_lossy().nfc().collect::<String>().to_lowercase()
 }
 
-/// Whether the archive's list gives a name `wanted` twice (a file, a link or a device; not a
-/// folder). The list in memory, which every reader of one file has just made; made again here
-/// when other archives' lists pushed it out meanwhile (`LAST_KEPT`), never taken for "no".
 #[cfg(test)]
 thread_local! {
     /// The archive's list goes from memory just before `listed_twice` looks, as another
@@ -3828,6 +3825,9 @@ thread_local! {
     static PUSHED_OUT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+/// Whether the archive's list gives a name `wanted` twice (a file, a link or a device; not a
+/// folder). The list in memory, which every reader of one file has just made; made again here
+/// when other archives' lists pushed it out meanwhile (`LAST_KEPT`), never taken for "no".
 pub(crate) fn listed_twice(archive: &Path, wanted: &dyn Fn(&str) -> bool) -> io::Result<bool> {
     #[cfg(test)]
     if PUSHED_OUT.get() {
