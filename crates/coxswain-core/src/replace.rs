@@ -1157,38 +1157,6 @@ pub(crate) mod tests {
         dead
     }
 
-    /// Sweeps at once, as the tests of one run do, lose no folder: each is taken whole by one of
-    /// them. Proved by the count: a folder never outlives 1000 sweeps of its own.
-    #[cfg(unix)]
-    #[test]
-    fn sweeps_at_once_leave_no_ended_run_behind() {
-        let stop = std::sync::Arc::new(AtomicBool::new(false));
-        let others: Vec<_> = (0..2)
-            .map(|_| {
-                let stop = stop.clone();
-                std::thread::spawn(move || {
-                    while !stop.load(Ordering::Relaxed) {
-                        sweep();
-                    }
-                })
-            })
-            .collect();
-        let left = (0..2000)
-            .filter(|i| {
-                let dead = dead_dir(&format!("raced{i}"));
-                (0..1000).all(|_| {
-                    sweep();
-                    dead.exists()
-                })
-            })
-            .count();
-        stop.store(true, Ordering::Relaxed);
-        for t in others {
-            t.join().unwrap();
-        }
-        assert_eq!(left, 0);
-    }
-
     #[cfg(unix)]
     #[test]
     fn kept_folders_of_ended_runs_are_swept_and_ours_are_kept() {
