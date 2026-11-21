@@ -3729,9 +3729,9 @@ fn copy_entries(
                 }
                 left
             }
-            // Counted only when the list in memory gives one twice: else one file is read up to
-            // it and no further, as before.
-            None if (how.only.is_some() || !inner.is_empty()) && listed_twice(archive, &wanted) => {
+            // Counted only when the list gives one twice: else one file is read up to it and no
+            // further, as before.
+            None if (how.only.is_some() || !inner.is_empty()) && listed_twice(archive, &wanted)? => {
                 tar_files_named(archive, k, &wanted)?
             }
             None => Default::default(),
@@ -3818,14 +3818,24 @@ pub(crate) fn fold(p: &Path) -> String {
     p.to_string_lossy().nfc().collect::<String>().to_lowercase()
 }
 
-/// Whether the archive's list in memory gives a name `wanted` twice (a file, a link or a device;
-/// not a folder). No list in memory: no.
-pub(crate) fn listed_twice(archive: &Path, wanted: &dyn Fn(&str) -> bool) -> bool {
-    let Some(all) = stamp(archive).ok().and_then(|s| cached(archive, s)) else {
-        return false;
-    };
+/// Whether the archive's list gives a name `wanted` twice (a file, a link or a device; not a
+/// folder). The list in memory, which every reader of one file has just made; made again here
+/// when other archives' lists pushed it out meanwhile (`LAST_KEPT`), never taken for "no".
+#[cfg(test)]
+thread_local! {
+    /// The archive's list goes from memory just before `listed_twice` looks, as another
+    /// archive's list pushes it out (`LAST_KEPT`).
+    static PUSHED_OUT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+pub(crate) fn listed_twice(archive: &Path, wanted: &dyn Fn(&str) -> bool) -> io::Result<bool> {
+    #[cfg(test)]
+    if PUSHED_OUT.get() {
+        uncache(archive);
+    }
+    let all = items(archive)?;
     let mut seen = std::collections::HashSet::new();
-    all.iter().filter(|it| !it.dir && wanted(it.name)).any(|it| !seen.insert(it.name))
+    Ok(all.iter().filter(|it| !it.dir && wanted(it.name)).any(|it| !seen.insert(it.name)))
 }
 
 /// How many files (not folders, links or devices) of each name `wanted` a tar holds: a pass
@@ -4857,7 +4867,10 @@ mod tests {
             Ok(s)
         };
         for p in [&plain, &gz] {
-            for pass in ["fresh", "listed"] {
+            // "pushed out": other archives' lists push this one's out of memory between the
+            // look that lists it and the read (a nightly run on NetBSD read "old" so).
+            for pass in ["fresh", "listed", "pushed out"] {
+                PUSHED_OUT.set(pass == "pushed out");
                 let at = format!("{} {pass}", p.display());
                 // Copied out first: "fresh", with no list of it made before.
                 let out = d.join(format!("out-{}-{pass}", p.file_name().unwrap().to_string_lossy()));
@@ -4876,6 +4889,7 @@ mod tests {
                 list(p, 10).unwrap();
             }
         }
+        PUSHED_OUT.set(false);
         assert!(crate::tar_index::load(&gz).is_some(), "the tar.gz's places are kept");
         std::fs::remove_dir_all(&d).unwrap();
     }
