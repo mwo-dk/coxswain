@@ -1,1 +1,0 @@
-| **Windows: a junction or a link to a folder can be deleted for good.** Shift+F8 on one no longer fails with "Access is denied", and a move to another drive no longer leaves the link in both places; what it points at is never touched. | [Delete](files/delete.md#does-deleting-a-symbolic-link-delete-what-it-points-at) |

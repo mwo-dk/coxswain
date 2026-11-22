@@ -1,1 +1,0 @@
-| **The columns view shows a new file in the folder under the cursor at once.** A file that landed in the right-hand column's folder, or in a parent column's, showed only after going into that folder; those folders are now watched while their column is shown. | [Moving around](panels/moving.md#do-the-panels-follow-changes-on-disk) |

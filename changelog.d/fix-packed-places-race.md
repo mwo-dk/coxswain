@@ -1,1 +1,0 @@
-| **A game opened the moment a `.pgn.gz` table is whole is read from a place near it.** The places such a file can be unpacked from were kept just after the table said it was done, so a game late in a big file opened in that instant was unpacked from the file's start once. | [Chess games](previews/chess.md#the-table-of-games) |
