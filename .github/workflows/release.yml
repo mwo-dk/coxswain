@@ -621,6 +621,7 @@ jobs:
             set -e
             # A process may use only part of the memory by default (its login class): LLVM ran out in the 22 Nov rehearsal.
             ulimit -d "$(ulimit -H -d)" 2>/dev/null || true
+            echo "data limit: $(ulimit -d) (hard $(ulimit -H -d))"
             cargo build --release --locked -p coxswain -p coxswain-gui
             mkdir out && cp target/release/coxswain target/release/coxswain-gui out/
             rm -rf target
@@ -638,6 +639,7 @@ jobs:
             set -e
             # A process may use only part of the memory by default (its login class): LLVM ran out in the 22 Nov rehearsal.
             ulimit -d "$(ulimit -H -d)" 2>/dev/null || true
+            echo "data limit: $(ulimit -d) (hard $(ulimit -H -d))"
             cargo build --release --locked -p coxswain -p coxswain-gui
             mkdir out && cp target/release/coxswain target/release/coxswain-gui out/
             rm -rf target
