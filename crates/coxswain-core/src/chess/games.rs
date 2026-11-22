@@ -988,10 +988,15 @@ impl Library {
             let unpacked = Arc::new(AtomicU64::new(0));
             let r = Counted { inner: r, read: unpacked.clone() };
             let packed = packing != Pack::None;
-            index(|each| scan(BufReader::with_capacity(1 << 16, r), &st, format, true, false, each), &sh, &t, &st, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked);
-            if !st.load(Ordering::Relaxed) {
-                crate::tar_index::save_points(&p, &points.borrow());
-            }
+            let feed = |each: &mut dyn FnMut(&Head) -> bool| {
+                let res = scan(BufReader::with_capacity(1 << 16, r), &st, format, true, false, each);
+                // Kept before the table says it is whole: a game opened then finds its place.
+                if !st.load(Ordering::Relaxed) {
+                    crate::tar_index::save_points(&p, &points.borrow());
+                }
+                res
+            };
+            index(feed, &sh, &t, &st, format, limits, || packed && unpacked.load(Ordering::Relaxed) >= limits.unpacked);
         })?;
         Ok(lib(shared, size))
     }
@@ -2647,7 +2652,14 @@ mod tests {
         let mut zst = vec![];
         ruzstd::encoding::compress(text.as_bytes(), &mut zst, ruzstd::encoding::CompressionLevel::Fastest);
         for (name, bytes, kind) in [("deep.pgn.gz", gz.finish().unwrap(), crate::archive::Pack::Gz), ("deep.pgn.zst", zst, crate::archive::Pack::Zst)] {
-            let (l, d) = lib(&bytes, name);
+            let d = tempdir::Dir::new();
+            std::fs::write(d.0.join(name), &bytes).unwrap();
+            let l = Library::open(&d.0.join(name)).unwrap();
+            // Looked at the moment the table is whole: its places are kept before it says so.
+            while !l.progress().done {
+                std::thread::yield_now();
+            }
+            assert_eq!(crate::tar_index::points_of(&d.0.join(name)).is_some(), kind == crate::archive::Pack::Gz, "{name}: kept by the time the table is whole");
             let last = l.progress().games as u32 - 1;
             assert_eq!(last, 39_999);
             assert!(l.text(last).unwrap().contains("W39999"));
