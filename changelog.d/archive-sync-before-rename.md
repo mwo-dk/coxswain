@@ -1,1 +1,0 @@
-| **A change inside an archive, or a move into or out of one, survives the power going.** The new archive is written to the disk before it replaces the old one, and a move deletes the originals only after that. | [Archives](files/archives.md#what-changes-and-how-safely) |

@@ -1,1 +1,0 @@
-| **Previews of diagrams stay on your machine.** An installed d2 no longer fetches the icons and pictures a `.d2` file names from the web, and an installed PlantUML is no longer run in a folder whose name holds a `"` or a `:`, which could have added Java options or a second allowed folder. | [Safety](previews/safety.md#what-a-preview-never-does) |

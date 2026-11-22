@@ -1,1 +1,0 @@
-| **A position index of a big games database is built faster.** The sorted runs of positions are merged on several threads, not one; the index is the same, byte for byte. | [Position index](previews/chess-positions.md#building-the-index) |
