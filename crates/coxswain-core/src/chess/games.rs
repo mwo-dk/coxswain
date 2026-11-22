@@ -2656,7 +2656,9 @@ mod tests {
             std::fs::write(d.0.join(name), &bytes).unwrap();
             let l = Library::open(&d.0.join(name)).unwrap();
             // Looked at the moment the table is whole: its places are kept before it says so.
+            let limit = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(60));
             while !l.progress().done {
+                assert!(std::time::Instant::now() < limit, "{name}: games never read");
                 std::thread::yield_now();
             }
             assert_eq!(crate::tar_index::points_of(&d.0.join(name)).is_some(), kind == crate::archive::Pack::Gz, "{name}: kept by the time the table is whole");
