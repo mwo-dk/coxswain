@@ -619,6 +619,8 @@ jobs:
             sh packaging/pkg-retry.sh pkgin -y install rust pkgconf webkit-gtk41 || { cat /var/db/pkgin/pkg_install-err.log; exit 1; }
           run: |
             set -e
+            # A process may use only part of the memory by default (its login class): LLVM ran out in the 22 Nov rehearsal.
+            ulimit -d "$(ulimit -H -d)" 2>/dev/null || true
             cargo build --release --locked -p coxswain -p coxswain-gui
             mkdir out && cp target/release/coxswain target/release/coxswain-gui out/
             rm -rf target
@@ -634,6 +636,8 @@ jobs:
             sh packaging/pkg-retry.sh pkg_add rust webkitgtk41 librsvg
           run: |
             set -e
+            # A process may use only part of the memory by default (its login class): LLVM ran out in the 22 Nov rehearsal.
+            ulimit -d "$(ulimit -H -d)" 2>/dev/null || true
             cargo build --release --locked -p coxswain -p coxswain-gui
             mkdir out && cp target/release/coxswain target/release/coxswain-gui out/
             rm -rf target
