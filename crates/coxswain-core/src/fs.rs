@@ -1672,6 +1672,18 @@ fn put_bin(path: &Path) -> Option<PathBuf> {
 /// made here when missing (as the bin would make it). That bin.
 #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
 fn disk_bin(top: &Path, uid: u32, dev: u64) -> Option<PathBuf> {
+    [top.join(".Trash").join(uid.to_string()), top.join(format!(".Trash-{uid}"))]
+        .into_iter()
+        .find(|b| trusted_disk_bin(top, b, uid, dev, true))
+}
+
+/// Whether `bin` (`<top>/.Trash/<uid>` or `<top>/.Trash-<uid>`) is a bin of `uid` that no
+/// other user can have made or can lead elsewhere, on the disk whose top folder is `top`
+/// (device `dev`): the spec's checks. With `make`, a missing bin, `files` or `info` is made
+/// (for a put); without, nothing is made or changed (the bin's list, restore and Empty), and a
+/// missing `files` is an empty bin.
+#[cfg(unix)]
+pub(crate) fn trusted_disk_bin(top: &Path, bin: &Path, uid: u32, dev: u64, make: bool) -> bool {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     // The spec's checks, so another user of the disk cannot lead the files elsewhere: `.Trash` a
     // folder of its own (no link) with the sticky bit, each bin and its `files` and `info` a
@@ -1682,49 +1694,54 @@ fn disk_bin(top: &Path, uid: u32, dev: u64) -> Option<PathBuf> {
     // folders; a top that lets that race be won is refused instead.
     // The top a folder of its own (no link), of this user or root: another owner could move
     // the bin away even on a sticky top.
-    let tm = fs::symlink_metadata(top).ok()?;
+    let Ok(tm) = fs::symlink_metadata(top) else { return false };
     if !tm.is_dir() || tm.dev() != dev || !(tm.uid() == uid || tm.uid() == 0) || (tm.mode() & 0o022 != 0 && tm.mode() & 0o1000 == 0) {
-        return None;
+        return false;
     }
     let shared = top.join(".Trash");
-    let mine = shared.join(uid.to_string());
-    // The sticky bit does not stop `.Trash`'s owner from moving our folder: only root's or the
-    // top's owner's is trusted.
-    if fs::symlink_metadata(&shared).is_ok_and(|m| m.is_dir() && m.dev() == dev && m.permissions().mode() & 0o1000 != 0 && trusted_owner(m.uid(), tm.uid())) && own_bin(&mine, uid, dev) {
-        return Some(mine);
+    if bin == shared.join(uid.to_string()) {
+        // The sticky bit does not stop `.Trash`'s owner from moving our folder: only root's or
+        // the top's owner's is trusted.
+        fs::symlink_metadata(&shared).is_ok_and(|m| m.is_dir() && m.dev() == dev && m.permissions().mode() & 0o1000 != 0 && trusted_owner(m.uid(), tm.uid())) && own_bin(bin, uid, dev, make)
+    } else {
+        bin == top.join(format!(".Trash-{uid}")) && own_bin(bin, uid, dev, make)
     }
-    let own = top.join(format!(".Trash-{uid}"));
-    own_bin(&own, uid, dev).then_some(own)
 }
 
 /// Whether a shared `.Trash` owned by `owner` may hold the user's bin on a top owned by `top`:
 /// root's or the top's owner's, who could take the disk's files anyway.
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+#[cfg(unix)]
 fn trusted_owner(owner: u32, top: u32) -> bool {
     owner == 0 || owner == top
 }
 
 /// Whether `bin` is a bin of the user `uid` on device `dev`, with `files` and `info` in it: each
-/// a folder of its own (never a link), of `uid`, that no group or other may write. What is
-/// missing is made, readable by `uid` alone.
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
-fn own_bin(bin: &Path, uid: u32, dev: u64) -> bool {
+/// a folder of its own (never a link), of `uid`, that no group or other may write. With `make`,
+/// what is missing is made, and what others may read closed, readable by `uid` alone; without,
+/// a missing `files` passes (an empty bin).
+#[cfg(unix)]
+fn own_bin(bin: &Path, uid: u32, dev: u64, make: bool) -> bool {
     use std::os::unix::fs::{DirBuilderExt, MetadataExt};
     use std::os::unix::fs::PermissionsExt;
-    let ok = |p: &Path| {
+    let ok = |p: &Path, may_lack: bool| {
         // mkdir never follows a link put at its name: it fails, and the look below says no.
-        let _ = fs::DirBuilder::new().mode(0o700).create(p);
-        let Ok(m) = fs::symlink_metadata(p) else { return false };
+        if make {
+            let _ = fs::DirBuilder::new().mode(0o700).create(p);
+        }
+        let m = match fs::symlink_metadata(p) {
+            Ok(m) => m,
+            Err(e) => return may_lack && e.kind() == io::ErrorKind::NotFound,
+        };
         let sound = m.is_dir() && m.dev() == dev && m.uid() == uid && m.mode() & 0o022 == 0;
         // One made readable by others (as Coxswain's own before 2.38) is closed: it holds the
         // places the files came from. A disk without permissions (FAT) may refuse; its mount
         // decides who reads.
-        if sound && m.mode() & 0o077 != 0 {
+        if make && sound && m.mode() & 0o077 != 0 {
             let _ = fs::set_permissions(p, fs::Permissions::from_mode(0o700));
         }
         sound
     };
-    ok(bin) && ok(&bin.join("files")) && ok(&bin.join("info"))
+    ok(bin, false) && ok(&bin.join("files"), !make) && ok(&bin.join("info"), false)
 }
 
 /// What deleting does, decided the same in both apps.
@@ -2617,6 +2634,7 @@ mod tests {
         // A shared, sticky .Trash with the user's folder in it, on a top no one may write.
         let other = d.join("other");
         std::fs::create_dir_all(other.join(".Trash").join(uid.to_string())).unwrap();
+        mode(&other.join(".Trash").join(uid.to_string()), 0o700);
         mode(&other.join(".Trash"), 0o1777);
         mode(&other, 0o555);
         assert_eq!(super::disk_bin(&other, uid, dev), Some(other.join(".Trash").join(uid.to_string())));

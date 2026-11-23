@@ -100,8 +100,13 @@ Not modelled, so not proven:
 - The `trash` crate's put differs from `xdg_trash::put_in` in one step: it makes a placeholder
   at `files/<name>` first, so its rename never replaces. The model's put is `put_in`, whose
   rename would; no trace found depends on that.
-- `fd::real` (a bin whose `files` or `info` is a link is refused) and `bin::inside` (nothing is
-  made in `@bin`): checked at the start of each operation, not raced here.
+- `fd::real` (a bin whose `files` or `info` is a link is refused, and a disk's bin that fails
+  the spec's owner and mode checks, `fs::trusted_disk_bin`, since #1077) and `bin::inside`
+  (nothing is made in `@bin`): checked at the start of each operation, not raced here. A
+  restore whose `Path=` leads out of its disk (`fd::may_restore`) is refused before any step:
+  a step not taken, which no promise can break. From a disk's bin, `move_new`'s steps on the
+  place (`fd::move_to`) act on a name in the folder `fd::place` holds open (`linkat`,
+  `renameat`, `unlinkat`, `openat`, `fstatat`): the same steps in the same order.
 - A put from another disk into the home bin (`fs::bin_move` after the rename fails with
   `EXDEV`: `move_across`, each file copied, checked, then its original removed; failed or
   stopped, `put_back` brings back what went). The model's `put_move` is one step. The item is

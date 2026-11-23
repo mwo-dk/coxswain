@@ -249,6 +249,11 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
         let text = if crate::tools::flatpak().is_some() { t!("notice.bin_flatpak") } else { t!("notice.bin_mac") };
         all.push(Notice::new("bin-limited", text, None));
     }
+    // A disk's bin with items that another user may have made or may lead elsewhere: its items
+    // are not listed, put back or emptied. Once.
+    if let Some(p) = crate::bin::UNTRUSTED.lock().unwrap_or_else(|e| e.into_inner()).clone() {
+        all.push(Notice::new(format!("bin-untrusted:{}", p.display()), t!("notice.bin_untrusted", "path" => p.display()), None));
+    }
     // A real folder named @bin in the home (another program made it): it hides the bin. Once.
     if let Some(p) = crate::bin::shadowed() {
         all.push(Notice::new("bin-shadowed", t!("notice.bin_shadowed", "path" => p.display()), None));
