@@ -367,6 +367,12 @@ fn failed_pull(r: &coxswain_core::preview_tools::Row) -> Option<String> {
     failed_state(r)?.job_line()
 }
 
+/// The images of this row being pulled now: **P** stops them.
+fn pulling_now(r: &coxswain_core::preview_tools::Row) -> Vec<String> {
+    let pulling = coxswain_core::images::pulling();
+    r.images.iter().filter(|i| pulling.contains_key(&i.image)).map(|i| i.image.clone()).collect()
+}
+
 /// Whether Delete on this row shows the runtime's error: a pull failed, and no image is there to remove.
 fn details_on_delete(r: &coxswain_core::preview_tools::Row) -> bool {
     r.images.iter().all(|i| i.pulled.is_none()) && failed_state(r).is_some_and(|f| f.details().is_some())
@@ -910,10 +916,14 @@ impl App {
                 (_, Some('p' | 'P')) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => {
                     if let Some(Row::PreviewTool(r)) = rows.get(s.cursor) {
                         let images: Vec<String> = r.images.iter().filter(|i| !i.image.is_empty()).map(|i| i.image.clone()).collect();
-                        if images.is_empty() {
+                        let stop = pulling_now(r);
+                        if !stop.is_empty() {
+                            stop.iter().for_each(|i| coxswain_core::images::stop_pull(i));
+                            s.said = Some((t!("searchable.stopping"), false));
+                        } else if images.is_empty() {
                             s.said = Some((t!("ptools.container_none", "key" => r.images.first().map_or(r.kind, |i| i.key)), false));
                         } else {
-                            s.said = Some((t!("convert.pulling", "image" => images.iter().map(|i| coxswain_core::images::short(i)).collect::<Vec<_>>().join(", ")), false));
+                            s.said = Some((t!("ptools.keys_tui_pulling", "image" => images.iter().map(|i| coxswain_core::images::short(i)).collect::<Vec<_>>().join(", ")), false));
                             s.load_tools(self, Some(images));
                         }
                     }
@@ -2009,6 +2019,10 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let explain = Rect { x: inner.x + 1, y: y + 1, height: explain_h, width: explain_w };
     f.render_widget(text, explain);
     let keys = Rect { x: inner.x + 1, y: y + 1 + explain_h, height: 1, width: inner.width - 2 };
+    let pulling_here = match rows.get(s.cursor) {
+        Some(Row::PreviewTool(r)) => pulling_now(r),
+        _ => vec![],
+    };
     let (line, st) = match (&s.said, &s.mode) {
         (Some((said, bad)), _) => (said.clone(), if *bad { red } else { dim }),
         (None, Mode::Edit(_) | Mode::EngineEdit(_)) => (crate::ui::keys(&t!("verb.save")), dim),
@@ -2021,6 +2035,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Disk(_))) => (t!("disk.keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::Server(_))) => (t!("settings.history_server_keys_tui"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if !r.container) => (t!("ptools.keys_tui_no_image"), dim),
+        (None, _) if !pulling_here.is_empty() => (t!("ptools.keys_tui_pulling", "image" => pulling_here.iter().map(|i| coxswain_core::images::short(i)).collect::<Vec<_>>().join(", ")), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(r)) if details_on_delete(r)) => (t!("ptools.keys_tui_retry"), dim),
         (None, _) if matches!(rows.get(s.cursor), Some(Row::PreviewTool(_))) => (t!("ptools.keys_tui"), dim),
         (None, _) => (t!("tui.settings.keys"), dim),

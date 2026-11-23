@@ -196,13 +196,15 @@ fn pull_job(rt: &std::path::Path, image: &str, stop: &std::sync::atomic::AtomicB
     {
         return Err(job_message(image, *fault, Some(*at)));
     }
+    let stops = super::stops(image);
     match super::pull_until(rt, image, stop) {
         Ok(()) => {
             FAILED.lock().unwrap().remove(image);
             JOBS.lock().unwrap().remove(image);
             Ok(())
         }
-        Err(e) if stop.load(Ordering::Relaxed) => Err(e),
+        // Stopped: no fault of the image's, nothing to try again.
+        Err(e) if stop.load(Ordering::Relaxed) || super::stops(image) > stops => Err(e),
         Err(e) => {
             // An app's own stderr is its screen: the terminal app is drawn over by a line printed there.
             crate::helper::app_log(&format!("{image}: {e}"));

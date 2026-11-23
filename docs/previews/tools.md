@@ -92,7 +92,7 @@ your click.
 |---|---|
 | The kind and its file endings | *LaTeX .tex .ltx* |
 | *Installed: latexmk 4.86, pdflatex 3.141592653* | The programs found, with the version each says; *Installed: none* when there is none, then *Install it:* with the line for this system and **Copy** |
-| *Container: docker.io/texlive/texlive:latest, Pulled, 5.9 GB* | Its image and whether the runtime has it (*Not pulled (2.8 GB)*), with **Pull** (also updates) and **Remove**; hover it for what the image gives and costs. An image with none set (GhostXPS's by default, or one set to `""`) says *Container: no image; name one under [preview.images] duckdb in config.toml*, with **Open config.toml** |
+| *Container: docker.io/texlive/texlive:latest, Pulled, 5.9 GB* | Its image and whether the runtime has it (*Not pulled (2.8 GB)*), with **Pull** (also updates; it reads **Stop** while the image downloads, [Stopping a pull](containers.md#stopping-a-pull)) and **Remove**; hover it for what the image gives and costs. An image with none set (GhostXPS's by default, or one set to `""`) says *Container: no image; name one under [preview.images] duckdb in config.toml*, with **Open config.toml** |
 | *Used now: latexmk 4.86* | What makes these previews now; *podman with texlive:latest, once pulled* when the container is used and its image is still to come; *nothing: install the program, or pull its image* in red when nothing can; *nothing: install duckdb* when the kind has no image (`duckdb = ""`), as there is nothing to pull; *duckdb 2.0.0: no container image is set, so the installed program* when the choice is *Container* but no image is set |
 | The choice | *Default (An installed program, else a container)*, *Installed program*, *Container*, *Off*; for a kind with no image *Container (no image)* is greyed out |
 | **Try** | Writes a small sample of the kind (a `.tex`, a `.puml` …) into the cache folder, closes Settings and shows it in the panel with the preview open |
@@ -138,7 +138,8 @@ terminal app each row is one line, *✓ LaTeX* with what is used and the choice,
 Default (…)* (*✗* in red, *nothing: install the program, or pull its image*, when nothing can
 make them; *nothing: install duckdb* for a kind with no image, `duckdb = ""`); under the list are what is
 installed, the container and the file endings, and the keys **Enter** (the next choice),
-**C** (copy the install line), **P** (pull the image) and **Delete** (remove it). On a kind with
+**C** (copy the install line), **P** (pull the image; while it downloads, **P** stops it, and the key line says
+*Pulling docker.io/texlive/texlive:latest… · P: stop the pull*) and **Delete** (remove it). On a kind with
 no image **Enter** skips *Container*, and the keys are **Enter**, **C** and **O**, which opens
 `config.toml` in your editor at `[preview.images]` (adding a commented example when there is
 none) to name an image. The
@@ -242,7 +243,7 @@ kept](../reference/where-things-are-kept.md).
 | *Runs docker.io/pandoc/core:latest without network access* | The container's image is here |
 | *Install ffmpeg, or pull its image (126 MB).*, then *Install it:* with the line and **Copy**, **Pull its image (126 MB)** and **Settings → Previews** | No program is installed and the image is not pulled yet: one of the two shows the file ([below](#installing-what-is-missing)) |
 | *Rendering with soffice…* | Running |
-| *Pulling docker.io/texlive/texlive:latest…* and a progress line | Downloading the image |
+| *Pulling docker.io/texlive/texlive:latest…*, a progress line and **Stop** | Downloading the image; **Stop** ends it ([Stopping a pull](containers.md#stopping-a-pull)) |
 | *Install soffice, or install podman or docker and pull its image (440 MB).*, then *Neither podman nor docker is installed*, *Install it:* with the line and **Copy**, and **Settings → Previews** | No program and no container runtime |
 | *ditaa has no program of its own here: install podman or docker, and Kroki's image draws it.* and **Settings → Previews** | A diagram kind only Kroki's image draws, and no container can run |
 | *Previews of these files by a tool are off (Settings → Previews → Preview tools).* and **Settings → Previews** | The kind's choice is *Off* |

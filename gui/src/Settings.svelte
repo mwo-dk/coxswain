@@ -1032,7 +1032,8 @@
                       <small>{im.image ? t("ptools.container", { image: im.image.split("@")[0], state: imageState(im) }) : t("ptools.container_none", { key: im.key })}</small>
                       {#if !im.image}<button onclick={openConfig}>{t("settings.open_config")}</button>{/if}
                       {#if im.image && !tools.no_runtime}
-                        <button disabled={tools.pulling[im.image] != null} onclick={() => imageAction("pull_image", im.image)}>{t(tools.failed?.[im.image] ? "settings.step.retry_now" : "settings.pull")}</button>
+                        {#if tools.pulling[im.image] != null}<button onclick={() => invoke("pull_stop", { image: im.image })}>{t("searchable.stop")}</button>
+                        {:else}<button onclick={() => imageAction("pull_image", im.image)}>{t(tools.failed?.[im.image] ? "settings.step.retry_now" : "settings.pull")}</button>{/if}
                         <button disabled={tools.pulling[im.image] != null || im.pulled == null} onclick={() => imageAction("remove_image", im.image)}>{t("common.remove")}</button>
                         {#if tools.failed_details?.[im.image]}<button onclick={() => (details[im.image] = !details[im.image])}>{t("settings.step.details")}</button>{/if}
                       {/if}

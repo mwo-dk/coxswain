@@ -970,6 +970,13 @@ pub async fn remove_image(image: String, ctx: tauri::State<'_, crate::Ctx>) -> R
     .map_err(|e| e.to_string())?
 }
 
+/// *Stop* beside a pull's progress line (the preview pane, Settings): the pulls of `image`
+/// under way end, and the job or *Pull* that started each says it was stopped.
+#[tauri::command]
+pub fn pull_stop(image: String) {
+    coxswain_core::images::stop_pull(&image);
+}
+
 /// The latest progress line of every pull under way, by image.
 #[tauri::command]
 pub fn pull_progress() -> BTreeMap<String, String> {
