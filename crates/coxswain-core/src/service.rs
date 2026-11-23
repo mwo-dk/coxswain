@@ -385,8 +385,10 @@ mod tests {
 
     #[test]
     fn a_registration_of_the_other_app_is_left_to_it() {
-        // The test program is there, and is no terminal app by its name.
-        let there = std::env::current_exe().unwrap();
+        // A desktop app of our own, not this test program: a build meanwhile replaces that (#1025).
+        let t = crate::fs::Scratch::named("other-app");
+        let there = t.join("coxswain-gui");
+        std::fs::write(&there, "").unwrap();
         assert!(other_of(&there, Path::new("/usr/bin/coxswain")));
         // The same app elsewhere, or a program an upgrade removed, is taken over.
         assert!(!other_of(&there, Path::new("/opt/Coxswain/coxswain-gui")));

@@ -616,7 +616,9 @@ mod tests {
     }
 
     /// This test binary run as a tool: `parent` starts a `sleep` (the same binary again), says
-    /// its pid and waits for it; `sleep` sleeps. Run alone, it does nothing.
+    /// its pid and waits for it; `sleep` sleeps. Run alone, it does nothing. Windows only: there
+    /// a running program cannot be replaced, where a build meanwhile replaces it on Unix (#1025).
+    #[cfg(windows)]
     #[test]
     fn a_tool_with_a_helper() {
         match std::env::var("COXSWAIN_TEST_HELPER").as_deref() {
@@ -631,6 +633,7 @@ mod tests {
     }
 
     /// `a_tool_with_a_helper` as `role`.
+    #[cfg(windows)]
     fn this_test(role: &str) -> Command {
         let mut c = Command::new(std::env::current_exe().unwrap());
         c.args(["--exact", "remote::tests::a_tool_with_a_helper", "--nocapture", "--test-threads=1"]).env("COXSWAIN_TEST_HELPER", role);
@@ -641,13 +644,21 @@ mod tests {
     /// pipe (a sign-in window) is ended with it.
     #[test]
     fn stop_ends_the_tools_helpers() {
+        #[cfg(windows)]
         let c = this_test("parent");
+        // A shell that starts a `sleep`, says its pid and waits for it.
+        #[cfg(unix)]
+        let c = {
+            let mut c = Command::new("sh");
+            c.args(["-c", "sleep 1000 & echo $!; wait"]);
+            c
+        };
         let (tx, rx) = std::sync::mpsc::channel();
         let stop = std::sync::Arc::new(AtomicBool::new(false));
         let press = stop.clone();
         let ran = std::thread::spawn(move || {
             tool(c, &press, &mut |l| {
-                // libtest has written `test … ... ` on that line already.
+                // libtest has written `test … ... ` on that line already (Windows).
                 if let Some(Ok(pid)) = l.split_whitespace().last().map(str::parse::<u32>) {
                     let _ = tx.send(pid);
                     press.store(true, Ordering::Relaxed);
