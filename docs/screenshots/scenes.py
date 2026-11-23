@@ -319,6 +319,8 @@ scene("tui-settings-themes.png", args=at("tui_theme"), guide=False, keys=["wait:
 scene("tui-settings-modules.png", keys=START + ["F12", "wait:1", "Right", "Right", "Right", "wait:1", "Down*14"],
       config='modules.off = ["games"]\n')
 scene("tui-search.png", keys=START + ["M-F7", "type:*.rs|*.toml src/", "wait:3"])
+# Needs a disk that was read and is gone: DEMO_HOME with /run/media/demo/BACKUP1 read (bound in for a first run), then run without it.
+scene("search-away-find-tui.png", keys=START + ["wait:20", "C-f", "type:orbit", "wait:5"])
 scene("tui-text-search.png", keys=START + ["M-F7", "type:engine", "Tab", "wait:3"])
 
 scene("tui-git-facts.png", args=["/home/demo/projects", "/home/demo/projects/rocket"], size=(200, 18),
