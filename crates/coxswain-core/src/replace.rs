@@ -1160,10 +1160,19 @@ pub(crate) mod tests {
     /// Sweeps at once, as the tests of one run do, lose no folder: each is taken whole by one of
     /// them. Proved by the state left: once the racing sweeps have stopped, every folder goes
     /// at a sweep of ours, where a lost one (its lock taken, its file left) stays ten minutes.
+    /// Each folder comes whole (`dead_dir`), so what could lose one is the sweeps themselves.
     #[cfg(unix)]
     #[test]
     fn sweeps_at_once_leave_no_ended_run_behind() {
+        /// The racing sweeps stop also when the test fails, not spin on beside the others.
+        struct Stop(std::sync::Arc<AtomicBool>);
+        impl Drop for Stop {
+            fn drop(&mut self) {
+                self.0.store(true, Ordering::Relaxed);
+            }
+        }
         let stop = std::sync::Arc::new(AtomicBool::new(false));
+        let _stop = Stop(stop.clone());
         let others: Vec<_> = (0..2)
             .map(|_| {
                 let stop = stop.clone();
