@@ -46,7 +46,7 @@
       const cfg = await invoke("save_settings", { changes });
       ui.cfg = cfg;
       setLanguage(cfg);
-      setModulesOff(cfg.viewer_modules, cfg.settings.modules_off);
+      setModulesOff(cfg.viewer_modules, cfg.settings.modules_off, cfg.modules);
       setTheme(cfg.settings.theme);
       saved = true;
       loadIndex();
@@ -1076,8 +1076,8 @@
           <summary>{t("modules.title")}</summary>
           {#each ui.cfg.modules as m (m.id)}
             <div class="opt" id="opt-module-{m.id}" title={keyOf("modules_off")}>
-              <label class="check"
-                ><input type="checkbox" checked={!(s.modules_off ?? []).includes(m.id)} onchange={(e) => set("modules_off", moduleToggled(m.id, e.currentTarget.checked))} />
+              <label class="check" class:greyed={!m.built}
+                ><input type="checkbox" checked={m.built && !(s.modules_off ?? []).includes(m.id)} disabled={!m.built} onchange={(e) => set("modules_off", moduleToggled(m.id, e.currentTarget.checked))} />
                 <span class="lab">{m.label}</span>
                 {#if m.downloads}<span class="badge">{t("settings.cost.network")}</span>{/if}</label
               >
@@ -1504,6 +1504,10 @@
   }
   .opt.sub {
     margin-inline-start: 24px;
+  }
+  /* A module not in this build (`modules::built`). */
+  .check.greyed {
+    opacity: 0.5;
   }
   .opt.flash {
     background: color-mix(in srgb, var(--accent-bg) 22%, transparent);

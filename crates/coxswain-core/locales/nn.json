@@ -4746,6 +4746,8 @@
  "modules.hint": "Kvar modul viser nokre slags filer. Slå av dei du ikkje vil ha lasta inn: filene deira blir då viste som tekst eller heks, som kva anna fil som helst. Ingen modul sender filene dine nokon stad.",
  "modules.uses": "brukar {what}",
  "modules.images": "kan lasta ned eit containerbilete",
+ "modules.not_built": "ikkje med i denne utgåva",
+ "modules.not_built_notice": "Vist som tekst: {module} er ikkje med i denne utgåva.",
  "modules.off_notice": "Vist som tekst: {module} er slått av. Slå han på i Innstillingar ({key}) → Modular.",
  "guide.modules": "Visingar du ikkje treng, kan slåast av, kvar med formata han viser og kva han brukar.",
  "guide.modules_open": "Vel modular",

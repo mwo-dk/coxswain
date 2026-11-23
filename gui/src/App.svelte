@@ -143,7 +143,7 @@
   // Settings saved behind the page's back (the built-in model's download turned meaning on).
   listen("config-changed", async () => {
     ui.cfg = await invoke("get_config");
-    setModulesOff(ui.cfg.viewer_modules, ui.cfg.settings.modules_off);
+    setModulesOff(ui.cfg.viewer_modules, ui.cfg.settings.modules_off, ui.cfg.modules);
   });
   // A tab in the background is read again when it is shown.
   listen("dir-changed", (ev) => {
@@ -482,7 +482,8 @@
       const e = item(tab());
       // The games module off: said, nothing opened.
       const off = moduleOff("chess");
-      if (off) return void (ui.status = t("modules.off_notice", { module: ui.cfg.modules.find((m) => m.id === off)?.label ?? off, key: ui.cfg.actions.settings?.[1] ?? "" }));
+      const row = off && ui.cfg.modules.find((m) => m.id === off);
+      if (off) return void (ui.status = t(row && !row.built ? "modules.not_built_notice" : "modules.off_notice", { module: row?.label ?? off, key: ui.cfg.actions.settings?.[1] ?? "" }));
       if (!(e && !e.is_dir && (await gamesOf(e)))) ui.status = t("chess.not_chess");
     },
     space_view: () => openSpace(),

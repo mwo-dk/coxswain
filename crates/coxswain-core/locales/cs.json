@@ -4847,6 +4847,8 @@
  "modules.hint": "Každý modul ukazuje některé druhy souborů. Vypněte ty, které nechcete načítat: jejich soubory se pak ukážou jako text nebo hexadecimálně jako každý jiný soubor. Žádný modul vaše soubory nikam neposílá.",
  "modules.uses": "používá {what}",
  "modules.images": "může stáhnout obraz kontejneru",
+ "modules.not_built": "není v tomto sestavení",
+ "modules.not_built_notice": "Zobrazeno jako text: {module} není v tomto sestavení.",
  "modules.off_notice": "Zobrazeno jako text: {module} je vypnutý. Zapněte ho v Nastavení ({key}) → Moduly.",
  "guide.modules": "Prohlížeče, které nepotřebujete, lze vypnout, každý s formáty, které ukazuje, a tím, co používá.",
  "guide.modules_open": "Vybrat moduly",

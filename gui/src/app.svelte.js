@@ -1304,7 +1304,7 @@ export async function init() {
   setMediaEndings(ui.cfg.media_endings);
   setGeoEndings(ui.cfg.geo_endings);
   setViewerRules(ui.cfg.viewer_rules, ui.cfg.viewer_reads);
-  setModulesOff(ui.cfg.viewer_modules, ui.cfg.settings.modules_off);
+  setModulesOff(ui.cfg.viewer_modules, ui.cfg.settings.modules_off, ui.cfg.modules);
   const st = await invoke("get_state");
   const s = st.session ?? {};
   ui.favorites = st.favorites;
