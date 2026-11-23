@@ -87,7 +87,7 @@ impl Entry {
 
 /// The date of `secs` since 1970, here.
 fn date(secs: u64) -> String {
-    crate::clock::local(secs.min(253_402_300_799) as i64, "%Y-%m-%d").unwrap_or_default()
+    crate::clock::local(secs.min(jiff::Timestamp::MAX.as_second() as u64) as i64, "%Y-%m-%d").unwrap_or_default()
 }
 
 /// Where the built-in models are kept: the cache folder's `models`.

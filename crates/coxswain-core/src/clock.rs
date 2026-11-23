@@ -49,7 +49,7 @@ pub fn rfc3339(s: &str) -> Option<i64> {
 
 /// A message's date as mail writes it (RFC 2822, UTC): `Thu, 01 Jan 1970 00:00:00 +0000`.
 pub fn rfc2822(secs: i64) -> Option<String> {
-    utc(secs, "%a, %d %b %Y %H:%M:%S +0000")
+    utc(secs, "%a, %e %b %Y %H:%M:%S +0000").map(|s| s.replacen(",  ", ", ", 1))
 }
 
 #[cfg(test)]
@@ -94,7 +94,7 @@ mod tests {
 
     #[test]
     fn mail_dates_are_rfc_2822() {
-        assert_eq!(rfc2822(0).unwrap(), "Thu, 01 Jan 1970 00:00:00 +0000");
-        assert_eq!(rfc2822(T).unwrap(), "Thu, 01 Oct 2026 12:00:00 +0000");
+        assert_eq!(rfc2822(0).unwrap(), "Thu, 1 Jan 1970 00:00:00 +0000");
+        assert_eq!(rfc2822(T + 86_400 * 12).unwrap(), "Tue, 13 Oct 2026 12:00:00 +0000");
     }
 }

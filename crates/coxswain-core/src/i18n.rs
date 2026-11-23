@@ -369,7 +369,7 @@ pub fn date(secs: u64) -> String {
 }
 
 fn local(secs: u64, format: &str) -> String {
-    digits(crate::clock::local(secs.min(253_402_300_799) as i64, format).unwrap_or_default())
+    digits(crate::clock::local(secs.min(jiff::Timestamp::MAX.as_second() as u64) as i64, format).unwrap_or_default())
 }
 
 /// `s` in capitals, except Georgian: it has no capitals in running text, and its Mtavruli

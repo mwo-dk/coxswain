@@ -111,7 +111,7 @@ pub fn parse_date(s: &str) -> Option<SystemTime> {
         return None;
     }
     let secs = crate::clock::from_local(naive)?;
-    Some(if secs >= 0 { crate::fs::epoch(secs as u64) } else { SystemTime::UNIX_EPOCH - std::time::Duration::from_secs(secs.unsigned_abs()) })
+    if secs >= 0 { Some(crate::fs::epoch(secs as u64)) } else { SystemTime::UNIX_EPOCH.checked_sub(std::time::Duration::from_secs(secs.unsigned_abs())) }
 }
 
 /// A date for a person: `2026-10-21 14:30:05`, local time.
