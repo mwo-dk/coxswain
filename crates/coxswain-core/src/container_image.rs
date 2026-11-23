@@ -208,7 +208,7 @@ fn read(path: &Path) -> io::Result<Option<Opened>> {
     } else {
         // A plain tar's headers, read by seeking past what lies between them.
         let mut names = HashMap::new();
-        let mut a = tar::Archive::new(BufReader::new(File::open(path)?));
+        let mut a = tar::Archive::new(crate::archive::PaxSized::new(BufReader::new(File::open(path)?)));
         let (mut n, mut links) = (0, vec![]);
         let r = crate::archive::tar_named(a.entries_with_seek()?, |name, link, e| {
             n += 1;
@@ -674,7 +674,7 @@ fn merge(o: &Opened, path: &Path) -> io::Result<Tree> {
         // (`.wh.<name>`), or only what is below (an opaque folder). Applied when the layer is
         // read, once each.
         let mut gone: std::collections::HashMap<String, bool> = std::collections::HashMap::new();
-        crate::archive::tar_named(tar::Archive::new(r).entries()?, |raw, link, e| {
+        crate::archive::tar_named(tar::Archive::new(crate::archive::PaxSized::new(r)).entries()?, |raw, link, e| {
             let at = ordinal;
             ordinal += 1;
             read += 1;
@@ -1008,7 +1008,7 @@ fn by_entry<T>(
     let mut by_entry: HashMap<usize, Src> = want.keys().map(|s| (s.entry, *s)).collect();
     let mut ordinal = 0usize;
     let mut go = true;
-    crate::archive::tar_named(tar::Archive::new(layer(&o.store, name, packed, None)?.0).entries()?, |_, _, e| {
+    crate::archive::tar_named(tar::Archive::new(crate::archive::PaxSized::new(layer(&o.store, name, packed, None)?.0)).entries()?, |_, _, e| {
         let at = ordinal;
         ordinal += 1;
         if let Some(s) = by_entry.remove(&at)

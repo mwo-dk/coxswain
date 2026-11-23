@@ -554,7 +554,7 @@ fn tar_reader_noting(
         Pack::Xz => Box::new(lzma_rust2::XzReader::new(f, true)),
         Pack::Zst => Box::new(crate::tar_index::Zst::new(f, note)),
     };
-    Ok(tar::Archive::new(r))
+    Ok(tar::Archive::new(Box::new(PaxSized::new(r))))
 }
 
 /// What is unpacked at most after a tar's end, to reach the end of its bzip2 stream.
@@ -563,6 +563,157 @@ const TAR_TRAIL: u64 = 16 << 20;
 /// The most bytes of a tar's long name or PAX record: the tar crate reads those whole into
 /// memory, however large a crafted header says they are.
 pub(crate) const TAR_META: u64 = 64 * 1024;
+
+/// A tar as it is read, with the `size` of a PAX record written into the header of the entry
+/// it is for (past 8 GiB in base-256, as GNU tar writes it), so the crate's raw reading steps
+/// over the data its own reading and other tars do: the listing, previews, F5, the kept index
+/// and `rewrite` all see an entry's real size (#982). Nothing else is changed. A header it
+/// cannot follow (a bad checksum, a GNU sparse file, a record past `TAR_META`) ends the
+/// changing, and `tar_named_at` refuses what then disagrees.
+pub(crate) struct PaxSized<R> {
+    inner: R,
+    /// Read ahead and given out first: a header, and a PAX record's data after it.
+    ahead: Vec<u8>,
+    used: usize,
+    /// Where this stream is, and where its next header starts, from where it began.
+    pos: u64,
+    next: u64,
+    /// The size a PAX record gives the next entry.
+    size: Option<u64>,
+    lost: bool,
+}
+
+impl<R: Read> PaxSized<R> {
+    pub(crate) fn new(inner: R) -> Self {
+        Self { inner, ahead: vec![], used: 0, pos: 0, next: 0, size: None, lost: false }
+    }
+
+    /// Reads as much of `to` as there is.
+    fn fill(&mut self, to: &mut [u8]) -> io::Result<usize> {
+        let mut n = 0;
+        while n < to.len() {
+            match self.inner.read(&mut to[n..]) {
+                Ok(0) => break,
+                Ok(k) => n += k,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+                // What was read is not given back: nothing after it is followed.
+                Err(e) => {
+                    self.lost = true;
+                    return Err(e);
+                }
+            }
+        }
+        Ok(n)
+    }
+
+    /// The header at `next` read ahead (with a PAX record's data), its size set as the crate
+    /// reads it unraw: the first `size` of the PAX record before it, unless that record fails
+    /// to parse before it (`tar::Archive::entries`).
+    fn header(&mut self) -> io::Result<()> {
+        let mut h = [0u8; 512];
+        let n = self.fill(&mut h)?;
+        (self.ahead, self.used) = (h[..n].to_vec(), 0);
+        if n < h.len() {
+            self.lost = true;
+            return Ok(());
+        }
+        if h.iter().all(|b| *b == 0) {
+            self.next += 512;
+            return Ok(());
+        }
+        let sum = h[..148].iter().chain(&h[156..]).map(|b| u32::from(*b)).sum::<u32>() + 8 * 32;
+        let mut head = tar::Header::new_old();
+        head.as_mut_bytes().copy_from_slice(&h);
+        let (t, known) = (head.entry_type(), head.as_gnu().is_some() || head.as_ustar().is_some());
+        let (Ok(mut size), Ok(true)) = (head.entry_size(), head.cksum().map(|c| c == sum)) else {
+            self.lost = true;
+            return Ok(());
+        };
+        if t.is_gnu_sparse() {
+            self.lost = true;
+            return Ok(());
+        }
+        if known && t.is_pax_local_extensions() {
+            if size > TAR_META {
+                self.lost = true;
+                return Ok(());
+            }
+            let mut data = vec![0; size.next_multiple_of(512) as usize];
+            let got = self.fill(&mut data)?;
+            self.ahead.extend_from_slice(&data[..got]);
+            if got < data.len() {
+                self.lost = true;
+                return Ok(());
+            }
+            self.size = None;
+            for x in tar::PaxExtensions::new(&data[..size as usize]) {
+                let Ok(x) = x else { break };
+                if x.key_bytes() == b"size" {
+                    self.size = x.value().ok().and_then(|v| v.parse().ok());
+                    break;
+                }
+            }
+        } else if t.is_gnu_longname() || t.is_gnu_longlink() || t.is_pax_local_extensions() || t.is_pax_global_extensions() {
+            // A record without a tar's magic, and a global one, the crate takes for an entry:
+            // the size goes to it, unused.
+            if !known || t.is_pax_global_extensions() {
+                self.size = None;
+            }
+        } else if let Some(s) = self.size.take() {
+            if s != size {
+                head.set_size(s);
+                head.set_cksum();
+                self.ahead.copy_from_slice(head.as_bytes());
+            }
+            size = s;
+        }
+        match size.checked_next_multiple_of(512).and_then(|s| self.next.checked_add(512 + s)) {
+            Some(next) => self.next = next,
+            None => self.lost = true,
+        }
+        Ok(())
+    }
+}
+
+impl<R: Read> Read for PaxSized<R> {
+    fn read(&mut self, to: &mut [u8]) -> io::Result<usize> {
+        if self.used == self.ahead.len() && !self.lost && self.pos == self.next && !to.is_empty() {
+            self.header()?;
+        }
+        let n = if self.used < self.ahead.len() {
+            let n = to.len().min(self.ahead.len() - self.used);
+            to[..n].copy_from_slice(&self.ahead[self.used..self.used + n]);
+            self.used += n;
+            n
+        } else {
+            // Never past the next header, which is read ahead first.
+            let most = if self.lost { to.len() } else { (self.next - self.pos).min(to.len() as u64) as usize };
+            self.inner.read(&mut to[..most])?
+        };
+        self.pos += n as u64;
+        Ok(n)
+    }
+}
+
+/// Forward only, as the crate skips an entry's data: what is read ahead first.
+impl<R: Read + Seek> Seek for PaxSized<R> {
+    fn seek(&mut self, to: io::SeekFrom) -> io::Result<u64> {
+        let io::SeekFrom::Current(n) = to else {
+            return Err(io::ErrorKind::Unsupported.into());
+        };
+        let n = u64::try_from(n).map_err(|_| io::Error::from(io::ErrorKind::Unsupported))?;
+        let ahead = (self.ahead.len() - self.used) as u64;
+        let taken = n.min(ahead);
+        self.used += taken as usize;
+        let at = self.inner.seek(io::SeekFrom::Current((n - taken) as i64))?;
+        self.pos += n;
+        // Past a header unread: nothing after it is followed.
+        if self.used == self.ahead.len() && self.pos > self.next {
+            self.lost = true;
+        }
+        Ok(at - (ahead - taken))
+    }
+}
 
 /// Each entry of `entries` with its whole name and link target (GNU long names and PAX paths,
 /// read here with `TAR_META` at most), until `f` says enough. Those records are not entries.
@@ -584,9 +735,9 @@ fn tar_named_at<'a, R: Read>(
     // Read as the crate's own reading (`unpack_tar`, Extract) reads them: a GNU long name or
     // link before a PAX one, the first PAX `path` of a record, each taken by the next entry.
     let (mut long, mut link, mut pax_path, mut pax_link) = (None, None, None, None);
-    // A PAX `size`, or a sparse file: raw entries apply neither, so this list would not be what
+    // A PAX `size` is in the header by now (`PaxSized`); one that is not (two sizes, one
+    // unreadable), or a sparse file: raw entries apply neither, so this list would not be what
     // Extract and other tars read (#960). Refused, never read past.
-    // shortcut: a tar with a file of 8 GiB or more (PAX size) does not open; read them (#982).
     let (mut sizes, mut pax) = (Vec::<Option<u64>>::new(), false);
     let unsafe_tar = || io::Error::new(io::ErrorKind::InvalidData, crate::t!("err.tar_unsafe"));
     for e in entries.raw(true) {
@@ -1679,7 +1830,7 @@ fn in_place(archive: &Path, name: &str) -> io::Result<Option<(PathBuf, u64, u64)
             // A name given twice: its later file, so all headers are read then.
             let twice = listed_twice(archive, &|n| n == name)?;
             tar_named(
-                tar::Archive::new(BufReader::new(File::open(archive)?)).entries_with_seek()?,
+                tar::Archive::new(PaxSized::new(BufReader::new(File::open(archive)?))).entries_with_seek()?,
                 |n, _, e| {
                     if n == name && e.header().entry_type().is_file() {
                         found = Some((e.raw_file_position(), e.size()));
@@ -2115,7 +2266,7 @@ fn read_raw_items(archive: &Path, password: Option<&str>, max: usize) -> io::Res
     if k == Kind::Tar(Pack::None) {
         // A plain tar's headers are read by seeking past what lies between them.
         tar_named(
-            tar::Archive::new(BufReader::new(File::open(archive)?)).entries_with_seek()?,
+            tar::Archive::new(PaxSized::new(BufReader::new(File::open(archive)?))).entries_with_seek()?,
             |n, _, e| item(n, e.header(), e.size()),
         )?;
     } else if let Some(kept) = crate::tar_index::load(archive) {
@@ -3803,7 +3954,7 @@ fn copy_entries(
             .transpose()?
             .flatten();
         let mut tar = match from {
-            Some(r) => tar::Archive::new(r),
+            Some(r) => tar::Archive::new(Box::new(PaxSized::new(r)) as Box<dyn Read>),
             None => tar_reader(archive, k)?,
         };
         tar_named(tar.entries()?, |name, _, e| {
@@ -3887,7 +4038,7 @@ fn tar_files_named(archive: &Path, k: Kind, wanted: &dyn Fn(&str) -> bool) -> io
         Ok(true)
     };
     if k == Kind::Tar(Pack::None) {
-        let mut tar = tar::Archive::new(BufReader::new(File::open(archive)?));
+        let mut tar = tar::Archive::new(PaxSized::new(BufReader::new(File::open(archive)?)));
         tar_named(tar.entries_with_seek()?, |n, _, e| count(n, e.header().entry_type().is_file()))?;
     } else {
         let mut tar = tar_reader(archive, k)?;
@@ -6047,7 +6198,7 @@ mod tests {
     }
 
     #[test]
-    fn tar_with_a_pax_size_or_a_sparse_file_is_refused_not_misread() {
+    fn tar_with_a_pax_size_is_read_as_extract_reads_it_and_a_sparse_file_is_refused() {
         let d = std::env::temp_dir().join(format!("coxswain-test-pax-size-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
@@ -6085,26 +6236,92 @@ mod tests {
             let e = list(p, 10).unwrap_err();
             assert_eq!(e.to_string(), crate::t!("err.tar_unsafe"), "{}", p.display());
             assert!(copy_out(p, "last.txt", &d.join("out"), None, false).is_err());
-            std::fs::create_dir_all(d.join("x")).unwrap();
-            assert!(extract(p, &d.join("x")).is_err());
-            assert_eq!(std::fs::read_dir(d.join("x")).unwrap().count(), 0, "nothing extracted");
+            std::fs::create_dir_all(d.join("refused")).unwrap();
+            assert!(extract(p, &d.join("refused")).is_err());
+            assert_eq!(std::fs::read_dir(d.join("refused")).unwrap().count(), 0, "nothing extracted");
             // Never written anew short.
             assert!(remove(p, &["last.txt".into()], None).is_err());
             assert_eq!(std::fs::read(p).unwrap(), before, "untouched");
         };
-        // The header says 0, the PAX record says the next header is the entry's data.
-        refused(&write("hides.tar", &|t| {
+        // Read as Extract reads it, plain (headers sought) and compressed (unpacked, its list
+        // and places kept): listing, preview, F5, Extract and a rewrite agree.
+        let agree = |name: &str, f: &dyn Fn(&mut tar::Builder<Vec<u8>>), names: &[&str], a: &[u8]| {
+            let plain = write(name, f);
+            let gz = d.join(format!("{name}.gz"));
+            let mut w = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+            w.write_all(&std::fs::read(&plain).unwrap()).unwrap();
+            std::fs::write(&gz, w.finish().unwrap()).unwrap();
+            for p in [plain, gz] {
+                let at = p.display().to_string();
+                // What the crate's own reading, of the file as it is, gives: names, sizes, bytes.
+                let crate_reads = |p: &Path| {
+                    let mut v = std::fs::read(p).unwrap();
+                    if at.ends_with(".gz") {
+                        let mut plain = vec![];
+                        flate2::read::GzDecoder::new(&v[..]).read_to_end(&mut plain).unwrap();
+                        v = plain;
+                    }
+                    let mut tar = tar::Archive::new(&v[..]);
+                    let mut all = vec![];
+                    for e in tar.entries().unwrap() {
+                        let mut e = e.unwrap();
+                        let mut v = vec![];
+                        e.read_to_end(&mut v).unwrap();
+                        all.push((e.path().unwrap().to_string_lossy().into_owned(), v));
+                    }
+                    all
+                };
+                let theirs = crate_reads(&p);
+                let listed: Vec<_> = list(&p, 10).unwrap().0.into_iter().map(|e| (e.name, e.size)).collect();
+                assert_eq!(listed.iter().map(|l| l.0.as_str()).collect::<Vec<_>>(), names, "{at}");
+                let sizes: Vec<_> = theirs.iter().map(|(n, v)| (n.clone(), v.len() as u64)).collect();
+                assert_eq!(listed, sizes, "{at}: as the crate reads it");
+                assert_eq!(theirs[0].1, a, "{at}");
+                assert_eq!(head(&p.join("a"), 1 << 20).unwrap(), (a.to_vec(), false), "{at}");
+                let text = |r: &mut dyn Read| {
+                    let mut v = vec![];
+                    r.read_to_end(&mut v).map(|_| v)
+                };
+                if !a.is_empty() {
+                    assert_eq!(stream_at(&p.join("a"), 1, |r, _| text(r), false).unwrap(), a[1..], "{at}");
+                }
+                let out = d.join("out").join(p.file_name().unwrap());
+                std::fs::create_dir_all(&out).unwrap();
+                assert_eq!(std::fs::read(copy_out(&p, "a", &out, None, false).unwrap()).unwrap(), a, "{at}");
+                let to = extract(&p, &d.join("x").join(p.file_name().unwrap())).unwrap();
+                assert_eq!(std::fs::read(to.join("a")).unwrap(), a, "{at}: Extract agrees");
+                assert_eq!(std::fs::read(to.join("last.txt")).unwrap(), b"last", "{at}");
+                // Written anew: `a` whole, never shorter, and still read the same.
+                remove(&p, &["last.txt".into()], None).unwrap();
+                let left: Vec<_> = list(&p, 10).unwrap().0.into_iter().map(|e| e.name).collect();
+                assert_eq!(left, names[..names.len() - 1], "{at}");
+                let to = extract(&p, &d.join("y").join(p.file_name().unwrap())).unwrap();
+                assert_eq!(std::fs::read(to.join("a")).unwrap(), a, "{at}: kept whole");
+                assert_eq!(crate_reads(&p), theirs[..theirs.len() - 1], "{at}: as the crate reads it");
+            }
+        };
+        // The header says 0 (as Python writes a file of 8 GiB or more), the PAX record the size:
+        // the next header is the entry's data.
+        agree("hides.tar", &|t| {
             let rec = pax("size", &hidden.len().to_string());
             entry(t, tar::EntryType::XHeader, "PaxHeaders/a", rec.len() as u64, &rec);
             entry(t, tar::EntryType::Regular, "a", 0, &[]);
             t.get_mut().extend_from_slice(&hidden);
-        }));
+        }, &["a", "last.txt"], &hidden);
         // The other way: the header's data holds an entry the PAX size says is not there.
-        refused(&write("shows.tar", &|t| {
+        agree("shows.tar", &|t| {
             let rec = pax("size", "0");
             entry(t, tar::EntryType::XHeader, "PaxHeaders/a", rec.len() as u64, &rec);
             entry(t, tar::EntryType::Regular, "a", hidden.len() as u64, &hidden);
-        }));
+        }, &["a", "hidden.txt", "last.txt"], &[]);
+        // A long name between the PAX record and its entry: the size still goes to the entry.
+        agree("long.tar", &|t| {
+            let rec = pax("size", &hidden.len().to_string());
+            entry(t, tar::EntryType::XHeader, "PaxHeaders/a", rec.len() as u64, &rec);
+            entry(t, tar::EntryType::GNULongName, "././@LongLink", 1, b"a");
+            entry(t, tar::EntryType::Regular, "x", 0, &[]);
+            t.get_mut().extend_from_slice(&hidden);
+        }, &["a", "last.txt"], &hidden);
         // A sparse file, old GNU or PAX: read raw, its data is not the file.
         refused(&write("sparse.tar", &|t| {
             entry(t, tar::EntryType::GNUSparse, "s", 0, &[]);
@@ -6142,6 +6359,36 @@ mod tests {
         remove(&p, &["last.txt".into()], None).unwrap();
         assert_eq!(list(&p, 10).unwrap().0.len(), 1);
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_pax_size_of_8_gib_or_more_goes_into_the_header_in_base_256() {
+        // As Python's tarfile writes it: the header's size empty, the size in the PAX record.
+        let rec = b"19 size=9663676416\n";
+        let mut tar = vec![];
+        for (ty, name, size) in [(tar::EntryType::XHeader, "PaxHeaders/big", rec.len() as u64), (tar::EntryType::Regular, "big", 0)] {
+            let mut h = tar::Header::new_ustar();
+            h.set_entry_type(ty);
+            h.set_size(size);
+            h.set_path(name).unwrap();
+            h.set_cksum();
+            tar.extend_from_slice(h.as_bytes());
+            if ty == tar::EntryType::XHeader {
+                tar.extend_from_slice(rec);
+                tar.resize(1024, 0);
+            }
+        }
+        let mut a = tar::Archive::new(PaxSized::new(&tar[..]));
+        let mut raw = a.entries().unwrap().raw(true);
+        raw.next().unwrap().unwrap();
+        let big = raw.next().unwrap().unwrap();
+        assert_eq!((big.size(), big.header().entry_size().unwrap()), (9 << 30, 9 << 30));
+        assert_eq!(big.header().as_bytes()[124], 0x80, "base-256");
+        // Written anew as `rewrite` writes it: the size stays in the header.
+        let mut h = big.header().clone();
+        h.set_path("big").unwrap();
+        h.set_cksum();
+        assert_eq!(h.entry_size().unwrap(), 9 << 30);
     }
 
     #[test]

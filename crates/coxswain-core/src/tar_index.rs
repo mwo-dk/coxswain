@@ -1150,7 +1150,7 @@ pub(crate) fn entry_from(archive: &Path, pack: crate::archive::Pack, name: &str,
     // Where the entry's header starts (a compressed tar: kept in its list) and, for a plain
     // tar, where its data does, found by seeking from header to header.
     let (at, size, mut data) = if plain {
-        let (mut found, mut tar) = (None, tar::Archive::new(File::open(archive)?));
+        let (mut found, mut tar) = (None, tar::Archive::new(crate::archive::PaxSized::new(File::open(archive)?)));
         // A name given twice (as the list says): the later file, the one that comes out, as tar
         // gives it; else the first, and nothing after it is read.
         let twice = crate::archive::listed_twice(archive, &|n| n == name)?;
