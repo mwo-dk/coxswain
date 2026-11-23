@@ -1,0 +1,38 @@
+# Plugin spike (#1024): the static musl build runs the component. spike/plugins only.
+name: Plugin spike musl
+on:
+  push:
+    branches: [spike/plugins]
+    paths: [.github/workflows/spike-musl.yml]
+permissions:
+  contents: read
+jobs:
+  musl:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: spike
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-linux-musl
+      - run: sudo apt-get install -y musl-tools
+      - name: Test data
+        run: |
+          python3 -m pip install --quiet zstandard || python3 -m pip install --quiet --break-system-packages zstandard
+          curl -sSfL -o lichess.pgn.zst https://database.lichess.org/standard/lichess_db_standard_rated_2013-01.pgn.zst
+          python3 bench/data.py lichess.pgn.zst data
+      - name: Static musl build, run
+        run: |
+          cargo build -q --release -p spike-host --target x86_64-unknown-linux-musl --features pulley
+          h=target/x86_64-unknown-linux-musl/release/spike-host
+          file "$h"
+          export SPIKE_WASM=plugin.wasm
+          for rt in native cranelift pulley; do "$h" bench $rt pgn-scan 1 1 data/pgn-20k.pgn; done
+          "$h" bench native pgn-parse 4 1 data/full.pgn
+          "$h" bench cranelift pgn-parse 4 1 data/full.pgn
