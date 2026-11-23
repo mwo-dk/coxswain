@@ -768,12 +768,14 @@ jobs:
             case "$f" in *.sha256) continue ;; esac
             [ -e "$f.sha256" ] || { (cd assets && sha256sum "${f#assets/}" > "${f#assets/}.sha256"); made+=("$f.sha256"); }
           done
+          .github/draft-check.sh
           [ ${#made[@]} = 0 ] || packaging/retry.sh gh release upload --clobber "$TAG" --repo "$REPO" "${made[@]}"
           packaging/release-assets.sh "$TAG" assets
           # One SHA256SUMS over every download, the desktop installers included, so a download can
           # be checked against what this run uploaded.
           (cd assets && rm -f SHA256SUMS && sha256sum -- * > ../SHA256SUMS)
           cat SHA256SUMS
+          .github/draft-check.sh
           packaging/retry.sh gh release upload --clobber "$TAG" --repo "$REPO" SHA256SUMS
       - name: The draft, as it will be published
         run: |
@@ -807,6 +809,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
           ID: ${{ needs.draft.outputs.id }}
+          PUBLISHED: ok
           REPO: ${{ github.repository }}
         # Two versions can be on their way at once: only the higher one becomes Latest.
         run: |

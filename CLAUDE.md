@@ -109,8 +109,9 @@ These rules hold for every contributor and every Claude session in this reposito
 - **Watch master, every Release run, the nightly run and the Saturday rehearsal to the end, and
   fix what fails without being asked.**
   A failure that is GitHub's or a mirror's (a cancelled job, HTTP 5xx, a hung download) is rerun
-  (`gh run rerun <id> --failed`); one of ours is fixed in a PR. A Release run whose failure came
-  after its draft was made (a build job, `verify`, `publish`) has had its draft deleted, so it is
+  (`gh run rerun <id> --failed`); one of ours is fixed in a PR. A Release run that failed
+  between its draft and publishing (`boms`, a build job, `verify`, `rehearse`, `publish`) has had
+  its draft deleted, so it is
   rerun in full (`gh run rerun <id>`, tests and all); with `--failed` its jobs stop at once
   (`.github/draft-check.sh`). A workflow-only PR whose checks
   are not required (the virtual machines, Termux, Flatpak) merges only after those checks have
