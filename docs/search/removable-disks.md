@@ -18,9 +18,7 @@ can still be found by name, words and meaning, and Ask can answer from them; eac
 - [In the terminal app](#in-the-terminal-app)
 - [Questions](#questions)
 
-![Settings → Finding files → Details → Folders: Folders read lists /home/demo (14.3 MB in the index) and /run/media/demo/BACKUP1 with 412 MB in the index, kept while its disk is not plugged in. Remove forgets it., each with Remove](../screenshots/search-removable-away.png)
-
-<!-- screenshot: search-removable-away.png: retake, Settings → Finding files → Details → Folders with /run/media/demo/BACKUP1 saying "412 MB in the index, kept while its disk is not plugged in: 1,204 files can still be found. Remove forgets it." -->
+![Settings → Finding files → Details → Folders: Folders read lists /home/demo/Documents (155 MB in the index) and /run/media/demo/BACKUP1 with 623 B in the index, kept while its disk is not plugged in: 5 files can still be found. Remove forgets it., each with Remove](../screenshots/search-removable-away.png)
 
 ## How to use it
 
@@ -64,14 +62,15 @@ disk are not found by name while it is away, and neither are files inside its ar
 Under the list, one more line names every disk that is away and has hits: *Not plugged in:
 BACKUP1. Their hits are shown · Enter: hide them* (see [Hiding the hits](#hiding-the-hits-of-a-disk-that-is-away)).
 
-<!-- screenshot: search-away-find.gif: desktop app (Cyber), Find for "orbit" with a hit on BACKUP1 marked "on BACKUP1 — not plugged in" and the line "Not plugged in: BACKUP1" under the list; the disk is then mounted at another place under /run/media and the mark goes, with nothing read again (with its first-frame still search-away-find.png) -->
-<!-- screenshot: search-away-find-tui.png: terminal app (Classic blue), Find for "orbit" with a hit marked [on BACKUP1 — not plugged in] and the line under the list -->
+<picture><source media="(prefers-reduced-motion: reduce)" srcset="../screenshots/search-away-find.png"><img src="../screenshots/search-away-find.gif" alt="Find for orbit in the desktop app: hits on BACKUP1 each with the badge on BACKUP1 — not plugged in, and under the list the line Not plugged in: BACKUP1. Their hits are shown · Enter: hide them. Enter on that line hides the hits and the line says they are hidden; Enter again shows them"></picture>
+
+![Find for orbit in the terminal app: hits on BACKUP1 each with [on BACKUP1 — not plugged in] at the right of its line, and under the list the line Not plugged in: BACKUP1. Their hits are shown · Enter: hide them](../screenshots/search-away-find-tui.png)
 
 **In Ask**, a source on a disk that is away has the same mark after its folder, in both apps.
 
-<!-- screenshot: search-away-ask.png: desktop app (Cyber), an Ask answer citing a source on BACKUP1 with its badge "on BACKUP1 — not plugged in" -->
+![Ask in the desktop app: the answer The orbit insertion burn needs 42 tonnes of fuel [1], and the sources orbit-insertion-notes.txt and orbit-budget.txt, each on /run/media/demo/BACKUP1/papers with the badge on BACKUP1 — not plugged in](../screenshots/search-away-ask.png)
 
-**In Settings**, under *Folders read*: *412 MB in the index* while the disk is there, and *412 MB
+**In Settings**, under *Folders read* (here with a small disk): *412 MB in the index* while the disk is there, and *412 MB
 in the index, kept while its disk is not plugged in: 1,204 files can still be found. Remove
 forgets it.* while it is away.
 
