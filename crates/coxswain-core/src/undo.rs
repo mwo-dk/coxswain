@@ -66,7 +66,8 @@ struct Item {
     /// Where it came from (for a new folder, a pack or a copy: what was made).
     from: PathBuf,
     /// What the operation left: the new place, the copy, the archive, the folder. For the trash,
-    /// its name in Coxswain's own trash (Termux, illumos), else empty.
+    /// its name in Coxswain's own trash (Termux, illumos), its info file on the BSDs and Linux,
+    /// else empty.
     to: PathBuf,
     stamp: Option<Stamp>,
     /// For `Attrs`: the bits and times the file had before.
@@ -104,7 +105,8 @@ pub fn trash_restores() -> bool {
     !cfg!(any(target_os = "macos", target_os = "ios")) && crate::tools::flatpak().is_none()
 }
 
-/// Put `path` back from the trash; `name`: its name in Coxswain's own trash (Termux, illumos).
+/// Put `path` back from the trash; `name`: its name in Coxswain's own trash (Termux, illumos),
+/// its info file on the BSDs and Linux.
 #[cfg(any(
     windows,
     all(
@@ -116,9 +118,16 @@ pub fn trash_restores() -> bool {
         not(target_os = "solaris")
     )
 ))]
-fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
+fn restore(path: &Path, name: &Path, since: i64) -> io::Result<()> {
     use trash::os_limited;
     let want = comparable(path);
+    // Put by Coxswain's own put, which named its info file (#997): that very item.
+    #[cfg(not(windows))]
+    if name.is_absolute() {
+        return restore_item(name, &want);
+    }
+    #[cfg(windows)]
+    let _ = name;
     // ponytail: two trashings of one path within a second are told apart by nothing; the newest
     // listed wins.
     let item = os_limited::list()

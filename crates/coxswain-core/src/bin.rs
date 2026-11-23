@@ -386,7 +386,8 @@ pub(crate) mod fd {
             let mut o = fs::OpenOptions::new();
             o.write(true).create(true).truncate(false);
             #[cfg(unix)]
-            std::os::unix::fs::OpenOptionsExt::custom_flags(&mut o, libc::O_NOFOLLOW);
+            // Non-blocking: a pipe planted under the lock's name would block the open for ever.
+            std::os::unix::fs::OpenOptionsExt::custom_flags(&mut o, libc::O_NOFOLLOW | libc::O_NONBLOCK);
             let Ok(f) = o.open(b.dir.join(LOCK)) else {
                 continue;
             };
@@ -479,7 +480,7 @@ pub(crate) mod fd {
     /// The bins a put of `path` may go to, sorted as `bins` is: the home one and its own disk's
     /// (the top of the folders on its device). Never another mount's, which may hang (a dead
     /// network share).
-    #[cfg(unix)]
+    #[cfg(any(target_os = "android", target_os = "illumos", target_os = "solaris"))]
     pub fn bins_for(path: &Path) -> Vec<Bin> {
         use std::os::unix::fs::MetadataExt;
         let mut dirs: Vec<PathBuf> = crate::dirs::data_dir()

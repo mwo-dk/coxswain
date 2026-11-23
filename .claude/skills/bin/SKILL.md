@@ -102,12 +102,17 @@ Not modelled, so not proven:
   rename would; no trace found depends on that.
 - `fd::real` (a bin whose `files` or `info` is a link is refused) and `bin::inside` (nothing is
   made in `@bin`): checked at the start of each operation, not raced here.
-- A put that copies (the `trash` crate's fall-back when the file is on another disk than the
-  home bin: copy into `files/`, then delete the original). A half-made copy is listed, so an
-  Empty then would delete it, and the put the original. Coxswain's own put (`fs::trash_named`)
-  waits for the lock of the home bin and its own disk's bin (`fd::bins_for`; `fd::wait`, Stop
-  ends the wait), so no Coxswain Empty runs during it; another
-  program's copying put is not covered.
+- A put from another disk into the home bin (`fs::bin_move` after the rename fails with
+  `EXDEV`: `move_across`, each file copied, checked, then its original removed; failed or
+  stopped, `put_back` brings back what went). The model's `put_move` is one step. The item is
+  listed from its first file on, so an Empty then would delete what went over; Coxswain's own
+  put (`fs::trash_named`) waits for the lock of the home bin and its own disk's bin
+  (`fd::wait` on the home bin and the bin `fs::put_bin` chose; Stop ends the wait), so no
+  Coxswain Empty runs during it.
+  Another program's Empty or restore of the half-moved item is not covered, nor another
+  program's copying put. When `put_back` cannot bring everything back, the info file stays
+  (`bin_move` sets `left`, and `put_in` then keeps it), so what is left is listed; the model's
+  one-step `put_move` never reaches that.
 - A busy bin: `fd::hold` takes the lock with `try_lock`, and when another Coxswain holds it the
   operation does nothing and says `bin.busy`. The model's `Free` waits instead; refusing is a
   step not taken, which no promise can break.
@@ -220,7 +225,7 @@ order of system calls in them, needs the model looked at (and the sync commit mo
 
 | Model action(s) | Code (at the sync commit) |
 |---|---|
-| `PutStart`, `PutCheck`, `PutClaim`, `PutWrite`, `PutMove`, `PutFail` | `xdg_trash::put_in` (`crates/coxswain-core/src/xdg_trash.rs`, lines 47–91): the `name_candidates` loop, `symlink_metadata(files/n)`, `create_new`, `write_all`, `rename`, the `remove_file(&i)` on failure. Also the `trash` crate's `move_to_trash`, same order. |
+| `PutStart`, `PutCheck`, `PutClaim`, `PutWrite`, `PutMove`, `PutFail` | `xdg_trash::put_in` (`crates/coxswain-core/src/xdg_trash.rs`): the `name_candidates` loop, `symlink_metadata(files/n)`, `create_new`, `write_all`, `fs::bin_move` (a `rename`, else file by file), the `remove_file(&i)` on failure unless part stayed in the bin. Termux, illumos, and every bin on the BSDs and Linux (`xdg_trash::put_in_bin`, from `fs::trash_named`: `fs::put_bin`, else the home bin). Also the `trash` crate's `move_to_trash` (other programs), same order. |
 | `Free`, `Take`, `Done`, `lock` | `fd::hold` (`bin.rs` 370–414, `lock_all`): `flock` on `<bin>/.coxswain-lock` (`try_lock`; when busy, nothing is done) at the start of `restore_in`, `delete_in`, `empty_in`; `fd::wait` (waits, until Stop) for `undo::Record::undo` and `fs::trash_named`. Let go when they return (`fd::Held`: an unlock before the close, as a program another thread starts holds a copy of the handle until it runs, #797) or the program dies. |
 | `Listed`, `RestoreStart`, `DeleteStart`, `EmptyStart`, `iid`, `SameFile`, `SameInfo` | `fd::list_in` (`bin.rs` 591–607, `item` 610–635: an info file whose `parse` succeeds and whose item exists, names as bytes), `fd::find` (690–697) and `fd::ids` (703–705: `fd::id`, 434–446, of the file and its info file). |
 | `RCheck`, `RId` | `fd::restore_in` (726–773): `symlink_metadata(&to)`, `taken`, `free_in` (numbered as `name_candidates` does, as bytes); then `id(&item.path)` against the one found. |

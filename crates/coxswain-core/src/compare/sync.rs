@@ -551,7 +551,7 @@ mod imp {
                 }
                 let st = d.stat_at(&name)?;
                 rel.push(name.clone());
-                // A pipe set aside would hang a bin that copies (another disk): left as it is.
+                // A pipe set aside cannot be moved into a bin on another disk: left as it is.
                 if st.kind == Kind::Other {
                     let at = rel.iter().fold(PathBuf::new(), |p, n| p.join(n));
                     return Err(std::io::Error::other(format!("{}: {}", at.display(), t!("pinned.special"))));
@@ -1214,8 +1214,8 @@ mod tests {
         assert_eq!(unsafe { libc::mkfifo(c.as_ptr(), 0o600) }, 0);
     }
 
-    /// A pipe in the target is never set aside: a bin that copies (another disk) would hang
-    /// on it. Only in the target, against a file, or deep in a folder that would go: left.
+    /// A pipe in the target is never set aside: a bin on another disk could not take
+    /// it. Only in the target, against a file, or deep in a folder that would go: left.
     #[cfg(unix)]
     #[test]
     fn pipes_in_the_target_are_left_where_they_are() {
