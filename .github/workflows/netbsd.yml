@@ -97,6 +97,9 @@ jobs:
         shell: vmsh {0}
         run: |
           set -e
+          # Each vmsh step copies the VM's checkout back to the runner when it ends: the cached
+          # dependencies left here (target.vm/, already saved) would go back again, GBs of them.
+          rm -rf target.vm
           export PATH="$PATH:/usr/X11R7/bin" # the base system's X: Xvfb, xwd
           Xvfb :99 -screen 0 1280x800x24 </dev/null >/dev/null 2>&1 &
           xpid=$!
