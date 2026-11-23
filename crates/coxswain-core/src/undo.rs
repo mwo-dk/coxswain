@@ -121,33 +121,14 @@ fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
     let want = comparable(path);
     // ponytail: two trashings of one path within a second are told apart by nothing; the newest
     // listed wins.
-    let file = path.file_name().unwrap_or_default();
-    // Windows lists a name as Explorer shows it, without a known ending (`report` for
-    // `report.pdf`); the ending is still on the item's place in the Recycle Bin.
-    let shown_short = |i: &trash::TrashItem| {
-        cfg!(windows)
-            && Path::new(&i.name).file_stem().is_some()
-            && Some(i.name.as_os_str()) == Path::new(file).file_stem()
-            && Path::new(&i.id).extension() == Path::new(file).extension()
-    };
     let item = os_limited::list()
         .map_err(io::Error::other)?
         .into_iter()
-        .filter(|i| {
-            i.time_deleted >= since
-                && comparable(&i.original_parent.join(if shown_short(i) {
-                    file
-                } else {
-                    i.name.as_os_str()
-                })) == want
-        })
+        .filter(|i| i.time_deleted >= since && comparable(&i.original_parent.join(&i.name)) == want)
         .max_by_key(|i| i.time_deleted)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, t!("undo.not_in_trash")))?;
     #[cfg(not(windows))]
     return restore_item(Path::new(&item.id), &want);
-    // Restored under its whole name, which is also what the collision check looks at.
-    #[cfg(windows)]
-    let item = trash::TrashItem { name: file.to_os_string(), ..item };
     #[cfg(windows)]
     os_limited::restore_all([item]).map_err(|e| match e {
         trash::Error::RestoreCollision { .. } => {

@@ -1063,17 +1063,7 @@ mod sys {
             .into_iter()
             .map(|t| {
                 let path = PathBuf::from(&t.id);
-                // The shell names a file as Explorer shows it, without a known ending; the
-                // ending is still on its place in the bin.
-                let mut name = t.name.to_string_lossy().into_owned();
-                if let Some(ext) = path.extension().map(|e| e.to_string_lossy().into_owned())
-                    && Path::new(&name)
-                        .extension()
-                        .is_none_or(|e| e.to_string_lossy() != ext)
-                    && path.is_file()
-                {
-                    name = format!("{name}.{ext}");
-                }
+                let name = t.name.to_string_lossy().into_owned();
                 let (is_dir, is_symlink, size) = sized(&path, t.time_deleted);
                 let origin = t.original_parent.join(&name);
                 let item = Item {
