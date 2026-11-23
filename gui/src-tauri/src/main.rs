@@ -3100,7 +3100,10 @@ fn main() {
         pick_out: Mutex::new(pick_out),
     };
     let picking = ctx.pick.is_some();
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(target_os = "macos")]
+    let builder = builder.menu(mac_menu::menu).on_menu_event(mac_menu::on_event);
+    builder
         .manage(ctx)
         .manage(tabs::Tabs::default())
         // Files for the page come through our own `asset:`, which keeps cloud files in the cloud.
@@ -3157,6 +3160,64 @@ fn main() {
                 }
             }
         });
+}
+
+/// macOS: Tauri's own menu with an app menu of ours. Its Quit (**Cmd+Q**) is `NSApp
+/// terminate:`, which ends the process past the window's close request, so unsaved text in
+/// the editor or Compare was never asked about and the session not written (#981). Our Quit
+/// closes the window as its close button does, through the same question (`onCloseRequested`).
+#[cfg(target_os = "macos")]
+mod mac_menu {
+    use tauri::menu::{AboutMetadata, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
+    use tauri::{AppHandle, Manager, Wry};
+
+    const QUIT: &str = "coxswain-quit";
+
+    /// The app menu as Tauri's default (About, Services, Hide, Hide Others), with Quit of ours,
+    /// in place of the default's first menu.
+    pub fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
+        let menu = Menu::default(app)?;
+        let info = app.package_info();
+        let about = AboutMetadata {
+            name: Some(info.name.clone()),
+            version: Some(info.version.to_string()),
+            copyright: app.config().bundle.copyright.clone(),
+            authors: app.config().bundle.publisher.clone().map(|p| vec![p]),
+            ..Default::default()
+        };
+        let own = Submenu::with_items(
+            app,
+            info.name.clone(),
+            true,
+            &[
+                &PredefinedMenuItem::about(app, None, Some(about))?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::services(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::hide(app, None)?,
+                &PredefinedMenuItem::hide_others(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                // English, as the predefined items around it are.
+                &MenuItem::with_id(app, QUIT, format!("Quit {}", info.name), true, Some("Cmd+Q"))?,
+            ],
+        )?;
+        menu.remove_at(0)?;
+        menu.insert(&own, 0)?;
+        Ok(menu)
+    }
+
+    /// Quit: every window closed as by its close button; the last one closed ends the app. A
+    /// hidden (Cmd+H) or minimised window is shown first, so a question about unsaved text is seen.
+    pub fn on_event(app: &AppHandle, event: MenuEvent) {
+        if event.id() == QUIT {
+            for w in app.webview_windows().values() {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
+                let _ = w.close();
+            }
+        }
+    }
 }
 
 #[cfg(test)]
