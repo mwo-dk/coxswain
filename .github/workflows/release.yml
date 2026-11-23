@@ -14,7 +14,7 @@ name: Release
 # Saturdays (and by hand with `rehearsal`), when changelog.d/ has rows: a rehearsal of
 # tomorrow's release. The draft job makes the release pull request's changes
 # (packaging/release-pr.py) on a branch of their own, rehearsal/vX.Y.Z, and everything runs as
-# for a release, to the draft checked against every file; then `cargo publish --dry-run` and
+# for a release, to the draft checked against every file; then the crates packed and built and
 # `brew audit` of the formula and cask, and nothing is published: the draft and the branch are
 # deleted, no tag is made. A release of the same version meanwhile (a patch made by hand) stops
 # the rehearsal and goes ahead.
@@ -873,8 +873,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: stable
+      # What the crates job does before it publishes: pack and build, then pack again (no build)
+      # to the same bytes.
       - name: crates.io
-        run: cargo publish --dry-run --locked -p coxswain-core -p coxswain
+        run: |
+          cargo package --locked -p coxswain-core -p coxswain
+          sha256sum target/package/*.crate | tee "$RUNNER_TEMP/crates.sha256"
+          cargo package --no-verify --locked -p coxswain-core -p coxswain
+          sha256sum -c "$RUNNER_TEMP/crates.sha256"
       - name: Homebrew
         if: ${{ !cancelled() }}
         # The token only here: `cargo publish` above runs every dependency's build script.
@@ -1061,8 +1067,9 @@ jobs:
           cargo package --locked -p coxswain-core -p coxswain
           sha256sum target/package/*.crate | tee "$RUNNER_TEMP/crates.sha256"
       # Core first: the terminal app depends on it. Cargo waits until it is in the index. A crate
-      # already there (a run again by hand) is skipped. Packed again first (no build), it must be
-      # the very file built above, so `--no-verify` publishes what was built.
+      # already there (a run again by hand) is skipped. Packed again first (no build), it must
+      # match what was built above byte for byte; `cargo publish` packs once more, the same way.
+      # The token is kept out of the build's environment, but this runs on the same machine.
       - name: Publish
         if: env.PUBLISH == 'true'
         env:
