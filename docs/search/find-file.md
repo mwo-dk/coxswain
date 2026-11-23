@@ -55,6 +55,10 @@ From the top:
 **Each hit** is the name (bold in the desktop app) and its folder. A hit in *In files* adds the
 passage that matched, your words highlighted. A hit in *About this* adds the passage that was
 close in meaning, in italics. A commit in *History* names its repository and says which commit.
+A hit on a disk that is not plugged in is marked *on BACKUP1 — not plugged in*; the last line of
+the list names those disks, and **Enter** on it hides their hits or shows them again. Opening
+such a hit says *Plug in BACKUP1 to open this file*, or opens it where the disk is mounted now
+([Removable disks](removable-disks.md#what-you-see)).
 
 **Before you type:** *Type a name (\*.pdf, ext:md), words from inside a file, or a question
 ending in ?* The first three times Find opens, a dimmed line under it adds *Ctrl+F again

@@ -690,13 +690,15 @@ pub struct Turn {
     pub similar: Vec<usize>,
     /// How much was read: "12 excerpts from 7 files, about 6000 words".
     pub read: String,
+    /// For each source, its disk when that is not plugged in.
+    pub away: Vec<Option<coxswain_core::store::Away>>,
     pub answer: String,
     pub error: Option<String>,
 }
 
 /// What an Ask sends back while it runs.
 enum AskMsg {
-    Sources(Vec<PathBuf>, Vec<usize>, String),
+    Sources(Vec<PathBuf>, Vec<usize>, String, Vec<Option<coxswain_core::store::Away>>),
     Piece(String),
     Done(Result<(), String>),
 }
@@ -1000,7 +1002,8 @@ fn export_action(op: coxswain_core::export::Op) -> Action {
 
 /// A search for Find: its generation, the query, the kind chip, the folder it is limited to,
 /// and how many hits a group shows.
-type FindJob = (u64, String, Kind, Option<PathBuf>, usize);
+/// With whether the hits on disks that are not plugged in are shown.
+type FindJob = (u64, String, Kind, Option<PathBuf>, usize, bool);
 
 /// The searching thread: it runs the newest search asked for, after a pause for more typing,
 /// and skips the ones typed over meanwhile.
@@ -1020,8 +1023,8 @@ fn searcher(index: Arc<Client>) -> (mpsc::Sender<FindJob>, mpsc::Receiver<(u64, 
                     Err(_) => break,
                 }
             }
-            let (generation, query, kind, scope, rows) = job;
-            let found = index.find(&query, scope.as_deref(), kind, rows);
+            let (generation, query, kind, scope, rows, away) = job;
+            let found = index.find(&query, scope.as_deref(), kind, rows, away);
             if tell.send((generation, found)).is_err() {
                 return;
             }
@@ -4241,7 +4244,7 @@ impl App {
             self.search_gen += 1;
             let kind = find::parse(query).0.unwrap_or(*chip);
             let rows = if kind == Kind::All { find::ALL_ROWS } else { self.cfg.search.max_results };
-            let _ = self.search_tx.send((self.search_gen, query.clone(), *chip, here.then(|| self.panel().dir.clone()), rows));
+            let _ = self.search_tx.send((self.search_gen, query.clone(), *chip, here.then(|| self.panel().dir.clone()), rows, find::away_shown(&self.find_dismissed)));
         }
     }
 
@@ -4254,6 +4257,18 @@ impl App {
     /// Find's rows for what it shows now.
     pub fn find_rows(&self, query: &str, chip: Kind, found: &Found) -> Vec<Row> {
         find::rows(query, chip, found, self.ask_state(), self.slow.1.as_ref(), |id| self.find_dismissed.iter().any(|d| d == id))
+    }
+
+    /// Where a hit of Find or a source of Ask opens (`find::place`): `None` while its disk is
+    /// not plugged in, and the status line says to plug it in.
+    fn hit_place(&mut self, hit: &coxswain_core::index::Hit) -> Option<PathBuf> {
+        find::place(hit).map_err(|e| self.status = Some(e)).ok()
+    }
+
+    /// Ask's source `n` of the last answer, as a hit: its path, and its disk when not plugged in.
+    fn source_hit(&self, n: usize) -> Option<coxswain_core::index::Hit> {
+        let turn = self.chat.last()?;
+        Some(coxswain_core::index::Hit { path: turn.sources.get(n)?.clone(), away: turn.away.get(n).cloned().flatten(), ..Default::default() })
     }
 
     /// A hit or a source of Find: its folder, with the cursor on it; a commit's folder as it was.
@@ -4326,15 +4341,18 @@ impl App {
         let (tx, rx) = mpsc::channel();
         self.ask_rx = Some(rx);
         let (index, cfg, here) = (self.index.clone(), self.cfg.search.clone(), self.panel().dir.clone());
+        let away = find::away_shown(&self.find_dismissed);
         std::thread::spawn(move || {
             // The chat model loads while the sources are looked up.
             coxswain_core::meaning::warm(&cfg);
-            let done = match coxswain_core::ask::sources(|q, s, b| index.passages(q, s, b), &cfg, &earlier, &question, scope.as_deref(), &here) {
+            let done = match coxswain_core::ask::sources(|q, s, b| index.passages(q, s, b, away), &cfg, &earlier, &question, scope.as_deref(), &here) {
                 Err(e) => Err(e),
                 // Stopped while searching: the model is not asked.
                 Ok(_) if stop.load(Ordering::SeqCst) => Ok(()),
                 Ok((sources, similar)) => {
-                    let _ = tx.send(AskMsg::Sources(sources.iter().map(|(p, _)| p.clone()).collect(), similar, coxswain_core::ask::read(&sources)));
+                    let paths: Vec<PathBuf> = sources.iter().map(|(p, _)| p.clone()).collect();
+                    let away = index.away(&paths);
+                    let _ = tx.send(AskMsg::Sources(paths, similar, coxswain_core::ask::read(&sources), away));
                     index.answer(&cfg, &earlier, &question, &sources, |text| !stop.load(Ordering::SeqCst) && (text.is_empty() || tx.send(AskMsg::Piece(text.to_string())).is_ok()))
                 }
             };
@@ -4512,8 +4530,9 @@ impl App {
                     // Find and replace in the files listed, what was searched for in them typed in.
                     _ if action == Some(Action::Replace) && !answer => {
                         let mut files: Vec<PathBuf> = vec![];
+                        // Not those on a disk that is not plugged in: they cannot be changed.
                         for h in found.names.hits.iter().chain(&found.in_files.hits) {
-                            if !h.is_dir && !history::is_history(&h.path) && !files.contains(&h.path) {
+                            if !h.is_dir && h.away.is_none() && !history::is_history(&h.path) && !files.contains(&h.path) {
                                 files.push(h.path.clone());
                             }
                         }
@@ -4529,8 +4548,10 @@ impl App {
                     (KeyCode::Enter, _) if answer => {
                         if !question.is_empty() {
                             asked = true;
-                        } else if let Some(path) = sources.get(cursor) {
-                            return self.go_to_hit(&path.clone());
+                        } else if let Some(hit) = self.source_hit(cursor)
+                            && let Some(path) = self.hit_place(&hit)
+                        {
+                            return self.go_to_hit(&path);
                         }
                     }
                     (KeyCode::Enter, _) => match rows.get(cursor) {
@@ -4539,6 +4560,23 @@ impl App {
                             let off = off.clone();
                             self.dialog = Some(Dialog::Search { query, chip, here, found, cursor, offset, show });
                             return self.find_step(off);
+                        }
+                        // Hits on disks that are not plugged in: hidden, or shown again.
+                        Some(Row::Away { .. }) => {
+                            let mut st = coxswain_core::state::AppState::load();
+                            find::toggle_away(&mut st);
+                            if let Err(e) = st.save() {
+                                self.status = Some(e.to_string());
+                            }
+                            self.find_dismissed = st.notices_dismissed;
+                            requery = true;
+                        }
+                        // On a disk that is not plugged in: where it is now, or the status line
+                        // says to plug it in, and Find stays.
+                        Some(Row::Hit { hit, .. }) if hit.away.is_some() => {
+                            if let Some(path) = self.hit_place(&hit.clone()) {
+                                return self.go_to_hit(&path);
+                            }
                         }
                         Some(Row::Hit { hit, .. }) => {
                             // A game in a PGN file: that game, on the board.
@@ -4581,14 +4619,15 @@ impl App {
                         }
                     }
                     _ if matches!(action, Some(Action::View | Action::Edit | Action::EditHere)) => {
-                        let path = if answer {
-                            sources.get(cursor).cloned()
+                        let hit = if answer {
+                            self.source_hit(cursor)
                         } else {
                             match rows.get(cursor) {
-                                Some(Row::Hit { hit, .. }) if !hit.is_dir && !history::is_history(&hit.path) => Some(hit.path.clone()),
+                                Some(Row::Hit { hit, .. }) if !hit.is_dir && !history::is_history(&hit.path) => Some(hit.clone()),
                                 _ => None,
                             }
                         };
+                        let path = hit.and_then(|h| self.hit_place(&h));
                         if let Some(path) = path {
                             self.view_or_edit(action.unwrap(), &path);
                             // The built-in viewer or editor over the search, which comes back
@@ -5224,7 +5263,7 @@ impl App {
         while let Some(msg) = self.ask_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             let Some(turn) = self.chat.last_mut() else { break };
             match msg {
-                AskMsg::Sources(paths, similar, read) => (turn.sources, turn.similar, turn.read) = (paths, similar, read),
+                AskMsg::Sources(paths, similar, read, away) => (turn.sources, turn.similar, turn.read, turn.away) = (paths, similar, read, away),
                 AskMsg::Piece(text) => turn.answer.push_str(&text),
                 AskMsg::Done(done) => {
                     turn.error = done.err();
@@ -6498,7 +6537,7 @@ mod tests {
         let k = |c: KeyCode, ctrl: bool| Key::new(c, ctrl, false, false);
         // F3 on a hit: the built-in viewer, and Find again after it.
         let mut found = Found::default();
-        found.names.hits = vec![coxswain_core::index::Hit { path: d.join("a.txt"), is_dir: false, snippet: None, similar: None, game: None }];
+        found.names.hits = vec![coxswain_core::index::Hit { path: d.join("a.txt"), is_dir: false, snippet: None, similar: None, game: None , away: None }];
         found.names.total = 1;
         let cursor = app.find_rows("a", Kind::All, &found).iter().position(|r| matches!(r, Row::Hit { .. })).unwrap();
         app.dialog = Some(Dialog::Search { query: "a".into(), chip: Kind::All, here: false, found, cursor, offset: 0, show: Show::List });
@@ -7214,7 +7253,7 @@ mod panel_tests {
         let cfg = Config { check_updates: false, ..Config::default() };
         let index = crate::test_index(&cfg);
         let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
-        let hit = |n: &str| coxswain_core::index::Hit { path: d.join(n), is_dir: false, snippet: None, similar: None, game: None };
+        let hit = |n: &str| coxswain_core::index::Hit { path: d.join(n), is_dir: false, snippet: None, similar: None, game: None , away: None };
         let mut found = Found::default();
         found.names.hits = vec![hit("a.txt"), hit("b.txt")];
         found.names.total = 2;

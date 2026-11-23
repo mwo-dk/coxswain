@@ -66,8 +66,8 @@ are still in the [name index](names.md), and a file left out still counts in fol
 
 Under *Folders read*, each folder shows how much of it is in the index: *412 MB in the index*.
 With none listed it says *Your home folder · 412 MB in the index*. A folder on a disk that is not
-plugged in says *412 MB in the index, kept while its disk is not plugged in. Remove forgets it.*
-(see [Removable disks](removable-disks.md)). *Names only* says *None* while it is empty.
+plugged in says *412 MB in the index, kept while its disk is not plugged in: 1,204 files can still
+be found. Remove forgets it.* (see [Removable disks](removable-disks.md)). *Names only* says *None* while it is empty.
 
 Changing a list starts a new [helper](helper.md) with the new settings: files newly left out go
 from the index, files newly included are read, and *waiting* on the *Words* line counts them.

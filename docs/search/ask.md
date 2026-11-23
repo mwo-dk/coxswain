@@ -203,7 +203,10 @@ anywhere: it is read on this machine, as the rest.
   ([A question about code](ask-code.md#a-question-about-code)).
 - **The sources** are a numbered list under each answer: the file's name and its folder, and
   for a source that stands for near copies, dim after it, *and 3 similar files*
-  ([Near copies, once](#how-much-it-reads)). The cursor marks the one **Enter** goes to.
+  ([Near copies, once](#how-much-it-reads)). The cursor marks the one **Enter** goes to. A
+  source on a disk that is not plugged in is marked *on BACKUP1 — not plugged in*; **Enter** on
+  it says *Plug in BACKUP1 to open this file* until the disk is back
+  ([Removable disks](removable-disks.md#opening-a-file-of-a-disk-that-is-away)).
 - **Errors** show in red under the question: the server's own message, such as *model "qwen3:8b"
   not found*, or *Nothing in your files is close to the question.*
 - **The footer**: *Enter ask, or go to the source · ↑↓ sources · F4 edit · Esc back to the list*

@@ -280,6 +280,7 @@ fn find_in(stores: &[PathBuf], query: &str, scope: Option<&Path>, max: usize) ->
             snippet: Some(format!("{}{label}{}", crate::store::MARK.0, crate::store::MARK.1)),
             similar: None,
             game: None,
+            away: None,
         })
         .collect()
 }

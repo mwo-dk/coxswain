@@ -75,7 +75,7 @@ fn stamp_of(path: &Path) -> Option<Stamp> {
     ))
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Hit {
     pub path: PathBuf,
     pub is_dir: bool,
@@ -90,6 +90,9 @@ pub struct Hit {
     /// A game in a game database (`chess::games::find`): its index there, from 0.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub game: Option<u32>,
+    /// On a disk that is not plugged in: found from what the search store kept of it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub away: Option<crate::store::Away>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -703,6 +706,7 @@ impl Index {
                     snippet: None,
                     similar: None,
                     game: None,
+                    away: None,
                 })
             })
             .collect();
@@ -732,44 +736,15 @@ impl Index {
         }
         let buf = if q.case { &self.names } else { &self.lower };
         let name = &buf[n.off as usize..n.off as usize + n.len as usize];
-        let mut path: Option<Vec<u8>> = None;
-        let is_dir = n.flags & DIR != 0;
-        for term in &q.terms {
-            let hit = term.alts.iter().any(|pat| match pat {
-                Pat::File => !is_dir,
-                Pat::Folder => is_dir,
-                Pat::Ext(exts) => {
-                    !is_dir
-                        && exts.iter().any(|e| {
-                            name.len() > e.len()
-                                && name.ends_with(e)
-                                && name[name.len() - e.len() - 1] == b'.'
-                        })
-                }
-                Pat::Sub(f, false) => f.find(name).is_some(),
-                Pat::Glob(g, false) => glob(g, name),
-                Pat::Sub(_, true) | Pat::Glob(_, true) => {
-                    let p = path.get_or_insert_with(|| {
-                        let s = self
-                            .path(id)
-                            .map(|p| p.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/"))
-                            .unwrap_or_default();
-                        if q.case {
-                            s.into_bytes()
-                        } else {
-                            lowercase(&s)
-                        }
-                    });
-                    match pat {
-                        Pat::Sub(f, _) => f.find(p).is_some(),
-                        Pat::Glob(g, _) => glob(g, p),
-                        _ => unreachable!(),
-                    }
-                }
-            });
-            if hit == term.neg {
-                return false;
-            }
+        let full = || {
+            let s = self
+                .path(id)
+                .map(|p| p.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/"))
+                .unwrap_or_default();
+            if q.case { s.into_bytes() } else { lowercase(&s) }
+        };
+        if !q.takes(name, n.flags & DIR != 0, full) {
+            return false;
         }
         if scope.is_none() && self.gone == 0 {
             return true;
@@ -1142,6 +1117,35 @@ impl Query {
         q
     }
 
+    /// Whether a name (lowercased unless `case:`) matches; `full` gives the whole path, with
+    /// `/` between its parts, for the terms that need it.
+    fn takes(&self, name: &[u8], is_dir: bool, full: impl FnOnce() -> Vec<u8>) -> bool {
+        let mut full = Some(full);
+        let mut path: Option<Vec<u8>> = None;
+        for term in &self.terms {
+            let hit = term.alts.iter().any(|pat| match pat {
+                Pat::File => !is_dir,
+                Pat::Folder => is_dir,
+                Pat::Ext(exts) => {
+                    !is_dir
+                        && exts.iter().any(|e| {
+                            name.len() > e.len()
+                                && name.ends_with(e)
+                                && name[name.len() - e.len() - 1] == b'.'
+                        })
+                }
+                Pat::Sub(f, false) => f.find(name).is_some(),
+                Pat::Glob(g, false) => glob(g, name),
+                Pat::Sub(f, true) => f.find(path.get_or_insert_with(|| full.take().map(|f| f()).unwrap_or_default())).is_some(),
+                Pat::Glob(g, true) => glob(g, path.get_or_insert_with(|| full.take().map(|f| f()).unwrap_or_default())),
+            });
+            if hit == term.neg {
+                return false;
+            }
+        }
+        true
+    }
+
     fn fold(&mut self) {
         for t in &mut self.terms {
             for p in &mut t.alts {
@@ -1172,6 +1176,19 @@ impl Query {
                 _ => None,
             })
     }
+}
+
+/// Whether a file's path matches `query` as `Index::search` matches names: for the files of
+/// disks that are not plugged in, which the store keeps and the names index has lost.
+pub fn matcher(query: &str) -> Option<impl Fn(&Path) -> bool> {
+    let q = Query::parse(query);
+    (!q.terms.is_empty()).then(move || {
+        move |p: &Path| {
+            let fold = |s: &str| if q.case { s.as_bytes().to_vec() } else { lowercase(s) };
+            let name = p.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
+            q.takes(&fold(&name), false, || fold(&p.to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/")))
+        }
+    })
 }
 
 /// `*` any run, `?` any one item (a byte, or a character when given chars); anchored at both
@@ -1753,6 +1770,18 @@ mod tests {
             .collect();
         assert_eq!(left, ["index.bin"]);
         fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A path kept elsewhere (a disk that is not plugged in) is matched as the index matches
+    /// names: words, wildcards, endings, a path part, not, and case.
+    #[test]
+    fn a_kept_path_matches_as_a_name() {
+        let p = Path::new("/media/BACKUP1/Papers/Tax 2024.PDF");
+        let m = |q: &str| matcher(q).is_some_and(|f| f(p));
+        assert!(m("tax") && m("tax 2024") && m("*.pdf") && m("ext:pdf") && m("papers/ tax"));
+        assert!(!m("!tax") && !m("invoice") && !m("case: tax") && !m("folder:"));
+        assert!(m("case: Tax") && m("file:"));
+        assert!(matcher("  ").is_none());
     }
 
     #[test]

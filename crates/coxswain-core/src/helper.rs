@@ -68,6 +68,10 @@ enum Request {
         scope: Option<PathBuf>,
         kind: Kind,
         rows: usize,
+        /// With the hits on disks that are not plugged in, marked: an older app, which cannot
+        /// mark them, sends none and gets them left out.
+        #[serde(default)]
+        away: bool,
     },
     Status,
     /// Ask: excerpts of the files closest to a question, `bytes` in all, below `scope` when given.
@@ -75,10 +79,17 @@ enum Request {
         query: String,
         scope: Option<PathBuf>,
         bytes: usize,
+        /// With the files of disks that are not plugged in, as for `Find`.
+        #[serde(default)]
+        away: bool,
     },
     /// Bytes and files below a folder, from the store.
     Size {
         path: PathBuf,
+    },
+    /// Which of these files are on disks that are not plugged in: Ask's sources.
+    Away {
+        paths: Vec<PathBuf>,
     },
     /// Read the backlog without rests.
     IndexNow,
@@ -125,6 +136,8 @@ enum Request {
     },
 }
 
+// One reply at a time, read and dropped: its size on the stack does not add up.
+#[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "re", rename_all = "snake_case")]
 enum Reply {
@@ -154,6 +167,10 @@ enum Reply {
     /// With the time the walk they come from began.
     Size {
         size: Option<(Size, u64)>,
+    },
+    /// Each file's disk, when it is not plugged in.
+    Away {
+        away: Vec<Option<store::Away>>,
     },
     Done,
     /// A piece of an answer; empty while the model reads.
@@ -788,6 +805,7 @@ fn answer(
                 scope,
                 kind,
                 rows,
+                away,
             } => {
                 let found = crate::find::run(
                     |q, max| index.search(q, scope.as_deref(), max),
@@ -797,6 +815,7 @@ fn answer(
                     scope.as_deref(),
                     kind,
                     rows,
+                    away,
                 );
                 Reply::Found(found)
             }
@@ -804,9 +823,10 @@ fn answer(
                 query,
                 scope,
                 bytes,
+                away,
             } => Reply::Passages {
                 found: store
-                    .map(|s| s.passages(&query, scope.as_deref(), bytes))
+                    .map(|s| s.passages_with(&query, scope.as_deref(), bytes, away))
                     .unwrap_or_default(),
             },
             Request::Positions { hash, max } => Reply::Games {
@@ -817,6 +837,9 @@ fn answer(
             },
             Request::Size { path } => Reply::Size {
                 size: store.and_then(|s| s.size(&path)),
+            },
+            Request::Away { paths } => Reply::Away {
+                away: paths.iter().map(|p| store.and_then(|s| s.away(p))).collect(),
             },
             Request::Transcribe { paths } => {
                 let files = crate::transcribe::survey(&paths).files;
@@ -1051,12 +1074,14 @@ impl Client {
     /// Find: names, words in files and meaning, below `scope` when given, `rows` hits per
     /// group. Without the helper, names alone from the app's own index: the store is the
     /// helper's alone.
-    pub fn find(&self, query: &str, scope: Option<&Path>, kind: Kind, rows: usize) -> Found {
+    /// `away`: with the hits on disks that are not plugged in (`find::away_shown`).
+    pub fn find(&self, query: &str, scope: Option<&Path>, kind: Kind, rows: usize, away: bool) -> Found {
         match self.ask(&Request::Find {
             query: query.into(),
             scope: scope.map(Path::to_path_buf),
             kind,
             rows,
+            away,
         }) {
             Some(Reply::Found(f)) => f,
             _ => crate::find::run(
@@ -1075,6 +1100,7 @@ impl Client {
                 scope,
                 kind,
                 rows,
+                away,
             ),
         }
     }
@@ -1086,14 +1112,25 @@ impl Client {
         question: &str,
         scope: Option<&Path>,
         bytes: usize,
+        away: bool,
     ) -> Vec<(PathBuf, String, usize)> {
         match self.ask(&Request::Passages {
             query: question.into(),
             scope: scope.map(Path::to_path_buf),
             bytes,
+            away,
         }) {
             Some(Reply::Passages { found }) => found,
             _ => vec![],
+        }
+    }
+
+    /// Which of `paths` are on disks that are not plugged in, and those disks: Ask's sources,
+    /// marked as Find's hits are. None of them without the helper.
+    pub fn away(&self, paths: &[PathBuf]) -> Vec<Option<store::Away>> {
+        match self.ask(&Request::Away { paths: paths.to_vec() }) {
+            Some(Reply::Away { away }) if away.len() == paths.len() => away,
+            _ => vec![None; paths.len()],
         }
     }
 
@@ -1767,7 +1804,7 @@ mod tests {
         let mut sources = vec![];
         while sources.len() < 2 && wait.elapsed() < Duration::from_secs(120) {
             std::thread::sleep(Duration::from_millis(500));
-            sources = c.passages(question, None, 10).into_iter().map(|(p, t, _)| (p, t)).collect();
+            sources = c.passages(question, None, 10, true).into_iter().map(|(p, t, _)| (p, t)).collect();
         }
         assert!(!sources.is_empty(), "no passages");
         let (mut answer, mut pieces, start) = (String::new(), 0, Instant::now());
@@ -1842,7 +1879,7 @@ mod tests {
         {
             std::thread::sleep(Duration::from_millis(100));
         }
-        let found = two.find("launch", None, Kind::All, 10);
+        let found = two.find("launch", None, Kind::All, 10, true);
         assert_eq!(
             found
                 .in_files
@@ -1861,9 +1898,9 @@ mod tests {
         );
         assert!(found.off.contains(&crate::find::Off::MeaningOff));
         // Limited to a folder: its files alone, names and text; a folder whose text is not read says so.
-        let src = two.find("main", Some(&d.join("files/src")), Kind::All, 10);
+        let src = two.find("main", Some(&d.join("files/src")), Kind::All, 10, true);
         assert_eq!(src.names.hits.len(), 1);
-        let away = two.find("launch", Some(&d.join("cache")), Kind::InFiles, 10);
+        let away = two.find("launch", Some(&d.join("cache")), Kind::InFiles, 10, true);
         assert_eq!(away.off, [crate::find::Off::NotRead(d.join("cache"))]);
         // And folder sizes from its store.
         assert_eq!(

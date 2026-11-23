@@ -1014,12 +1014,19 @@ fn search(f: &mut Frame, app: &mut App, full: Rect) {
                 }
                 Row::More { n, .. } => vec![Line::from(Span::styled(fit(&format!("   {}", t!("find.more", "n" => n)), width), if i == cursor { base } else { dim }))],
                 Row::Off { off, .. } => vec![Line::from(Span::styled(fit(&format!("   {}{}", off.text(), step_hint(off)), width), if i == cursor { base } else { dim }))],
+                Row::Away { disks, hidden } => vec![Line::from(Span::styled(fit(&format!("   {}", find::away_text(disks, *hidden)), width), if i == cursor { base } else { dim }))],
                 Row::Hit { hit: h, .. } => {
                     let p = h.path.to_string_lossy();
                     let (parent, name) = p.rsplit_once(std::path::MAIN_SEPARATOR).unwrap_or(("", &p));
                     let name = if h.is_dir { format!("{name}{}", std::path::MAIN_SEPARATOR) } else { name.to_string() };
-                    let pw = width.saturating_sub(name.width() + 2);
-                    let file = Line::from(vec![Span::styled(format!(" {name} "), base.patch(hit_style).bg(base.bg.unwrap_or(Color::Reset))), Span::styled(fit(&fit_left(parent, pw), pw), base)]);
+                    // On a disk that is not plugged in: "on BACKUP1 — not plugged in" at the right.
+                    let mark = h.away.as_ref().map(|a| format!(" [{}]", a.mark())).unwrap_or_default();
+                    let pw = width.saturating_sub(name.width() + 2 + mark.width());
+                    let mut file = vec![Span::styled(format!(" {name} "), base.patch(hit_style).bg(base.bg.unwrap_or(Color::Reset))), Span::styled(fit(&fit_left(parent, pw), pw), base)];
+                    if !mark.is_empty() {
+                        file.push(Span::styled(mark, if i == cursor { base } else { dim }));
+                    }
+                    let file = Line::from(file);
                     let Some(snippet) = h.snippet.as_deref() else { return vec![file] };
                     // The words found stand out; a passage close in meaning is in italics.
                     let mut passage = vec![Span::styled("   ", dim)];
@@ -1123,7 +1130,8 @@ fn ask(f: &mut Frame, chat: &[crate::Turn], asking: bool, off: Option<&coxswain_
                 Some(&k) if k > 0 => format!("  {}", coxswain_core::tn!("ask.similar_files", k)),
                 _ => String::new(),
             };
-            lines.push(Line::from(Span::styled(format!("  [{}] {}{similar}", n + 1, src.display()), style)));
+            let away = turn.away.get(n).and_then(Option::as_ref).map(|a| format!("  [{}]", a.mark())).unwrap_or_default();
+            lines.push(Line::from(Span::styled(format!("  [{}] {}{away}{similar}", n + 1, src.display()), style)));
         }
         lines.push(Line::from(""));
     }
@@ -1371,7 +1379,7 @@ mod tests {
         use coxswain_core::index::Hit;
         let hit = |i: usize| Row::Hit {
             group: GroupId::Names,
-            hit: Hit { path: format!("/f{i}").into(), is_dir: false, snippet: i.is_multiple_of(2).then(|| "x".into()), similar: None, game: None },
+            hit: Hit { path: format!("/f{i}").into(), is_dir: false, snippet: i.is_multiple_of(2).then(|| "x".into()), similar: None, game: None , away: None },
         };
         let rows: Vec<Row> = (0..10_000).map(hit).collect();
         let mut offset = 0;
