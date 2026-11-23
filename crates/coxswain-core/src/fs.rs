@@ -1555,11 +1555,10 @@ pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Opt
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
     {
         let home = crate::xdg_trash::dir().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no home folder"))?;
+        // A disk's bin is checked, and its `files` and `info` made, by `disk_bin`.
         let bin = put_bin(path).unwrap_or(home.clone());
         // Made before the lock, which is taken only in a bin that is there.
-        for b in [&bin, &home] {
-            let _ = fs::create_dir_all(b.join("files")).and_then(|_| fs::create_dir_all(b.join("info")));
-        }
+        let _ = fs::create_dir_all(home.join("files")).and_then(|_| fs::create_dir_all(home.join("info")));
         // No other Coxswain empties the bins while this put may be moving file by file.
         let _held = crate::bin::fd::wait(&crate::bin::fd::bins_for(path))?;
         let put = |bin: &Path| crate::xdg_trash::put_in_bin(bin, path).map(|n| Some(bin.join("info").join(format!("{n}.trashinfo")).to_string_lossy().into_owned()));
@@ -1666,13 +1665,30 @@ fn put_bin(path: &Path) -> Option<PathBuf> {
 #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
 fn disk_bin(top: &Path, uid: u32, dev: u64) -> Option<PathBuf> {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
-    let here = |p: &Path| fs::symlink_metadata(p).is_ok_and(|m| m.is_dir() && m.dev() == dev);
+    // The spec's checks, so another user of the disk cannot lead the files elsewhere: `.Trash` a
+    // folder of its own (no link) with the sticky bit, each bin and its `files` and `info` a
+    // folder of its own, of this user, that no one else may write.
     let shared = top.join(".Trash");
-    if fs::symlink_metadata(&shared).is_ok_and(|m| m.is_dir() && m.permissions().mode() & 0o1000 != 0) && here(&shared.join(uid.to_string())) {
-        return Some(shared.join(uid.to_string()));
+    let mine = shared.join(uid.to_string());
+    if fs::symlink_metadata(&shared).is_ok_and(|m| m.is_dir() && m.dev() == dev && m.permissions().mode() & 0o1000 != 0) && own_bin(&mine, uid, dev) {
+        return Some(mine);
     }
     let own = top.join(format!(".Trash-{uid}"));
-    (here(&own) || (fs::create_dir(&own).is_ok() && here(&own))).then_some(own)
+    own_bin(&own, uid, dev).then_some(own)
+}
+
+/// Whether `bin` is a bin of the user `uid` on device `dev`, with `files` and `info` in it: each
+/// a folder of its own (never a link), of `uid`, that no group or other may write. What is
+/// missing is made, readable by `uid` alone.
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+fn own_bin(bin: &Path, uid: u32, dev: u64) -> bool {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt};
+    let ok = |p: &Path| {
+        // mkdir never follows a link put at its name: it fails, and the look below says no.
+        let _ = fs::DirBuilder::new().mode(0o700).create(p);
+        fs::symlink_metadata(p).is_ok_and(|m| m.is_dir() && m.dev() == dev && m.uid() == uid && m.mode() & 0o022 == 0)
+    };
+    ok(bin) && ok(&bin.join("files")) && ok(&bin.join("info"))
 }
 
 /// What deleting does, decided the same in both apps.
@@ -2499,33 +2515,67 @@ mod tests {
     }
 
     /// A disk's top folder the user cannot write (another disk mounted at a folder root
-    /// owns) has no bin of the user's: what would go there is not copied to the home bin.
+    /// owns) has no bin of the user's: what would go there goes to the home bin. A bin another
+    /// user could lead elsewhere is never used (the spec's checks): a `.Trash` that is a link or
+    /// not sticky, a bin or its `files` that is a link, of another user, or writable by others.
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
     #[test]
-    fn a_disk_top_without_a_bin_of_the_users_takes_nothing() {
-        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+    fn a_disk_bin_is_used_only_when_no_one_else_can_lead_it_elsewhere() {
+        use std::os::unix::fs::{symlink, MetadataExt, PermissionsExt};
+        let mode = |p: &Path, m: u32| std::fs::set_permissions(p, std::fs::Permissions::from_mode(m)).unwrap();
         let d = super::Scratch::named("disk-bin");
-        let (top, uid) = (d.join("top"), 4_000_000_000u32);
+        // SAFETY: getuid cannot fail.
+        let uid = unsafe { libc::getuid() };
+        let top = d.join("top");
         std::fs::create_dir(&top).unwrap();
         let dev = std::fs::metadata(&top).unwrap().dev();
-        std::fs::set_permissions(&top, std::fs::Permissions::from_mode(0o555)).unwrap();
+        mode(&top, 0o555);
         // Root writes anyway: nothing to tell then.
         let root = std::fs::create_dir(top.join("probe")).is_ok();
         if !root {
-            assert!(super::disk_bin(&top, uid, dev).is_none());
+            assert_eq!(super::disk_bin(&top, uid, dev), None);
         }
-        std::fs::set_permissions(&top, std::fs::Permissions::from_mode(0o755)).unwrap();
+        mode(&top, 0o755);
         let _ = std::fs::remove_dir(top.join("probe"));
-        // A writable top: its .Trash-<uid> is made.
-        assert_eq!(super::disk_bin(&top, uid, dev), Some(top.join(format!(".Trash-{uid}"))));
-        assert!(top.join(format!(".Trash-{uid}")).is_dir());
-        // Or a shared, sticky .Trash with the user's folder in it.
+        // A writable top: its .Trash-<uid> is made, for this user alone, with files and info.
+        let own = top.join(format!(".Trash-{uid}"));
+        assert_eq!(super::disk_bin(&top, uid, dev), Some(own.clone()));
+        assert_eq!(std::fs::metadata(&own).unwrap().mode() & 0o777, 0o700);
+        assert!(own.join("files").is_dir() && own.join("info").is_dir());
+        // Another user's (here: us seen as someone else), or writable by others: not used.
+        assert_eq!(super::disk_bin(&top, uid + 1, dev), None);
+        mode(&own, 0o777);
+        assert_eq!(super::disk_bin(&top, uid, dev), None);
+        mode(&own, 0o700);
+        // Its files a link to elsewhere: not used.
+        std::fs::remove_dir(own.join("files")).unwrap();
+        std::fs::create_dir(d.join("elsewhere")).unwrap();
+        symlink(d.join("elsewhere"), own.join("files")).unwrap();
+        assert_eq!(super::disk_bin(&top, uid, dev), None);
+        std::fs::remove_file(own.join("files")).unwrap();
+        // Or the bin itself a link.
+        std::fs::remove_dir_all(&own).unwrap();
+        symlink(d.join("elsewhere"), &own).unwrap();
+        assert_eq!(super::disk_bin(&top, uid, dev), None);
+        // A shared, sticky .Trash with the user's folder in it, on a top no one may write.
         let other = d.join("other");
         std::fs::create_dir_all(other.join(".Trash").join(uid.to_string())).unwrap();
-        std::fs::set_permissions(other.join(".Trash"), std::fs::Permissions::from_mode(0o1777)).unwrap();
-        std::fs::set_permissions(&other, std::fs::Permissions::from_mode(0o555)).unwrap();
+        mode(&other.join(".Trash"), 0o1777);
+        mode(&other, 0o555);
         assert_eq!(super::disk_bin(&other, uid, dev), Some(other.join(".Trash").join(uid.to_string())));
-        std::fs::set_permissions(&other, std::fs::Permissions::from_mode(0o755)).unwrap();
+        // Not sticky: anyone could swap the user's folder in it; not used.
+        mode(&other.join(".Trash"), 0o777);
+        assert_eq!(super::disk_bin(&other, uid, dev), if root { Some(other.join(format!(".Trash-{uid}"))) } else { None });
+        mode(&other, 0o755);
+        // A link to a sticky folder: not used either.
+        let _ = std::fs::remove_dir_all(other.join(format!(".Trash-{uid}")));
+        let shared = d.join("shared");
+        std::fs::create_dir_all(shared.join(uid.to_string())).unwrap();
+        mode(&shared, 0o1777);
+        std::fs::remove_dir_all(other.join(".Trash")).unwrap();
+        symlink(&shared, other.join(".Trash")).unwrap();
+        assert_ne!(super::disk_bin(&other, uid, dev), Some(other.join(".Trash").join(uid.to_string())));
+        mode(&shared, 0o755);
     }
 
     #[test]
