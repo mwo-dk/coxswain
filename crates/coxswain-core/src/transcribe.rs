@@ -386,14 +386,14 @@ fn watch(mut child: std::process::Child, most: Duration, stop: &dyn Fn() -> bool
     let e = drain(child.stderr.take().map(|p| Box::new(p) as Box<dyn Read + Send>));
     let began = Instant::now();
     let status = loop {
-        if let Some(s) = child.try_wait().map_err(|e| e.to_string())? {
-            break s;
-        }
         let late = began.elapsed() > most;
         if stop() || late {
             crate::tools::kill_tree(&mut child);
             gone();
             return if late { Err(t!("whisper.too_long")) } else { Ok(None) };
+        }
+        if let Some(s) = child.try_wait().map_err(|e| e.to_string())? {
+            break s;
         }
         std::thread::sleep(Duration::from_millis(200));
     };
