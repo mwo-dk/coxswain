@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "The host page only, as Coxswain's own",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

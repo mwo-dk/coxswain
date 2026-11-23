@@ -1,0 +1,22 @@
+# Plugin spike (#1024), parts 2 and 3: a plugin's web bundle in a sealed frame. Throwaway.
+[workspace]
+
+[package]
+name = "spike-frame"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["custom-protocol"] }
+serde_json = "1"
+spike-host = { path = "../host" }
+spike-games = { path = "../games" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

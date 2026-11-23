@@ -3,7 +3,7 @@ name: Plugin spike
 on:
   push:
     branches: [spike/plugins]
-    paths: [spike/**, .github/workflows/spike-plugins.yml]
+    paths: [spike/**, '!spike/frame-app/**', .github/workflows/spike-plugins.yml]
   workflow_dispatch:
 permissions:
   contents: read

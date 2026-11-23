@@ -1,0 +1,137 @@
+{
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/60.5 Safari/605.1.15",
+    "control_raw_from_host": {
+        "breach_calls": 0,
+        "listener_connections": []
+    },
+    "control_proper_invoke": {
+        "breach_calls": 1,
+        "listener_connections": []
+    },
+    "open_ms": {
+        "cold": 37,
+        "second": 31,
+        "third": 32
+    },
+    "probes": {
+        "parent_document": "blocked: SecurityError",
+        "top_location_read": "blocked: SecurityError",
+        "parent_tauri_internals": "blocked: SecurityError",
+        "globals": {
+            "__TAURI__": "undefined",
+            "__TAURI_INTERNALS__": "undefined",
+            "ipc": "undefined",
+            "webkit_handlers": "object",
+            "chrome_webview": "undefined"
+        },
+        "ipc_internals_invoke": "blocked: TypeError",
+        "ipc_window_ipc": "blocked: TypeError",
+        "ipc_webkit_handler": "REACHED [object Promise]",
+        "ipc_webview2": "blocked: TypeError",
+        "net_websocket": "blocked: SecurityError The operation is insecure.",
+        "net_beacon": "resolved true",
+        "net_css_url": "resolved set",
+        "ipc_fetch_scheme": "blocked: TypeError Load failed",
+        "ipc_fetch_http": "blocked: TypeError Load failed",
+        "net_fetch_local": "blocked: TypeError Load failed",
+        "net_fetch_nocors": "blocked: TypeError Load failed",
+        "net_fetch_internet": "blocked: TypeError Load failed",
+        "net_xhr": "blocked: Error xhr error",
+        "file_fetch": "blocked: TypeError Load failed",
+        "app_origin_fetch": "blocked: TypeError Load failed",
+        "asset_fetch": "blocked: TypeError Load failed",
+        "asset_fetch_http": "blocked: TypeError Load failed",
+        "plugin_scheme_fetch": "blocked: TypeError Load failed",
+        "net_img": "blocked: Error img error",
+        "window_open": "blocked: window.open returned null",
+        "theme": {
+            "--bg": "#0b0f1a",
+            "body_background": "rgb(11, 15, 26)"
+        },
+        "origin": "null"
+    },
+    "rust_side": {
+        "breach_calls": 1,
+        "listener_connections": []
+    },
+    "step_today": {
+        "positions": 26,
+        "all_positions_invoke_ms": 1,
+        "local_step_ms": 0,
+        "invoke_per_step_ms": 0.41
+    },
+    "step_frame": {
+        "positions": 26,
+        "all_positions_roundtrip_ms": 1,
+        "local_step_ms": 0,
+        "roundtrip_per_step_ms": 0.53
+    },
+    "table_frame": {
+        "50": {
+            "total_ms": 4602,
+            "per_page_ms": 2.301
+        },
+        "100": {
+            "total_ms": 4583,
+            "per_page_ms": 4.583
+        },
+        "500": {
+            "total_ms": 4021,
+            "per_page_ms": 20.105
+        },
+        "1000": {
+            "total_ms": 4418,
+            "per_page_ms": 44.18
+        }
+    },
+    "table_today_native": {
+        "50": {
+            "total_ms": 9010,
+            "per_page_ms": 4.505
+        },
+        "100": {
+            "total_ms": 7290,
+            "per_page_ms": 7.29
+        },
+        "500": {
+            "total_ms": 4915,
+            "per_page_ms": 24.575
+        },
+        "1000": {
+            "total_ms": 4102,
+            "per_page_ms": 41.02
+        }
+    },
+    "table_host_plugin_direct": {
+        "50": {
+            "total_ms": 4374,
+            "per_page_ms": 2.187
+        },
+        "100": {
+            "total_ms": 5415,
+            "per_page_ms": 5.415
+        },
+        "500": {
+            "total_ms": 3959,
+            "per_page_ms": 19.795
+        },
+        "1000": {
+            "total_ms": 3706,
+            "per_page_ms": 37.06
+        }
+    },
+    "leaked_key_probes": {
+        "webkit_handler": "sent",
+        "webview2": "blocked: TypeError",
+        "window_ipc": "blocked: TypeError",
+        "ipc://localhost/breach": "blocked: TypeError",
+        "http://ipc.localhost/breach": "blocked: TypeError"
+    },
+    "leaked_key_breach_calls_added": 1,
+    "rust_side_end": {
+        "breach_calls": 2,
+        "listener_connections": []
+    },
+    "top_navigation": "blocked: SecurityError",
+    "top_navigation_page_still_here": true
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "spike-frame",
+  "identifier": "dk.mwo.coxswain.spikeframe",
+  "build": {
+    "frontendDist": "dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "spike frame",
+        "width": 1000,
+        "height": 700
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' tauri://localhost http://tauri.localhost; style-src 'self' 'unsafe-inline' asset: http://asset.localhost tauri://localhost http://tauri.localhost; img-src 'self' asset: http://asset.localhost data: blob:; media-src 'self' asset: http://asset.localhost; font-src 'self' asset: http://asset.localhost data:; connect-src 'self' asset: http://asset.localhost ipc: http://ipc.localhost; frame-src 'self' asset: http://asset.localhost plugin: http://plugin.localhost; worker-src 'self' blob:; base-uri 'self' asset: http://asset.localhost; object-src 'none'; form-action 'none'"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.png",
+      "icons/icon.ico",
+      "icons/icon.icns"
+    ]
+  }
+}
