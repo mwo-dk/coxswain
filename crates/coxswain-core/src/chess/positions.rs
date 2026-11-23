@@ -403,11 +403,17 @@ struct Writer<W: Write> {
     /// Each block's first position and place.
     blocks: Vec<(u64, u64)>,
     entries: u64,
+    /// The block open is one an earlier range began (`merge_to`): written without its head.
+    headless: bool,
+    /// What it wrote of that block: bytes and entries.
+    head: Option<(u32, u32)>,
+    /// Its last block's place, bytes and entries: another range may add to it.
+    tail: Option<(u64, u32, u32)>,
 }
 
 impl<W: Write> Writer<W> {
     fn new(w: W) -> Writer<W> {
-        Writer { w, buf: Vec::with_capacity(64 << 10), n: 0, last: None, at: 0, blocks: vec![], entries: 0 }
+        Writer { w, buf: Vec::with_capacity(64 << 10), n: 0, last: None, at: 0, blocks: vec![], entries: 0, headless: false, head: None, tail: None }
     }
 
     fn push(&mut self, e: Entry) -> io::Result<()> {
@@ -439,13 +445,20 @@ impl<W: Write> Writer<W> {
     }
 
     fn block(&mut self) -> io::Result<()> {
-        if self.n == 0 {
+        if self.buf.is_empty() {
             return Ok(());
         }
-        self.w.write_all(&(self.buf.len() as u32).to_le_bytes())?;
-        self.w.write_all(&(self.n as u32).to_le_bytes())?;
+        if self.headless {
+            self.head = Some((self.buf.len() as u32, self.entries as u32));
+            self.headless = false;
+        } else {
+            self.tail = Some((self.at, self.buf.len() as u32, self.n as u32));
+            self.w.write_all(&(self.buf.len() as u32).to_le_bytes())?;
+            self.w.write_all(&(self.n as u32).to_le_bytes())?;
+            self.at += 8;
+        }
         self.w.write_all(&self.buf)?;
-        self.at += 8 + self.buf.len() as u64;
+        self.at += self.buf.len() as u64;
         self.buf.clear();
         self.n = 0;
         Ok(())
@@ -640,16 +653,128 @@ fn in_parts<T: Send>(runs: &[Run], ranges: usize, job: &Job, part: impl Fn(usize
     made.into_inner().unwrap_or_else(|e| e.into_inner()).into_iter().map(|t| t.ok_or_else(stopped)).collect()
 }
 
-/// The parts' files (sorted runs of positions in order) joined into `w` and removed.
-fn join<W: Write>(files: &[PathBuf], w: &mut Writer<W>) -> io::Result<()> {
-    for p in files {
-        let mut s = Stream::open(p)?;
-        while let Some(e) = s.next()? {
-            w.push(e)?;
-        }
-        let _ = std::fs::remove_file(p);
+/// The bytes `Writer` writes for `e` after `prev`, or as a block's first.
+fn written(prev: Option<Entry>, e: Entry) -> u64 {
+    let len = |v: u64| (64 - v.max(1).leading_zeros() as u64).div_ceil(7);
+    let (k, g, _) = parts(e);
+    match prev.map(parts) {
+        Some((lk, lg, _)) => len(k - lk) + len(if k == lk { (g - lg) as u64 } else { g as u64 }) + 2,
+        None => len(k) + len(g as u64) + 2,
     }
-    Ok(())
+}
+
+/// A range's merge counted, not written: its entries, its first and last, and what it takes in
+/// the file for any place in a block its first entry lands (`bytes`).
+struct Sizes {
+    n: u64,
+    first: Option<Entry>,
+    last: Option<Entry>,
+    /// Every entry but the first written after the one before it.
+    after: u64,
+    /// By the entry's place in the range modulo `BLOCK`: what being a block's first adds to
+    /// it, and how many.
+    first_more: Vec<i64>,
+    firsts: Vec<u64>,
+}
+
+impl Sizes {
+    fn new() -> Sizes {
+        Sizes { n: 0, first: None, last: None, after: 0, first_more: vec![0; BLOCK], firsts: vec![0; BLOCK] }
+    }
+
+    fn push(&mut self, e: Entry) {
+        match self.last {
+            Some(l) => {
+                let (d, r) = (written(Some(l), e), written(None, e));
+                self.after += d;
+                let j = self.n as usize % BLOCK;
+                self.first_more[j] += r as i64 - d as i64;
+                self.firsts[j] += 1;
+            }
+            None => self.first = Some(e),
+        }
+        self.last = Some(e);
+        self.n += 1;
+    }
+
+    /// Its bytes when `phase` entries of a block are before it, the last `prev`.
+    fn bytes(&self, phase: usize, prev: Option<Entry>) -> u64 {
+        let Some(first) = self.first else { return 0 };
+        let j = (BLOCK - phase) % BLOCK;
+        let head = if phase == 0 { 8 + written(None, first) } else { written(prev, first) };
+        (head as i64 + self.after as i64 + self.first_more[j] + 8 * self.firsts[j] as i64) as u64
+    }
+}
+
+/// The runs merged in ranges (`in_parts`) straight into the one file `path`, as one merge
+/// would write it: counted first, so each range knows its place in the file and in its first
+/// block, then written there; the blocks a range ends and the next goes on with get their
+/// heads made whole. `side` makes a range's own state and `see` gets each entry once, on the
+/// first pass. Each range's state, the blocks and the entries.
+#[allow(clippy::type_complexity)]
+fn merge_to<S: Send>(runs: &[Run], ranges: usize, job: &Job, path: &Path, side: impl Fn(usize) -> io::Result<S> + Sync, see: impl Fn(&mut S, Entry) -> io::Result<()> + Sync) -> io::Result<(Vec<S>, Vec<(u64, u64)>, u64)> {
+    let counted = in_parts(runs, ranges, job, |i, streams| {
+        let (mut s, mut z) = (side(i)?, Sizes::new());
+        merge(streams, job, |e| {
+            if z.last == Some(e) {
+                return Ok(());
+            }
+            z.push(e);
+            see(&mut s, e)
+        })?;
+        Ok((s, z))
+    })?;
+    // Each range's place in the file, entries of its first block before it, and the entry before.
+    let (mut at, mut n, mut prev) = (0u64, 0u64, None);
+    let mut starts = vec![];
+    for (_, z) in &counted {
+        let phase = (n % BLOCK as u64) as usize;
+        let bytes = z.bytes(phase, prev);
+        starts.push((at, bytes, phase, prev));
+        (at, n, prev) = (at + bytes, n + z.n, z.last.or(prev));
+    }
+    let f = File::create(path)?;
+    f.set_len(at)?;
+    let wrote = in_parts(runs, ranges, job, |i, streams| {
+        let (at, bytes, phase, prev) = starts[i];
+        let mut f = File::options().write(true).open(path)?;
+        f.seek(SeekFrom::Start(at))?;
+        let mut w = Writer::new(BufWriter::with_capacity(1 << 20, f));
+        (w.at, w.n, w.last, w.headless) = (at, phase, prev, phase > 0);
+        merge(streams, job, |e| w.push(e))?;
+        job.done.fetch_add(w.entries, Ordering::Relaxed);
+        w.block()?;
+        w.w.flush()?;
+        if w.at != at + bytes {
+            return Err(io::Error::other(format!("a range of positions wrote {} bytes, counted {bytes}", w.at - at)));
+        }
+        Ok((w.blocks, w.entries, w.head, w.tail))
+    })?;
+    // A block's head as one range wrote it, with what the ranges after it added.
+    let mut f = f;
+    let mut open: Option<(u64, u32, u32, bool)> = None;
+    let mut mend = |o: Option<(u64, u32, u32, bool)>| -> io::Result<()> {
+        if let Some((at, len, count, true)) = o {
+            f.seek(SeekFrom::Start(at))?;
+            f.write_all(&len.to_le_bytes())?;
+            f.write_all(&count.to_le_bytes())?;
+        }
+        Ok(())
+    };
+    let (mut blocks, mut entries) = (vec![], 0);
+    for (b, e, head, tail) in wrote {
+        if let (Some((len, count)), Some(o)) = (head, open.as_mut()) {
+            (o.1, o.2, o.3) = (o.1 + len, o.2 + count, true);
+        }
+        if let Some((at, len, count)) = tail {
+            mend(open.take())?;
+            open = Some((at, len, count, false));
+        }
+        blocks.extend(b);
+        entries += e;
+    }
+    mend(open)?;
+    Ok((counted.into_iter().map(|(s, _)| s).collect(), blocks, entries))
 }
 
 /// The streams merged in order, to `each`; `job.stop` asked every block's worth, and the
@@ -974,6 +1099,10 @@ struct Job {
     entries: AtomicU64,
     /// Entries the merges read: the work, counted.
     merged: AtomicU64,
+    /// The runs' bytes when the merging began, and the most the folder held after a merge
+    /// before its runs went: the disk, counted.
+    runs_held: AtomicU64,
+    most_held: AtomicU64,
     /// The index was removed while this ran: its folders go once it has let them go.
     removed: AtomicBool,
 }
@@ -1128,6 +1257,11 @@ fn runs<K: Kind + Sync>(k: &K, lib: &Library, from: u32, count: u32, plies: usiz
     Ok(made.into_inner().unwrap_or_else(|e| e.into_inner()))
 }
 
+/// The bytes of the files in `dir` and its `runs/`.
+fn held(dir: &Path) -> u64 {
+    [dir.to_path_buf(), dir.join("runs")].iter().filter_map(|d| std::fs::read_dir(d).ok()).flatten().flatten().filter_map(|e| e.metadata().ok()).filter(|m| m.is_file()).map(|m| m.len()).sum()
+}
+
 /// Builds the index of `lib` (its table whole) into `dir`: from scratch, or keeping the entries
 /// of `old` for its games before `keep`.
 /// `ranges`: the ranges of positions merged apart, on several threads (`in_parts`).
@@ -1146,6 +1280,7 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
         _ => runs(&Chess, lib, from, count, plies, &runs_dir, job)?,
     };
     job.phase.store(1, Ordering::Relaxed);
+    job.runs_held.store(held(dir), Ordering::Relaxed);
     // The rows' Elos, years and results, 8 bytes a game, for the sums.
     let mut info = vec![Info::default(); count as usize];
     lib.each_rec(count, |i, r| info[i as usize] = Info::of(r))?;
@@ -1154,18 +1289,10 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
     let mut n = 0usize;
     while runs.len() > FAN {
         let rest = runs.split_off(FAN);
-        let segs = in_parts(&runs, ranges, job, |i, streams| {
-            let p = runs_dir.join(format!("merged-{n}-{i}"));
-            let mut w = Writer::new(BufWriter::with_capacity(1 << 20, File::create(&p)?));
-            merge(streams, job, |e| w.push(e))?;
-            w.finish()?;
-            Ok(p)
-        })?;
         let p = runs_dir.join(format!("merged-{n}"));
         n += 1;
-        let mut w = Writer::new(BufWriter::with_capacity(1 << 20, File::create(&p)?));
-        join(&segs, &mut w)?;
-        let (_, blocks, _) = w.finish()?;
+        let (_, blocks, _) = merge_to(&runs, ranges, job, &p, |_| Ok(()), |_, _| Ok(()))?;
+        job.most_held.fetch_max(held(dir), Ordering::Relaxed);
         for r in &runs {
             let _ = std::fs::remove_file(&r.path);
         }
@@ -1189,7 +1316,8 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
     }
     total += job.entries.load(Ordering::Relaxed);
     job.done.store(0, Ordering::Relaxed);
-    job.of.store(total.max(1), Ordering::Relaxed);
+    // Each entry counted when it is merged, and again when it is written.
+    job.of.store(2 * total.max(1), Ordering::Relaxed);
     let at = |g: u32| info.get(g as usize).copied();
     let close = |key: u64, sums: Option<Vec<Sums>>, tree: &mut BufWriter<File>| -> io::Result<()> {
         let Some(mut s) = sums else { return Ok(()) };
@@ -1201,40 +1329,47 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
         }
         Ok(())
     };
-    // Each range of positions merged into postings and a tree of its own, on several threads; a
-    // position is in one range, so they are joined in order into the whole's files.
-    let segs = in_parts(&runs, ranges, job, |i, streams| {
-        let (pp, tp) = (runs_dir.join(format!("postings-{i}")), runs_dir.join(format!("tree-{i}")));
-        let mut post = Writer::new(BufWriter::with_capacity(1 << 20, File::create(&pp)?));
-        let mut tree = BufWriter::with_capacity(1 << 20, File::create(&tp)?);
-        // The position being merged: its entries, until it has `HOT`, then its sums.
-        let mut group: Vec<(u32, u16)> = vec![];
-        let mut sums: Option<Vec<Sums>> = None;
-        let mut key = None;
-        let mut last_game = None;
-        let mut pushed = 0u64;
-        merge(streams, job, |e| {
+    /// A range's tree, and the position being merged: its entries, until it has `HOT`, then
+    /// its sums.
+    struct Part {
+        path: PathBuf,
+        tree: BufWriter<File>,
+        group: Vec<(u32, u16)>,
+        sums: Option<Vec<Sums>>,
+        key: Option<u64>,
+        last_game: Option<u32>,
+        pushed: u64,
+    }
+    // Each range of positions merged straight into the postings, and into a tree of its own, on
+    // several threads; a position is in one range, so the trees are joined in order.
+    let (made, blocks, entries) = merge_to(
+        &runs,
+        ranges,
+        job,
+        &dir.join("postings"),
+        |i| {
+            let path = runs_dir.join(format!("tree-{i}"));
+            let tree = BufWriter::with_capacity(1 << 20, File::create(&path)?);
+            Ok(Part { path, tree, group: vec![], sums: None, key: None, last_game: None, pushed: 0 })
+        },
+        |p, e| {
             let (k, g, c) = parts(e);
-            if key != Some(k) {
-                if let Some(old) = key {
-                    close(old, sums.take(), &mut tree)?;
+            if p.key != Some(k) {
+                if let Some(old) = p.key {
+                    close(old, p.sums.take(), &mut p.tree)?;
                 }
-                (key, last_game) = (Some(k), None);
-                group.clear();
+                (p.key, p.last_game) = (Some(k), None);
+                p.group.clear();
             }
-            if post.last == Some(e) {
-                return Ok(());
-            }
-            post.push(e)?;
-            pushed += 1;
-            if pushed.is_multiple_of(BLOCK as u64) {
+            p.pushed += 1;
+            if p.pushed.is_multiple_of(BLOCK as u64) {
                 job.done.fetch_add(BLOCK as u64, Ordering::Relaxed);
             }
-            match sums.as_mut() {
+            match p.sums.as_mut() {
                 Some(s) => {
                     let Some(i) = at(g) else { return Ok(()) };
                     let reach = s.iter_mut().find(|x| x.code == REACH).expect("the position's own");
-                    if last_game != Some(g) {
+                    if p.last_game != Some(g) {
                         reach.add(g, &i);
                     }
                     if c & !BLACK != END {
@@ -1249,33 +1384,34 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
                     }
                 }
                 None => {
-                    group.push((g, c));
-                    if group.len() >= HOT {
-                        sums = Some(tally(&group, &at));
-                        group.clear();
+                    p.group.push((g, c));
+                    if p.group.len() >= HOT {
+                        p.sums = Some(tally(&p.group, &at));
+                        p.group.clear();
                     }
                 }
             }
-            last_game = Some(g);
+            p.last_game = Some(g);
             Ok(())
-        })?;
-        if let Some(k) = key {
-            close(k, sums.take(), &mut tree)?;
-        }
-        job.done.fetch_add(pushed % BLOCK as u64, Ordering::Relaxed);
-        post.finish()?;
-        tree.flush()?;
-        Ok((pp, tp))
-    })?;
-    let mut post = Writer::new(BufWriter::with_capacity(1 << 20, File::create(dir.join("postings"))?));
-    let mut tree = BufWriter::with_capacity(1 << 20, File::create(dir.join("tree"))?);
-    for (pp, tp) in &segs {
-        join(std::slice::from_ref(pp), &mut post)?;
-        io::copy(&mut File::open(tp)?, &mut tree)?;
-        let _ = std::fs::remove_file(tp);
+        },
+    )?;
+    job.most_held.fetch_max(held(dir), Ordering::Relaxed);
+    // The runs are all in the postings now.
+    for r in &runs {
+        let _ = std::fs::remove_file(&r.path);
     }
-    let (post, blocks, entries) = post.finish()?;
-    post.into_inner().map_err(|e| e.into_error())?.sync_all()?;
+    File::options().write(true).open(dir.join("postings"))?.sync_all()?;
+    let mut tree = BufWriter::with_capacity(1 << 20, File::create(dir.join("tree"))?);
+    for mut p in made {
+        if let Some(k) = p.key {
+            close(k, p.sums.take(), &mut p.tree)?;
+        }
+        job.done.fetch_add(p.pushed % BLOCK as u64, Ordering::Relaxed);
+        p.tree.flush()?;
+        drop(p.tree);
+        io::copy(&mut File::open(&p.path)?, &mut tree)?;
+        let _ = std::fs::remove_file(&p.path);
+    }
     tree.into_inner().map_err(|e| e.into_error())?.sync_all()?;
     let mut b = Vec::with_capacity(blocks.len() * 16);
     for (k, at) in blocks {

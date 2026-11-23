@@ -1,0 +1,1 @@
+| **A position index takes less room on the disk while it is built, and is done sooner.** The sorted parts are merged straight into the index on several threads, no longer into parts of their own that one thread then joined: at most twice the index is on the disk while it is built, not three times. | [Position index](previews/chess-positions.md#room-on-the-disk) |
