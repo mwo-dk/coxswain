@@ -451,15 +451,45 @@ jobs:
           if [ -z "$APPLE_ID" ] || [ -z "$APPLE_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
             echo "::notice title=macOS signing::Signed with the Developer ID, but not notarised: APPLE_ID, APPLE_PASSWORD or APPLE_TEAM_ID is missing."
           fi
-      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
+      # Built without a token: the build runs every dependency's build script and npm's. Tried
+      # four times in all, as tauri-action did (macOS's hdiutil fails now and then). The files
+      # keep tauri-action's names: the bundler's, and Coxswain_X.Y.Z_<arch>.app.tar.gz for the
+      # macOS app (named as its .dmg), as packaging/release-assets.sh lists them.
+      - name: Build
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          projectPath: gui
-          releaseId: ${{ needs.draft.outputs.id }}
-          # GitHub's upload API answers a 500 now and then (2.8.1): try an upload again.
-          retryAttempts: 3
-          args: ${{ matrix.args }} --config '{"bundle":{"resources":["THIRD-PARTY-NOTICES.md"]}}'
+          ARGS: ${{ matrix.args }}
+          TAURI_BUNDLER_DMG_IGNORE_CI: ${{ runner.os == 'macOS' && 'true' || '' }}
+        run: |
+          for i in 1 2 3 4; do
+            # shellcheck disable=SC2086 # ARGS is "--target <triple>" or nothing
+            (cd gui && npm run tauri -- build $ARGS --config '{"bundle":{"resources":["THIRD-PARTY-NOTICES.md"]}}') && break
+            [ "$i" = 4 ] && exit 1
+            echo "::warning::The desktop build failed (try $i of 4): trying again."
+          done
+          shopt -s nullglob
+          mkdir out
+          for b in target/release/bundle target/*/release/bundle; do
+            files=("$b"/deb/*.deb "$b"/rpm/*.rpm "$b"/appimage/*.AppImage "$b"/dmg/*.dmg "$b"/msi/*.msi "$b"/nsis/*-setup.exe)
+            [ ${#files[@]} = 0 ] || cp "${files[@]}" out/
+            for dmg in "$b"/dmg/*.dmg; do
+              app=$(basename "$dmg" .dmg)
+              tar czf "out/$app.app.tar.gz" -C "$b/macos" Coxswain.app
+            done
+          done
+          ls -l out
+          [ -n "$(ls -A out)" ] || { echo "::error::The desktop build made no installer."; exit 1; }
+      # The token only here, after the draft check (#1071).
+      - name: Upload to the draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+          ID: ${{ needs.draft.outputs.id }}
+          REPO: ${{ github.repository }}
+        run: |
+          bash .github/draft-check.sh
+          bash packaging/retry.sh gh release upload --clobber "$TAG" --repo "$REPO" out/*
 
   terminal:
     needs: [draft, boms]
@@ -769,7 +799,7 @@ jobs:
       - name: Every file, and its checksums
         run: |
           packaging/retry.sh gh release download "$TAG" --repo "$REPO" -D assets --clobber
-          # tauri-action uploads the desktop installers without a .sha256: each gets its own here,
+          # The desktop job uploads its installers without a .sha256: each gets its own here,
           # from the file in the draft, as the archives have theirs.
           made=()
           for f in assets/Coxswain[_-]*; do
@@ -1009,30 +1039,43 @@ jobs:
     needs: [draft, publish]
     runs-on: ubuntu-24.04
     env:
-      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      # Whether the token is set; the token itself is only in the step that publishes.
+      PUBLISH: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}
     steps:
-      - if: env.CARGO_REGISTRY_TOKEN == ''
+      - if: env.PUBLISH != 'true'
         run: echo "::notice::CARGO_REGISTRY_TOKEN is not set, so crates.io is not updated. See packaging/README.md."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: env.CARGO_REGISTRY_TOKEN != ''
+        if: env.PUBLISH == 'true'
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
-        if: env.CARGO_REGISTRY_TOKEN != ''
+        if: env.PUBLISH == 'true'
         with:
           toolchain: stable
+      # Both crates packed and built (the terminal app against the core packed with it) without
+      # the token: this runs every dependency's build script.
+      - name: Pack and build the crates
+        if: env.PUBLISH == 'true'
+        run: |
+          cargo package --locked -p coxswain-core -p coxswain
+          sha256sum target/package/*.crate | tee "$RUNNER_TEMP/crates.sha256"
       # Core first: the terminal app depends on it. Cargo waits until it is in the index. A crate
-      # already there (a run again by hand) is skipped.
-      - if: env.CARGO_REGISTRY_TOKEN != ''
+      # already there (a run again by hand) is skipped. Packed again first (no build), it must be
+      # the very file built above, so `--no-verify` publishes what was built.
+      - name: Publish
+        if: env.PUBLISH == 'true'
         env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           TAG: ${{ needs.draft.outputs.tag }}
         run: |
+          cargo package --no-verify --locked -p coxswain-core -p coxswain
+          sha256sum -c "$RUNNER_TEMP/crates.sha256"
           for p in coxswain-core coxswain; do
             if curl -fsS -A "coxswain release (github.com/mwo-dk/coxswain)" "https://crates.io/api/v1/crates/$p/${TAG#v}" >/dev/null; then
               echo "$p ${TAG#v} is on crates.io already"; continue
             fi
-            packaging/retry.sh cargo publish --locked -p "$p"
+            packaging/retry.sh cargo publish --locked --no-verify -p "$p"
           done
       - if: failure()
         env:
