@@ -893,6 +893,16 @@ fn copy_entry(src: &Path, to: &Path) -> io::Result<()> {
     crate::stop::check()?;
     let ft = fs::symlink_metadata(src)?.file_type();
     if ft.is_symlink() {
+        // A junction is made again as one: a symbolic link would need Developer Mode or admin.
+        #[cfg(windows)]
+        // Only on a local drive: a server would read a junction's `C:` as its own. Where it is
+        // refused (FAT, exFAT), a symbolic link is tried below.
+        if local_drive(to)
+            && let Some(data) = junction_data(src)?
+            && make_junction(&data, to).is_ok()
+        {
+            return Ok(());
+        }
         let link = fs::read_link(src)?;
         #[cfg(unix)]
         return std::os::unix::fs::symlink(link, to);
@@ -924,6 +934,83 @@ fn copy_entry(src: &Path, to: &Path) -> io::Result<()> {
     } else {
         copy_file(src, to, false)
     }
+}
+
+/// The reparse data of `p` when it is a junction (or a folder's mount point), as the disk keeps
+/// it; `None` for another kind of link.
+#[cfg(windows)]
+fn junction_data(p: &Path) -> io::Result<Option<Vec<u8>>> {
+    use std::os::windows::{fs::OpenOptionsExt, io::AsRawHandle};
+    use windows_sys::Win32::Storage::FileSystem::{FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_READ_ATTRIBUTES};
+    use windows_sys::Win32::System::IO::DeviceIoControl;
+    const FSCTL_GET_REPARSE_POINT: u32 = 0x0009_00A8;
+    const IO_REPARSE_TAG_MOUNT_POINT: u32 = 0xA000_0003;
+    let f = fs::OpenOptions::new()
+        .access_mode(FILE_READ_ATTRIBUTES)
+        .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
+        .open(p)?;
+    // MAXIMUM_REPARSE_DATA_BUFFER_SIZE.
+    let mut buf = vec![0u8; 16 * 1024];
+    let mut n = 0u32;
+    // SAFETY: an open handle; the buffer is writable for the length given, and outlives the call.
+    let ok = unsafe {
+        DeviceIoControl(f.as_raw_handle(), FSCTL_GET_REPARSE_POINT, std::ptr::null(), 0, buf.as_mut_ptr().cast(), buf.len() as u32, &mut n, std::ptr::null_mut())
+    };
+    if ok == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    buf.truncate(n as usize);
+    let u16_at = |i: usize| buf.get(i..i + 2).map_or(0, |b| u16::from_le_bytes([b[0], b[1]]) as usize);
+    let tag = buf.get(..4).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]));
+    // The substitute name, after the 16 bytes of headers: a volume's mount point
+    // (`\??\Volume{…}`) belongs to the mount manager and is not made again this way.
+    let (at, len) = (16 + u16_at(8), u16_at(10));
+    let volume: Vec<u16> = r"\??\Volume{".encode_utf16().collect();
+    let name: Vec<u16> = buf.get(at..at + len).unwrap_or_default().chunks_exact(2).map(|b| u16::from_le_bytes([b[0], b[1]])).collect();
+    Ok((tag == Some(IO_REPARSE_TAG_MOUNT_POINT) && !name.starts_with(&volume)).then_some(buf))
+}
+
+/// Whether `to` is on a drive of this machine (a letter that is no network drive).
+#[cfg(windows)]
+fn local_drive(to: &Path) -> bool {
+    use std::os::windows::ffi::OsStrExt;
+    use std::path::{Component, Prefix};
+    use windows_sys::Win32::Storage::FileSystem::GetDriveTypeW;
+    const DRIVE_REMOTE: u32 = 4;
+    let Ok(abs) = std::path::absolute(to) else { return false };
+    let Some(Component::Prefix(p)) = abs.components().next() else { return false };
+    let (Prefix::Disk(l) | Prefix::VerbatimDisk(l)) = p.kind() else { return false };
+    let root: Vec<u16> = std::ffi::OsStr::new(&format!("{}:\\", l as char)).encode_wide().chain([0]).collect();
+    // SAFETY: a NUL-ended string that outlives the call.
+    unsafe { GetDriveTypeW(root.as_ptr()) != DRIVE_REMOTE }
+}
+
+/// A junction at `to`, which is not there, with the reparse data `data` from `junction_data`:
+/// an empty folder that gets it, which needs no right of its own. Nothing stays when it fails.
+#[cfg(windows)]
+fn make_junction(data: &[u8], to: &Path) -> io::Result<()> {
+    use std::os::windows::{fs::OpenOptionsExt, io::AsRawHandle};
+    use windows_sys::Win32::Storage::FileSystem::{FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT};
+    use windows_sys::Win32::System::IO::DeviceIoControl;
+    const FSCTL_SET_REPARSE_POINT: u32 = 0x0009_00A4;
+    fs::create_dir(to)?;
+    let set = (|| {
+        let f = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
+            .open(to)?;
+        let mut n = 0u32;
+        // SAFETY: an open handle; `data` is readable for the length given, and outlives the call.
+        let ok = unsafe {
+            DeviceIoControl(f.as_raw_handle(), FSCTL_SET_REPARSE_POINT, data.as_ptr().cast(), data.len() as u32, std::ptr::null_mut(), 0, &mut n, std::ptr::null_mut())
+        };
+        if ok == 0 { Err(io::Error::last_os_error()) } else { Ok(()) }
+    })();
+    if set.is_err() {
+        let _ = fs::remove_dir(to);
+    }
+    set
 }
 
 /// Files up to this size are copied by the system in one go (a clone where the disk can), in
@@ -3010,6 +3097,20 @@ mod tests {
         moved.unwrap();
         assert!(fs::symlink_metadata(d.join("src")).is_err(), "not left behind");
         assert!(fs::symlink_metadata(d.join("dst/link")).unwrap().file_type().is_symlink());
+        // Still a junction, which needs no right of its own, not a symbolic link (#1049).
+        #[cfg(windows)]
+        assert!(junction_data(&d.join("dst/link")).unwrap().is_some());
+        assert_eq!(fs::read_to_string(d.join("dst/link/keep.txt")).unwrap(), "k", "it leads where it did");
+        // Copied (F5) too, and never made onto what is there.
+        copy(&d.join("dst"), &d.join("copied")).unwrap();
+        #[cfg(windows)]
+        {
+            assert!(junction_data(&d.join("copied/link")).unwrap().is_some());
+            let data = junction_data(&d.join("dst/link")).unwrap().unwrap();
+            assert!(make_junction(&data, &d.join("target")).is_err());
+            assert_eq!(fs::read_to_string(d.join("target/keep.txt")).unwrap(), "k");
+        }
+        delete(&d.join("copied")).unwrap();
         delete(&d.join("dst/link")).unwrap();
         assert!(fs::symlink_metadata(d.join("dst/link")).is_err());
         assert_eq!(fs::read_to_string(d.join("target/keep.txt")).unwrap(), "k");

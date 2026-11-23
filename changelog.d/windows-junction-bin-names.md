@@ -1,0 +1,1 @@
+| **Windows: a folder holding a junction moves to another drive without Developer Mode.** The junction was made again there as a symbolic link, which Windows allows only with Developer Mode or as administrator, so the move was taken back; it now arrives as a junction. | [Delete](files/delete.md#does-deleting-a-symbolic-link-delete-what-it-points-at) |

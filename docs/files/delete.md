@@ -125,7 +125,9 @@ question.
 
 No. The link itself is removed (or moved to the trash); the file or folder it points at stays.
 On Windows the same holds for a link to a folder and a junction, with **Shift+F8** too, and a
-move to another drive takes the link along instead of leaving it in both places.
+move to another drive takes the link along instead of leaving it in both places. A junction
+arrives as a junction, which needs no Developer Mode and no administrator; a symbolic link
+arrives as a symbolic link, which Windows lets you make only with one of those.
 
 #### Can I stop a delete?
 

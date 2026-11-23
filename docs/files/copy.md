@@ -60,7 +60,8 @@ An empty target cancels too. **F5** is also *Copy* in the F9 command list
   again quits now and leaves it half done.*: a second **F10** leaves at once, for a copy stuck
   on a network disk that no longer answers.
 - Folders are copied with everything in them. Symbolic links are copied as links, not as what
-  they point at. Pipes, sockets and devices are not copied (`… is a pipe, a socket or a device,
+  they point at; on Windows a junction is copied as a junction, which needs no Developer
+  Mode. Pipes, sockets and devices are not copied (`… is a pipe, a socket or a device,
   which is not copied`): a pipe would wait for ever.
 - A new folder is copied under a passing name beside the target (`.photos.coxswain-tmp-…`) and
   gets its name only when it is complete, so a copy that fails half way leaves nothing behind
