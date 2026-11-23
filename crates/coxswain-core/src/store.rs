@@ -3037,7 +3037,8 @@ fn device(path: &Path) -> Option<u64> {
     if MOUNTED.lock().unwrap().iter().any(|p| path.starts_with(p)) {
         return Some(u64::MAX);
     }
-    let meta = std::fs::symlink_metadata(path).ok()?;
+    // Followed: a root that is a link to another disk is on that disk, its folders too.
+    let meta = std::fs::metadata(path).ok()?;
     #[cfg(unix)]
     return Some(std::os::unix::fs::MetadataExt::dev(&meta));
     #[cfg(not(unix))]
@@ -3055,18 +3056,25 @@ fn mounted(dir: &Path) -> bool {
     }
 }
 
-/// Whether `path` is below a folder whose disk is away (`mount_away`).
-fn below_away_mount(store: &Store, path: &Path) -> bool {
-    store
-        .mounts()
+/// Whether `path` is below one of `mounts` whose disk is away (`mount_away`).
+fn below_away_mount(mounts: &HashSet<String>, path: &Path) -> bool {
+    mounts
         .iter()
         .any(|m| path.starts_with(m) && mount_away(Path::new(m)))
 }
 
 /// Whether `dir`, where a disk was mounted, is now an empty folder on its parent's disk: the
-/// disk is away. A folder emptied by hand is not told from it.
+/// disk is away. A folder emptied by hand is not told from it. Links (a locked ecryptfs
+/// `~/Private` holds two) and a Finder's `.DS_Store` do not count as files in it.
 fn mount_away(dir: &Path) -> bool {
-    !mounted(dir) && crate::fs::read_dir(dir).is_ok_and(|mut d| d.next().is_none())
+    !mounted(dir)
+        && crate::fs::read_dir(dir).is_ok_and(|mut d| {
+            d.all(|e| {
+                e.is_ok_and(|e| {
+                    e.file_name() == ".DS_Store" || e.file_type().is_ok_and(|k| k.is_symlink())
+                })
+            })
+        })
 }
 
 /// Whether `path` is at or below one of the folders `kept` (as `below` gives them).
@@ -3126,7 +3134,8 @@ fn walk(
         if stop.load(Ordering::Relaxed) {
             return None;
         }
-        if let Some(text) = dir.to_str() {
+        // Kept as `below` and `held` take them: a root set as `/mnt/x/` is `/mnt/x`.
+        if let Some(text) = dir.to_str().map(|t| t.trim_end_matches(std::path::MAIN_SEPARATOR)) {
             if mounted(&dir) {
                 found.mounts.push(text.to_string());
             } else if had_mounts.contains(text) && mount_away(&dir) {
@@ -4646,6 +4655,8 @@ pub fn refresh(
     };
     let began = now();
     let (mut gone, mut changed, mut new, mut again) = (vec![], vec![], vec![], HashSet::new());
+    // Read once, at the first path not there.
+    let mounts = std::cell::OnceCell::new();
     for path in paths.iter() {
         let Some(text) = key(path) else { continue };
         let path = PathBuf::from(&text);
@@ -4675,7 +4686,7 @@ pub fn refresh(
         }
         match std::fs::symlink_metadata(&path) {
             // Below a folder whose disk went: not gone, away (#983).
-            Err(e) if not_there(&e) && !below_away_mount(store, &path) => gone.push(text),
+            Err(e) if not_there(&e) && !below_away_mount(mounts.get_or_init(|| store.mounts()), &path) => gone.push(text),
             Err(e) if not_there(&e) => {}
             // Not there to look at for now (a mount that dropped, a refusal): its rows stay.
             Err(_) => {}
@@ -4807,7 +4818,8 @@ pub fn keep_current(
             });
         }
         // A panic in the loop shows at once, in the helper's log and as the store's error,
-        // instead of when the helper stops (#1039); the helper goes on answering searches.
+        // instead of when the helper stops (#1039). The store is no longer kept current; the
+        // helper goes on answering, unless the panic came while it held the store.
         let run = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             keep_current_loop(store, cfg, stop, &waiting, &over, &report)
         }));
@@ -4821,6 +4833,9 @@ pub fn keep_current(
             let e = format!("the search store stopped keeping up: {why}");
             crate::helper::note(format_args!("search store: {e}"));
             *store.error.lock().unwrap_or_else(|p| p.into_inner()) = Some(e);
+            // Nothing is being read or waiting for the mains any more.
+            store.pending.store(0, Ordering::Relaxed);
+            store.paused.store(false, Ordering::Relaxed);
         }
     });
 }
@@ -5524,6 +5539,10 @@ mod tests {
         // Unplugged: the folder is empty and on its parent's disk. The rows stay, out of sight.
         std::fs::rename(mnt.join("deep"), d.join("deep")).unwrap();
         MOUNTED.lock().unwrap().retain(|p| *p != mnt);
+        // What a locked encrypted folder or a Finder leaves there is not a file of its own.
+        std::fs::write(mnt.join(".DS_Store"), "").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("/nowhere/README.txt", mnt.join("README.txt")).unwrap();
         for _ in 0..2 {
             scan(&store, &cfg, &go).unwrap();
             assert_eq!(row(), read, "kept while away");
@@ -5544,6 +5563,9 @@ mod tests {
 
         // Back: found again, nothing read or made again.
         std::fs::rename(d.join("deep"), mnt.join("deep")).unwrap();
+        std::fs::remove_file(mnt.join(".DS_Store")).unwrap();
+        #[cfg(unix)]
+        std::fs::remove_file(mnt.join("README.txt")).unwrap();
         MOUNTED.lock().unwrap().push(mnt.clone());
         scan(&store, &cfg, &go).unwrap();
         assert_eq!((row(), found("ferry")), (read, 1));
@@ -5605,7 +5627,12 @@ mod tests {
         let mut alone = false;
         std::thread::scope(|s| {
             s.spawn(|| {
-                keep_current(&store, &SearchConfig::default(), &go, Some(rx));
+                // Its own folder, should the panic not come: never the real home.
+                let cfg = SearchConfig {
+                    text_roots: vec![d.clone()],
+                    ..SearchConfig::default()
+                };
+                keep_current(&store, &cfg, &go, Some(rx));
                 ended.store(true, Ordering::Relaxed);
             });
             let limit = Instant::now() + crate::test_limit(Duration::from_secs(10));

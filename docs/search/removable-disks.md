@@ -89,8 +89,11 @@ helper notes each folder inside the folders read where another disk is mounted (
 drive at `~/backup`, an encrypted folder at `~/Private`). When such a folder is later empty and
 on its parent's disk, the disk is taken as away: Find leaves its files out until it is mounted
 there again, and then only the files that changed are read. An empty folder there cannot be told
-from one emptied by hand: to let its text go, delete the empty folder. On Windows a disk mounted
-in a folder is not walked into, so this does not arise there.
+from one emptied by hand: to let its text go, delete the empty folder. Links left in it (a locked
+ecryptfs folder holds two) and a Finder's `.DS_Store` do not count as files. A folder that goes
+with its disk (one an automounter made under `/run/media`) is gone, not away: when it sits inside
+a folder read, its text goes. On Windows a disk mounted in a folder is not walked into, so this
+does not arise there.
 
 #### How do I get rid of an old disk's text?
 
