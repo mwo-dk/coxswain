@@ -66,7 +66,8 @@ struct Item {
     /// Where it came from (for a new folder, a pack or a copy: what was made).
     from: PathBuf,
     /// What the operation left: the new place, the copy, the archive, the folder. For the trash,
-    /// its name in Coxswain's own trash (Termux, illumos), else empty.
+    /// its name in Coxswain's own trash (Termux, illumos), its info file on the BSDs and Linux,
+    /// else empty.
     to: PathBuf,
     stamp: Option<Stamp>,
     /// For `Attrs`: the bits and times the file had before.
@@ -104,7 +105,8 @@ pub fn trash_restores() -> bool {
     !cfg!(any(target_os = "macos", target_os = "ios")) && crate::tools::flatpak().is_none()
 }
 
-/// Put `path` back from the trash; `name`: its name in Coxswain's own trash (Termux, illumos).
+/// Put `path` back from the trash; `name`: its name in Coxswain's own trash (Termux, illumos),
+/// its info file on the BSDs and Linux.
 #[cfg(any(
     windows,
     all(
@@ -119,14 +121,10 @@ pub fn trash_restores() -> bool {
 fn restore(path: &Path, name: &Path, since: i64) -> io::Result<()> {
     use trash::os_limited;
     let want = comparable(path);
-    // Put in the home bin by Coxswain's own put, under this name (#997): that very item.
+    // Put by Coxswain's own put, which named its info file (#997): that very item.
     #[cfg(not(windows))]
-    if !name.as_os_str().is_empty()
-        && let Some(home) = crate::xdg_trash::dir()
-    {
-        let mut info = name.as_os_str().to_owned();
-        info.push(".trashinfo");
-        return restore_item(&home.join("info").join(info), &want);
+    if name.is_absolute() {
+        return restore_item(name, &want);
     }
     #[cfg(windows)]
     let _ = name;

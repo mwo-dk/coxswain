@@ -1462,7 +1462,8 @@ fn rename_logged(src: &Path, dst: &Path, log: &mut Moved) -> io::Result<PathBuf>
 /// `move_across` does, all or nothing: failed or stopped, what went over comes back. Links go
 /// as links, a pipe, a socket or a device is refused, and Stop is looked at between files.
 #[cfg(unix)]
-pub(crate) fn bin_move(src: &Path, to: &Path) -> io::Result<()> {
+/// `left`: set when some of it stayed at `to` (it could not all come back).
+pub(crate) fn bin_move(src: &Path, to: &Path, left: &mut bool) -> io::Result<()> {
     #[cfg(test)]
     let moved = if ACROSS.get() { Err(io::ErrorKind::CrossesDevices.into()) } else { fs::rename(src, to) };
     #[cfg(not(test))]
@@ -1478,6 +1479,7 @@ pub(crate) fn bin_move(src: &Path, to: &Path) -> io::Result<()> {
         let _ = fs::remove_dir(m);
     }
     if !back {
+        *left = true;
         return Err(io::Error::new(
             e.kind(),
             crate::t!("err.move_split", "error" => e, "from" => src.display(), "to" => to.display()),
@@ -1546,17 +1548,31 @@ pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Opt
     if !trash_takes(std::slice::from_ref(&path.to_path_buf())) {
         return Err(io::Error::new(io::ErrorKind::Unsupported, crate::t!("undo.no_trash")));
     }
-    // No other Coxswain empties the home bin while this put may be moving into it file by file.
-    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios"))))]
-    let _held = crate::bin::fd::wait(&crate::bin::fd::bins_for(path))?;
-    // The home bin is filled by Coxswain's own put, which moves a file from another disk file by
-    // file: the crate's copy follows a link to a folder, cannot be stopped, and leaves what it
-    // could not finish unlisted in the bin (#997). A disk's own bin takes it by a rename.
+    // Coxswain's own put, never the trash crate's: its copy from another disk follows a link to
+    // a folder, cannot be stopped, and leaves what it could not finish unlisted in the bin
+    // (#997). Into the disk's own bin, else the home bin (from another disk file by file). The
+    // name given is its info file, for undo.
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
-    if home_bin_put(path) {
-        return crate::xdg_trash::put_home(path).map(Some);
+    {
+        let home = crate::xdg_trash::dir().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no home folder"))?;
+        let bin = put_bin(path).unwrap_or(home.clone());
+        // Made before the lock, which is taken only in a bin that is there.
+        for b in [&bin, &home] {
+            let _ = fs::create_dir_all(b.join("files")).and_then(|_| fs::create_dir_all(b.join("info")));
+        }
+        // No other Coxswain empties the bins while this put may be moving file by file.
+        let _held = crate::bin::fd::wait(&crate::bin::fd::bins_for(path))?;
+        let put = |bin: &Path| crate::xdg_trash::put_in_bin(bin, path).map(|n| Some(bin.join("info").join(format!("{n}.trashinfo")).to_string_lossy().into_owned()));
+        return match put(&bin) {
+            // A disk's bin that does not let this user write: the home bin, as the spec says.
+            Err(e) if e.kind() == io::ErrorKind::PermissionDenied && bin != home => put(&home),
+            r => r,
+        };
     }
-    #[cfg(not(any(target_os = "android", target_os = "illumos", target_os = "solaris")))]
+    // No other Coxswain empties the bin while this put runs.
+    #[cfg(any(target_os = "android", target_os = "illumos", target_os = "solaris"))]
+    let _held = crate::bin::fd::wait(&crate::bin::fd::bins_for(path))?;
+    #[cfg(any(windows, target_os = "macos", target_os = "ios"))]
     return trash::delete(path).map(|_| None).map_err(io::Error::other);
     #[cfg(any(target_os = "android", target_os = "illumos", target_os = "solaris"))]
     crate::xdg_trash::put(path).map(Some)
@@ -1616,7 +1632,7 @@ pub(crate) fn trash_renames(path: &Path) -> bool {
         // ponytail: a bind mount of the home bin's disk reads as that disk, though a rename
         // across it fails; Coxswain's own put then moves it file by file, refusing a pipe there
         // after all (#997).
-        matches!(bin_of(path), Some(_))
+        put_bin(path).is_some()
     }
     #[cfg(not(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris")))))]
     {
@@ -1625,46 +1641,38 @@ pub(crate) fn trash_renames(path: &Path) -> bool {
     }
 }
 
-/// Where a freedesktop.org put of `path` goes by a rename: `Some(true)` into the home bin (on its
-/// disk), `Some(false)` into the bin of its own disk; `None` when neither (it is not there, or
-/// its disk has no bin for this user), so it goes to the home bin from another disk.
+/// The bin a freedesktop.org put of `path` reaches by a rename: the home bin (on its disk) or
+/// its own disk's bin; `None` when neither (it is not there, or its disk has no bin for this
+/// user), so it goes to the home bin from another disk.
 #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
-fn bin_of(path: &Path) -> Option<bool> {
+fn put_bin(path: &Path) -> Option<PathBuf> {
     use std::os::unix::fs::MetadataExt;
     let dev = fs::symlink_metadata(path).ok()?.dev();
     // On the home bin's disk (its nearest folder that exists).
-    let home = crate::dirs::data_dir().map(|d| d.join("Trash"));
-    if home.is_some_and(|t| t.ancestors().find_map(|a| fs::metadata(a).ok()).is_some_and(|m| m.dev() == dev)) {
-        return Some(true);
+    let home = crate::xdg_trash::dir()?;
+    if home.ancestors().find_map(|a| fs::metadata(a).ok()).is_some_and(|m| m.dev() == dev) {
+        return Some(home);
     }
-    // ponytail: the top is the highest folder on the same device, not the mount point the
-    // trash crate looks up; a nested btrfs subvolume reads as a disk of its own.
-    let top = path.ancestors().skip(1).take_while(|a| fs::metadata(a).is_ok_and(|m| m.dev() == dev)).last();
+    // ponytail: the top is the highest folder on the same device, not its mount point; a nested
+    // btrfs subvolume reads as a disk of its own, and gets a bin at its top.
+    let top = path.ancestors().skip(1).take_while(|a| fs::metadata(a).is_ok_and(|m| m.dev() == dev)).last()?;
     // SAFETY: getuid cannot fail.
-    top.is_some_and(|t| disk_bin(t, unsafe { libc::getuid() }, dev)).then_some(false)
-}
-
-/// Whether a put of `path` goes to the home bin, by Coxswain's own put: on the home bin's disk,
-/// or from another disk without a bin of its own. Otherwise the trash crate renames it into that
-/// disk's bin.
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
-fn home_bin_put(path: &Path) -> bool {
-    bin_of(path) != Some(false)
+    disk_bin(top, unsafe { libc::getuid() }, dev)
 }
 
 /// Whether the disk whose top folder is `top` (device `dev`) has a bin for `uid`, as the trash
-/// crate looks for it: `.Trash/<uid>` in a shared `.Trash` with the sticky bit, else
-/// `.Trash-<uid>`, made here when missing (as the bin would make it).
+/// spec has it: `.Trash/<uid>` in a shared `.Trash` with the sticky bit, else `.Trash-<uid>`,
+/// made here when missing (as the bin would make it). That bin.
 #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
-fn disk_bin(top: &Path, uid: u32, dev: u64) -> bool {
+fn disk_bin(top: &Path, uid: u32, dev: u64) -> Option<PathBuf> {
     use std::os::unix::fs::{MetadataExt, PermissionsExt};
     let here = |p: &Path| fs::symlink_metadata(p).is_ok_and(|m| m.is_dir() && m.dev() == dev);
     let shared = top.join(".Trash");
     if fs::symlink_metadata(&shared).is_ok_and(|m| m.is_dir() && m.permissions().mode() & 0o1000 != 0) && here(&shared.join(uid.to_string())) {
-        return true;
+        return Some(shared.join(uid.to_string()));
     }
     let own = top.join(format!(".Trash-{uid}"));
-    here(&own) || (fs::create_dir(&own).is_ok() && here(&own))
+    (here(&own) || (fs::create_dir(&own).is_ok() && here(&own))).then_some(own)
 }
 
 /// What deleting does, decided the same in both apps.
@@ -1682,7 +1690,7 @@ pub struct DeletePlan {
 /// trash there (they are taken out, the archive written anew). Coxswain's own trash (Termux,
 /// illumos) takes nothing from another filesystem: that is deleted for good, and always asked.
 pub fn delete_plan(paths: &[PathBuf], forever: bool, inside_archive: bool) -> DeletePlan {
-    // A bin that copies: for good only when it takes none of them, so one link among many files
+    // A bin on another disk: for good only when it takes none of them, so one pipe among many files
     // is refused by the put alone and the rest still go to the bin (#978). Coxswain's own trash
     // takes all or none.
     let own = cfg!(any(target_os = "android", target_os = "illumos", target_os = "solaris"));
@@ -2504,19 +2512,19 @@ mod tests {
         // Root writes anyway: nothing to tell then.
         let root = std::fs::create_dir(top.join("probe")).is_ok();
         if !root {
-            assert!(!super::disk_bin(&top, uid, dev));
+            assert!(super::disk_bin(&top, uid, dev).is_none());
         }
         std::fs::set_permissions(&top, std::fs::Permissions::from_mode(0o755)).unwrap();
         let _ = std::fs::remove_dir(top.join("probe"));
         // A writable top: its .Trash-<uid> is made.
-        assert!(super::disk_bin(&top, uid, dev));
+        assert_eq!(super::disk_bin(&top, uid, dev), Some(top.join(format!(".Trash-{uid}"))));
         assert!(top.join(format!(".Trash-{uid}")).is_dir());
         // Or a shared, sticky .Trash with the user's folder in it.
         let other = d.join("other");
         std::fs::create_dir_all(other.join(".Trash").join(uid.to_string())).unwrap();
         std::fs::set_permissions(other.join(".Trash"), std::fs::Permissions::from_mode(0o1777)).unwrap();
         std::fs::set_permissions(&other, std::fs::Permissions::from_mode(0o555)).unwrap();
-        assert!(super::disk_bin(&other, uid, dev));
+        assert_eq!(super::disk_bin(&other, uid, dev), Some(other.join(".Trash").join(uid.to_string())));
         std::fs::set_permissions(&other, std::fs::Permissions::from_mode(0o755)).unwrap();
     }
 

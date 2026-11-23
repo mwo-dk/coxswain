@@ -1,11 +1,11 @@
 //! A trash of our own for Termux, where the `trash` crate does not build, and illumos, where it
 //! cannot tell the mount points: the freedesktop.org
 //! layout in `$XDG_DATA_HOME/Trash` (`~/.local/share/Trash`), `files/<name>` with its
-//! `info/<name>.trashinfo`. Files are only renamed in, never copied: one on another filesystem
-//! (the phone's storage under `~/storage`, another ZFS dataset than the home folder's on illumos)
-//! is refused, and the caller asks to delete it for good. On the other freedesktop.org systems
-//! (the BSDs, Linux) it is the put into the home bin (`put_home`), which moves a file from
-//! another disk in file by file instead (#997).
+//! `info/<name>.trashinfo`. One on another filesystem (the phone's storage under `~/storage`,
+//! another ZFS dataset than the home folder's on illumos) is refused, and the caller asks to
+//! delete it for good. On the other freedesktop.org systems (the BSDs, Linux) it is the put into
+//! every bin (`put_in_bin`), which moves a file from another disk into the home bin file by
+//! file (#997).
 
 #![cfg_attr(
     not(any(target_os = "android", target_os = "illumos", target_os = "solaris")),
@@ -34,11 +34,12 @@ pub fn put(path: &Path) -> io::Result<String> {
     put_in(&trash, path, same_fs)
 }
 
-/// Move `path` into the home bin, from any disk: renamed, else moved across file by file
-/// (`crate::fs::bin_move`); the name it has there.
-pub fn put_home(path: &Path) -> io::Result<String> {
-    let trash = dir().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no home folder"))?;
-    put_in(&trash, path, |_, _| true)
+/// Move `path` into the bin `bin` (the home bin, or a disk's `.Trash-<uid>`), from any disk:
+/// renamed, else moved across file by file (`crate::fs::bin_move`); the name it has there. A
+/// disk's bin names it relative to the disk's top, as the spec asks.
+pub fn put_in_bin(bin: &Path, path: &Path) -> io::Result<String> {
+    let top = (Some(bin) != dir().as_deref()).then(|| crate::bin::fd::Bin::at(bin.to_path_buf()).top).flatten();
+    put_at(bin, top.as_deref(), path, |_, _| true)
 }
 
 /// The same device as `path` itself (a link is where it sits) and the trash, or the nearest
@@ -54,8 +55,17 @@ fn same_fs(trash: &Path, path: &Path) -> bool {
 
 /// Move `path` into `trash` and give its name there; `same` says whether a rename can reach it.
 fn put_in(trash: &Path, path: &Path, same: fn(&Path, &Path) -> bool) -> io::Result<String> {
+    put_at(trash, None, path, same)
+}
+
+/// `put_in`; `top`: the disk's top folder, which `Path=` is written relative to.
+fn put_at(trash: &Path, top: Option<&Path>, path: &Path, same: fn(&Path, &Path) -> bool) -> io::Result<String> {
     let path = std::path::absolute(path)?;
     fs::symlink_metadata(&path)?;
+    // A folder that holds the bin: moved across, it would walk into its own copy.
+    if std::path::absolute(trash)?.starts_with(&path) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.move_into_itself")));
+    }
     if !same(trash, &path) {
         return Err(io::Error::new(
             io::ErrorKind::CrossesDevices,
@@ -72,7 +82,7 @@ fn put_in(trash: &Path, path: &Path, same: fn(&Path, &Path) -> bool) -> io::Resu
         .into_owned();
     let body = format!(
         "[Trash Info]\nPath={}\nDeletionDate={}\n",
-        encode(&path),
+        encode(top.and_then(|t| path.strip_prefix(t).ok()).unwrap_or(&path)),
         chrono::Local::now().format("%Y-%m-%dT%H:%M:%S")
     );
     // The info file is made first and exclusively: it claims the name.
@@ -85,15 +95,16 @@ fn put_in(trash: &Path, path: &Path, same: fn(&Path, &Path) -> bool) -> io::Resu
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
             r => r?,
         };
+        let mut left = false;
         let moved = f
             .write_all(body.as_bytes())
-            .and_then(|_| crate::fs::bin_move(&path, &files.join(&n)));
+            .and_then(|_| crate::fs::bin_move(&path, &files.join(&n), &mut left));
         return match moved {
             Ok(()) => Ok(n),
             Err(e) => {
-                // Kept while any of it is in the bin (a move across that could not all come
+                // Kept while some of it is in the bin (a move across that could not all come
                 // back): it lists what is there.
-                if fs::symlink_metadata(files.join(&n)).is_err() {
+                if !left {
                     let _ = fs::remove_file(&i);
                 }
                 Err(e)
@@ -316,6 +327,15 @@ mod tests {
         assert!(fs::symlink_metadata(&dir).is_err());
         whole(&trash.join("files").join(&n));
         assert!(info(&trash, &n).contains(&format!("Path={}\n", encode(&dir))));
+        // A folder that holds the bin is refused, never walked into its own copy.
+        fs::create_dir(d.join("held")).unwrap();
+        let inner = d.join("held/Trash");
+        assert_eq!(put_in(&inner, &d.join("held"), |_, _| true).unwrap_err().kind(), io::ErrorKind::InvalidInput);
+        assert!(d.join("held").is_dir());
+        // A disk's bin names it relative to the disk's top.
+        fs::write(d.join("note.txt"), "n").unwrap();
+        let n = put_at(&d.join(".Trash-1000"), Some(&d), &d.join("note.txt"), |_, _| true).unwrap();
+        assert!(info(&d.join(".Trash-1000"), &n).contains("Path=note.txt\n"));
     }
 
     #[test]
