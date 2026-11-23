@@ -2634,6 +2634,7 @@ mod tests {
         // A shared, sticky .Trash with the user's folder in it, on a top no one may write.
         let other = d.join("other");
         std::fs::create_dir_all(other.join(".Trash").join(uid.to_string())).unwrap();
+        mode(&other.join(".Trash").join(uid.to_string()), 0o700);
         mode(&other.join(".Trash"), 0o1777);
         mode(&other, 0o555);
         assert_eq!(super::disk_bin(&other, uid, dev), Some(other.join(".Trash").join(uid.to_string())));

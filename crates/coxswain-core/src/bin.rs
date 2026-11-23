@@ -757,12 +757,19 @@ pub(crate) mod fd {
         {
             use std::os::unix::fs::MetadataExt;
             let Ok(dev) = fs::symlink_metadata(top).map(|m| m.dev()) else { return false };
-            // Each folder on the way that is there: a folder of the disk, never a link.
+            // SAFETY: getuid cannot fail.
+            let uid = unsafe { libc::getuid() };
+            // Each folder on the way that is there: a folder of the disk, never a link, that
+            // only the user or root can change (the rule the top has): others may write it
+            // only with the sticky bit, which keeps them from swapping what is the user's.
             let mut at = top.clone();
             for c in rest.parent().into_iter().flat_map(Path::components) {
                 at.push(c);
                 match fs::symlink_metadata(&at) {
-                    Ok(m) if m.is_dir() && m.dev() == dev => {}
+                    Ok(m) if m.is_dir()
+                        && m.dev() == dev
+                        && (m.uid() == uid || m.uid() == 0)
+                        && (m.mode() & 0o022 == 0 || m.mode() & 0o1000 != 0) => {}
                     Ok(_) => return false,
                     Err(_) => break,
                 }
@@ -838,10 +845,25 @@ pub(crate) mod fd {
                 done.failed.push(failed(p, crate::t!("err.not_in_trash")));
                 continue;
             }
-            let moved = to
-                .parent()
-                .map_or(Ok(()), fs::create_dir_all)
-                .and_then(|_| move_new(&item.path, &to, was.0));
+            // Made writable by the user alone whatever the umask (`002` makes them group
+            // writable), so the look below passes them.
+            let made = to.parent().map_or(Ok(()), |up| {
+                let mut d = fs::DirBuilder::new();
+                d.recursive(true);
+                #[cfg(unix)]
+                std::os::unix::fs::DirBuilderExt::mode(&mut d, 0o755);
+                d.create(up)
+            });
+            // Looked at again with every folder on the way there, right before the move: none
+            // swapped for a link since (only the user or root could), none planted where one was
+            // missing (a link followed by the making is seen now).
+            // shortcut: path lookups, not openat on held folders; the folders' rule above
+            // leaves that race to the user and root.
+            if made.is_ok() && !may_restore(b, &to) {
+                done.failed.push(failed(p, crate::t!("bin.bad_origin")));
+                continue;
+            }
+            let moved = made.and_then(|_| move_new(&item.path, &to, was.0));
             match moved {
                 Ok(ours) => {
                     if ours {
@@ -1818,6 +1840,7 @@ mod tests {
         fs::create_dir_all(b.join("files")).unwrap();
         mode(&b, 0o700);
         mode(&b.join("info"), 0o700);
+        mode(&b.join("files"), 0o700);
         let kept = |dir: PathBuf| real(&Bin::at(dir));
         assert!(kept(b.clone()), "a bin, without the link");
         fs::remove_dir(b.join("files")).unwrap();
@@ -1981,7 +2004,31 @@ mod tests {
             fs::write(b.join("files").join(name), name).unwrap();
             fs::write(b.join("info").join(format!("{name}.trashinfo")), format!("[Trash Info]\nPath={path}\n")).unwrap();
         }
+        // A folder on the way others may write without the sticky bit: they could swap it.
+        fs::create_dir_all(top.join("open/in")).unwrap();
+        fs::set_permissions(top.join("open/in"), fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(top.join("open"), fs::Permissions::from_mode(0o777)).unwrap();
         let bins = [Bin::at(b.clone())];
+        assert!(!may_restore(&bins[0], &top.join("open/in/x.txt")));
+        fs::set_permissions(top.join("open"), fs::Permissions::from_mode(0o1777)).unwrap();
+        assert!(may_restore(&bins[0], &top.join("open/in/x.txt")), "sticky: what is the user's stays");
+        // A link planted where a folder on the way was missing: seen after the making, before
+        // the move.
+        fs::write(b.join("files/planted.txt"), "planted").unwrap();
+        fs::write(b.join("info/planted.txt.trashinfo"), "[Trash Info]\nPath=gone/planted.txt\n").unwrap();
+        MIDWAY.set(Some(Box::new({
+            let (top, outside) = (top.clone(), outside.clone());
+            move || {
+                let _ = std::os::unix::fs::symlink(&outside, top.join("gone"));
+            }
+        })));
+        let r = restore_in(&bins, &[b.join("files/planted.txt")], true);
+        MIDWAY.set(None);
+        assert_eq!((r.done, r.failed.len()), (0, 1), "{:?}", r.failed);
+        assert!(b.join("files/planted.txt").exists());
+        fs::remove_file(top.join("gone")).unwrap();
+        fs::remove_file(b.join("files/planted.txt")).unwrap();
+        fs::remove_file(b.join("info/planted.txt.trashinfo")).unwrap();
         assert_eq!(list_in(&bins).len(), 7, "listed all the same");
         let item = |n: &str| b.join("files").join(n);
         let all = ["linked.txt", "top.txt", "up.txt", "deep.txt", "whole.txt", "ok.txt", "in.txt"].map(item);
@@ -1991,7 +2038,9 @@ mod tests {
         assert!(r.failed.iter().all(|f| f.ends_with(&crate::t!("bin.bad_origin"))), "{:?}", r.failed);
         assert_eq!(fs::read_dir(&outside).unwrap().count(), 0, "nothing put outside the top");
         assert!(top.join("docs/ok.txt").exists() && top.join("docs/in.txt").exists());
-        assert!(!d.join("top (2)").exists());
+        let mut beside: Vec<_> = fs::read_dir(&*d).unwrap().map(|e| e.unwrap().file_name()).collect();
+        beside.sort();
+        assert_eq!(beside, ["outside", "top"], "nothing put beside the top");
         // The home bin's places are the user's own, whole paths anywhere.
         let home = Bin { dir: d.join("Trash"), top: None };
         assert!(may_restore(&home, Path::new("/srv/a.txt")));

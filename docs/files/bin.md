@@ -93,7 +93,10 @@ only when no other user of the machine can have made it or can change it: the sa
 A bin that fails them is left out, and when it holds items, a notice names it once
 ([Why is a disk's bin left out?](#why-is-a-disks-bin-left-out)). An item whose recorded place
 leads out of its disk (through `..`, a whole path elsewhere, or a folder on the way that is a
-link or another disk) is listed and goes with *Empty the bin*, but is never restored there.
+link or another disk) is listed and goes with *Empty the bin*, but is never restored there. Nor
+is one whose way passes a folder that another user could change: of someone other than you or
+the system, or one others may write without the sticky bit. Folders a restore makes on the way
+are made writable by you alone.
 
 ## Settings and config.toml
 
@@ -165,7 +168,9 @@ uses: mount it with those options, and its bin is listed again.
 
 A disk's bin records each item's place relative to the disk's top. One that leads out of the
 disk, through `..`, as a whole path elsewhere, or through a folder on the way that is now a link
-or another disk, was not written by a put on that disk, or no longer leads where it did: Coxswain
+or another disk, was not written by a put on that disk, or no longer leads where it did. A
+folder on the way that someone else could change (theirs, or one others may write without the
+sticky bit) could be swapped for a link while the file moves. In each case Coxswain
 does not put it back there, and the dialog of what could not be done says *The place it was
 deleted from lies outside its disk: not put back*. Copy it out with **F5**, or delete it.
 
