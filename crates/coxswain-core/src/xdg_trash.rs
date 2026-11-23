@@ -15,12 +15,25 @@
 use std::fs;
 use std::io::{self, Write};
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 
 /// `$XDG_DATA_HOME/Trash`, else `~/.local/share/Trash`.
 pub fn dir() -> Option<PathBuf> {
     crate::dirs::data_dir().map(|d| d.join("Trash"))
+}
+
+/// The bin `trash` with its `files` and `info`, those made for this user alone (as GLib does):
+/// they hold the places the files came from.
+pub fn make(trash: &Path) -> io::Result<()> {
+    use std::os::unix::fs::DirBuilderExt;
+    if let Some(up) = trash.parent() {
+        fs::create_dir_all(up)?;
+    }
+    let mut b = fs::DirBuilder::new();
+    b.recursive(true).mode(0o700);
+    b.create(trash.join("files"))?;
+    b.create(trash.join("info"))
 }
 
 /// Whether `path` is on the trash's filesystem, so it can be renamed in.
@@ -73,8 +86,7 @@ fn put_at(trash: &Path, top: Option<&Path>, path: &Path, same: fn(&Path, &Path) 
         ));
     }
     let (files, info) = (trash.join("files"), trash.join("info"));
-    fs::create_dir_all(&files)?;
-    fs::create_dir_all(&info)?;
+    make(trash)?;
     let name = path
         .file_name()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "no name"))?
@@ -91,7 +103,7 @@ fn put_at(trash: &Path, top: Option<&Path>, path: &Path, same: fn(&Path, &Path) 
             continue;
         }
         let i = info.join(format!("{n}.trashinfo"));
-        let mut f = match fs::OpenOptions::new().write(true).create_new(true).open(&i) {
+        let mut f = match fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(&i) {
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
             r => r?,
         };

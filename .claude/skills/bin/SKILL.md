@@ -107,7 +107,8 @@ Not modelled, so not proven:
   stopped, `put_back` brings back what went). The model's `put_move` is one step. The item is
   listed from its first file on, so an Empty then would delete what went over; Coxswain's own
   put (`fs::trash_named`) waits for the lock of the home bin and its own disk's bin
-  (`fd::bins_for`; `fd::wait`, Stop ends the wait), so no Coxswain Empty runs during it.
+  (`fd::wait` on the home bin and the bin `fs::put_bin` chose; Stop ends the wait), so no
+  Coxswain Empty runs during it.
   Another program's Empty or restore of the half-moved item is not covered, nor another
   program's copying put. When `put_back` cannot bring everything back, the info file stays
   (`bin_move` sets `left`, and `put_in` then keeps it), so what is left is listed; the model's

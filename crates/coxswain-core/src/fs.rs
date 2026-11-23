@@ -1480,8 +1480,9 @@ pub(crate) fn bin_move(src: &Path, to: &Path, left: &mut bool) -> io::Result<()>
     }
     if !back {
         *left = true;
+        // Not a kind a caller would try another bin for: part of it is in this one.
         return Err(io::Error::new(
-            e.kind(),
+            io::ErrorKind::Other,
             crate::t!("err.move_split", "error" => e, "from" => src.display(), "to" => to.display()),
         ));
     }
@@ -1558,9 +1559,13 @@ pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Opt
         // A disk's bin is checked, and its `files` and `info` made, by `disk_bin`.
         let bin = put_bin(path).unwrap_or(home.clone());
         // Made before the lock, which is taken only in a bin that is there.
-        let _ = fs::create_dir_all(home.join("files")).and_then(|_| fs::create_dir_all(home.join("info")));
-        // No other Coxswain empties the bins while this put may be moving file by file.
-        let _held = crate::bin::fd::wait(&crate::bin::fd::bins_for(path))?;
+        let _ = crate::xdg_trash::make(&home);
+        // No other Coxswain empties the bins while this put may be moving file by file. Only
+        // these two: a bin `disk_bin` did not pass may be another user's, who could hold its lock.
+        let mut bins = vec![home.clone(), bin.clone()];
+        bins.sort();
+        bins.dedup();
+        let _held = crate::bin::fd::wait(&bins.into_iter().map(crate::bin::fd::Bin::at).collect::<Vec<_>>())?;
         // Looked at again under the lock, right before the move: still that bin, still sound.
         let bin = if bin != home && put_bin(path).as_ref() != Some(&bin) { home.clone() } else { bin };
         let put = |bin: &Path| crate::xdg_trash::put_in_bin(bin, path).map(|n| Some(bin.join("info").join(format!("{n}.trashinfo")).to_string_lossy().into_owned()));
@@ -1648,7 +1653,8 @@ pub(crate) fn trash_renames(path: &Path) -> bool {
 #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
 fn put_bin(path: &Path) -> Option<PathBuf> {
     use std::os::unix::fs::MetadataExt;
-    let dev = fs::symlink_metadata(path).ok()?.dev();
+    let path = std::path::absolute(path).ok()?;
+    let dev = fs::symlink_metadata(&path).ok()?.dev();
     // On the home bin's disk (its nearest folder that exists).
     let home = crate::xdg_trash::dir()?;
     if home.ancestors().find_map(|a| fs::metadata(a).ok()).is_some_and(|m| m.dev() == dev) {
@@ -1674,8 +1680,10 @@ fn disk_bin(top: &Path, uid: u32, dev: u64) -> Option<PathBuf> {
     // between the look and the put.
     // shortcut: path lookups checked twice (here and again under the lock), not openat on held
     // folders; a top that lets that race be won is refused instead.
-    let tm = fs::metadata(top).ok()?;
-    if tm.mode() & 0o022 != 0 && tm.mode() & 0o1000 == 0 {
+    // The top a folder of its own (no link), of this user or root: another owner could move
+    // the bin away even on a sticky top.
+    let tm = fs::symlink_metadata(top).ok()?;
+    if !tm.is_dir() || tm.dev() != dev || !(tm.uid() == uid || tm.uid() == 0) || (tm.mode() & 0o022 != 0 && tm.mode() & 0o1000 == 0) {
         return None;
     }
     let shared = top.join(".Trash");
@@ -1702,10 +1710,15 @@ fn trusted_owner(owner: u32, top: u32) -> bool {
 #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
 fn own_bin(bin: &Path, uid: u32, dev: u64) -> bool {
     use std::os::unix::fs::{DirBuilderExt, MetadataExt};
+    use std::os::unix::fs::PermissionsExt;
     let ok = |p: &Path| {
         // mkdir never follows a link put at its name: it fails, and the look below says no.
         let _ = fs::DirBuilder::new().mode(0o700).create(p);
-        fs::symlink_metadata(p).is_ok_and(|m| m.is_dir() && m.dev() == dev && m.uid() == uid && m.mode() & 0o022 == 0)
+        let Ok(m) = fs::symlink_metadata(p) else { return false };
+        let sound = m.is_dir() && m.dev() == dev && m.uid() == uid && m.mode() & 0o022 == 0;
+        // One made readable by others (as Coxswain's own before 2.38) is closed: it holds the
+        // places the files came from.
+        sound && (m.mode() & 0o077 == 0 || fs::set_permissions(p, fs::Permissions::from_mode(0o700)).is_ok())
     };
     ok(bin) && ok(&bin.join("files")) && ok(&bin.join("info"))
 }
@@ -2563,9 +2576,24 @@ mod tests {
         assert!(own.join("files").is_dir() && own.join("info").is_dir());
         // Another user's (here: us seen as someone else), or writable by others: not used.
         assert_eq!(super::disk_bin(&top, uid + 1, dev), None);
-        mode(&own, 0o777);
+        let _ = std::fs::remove_dir_all(top.join(format!(".Trash-{}", uid + 1)));
+        for m in [0o777, 0o770] {
+            mode(&own, m);
+            assert_eq!(super::disk_bin(&top, uid, dev), None, "{m:o}");
+        }
+        // Readable by others (as made before): closed, and used.
+        mode(&own, 0o755);
+        assert_eq!(super::disk_bin(&top, uid, dev), Some(own.clone()));
+        assert_eq!(std::fs::metadata(&own).unwrap().mode() & 0o777, 0o700);
+        mode(&own.join("info"), 0o777);
+        assert_eq!(super::disk_bin(&top, uid, dev), None, "info writable by others");
+        mode(&own.join("info"), 0o700);
+        // Its info a link to elsewhere: not used.
+        std::fs::rename(own.join("info"), d.join("info-was")).unwrap();
+        symlink(d.join("info-was"), own.join("info")).unwrap();
         assert_eq!(super::disk_bin(&top, uid, dev), None);
-        mode(&own, 0o700);
+        std::fs::remove_file(own.join("info")).unwrap();
+        std::fs::rename(d.join("info-was"), own.join("info")).unwrap();
         // A top others may write without the sticky bit: not used; with it, used.
         mode(&top, 0o777);
         assert_eq!(super::disk_bin(&top, uid, dev), None);
@@ -2602,7 +2630,7 @@ mod tests {
         mode(&shared, 0o1777);
         std::fs::remove_dir_all(other.join(".Trash")).unwrap();
         symlink(&shared, other.join(".Trash")).unwrap();
-        assert_ne!(super::disk_bin(&other, uid, dev), Some(other.join(".Trash").join(uid.to_string())));
+        assert_eq!(super::disk_bin(&other, uid, dev), Some(other.join(format!(".Trash-{uid}"))));
         mode(&shared, 0o755);
     }
 
