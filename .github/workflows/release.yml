@@ -310,6 +310,15 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
+      # Fails at once when this run's draft is gone or another run's (a rerun with --failed).
+      - name: The draft is still this run's
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+          ID: ${{ needs.draft.outputs.id }}
+          REPO: ${{ github.repository }}
+        run: bash .github/draft-check.sh
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
           toolchain: stable
@@ -331,7 +340,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
-        run: packaging/retry.sh gh release upload --clobber "$TAG" dist-bom/*
+          ID: ${{ needs.draft.outputs.id }}
+          REPO: ${{ github.repository }}
+        run: |
+          .github/draft-check.sh
+          packaging/retry.sh gh release upload --clobber "$TAG" dist-bom/*
 
   desktop:
     needs: [draft, boms]
@@ -362,6 +375,15 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
+      # Fails at once when this run's draft is gone or another run's (a rerun with --failed).
+      - name: The draft is still this run's
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+          ID: ${{ needs.draft.outputs.id }}
+          REPO: ${{ github.repository }}
+        run: bash .github/draft-check.sh
       - name: Linux libraries
         if: runner.os == 'Linux'
         uses: ./.github/actions/apt-install
@@ -455,6 +477,15 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
+      # Fails at once when this run's draft is gone or another run's (a rerun with --failed).
+      - name: The draft is still this run's
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+          ID: ${{ needs.draft.outputs.id }}
+          REPO: ${{ github.repository }}
+        run: bash .github/draft-check.sh
       - name: musl toolchain
         if: runner.os == 'Linux'
         uses: ./.github/actions/apt-install
@@ -474,6 +505,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
           TARGET: ${{ matrix.target }}
+          ID: ${{ needs.draft.outputs.id }}
+          REPO: ${{ github.repository }}
         run: |
           name="coxswain-terminal-$TAG-$TARGET"
           mkdir "$name"
@@ -493,6 +526,7 @@ jobs:
             file="$name.tar.gz"
           fi
           if command -v sha256sum >/dev/null; then sha256sum "$file" > "$file.sha256"; else shasum -a 256 "$file" > "$file.sha256"; fi
+          bash .github/draft-check.sh
           bash packaging/retry.sh gh release upload --clobber "$TAG" "$file" "$file.sha256"
 
   # FreeBSD: both apps, built in a FreeBSD 14.5 virtual machine. The terminal app needs nothing
@@ -510,6 +544,15 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
+      # Fails at once when this run's draft is gone or another run's (a rerun with --failed).
+      - name: The draft is still this run's
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+          ID: ${{ needs.draft.outputs.id }}
+          REPO: ${{ github.repository }}
+        run: bash .github/draft-check.sh
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -543,6 +586,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
+          ID: ${{ needs.draft.outputs.id }}
+          REPO: ${{ github.repository }}
         run: |
           packaging/retry.sh gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md --clobber
           target=x86_64-unknown-freebsd
@@ -560,6 +605,7 @@ jobs:
             tar czf "$d.tar.gz" "$d"
             sha256sum "$d.tar.gz" > "$d.tar.gz.sha256"
           done
+          .github/draft-check.sh
           packaging/retry.sh gh release upload --clobber "$TAG" "$term.tar.gz" "$term.tar.gz.sha256" "$desk.tar.gz" "$desk.tar.gz.sha256"
 
   # NetBSD, OpenBSD and illumos: the terminal app (and on NetBSD and OpenBSD the desktop app, experimental),
@@ -585,6 +631,15 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
+      # Fails at once when this run's draft is gone or another run's (a rerun with --failed).
+      - name: The draft is still this run's
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
+          ID: ${{ needs.draft.outputs.id }}
+          REPO: ${{ github.repository }}
+        run: bash .github/draft-check.sh
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: matrix.sys == 'netbsd' || matrix.sys == 'openbsd'
         with:
@@ -660,6 +715,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
+          ID: ${{ needs.draft.outputs.id }}
+          REPO: ${{ github.repository }}
         run: |
           packaging/retry.sh gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p THIRD-PARTY-NOTICES.md --clobber
           sh packaging/pack-unix.sh "$TAG" "${{ matrix.target }}" out dist "${{ matrix.service }}"
@@ -671,6 +728,7 @@ jobs:
             tar czf "dist/$desk.tar.gz" "$desk"
             (cd dist && sha256sum "$desk.tar.gz" > "$desk.tar.gz.sha256")
           fi
+          .github/draft-check.sh
           packaging/retry.sh gh release upload --clobber "$TAG" dist/*
 
   # Every file the matrices above make (packaging/release-assets.sh), each archive's .sha256 and
@@ -693,6 +751,8 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
+      - name: The draft is still this run's
+        run: .github/draft-check.sh
       - name: Every file, uploaded completely
         run: |
           gh api --paginate "repos/$REPO/releases/$ID/assets" -q '.[] | [.name, .state, .size] | @tsv' | tee listed.tsv
@@ -746,9 +806,11 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
+          ID: ${{ needs.draft.outputs.id }}
           REPO: ${{ github.repository }}
         # Two versions can be on their way at once: only the higher one becomes Latest.
         run: |
+          .github/draft-check.sh
           latest="$(gh release view --repo "$REPO" --json tagName -q .tagName 2>/dev/null || echo v0.0.0)"
           newest="$(printf '%s\n' "$latest" "$TAG" | sort -V | tail -1)"
           packaging/retry.sh gh release edit "$TAG" --repo "$REPO" --draft=false --latest="$([ "$newest" = "$TAG" ] && echo true || echo false)"
@@ -762,9 +824,6 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write # reads the draft
-    env:
-      GH_TOKEN: ${{ github.token }}
-      TAG: ${{ needs.draft.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -777,7 +836,10 @@ jobs:
         run: cargo publish --dry-run --locked -p coxswain-core -p coxswain
       - name: Homebrew
         if: ${{ !cancelled() }}
+        # The token only here: `cargo publish` above runs every dependency's build script.
         env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.draft.outputs.tag }}
           HOMEBREW_NO_AUTO_UPDATE: 1
           HOMEBREW_NO_ANALYTICS: 1
         run: |
@@ -792,6 +854,8 @@ jobs:
 
   # Anything between the draft and publishing failed, or the run was cancelled: the draft this
   # run made goes, so no half-made release is left behind. A run by hand starts again cleanly.
+  # So a job after the draft is not rerun with --failed (the draft it would build into is gone;
+  # .github/draft-check.sh stops it at once): the run is rerun in full, tests and all.
   # A rehearsal's draft and branch always go.
   discard:
     needs: [version, draft, boms, desktop, terminal, freebsd, other-unix, verify, rehearse, publish]
@@ -817,7 +881,7 @@ jobs:
             gh api -X DELETE "repos/$REPO/git/refs/heads/rehearsal/$TAG" 2>/dev/null || true
           else
             failed=$(jq -r 'to_entries[] | select(.value.result != "success") | "\(.key) (\(.value.result))"' <<<"$NEEDS" | xargs)
-            echo "::error title=No release::$TAG is not released: $failed. Its draft is deleted."
+            echo "::error title=No release::$TAG is not released: $failed. Its draft is deleted. A passing fault: gh run rerun $GITHUB_RUN_ID (in full: --failed finds no draft); one of ours: fix it, then gh workflow run release.yml."
           fi
           info="$(gh release view "$TAG" --repo "$REPO" --json isDraft,body)" || exit 0
           if [ "$(jq -r .isDraft <<<"$info")" = true ] &&
