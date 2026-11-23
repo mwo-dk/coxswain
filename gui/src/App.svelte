@@ -119,7 +119,7 @@
       try {
         const w = textWindowIn(ui.modal);
         if (w && ui.modal !== w) (ui.modal = w), await tick();
-        if (w?.dirty?.()) return void (w.tryClose(true), e.preventDefault());
+        if (w?.dirty?.()) return void (invoke("quit_asking"), w.tryClose(true), e.preventDefault());
         if (ready) await saveSession(snapshot());
       } catch (err) {
         // The window still closes: a failure here must not keep it open.
