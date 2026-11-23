@@ -74,8 +74,6 @@ jobs:
       termux: ${{ steps.sys.outputs.termux }}
       flatpak: ${{ steps.sys.outputs.flatpak }}
       nix: ${{ steps.sys.outputs.nix }}
-    env:
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -83,6 +81,7 @@ jobs:
           fetch-depth: 2 # the parent too: did this push bump the version?
       - id: v
         env:
+          GH_TOKEN: ${{ github.token }}
           REF: ${{ github.ref }}
           REPO: ${{ github.repository }}
           EVENT: ${{ github.event_name }}
@@ -226,7 +225,6 @@ jobs:
       tag: ${{ needs.version.outputs.tag }}
       sha: ${{ steps.create.outputs.sha }}
     env:
-      GH_TOKEN: ${{ github.token }}
       TAG: ${{ needs.version.outputs.tag }}
     steps:
       - name: Every system passed
@@ -244,22 +242,32 @@ jobs:
           ref: ${{ needs.version.outputs.sha }}
       # A rehearsal builds what tomorrow's release pull request makes: its changes, committed on
       # rehearsal/vX.Y.Z (deleted again by `discard`). GITHUB_TOKEN's push starts no workflow.
-      - id: stage
+      # The token only where `gh` is needed: the tests below run every dependency's build script.
+      - name: Make the release pull request's changes
         if: needs.version.outputs.rehearsal == 'true'
         env:
-          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           [ "$(python3 packaging/release-pr.py)" = "${TAG#v}" ] || { echo "::error::release-pr.py did not make $TAG"; exit 1; }
+      - id: stage
+        if: needs.version.outputs.rehearsal == 'true'
+        run: |
           # The test jobs ran on master's commit: what release-pr.py wrote is checked here, against
           # that commit (still HEAD), so a fault shows today and not on tomorrow's pull request.
           python3 tools/docs-check.py --base "$(git rev-parse HEAD)" || { echo "::error::the docs check fails on $TAG's release changes"; exit 1; }
           python3 tools/msrv-check.py || { echo "::error::the MSRV check fails on $TAG's release changes"; exit 1; }
           cargo test -p coxswain-core --locked --test docs || { echo "::error::the docs tests fail on $TAG's release changes"; exit 1; }
           git -c user.name="Coxswain rehearsal" -c user.email="rehearsal@invalid" commit -qam "Rehearsal of $TAG"
-          git push -q "https://x-access-token:$GH_TOKEN@github.com/$REPO.git" "HEAD:refs/heads/rehearsal/$TAG"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Push the rehearsal's branch
+        if: needs.version.outputs.rehearsal == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: git push -q "https://x-access-token:$GH_TOKEN@github.com/$REPO.git" "HEAD:refs/heads/rehearsal/$TAG"
       - id: create
         env:
+          GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           SHA: ${{ steps.stage.outputs.sha || needs.version.outputs.sha }}
           REHEARSAL: ${{ needs.version.outputs.rehearsal }}
