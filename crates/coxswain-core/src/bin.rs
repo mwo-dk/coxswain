@@ -771,17 +771,37 @@ pub(crate) mod fd {
             use std::os::unix::ffi::OsStrExt;
             use std::os::unix::fs::MetadataExt;
             let c = |s: &std::ffi::OsStr| std::ffi::CString::new(s.as_bytes()).map_err(|_| bad());
-            let flags = libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC;
-            // Held open as it was looked at: a folder of the top's disk, never a link.
+            // Searched, not read: a folder the user may pass but not list (`-wx`) is on the way
+            // as with a path. Elsewhere read, which such a folder refuses.
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            let search = libc::O_PATH;
+            #[cfg(not(any(target_os = "linux", target_os = "android")))]
+            let search = libc::O_RDONLY;
+            let flags = search | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC;
+            // SAFETY: getuid cannot fail.
+            let uid = unsafe { libc::getuid() };
+            // Held open as it was looked at: a folder of the top's disk, never a link, that only
+            // the user or root can change (the top's rule): others may write it only with the
+            // sticky bit, which keeps them from swapping what is the user's.
             let held = |fd: libc::c_int, dev: Option<u64>| -> io::Result<(std::os::fd::OwnedFd, u64)> {
                 if fd < 0 {
                     let e = io::Error::last_os_error();
-                    return Err(if e.kind() == io::ErrorKind::NotFound { e } else { bad() });
+                    // A link or no folder at the name (each system says so its own way): bad;
+                    // anything else (no permission, too many files open) said as it is.
+                    #[cfg(target_os = "netbsd")]
+                    let link = [libc::ELOOP, libc::ENOTDIR, libc::EMLINK, libc::EFTYPE];
+                    #[cfg(not(target_os = "netbsd"))]
+                    let link = [libc::ELOOP, libc::ENOTDIR, libc::EMLINK];
+                    return Err(if e.raw_os_error().is_some_and(|c| link.contains(&c)) { bad() } else { e });
                 }
                 // SAFETY: a descriptor just opened, owned here alone.
                 let f = fs::File::from(unsafe { <std::os::fd::OwnedFd as std::os::fd::FromRawFd>::from_raw_fd(fd) });
                 let m = f.metadata()?;
-                if !m.is_dir() || dev.is_some_and(|d| d != m.dev()) {
+                if !m.is_dir()
+                    || dev.is_some_and(|d| d != m.dev())
+                    || !(m.uid() == uid || m.uid() == 0)
+                    || (m.mode() & 0o022 != 0 && m.mode() & 0o1000 == 0)
+                {
                     return Err(bad());
                 }
                 Ok((f.into(), m.dev()))
@@ -801,9 +821,10 @@ pub(crate) mod fd {
                     }
                     Err(e) if e.kind() == io::ErrorKind::NotFound => {
                         // Inside the folder held, never through a link at the name (mkdirat
-                        // fails on one), as the umask has it, as the restore made them before.
+                        // fails on one). Writable by the user alone, so it passes the rule above;
+                        // the umask may close it further.
                         // SAFETY: a held folder and a valid C string.
-                        if unsafe { libc::mkdirat(at, part.as_ptr(), 0o777) } != 0 {
+                        if unsafe { libc::mkdirat(at, part.as_ptr(), 0o755) } != 0 {
                             let e = io::Error::last_os_error();
                             if e.kind() != io::ErrorKind::AlreadyExists {
                                 return Err(e);
@@ -2136,6 +2157,15 @@ mod tests {
             fs::write(b.join("info").join(format!("{name}.trashinfo")), format!("[Trash Info]\nPath={path}\n")).unwrap();
         }
         let bins = [Bin::at(b.clone())];
+        // A folder on the way others may write without the sticky bit: they could swap it;
+        // with the sticky bit, what is the user's stays.
+        fs::create_dir_all(top.join("open/in")).unwrap();
+        fs::set_permissions(top.join("open/in"), fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(top.join("open"), fs::Permissions::from_mode(0o777)).unwrap();
+        assert!(!may_restore(&bins[0], &top.join("open/in/x.txt")));
+        fs::set_permissions(top.join("open"), fs::Permissions::from_mode(0o1777)).unwrap();
+        assert!(may_restore(&bins[0], &top.join("open/in/x.txt")));
+        fs::remove_dir_all(top.join("open")).unwrap();
         // A link planted where a folder on the way was missing, after the look: nothing is
         // made or put inside where it leads.
         fs::write(b.join("files/planted.txt"), "planted").unwrap();

@@ -96,7 +96,10 @@ leads out of its disk (through `..`, a whole path elsewhere, or a folder on the 
 link or another disk) is listed and goes with *Empty the bin*, but is never restored there. A restore
 goes from the disk's top folder by folder, holding each one open and making a missing one
 inside the one it holds, so a folder another user swaps for a link meanwhile cannot lead it,
-or the folders it makes, anywhere else.
+or the folders it makes, anywhere else. A folder on the way must be yours or the system's,
+and others may write it only when it has the sticky bit: a restore through a folder of someone
+else's, or one your group may write (`775`), is refused the same way. Folders it makes are
+writable by you alone.
 
 ## Settings and config.toml
 
