@@ -226,24 +226,26 @@ order of system calls in them, needs the model looked at (and the sync commit mo
 | Model action(s) | Code (at the sync commit) |
 |---|---|
 | `PutStart`, `PutCheck`, `PutClaim`, `PutWrite`, `PutMove`, `PutFail` | `xdg_trash::put_in` (`crates/coxswain-core/src/xdg_trash.rs`): the `name_candidates` loop, `symlink_metadata(files/n)`, `create_new`, `write_all`, `fs::bin_move` (a `rename`, else file by file), the `remove_file(&i)` on failure unless part stayed in the bin. Termux, illumos, and every bin on the BSDs and Linux (`xdg_trash::put_in_bin`, from `fs::trash_named`: `fs::put_bin`, else the home bin). Also the `trash` crate's `move_to_trash` (other programs), same order. |
-| `Free`, `Take`, `Done`, `lock` | `fd::hold` (`bin.rs` 370–414, `lock_all`): `flock` on `<bin>/.coxswain-lock` (`try_lock`; when busy, nothing is done) at the start of `restore_in`, `delete_in`, `empty_in`; `fd::wait` (waits, until Stop) for `undo::Record::undo` and `fs::trash_named`. Let go when they return (`fd::Held`: an unlock before the close, as a program another thread starts holds a copy of the handle until it runs, #797) or the program dies. |
-| `Listed`, `RestoreStart`, `DeleteStart`, `EmptyStart`, `iid`, `SameFile`, `SameInfo` | `fd::list_in` (`bin.rs` 591–607, `item` 610–635: an info file whose `parse` succeeds and whose item exists, names as bytes), `fd::find` (690–697) and `fd::ids` (703–705: `fd::id`, 434–446, of the file and its info file). |
-| `RCheck`, `RId` | `fd::restore_in` (726–773): `symlink_metadata(&to)`, `taken`, `free_in` (numbered as `name_candidates` does, as bytes); then `id(&item.path)` against the one found. |
-| `RLink`, `RUnlinkCheck`, `RBackCheck`, `RBack`, `RUnlink` | `fd::move_new` (787–916), the file branch: `hard_link(from, to)`, `id(to)` against the id found (device, inode; else `err.not_in_trash`, and on Unix `remove_file(to)` when `id(to) == id(from)`, else both links left), `id(from) == id(to)`, then `remove_file(from)`; `false` when either finds the file gone or another's; also `xdg_trash::restore_in` (101–136), which takes the ids before reading the info file and re-checks the file before `move_new`. |
+| `Free`, `Take`, `Done`, `lock` | `fd::hold` (`bin.rs` 370–415, `lock_all` 383–415): `flock` on `<bin>/.coxswain-lock` (`try_lock`; when busy, nothing is done) at the start of `restore_in`, `delete_in`, `empty_in`; `fd::wait` (waits, until Stop) for `undo::Record::undo` and `fs::trash_named`. Let go when they return (`fd::Held`: an unlock before the close, as a program another thread starts holds a copy of the handle until it runs, #797) or the program dies. |
+| `Listed`, `RestoreStart`, `DeleteStart`, `EmptyStart`, `iid`, `SameFile`, `SameInfo` | `fd::list_in` (`bin.rs` 592–608, `item` 611–636: an info file whose `parse` succeeds and whose item exists, names as bytes), `fd::find` (691–698) and `fd::ids` (704–706: `fd::id`, 435–447, of the file and its info file). |
+| `RCheck`, `RId` | `fd::restore_in` (727–780, the body in `restore_held` 737–780): `symlink_metadata(&to)`, `taken`, `free_in` (numbered as `name_candidates` does, as bytes); then `id(&item.path)` against the one found. |
+| `RLink`, `RUnlinkCheck`, `RBackCheck`, `RBack`, `RUnlink` | `fd::move_new` (794–923), the file branch: `hard_link(from, to)`, `id(to)` against the id found (device, inode; else `err.not_in_trash`, and on Unix `remove_file(to)` when `id(to) == id(from)`, else both links left), `id(from) == id(to)`, then `remove_file(from)`; `false` when either finds the file gone or another's; also `xdg_trash::restore_in` (145–180), which takes the ids before reading the info file and re-checks the file before `move_new`. |
 | `RLink` (`NoLink`), `RNlCheck`, `RRename`, `RUnclaimCheck`, `RUnclaim` | `fd::move_new`, the branch where `hard_link` fails with `PermissionDenied` or `Unsupported`: `create_new(to)` and its `id` from the handle, on Unix `id(from)` against the id found (device, inode), `rename(from, to)`; on either failing, `remove_file(to)` while `id(to)` is still the empty file's. |
-| `RInfoCheck`, `RInfo` | `fd::restore_in`: when `move_new` says `true`, `remove_info` (709–714: `id(info)` against the one found, then `remove_file`). |
-| `DCheck`, `DRemove`, `DInfoCheck`, `DInfo` | `fd::delete_in` (926–945: `find` and `ids` per path) and `fd::delete_listed` (950–976): `id(p)` against the one listed, `remove(p)`, then `remove_info`. |
-| `EFile`, `ECheck`, `ERemove`, `EInfoCheck`, `EInfo`, `ESweepCheck`, `ESweepRm` | `fd::empty_in` (983–1022): `list_in` with `ids` of each item, and the strays of `read_dir(files)` (`unlisted`: info file missing or empty) with their `id`, `delete_listed` on the list, then for each stray `unlisted` and the same `id` again before `remove`. `ESweepFiles`, `ESweepInfo` are the `sweep_all` variant only. |
+| `RInfoCheck`, `RInfo` | `fd::restore_in`: when `move_new` says `true`, `remove_info` (710–715: `id(info)` against the one found, then `remove_file`). |
+| `DCheck`, `DRemove`, `DInfoCheck`, `DInfo` | `fd::delete_in` (933–952: `find` and `ids` per path) and `fd::delete_listed` (957–983): `id(p)` against the one listed, `remove(p)`, then `remove_info`. |
+| `EFile`, `ECheck`, `ERemove`, `EInfoCheck`, `EInfo`, `ESweepCheck`, `ESweepRm` | `fd::empty_in` (990–1029): `list_in` with `ids` of each item, and the strays of `read_dir(files)` (`unlisted`: info file missing or empty) with their `id`, `delete_listed` on the list, then for each stray `unlisted` and the same `id` again before `remove`. `ESweepFiles`, `ESweepInfo` are the `sweep_all` variant only. |
 | `ODelete`, `ORestore`, `OInfo` | Not Coxswain: another program's delete for good, restore and Empty (`--outside`), taking no lock. |
 | `Make` | Not Coxswain: the user or any program saving a file at a free place. |
 | `Crash` | Not Coxswain: the process or machine dying between two system calls. |
 | The four promises | `docs/files/bin.md`, *Restore, delete for good, empty*: "nothing is overwritten", "Deletes everything in the bin for good" (what was listed and confirmed), the panel lists every item; *What if the desktop's own trash works on the bin at the same time?*: another file put under an item's name "stays in the bin". |
 
-**Sync commit: the merge of pull request #934** (the fix of #931, the no-link re-check, after #923
-in #930, #900 and #901 in #912 and the re-checks of #789; `bin.rs` and `xdg_trash.rs` as on master at that commit). To see whether the covered code changed since:
+**Sync commit: the merge of pull request #1075, `1b3e4294e`** (#997: every put on the BSDs and Linux
+is `xdg_trash::put_in`, moving from another disk by `fs::bin_move`; before it #934, the fix of #931,
+#923 in #930, #900 and #901 in #912 and the re-checks of #789; `bin.rs` and `xdg_trash.rs` as on
+master at that commit). To see whether the covered code changed since:
 
 ```
-sync=$(git log -1 --format=%h --grep='(#934)$' origin/master)
+sync=$(git log -1 --format=%h --grep='(#1075)$' origin/master)
 git diff "$sync" HEAD -- crates/coxswain-core/src/bin.rs crates/coxswain-core/src/xdg_trash.rs
 ```
 
