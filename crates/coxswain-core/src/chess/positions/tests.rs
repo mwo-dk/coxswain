@@ -769,6 +769,12 @@ fn a_merge_in_ranges_reads_each_entry_twice() {
     for ranges in [1, 3, 64] {
         assert_eq!(merged_in(&d, &small, ranges).0, one, "{ranges} ranges");
     }
+    // A run given twice: each entry written once.
+    let twice: Vec<Run> = [&small[0], &small[0], &small[1]].iter().map(|r| Run { path: r.path.clone(), blocks: r.blocks.clone() }).collect();
+    let mut w = Writer::new(vec![]);
+    merge(twice.iter().map(|r| Stream::open(&r.path).unwrap()).collect(), &Job::default(), |e| w.push(e)).unwrap();
+    let one = w.finish().unwrap().0;
+    assert_eq!(merged_in(&d, &twice, 64).0, one, "duplicates");
     assert!(read <= 2 * (entries + 2 * 8 * 4 * BLOCK as u64), "{read} entries read of {entries}");
     crate::assert_costs_at_most(10, || drop(merged_in(&d, &small, 8)), || drop(merged_in(&d, &big, 8)));
 }

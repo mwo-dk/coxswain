@@ -742,6 +742,7 @@ fn merge_to<S: Send>(runs: &[Run], ranges: usize, job: &Job, path: &Path, side: 
         let mut w = Writer::new(BufWriter::with_capacity(1 << 20, f));
         (w.at, w.n, w.last, w.headless) = (at, phase, prev, phase > 0);
         merge(streams, job, |e| w.push(e))?;
+        job.done.fetch_add(w.entries, Ordering::Relaxed);
         w.block()?;
         w.w.flush()?;
         if w.at != at + bytes {
@@ -1315,7 +1316,8 @@ fn build_in(lib: &Library, depth: u32, dir: &Path, old: Option<(&Index, u32)>, j
     }
     total += job.entries.load(Ordering::Relaxed);
     job.done.store(0, Ordering::Relaxed);
-    job.of.store(total.max(1), Ordering::Relaxed);
+    // Each entry counted when it is merged, and again when it is written.
+    job.of.store(2 * total.max(1), Ordering::Relaxed);
     let at = |g: u32| info.get(g as usize).copied();
     let close = |key: u64, sums: Option<Vec<Sums>>, tree: &mut BufWriter<File>| -> io::Result<()> {
         let Some(mut s) = sums else { return Ok(()) };
