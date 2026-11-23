@@ -16,7 +16,7 @@ tag="$1" v="${1#v}"
 desktop() { for f in "$@"; do echo "$f" "$f.sha256"; done; }
 
 expected() {
-  # desktop: tauri-action, one line per matrix entry, each installer with its .sha256 (verify
+  # desktop: the Tauri bundler, one line per matrix entry, each installer with its .sha256 (verify
   # writes those)
   desktop "Coxswain_${v}_amd64.deb" "Coxswain_${v}_amd64.AppImage" "Coxswain-${v}-1.x86_64.rpm"          # ubuntu-22.04
   desktop "Coxswain_${v}_arm64.deb" "Coxswain_${v}_aarch64.AppImage" "Coxswain-${v}-1.aarch64.rpm"       # ubuntu-22.04-arm
