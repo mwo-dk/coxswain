@@ -1235,9 +1235,11 @@ fn unpack_tar(mut tar: tar::Archive<Box<dyn Read>>, to: &Path) -> io::Result<()>
         if t.is_dir() {
             dirs.push(e);
         } else if t.is_file() || t.is_gnu_sparse() || t.is_hard_link() {
-            // Only a plain name below `to` (which was made empty for this) is placed here; the
-            // crate refuses the rest.
-            let asked = e.path().ok().filter(|p| p.components().all(|c| matches!(c, std::path::Component::Normal(_)))).map(|p| to.join(p));
+            // Only a plain name below `to` (which was made empty for this), `./` in it as the crate
+            // takes it, is placed here; the crate refuses the rest. Joined a part at a time: a
+            // `\\?\` path takes no `/`.
+            use std::path::Component::{CurDir, Normal};
+            let asked = e.path().ok().filter(|p| p.components().all(|c| matches!(c, Normal(_) | CurDir))).map(|p| p.components().filter(|c| matches!(c, Normal(_))).fold(to.clone(), |at, c| at.join(c)));
             let took = asked.as_ref().map(|asked| match written.get(asked) {
                 Some(took) => took.clone(),
                 // Only its case differs from a file written here, and the disk sees one file.
@@ -1247,7 +1249,8 @@ fn unpack_tar(mut tar: tar::Archive<Box<dyn Read>>, to: &Path) -> io::Result<()>
                 None => asked.clone(),
             });
             let r = match (&asked, &took) {
-                (Some(asked), Some(took)) if took != asked => e.unpack(took).map(drop),
+                // Never a hard link: `unpack` would take its target unchecked.
+                (Some(asked), Some(took)) if took != asked && !t.is_hard_link() => e.unpack(took).map(drop),
                 _ => e.unpack_in(to).map(drop),
             };
             if let Err(err) = r {
@@ -3728,7 +3731,7 @@ fn copy_entries(
             return Ok(());
         }
         // A name given twice: its later file, as an extract leaves it.
-        let named = |f: &sevenz_rust2::ArchiveEntry| !f.is_directory && f.name.replace('\\', "/") == inner;
+        let named = |f: &sevenz_rust2::ArchiveEntry| !f.is_directory && f.name.replace('\\', "/").trim_end_matches('/') == inner;
         let one = a.files.iter().rposition(named);
         match one.map(|i| (i, a.stream_map.file_block_index[i])) {
             Some((i, Some(b))) => {
@@ -4297,7 +4300,8 @@ static WAITED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::
 
 /// `tmp`, the archive written anew, in `archive`'s place. On Windows a file that another program
 /// holds open without letting it be deleted (an app reading the archive, a virus scanner) cannot
-/// be replaced while it does: tried again for up to two seconds (#1007).
+/// be replaced while it does: tried again for up to two seconds (#1007). A refusal of its own (a
+/// read-only folder) says so after that while.
 fn put_in_place(tmp: &Path, archive: &Path) -> io::Result<()> {
     let mut tries = 0;
     loop {
@@ -4840,11 +4844,14 @@ mod tests {
         // A tar of the same: its Extract (Ctrl+E) gives what the zip's and F5 give (#994).
         let cp = d.join("case.tar");
         let mut t = tar::Builder::new(File::create(&cp).unwrap());
-        for (name, text, mode) in [("x.h", "lower", 0o644), ("X.h", "upper", 0o755)] {
+        // Named `./x.h`, as `tar cf x.tar .` names them (written raw: the crate drops the `./`).
+        for (name, text, mode) in [(&b"./x.h"[..], "lower", 0o644), (b"./X.h", "upper", 0o755)] {
             let mut h = tar::Header::new_gnu();
+            h.as_gnu_mut().unwrap().name[..name.len()].copy_from_slice(name);
             h.set_size(5);
             h.set_mode(mode);
-            t.append_data(&mut h, name, text.as_bytes()).unwrap();
+            h.set_cksum();
+            t.append(&h, text.as_bytes()).unwrap();
         }
         t.into_inner().unwrap();
         for p in [&zp, &cp] {
@@ -7204,6 +7211,7 @@ mod tests {
             let r = add(&zip, &[("y.txt".into(), d.join("x.txt"))], None);
             done.store(true, Ordering::Relaxed);
             r.unwrap();
+            assert!(WAITED.load(Ordering::Relaxed) > 0, "it waited");
         });
         let (names, _) = list(&zip, 10).unwrap();
         assert_eq!(names.len(), 2);
