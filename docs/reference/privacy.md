@@ -124,7 +124,7 @@ Every preview library ships inside the app, and draw.io's viewer runs offline.
 | *Finding files* → *Transcribe speech with Whisper* | `[search] whisper` | `false` | Once, when turned on: the Whisper model from `huggingface.co`, and whisper.cpp's image from `ghcr.io` when it is not installed ([Transcripts of speech](../search/transcripts.md)) |
 | *Finding files* → *Read other formats with Apache Tika (container)* | `[search] tika` | `false` | Once, when turned on: Tika's image from `docker.io` ([Other formats with Apache Tika](../search/tika.md)) |
 | *Previews* → *Scan for viruses with ClamAV* | `[preview] virus_scan` | `false` | On: before a scan, when the database is more than a day old, to `database.clamav.net` |
-| *Previews* → *Keep images up to date* | `[preview] image_updates` | `"off"` | `"ask"` or `"ask-monthly"`: each week or month the registry is asked, anonymously and with only the image's name, whether a pulled image has a newer build (both apps); `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled, from their registry |
+| *Previews* → *Keep images up to date* | `[preview] image_updates` | `"off"` | `"ask"` or `"ask-monthly"`: each week or month the registry is asked, anonymously and with only the image's name, whether a pulled image has a newer build (both apps; only names that include their registry, never a short or `localhost` name); `"weekly"` or `"monthly"`: the desktop app pulls the images already pulled, from their registry |
 
 ## In the terminal app
 

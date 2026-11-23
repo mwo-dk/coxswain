@@ -118,10 +118,12 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
     // A check found a newer build of a pulled image: Update pulls it, Not now (dismissed) waits
     // for a newer one still. The terminal app names where to update it.
     if crate::images::asks(&cfg.preview.image_updates) && cfg.preview.container != "off" {
-        for (image, build) in state.images_newer.iter().filter(|(i, _)| cfg.preview.images.values().any(|c| c == *i)) {
+        // A short or localhost name is never checked: a finding from before that rule is not shown.
+        for (image, build) in state.images_newer.iter().filter(|(i, b)| cfg.preview.images.values().any(|c| c == *i) && (*b == "pin" || crate::images::checkable(i))) {
             let name = crate::images::short(image);
-            let text = if terminal { t!("notice.image_newer_tui", "image" => name) } else { t!("notice.image_newer", "image" => name) };
-            all.push(Notice { image: Some(image.clone()), ..Notice::new(format!("image-newer:{image}@{build}"), text, Some("previews")) });
+            let key = cfg.tty_key(crate::config::Action::Settings).unwrap_or("F12");
+            let text = if terminal { t!("notice.image_newer_tui", "image" => name, "key" => key) } else { t!("notice.image_newer", "image" => name) };
+            all.push(Notice { image: Some(image.clone()), ..Notice::new(image_id(image, build), text, Some("previews")) });
         }
     }
     if let Some(why) = status.meaning_error.as_ref().filter(|_| status.meaning) {
@@ -571,6 +573,11 @@ pub fn read(state: &mut AppState) {
     state.seen_version = crate::update::VERSION.to_string();
 }
 
+/// The id of the notice of `build`, a newer build of `image` (`AppState::images_newer`).
+pub fn image_id(image: &str, build: &str) -> String {
+    format!("image-newer:{image}@{build}")
+}
+
 /// Remember a notice as seen, and the version in use.
 pub fn dismiss(state: &mut AppState, id: &str) {
     if !state.notices_dismissed.iter().any(|d| d == id) {
@@ -747,6 +754,23 @@ mod tests {
                 .contains("constraint failed")
         );
         status.error = None;
+
+        // A newer build of a pulled image: the terminal app names Settings' key as the keymap
+        // has it; Update (`images::updated`) dismisses it; a short name's old finding is not shown.
+        let mut cfg = cfg.clone();
+        cfg.preview.image_updates = "ask".into();
+        cfg.preview.images.insert("x".into(), "docker.io/a/b:1".into());
+        cfg.preview.images.insert("y".into(), "localhost/c:1".into());
+        cfg.keys.insert(crate::config::Action::Settings, vec!["F11".into()]);
+        state.images_newer.insert("docker.io/a/b:1".into(), "sha256:n".into());
+        state.images_newer.insert("localhost/c:1".into(), "sha256:n".into());
+        let mine: Vec<Notice> = all(&cfg, &status, &state, true).into_iter().filter(|n| n.image.is_some()).collect();
+        assert_eq!(mine.len(), 1, "{mine:?}");
+        assert!(mine[0].text.contains("F11") && !mine[0].text.contains("F12"), "{}", mine[0].text);
+        assert!(crate::images::updated(&mut state, "docker.io/a/b:1"));
+        assert!(state.notices_dismissed.contains(&mine[0].id) && !state.images_newer.contains_key("docker.io/a/b:1"));
+        assert!(!all(&cfg, &status, &state, false).iter().any(|n| n.image.is_some()));
+        state.images_newer.clear();
 
         // Updated while this app ran, to a version whose helper it cannot talk to: once.
         status.outdated = Some("9.0.0".into());

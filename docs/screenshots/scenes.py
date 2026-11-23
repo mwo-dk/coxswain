@@ -314,6 +314,7 @@ scene("tui-settings-find.png", args=at("search"), size=(80, 24), guide=False, ke
 scene("tui-settings-disk.png", args=at("disk"), guide=False, keys=["wait:3", "Down"])
 scene("tui-settings-games.png", args=at("games"), guide=False, keys=["wait:2"])
 scene("tui-settings-looks.png", args=at("looks"), guide=False, keys=["wait:2", "Down"])
+scene("tui-settings-image-updates.png", args=at("image_updates"), guide=False, config="preview.image_updates = \"ask\"\n", keys=["wait:2"])
 scene("tui-settings-themes.png", args=at("tui_theme"), guide=False, keys=["wait:2", "Enter", "wait:1"])
 scene("tui-settings-modules.png", keys=START + ["F12", "wait:1", "Right", "Right", "Right", "wait:1", "Down*14"],
       config='modules.off = ["games"]\n')

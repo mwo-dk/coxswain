@@ -301,24 +301,43 @@ impl Settings {
         let cfg = app.cfg.preview.clone();
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
+            use coxswain_core::images;
             let mut pulled_ok: Vec<String> = vec![];
+            let mut gone: Vec<String> = vec![];
             let said = pull.map(|images| {
                 let rt = coxswain_core::tools::container_runtime(&cfg).map(|r| r.1);
+                // Read now: the desktop app shares the file. A newer build a check found is
+                // pulled as the notice's Update does: the copy it replaced goes, by its id.
+                let st = coxswain_core::state::AppState::load();
+                let pins = images::superseded(&cfg, &st);
                 let mut failed: Vec<String> = vec![];
                 for i in &images {
-                    match rt.as_ref().ok_or_else(coxswain_core::tools::no_runtime).and_then(|rt| coxswain_core::images::pulls::retry_job(rt, i)) {
+                    let pulled = rt.as_ref().ok_or_else(coxswain_core::tools::no_runtime).and_then(|rt| {
+                        if images::asks(&cfg.image_updates) && st.images_newer.contains_key(i) {
+                            images::apply(rt, i, &pins, |x| images::pulls::retry_job(rt, x)).map(|g| gone.extend(g))
+                        } else {
+                            images::pulls::retry_job(rt, i)
+                        }
+                    });
+                    match pulled {
                         Ok(()) => pulled_ok.push(i.clone()),
                         Err(e) => failed.push(e),
                     }
                 }
-                if failed.is_empty() { t!("ptools.pulled", "images" => images.iter().map(|i| coxswain_core::images::short(i)).collect::<Vec<_>>().join(", ")) } else { failed.join(" ") }
+                if failed.is_empty() { t!("ptools.pulled", "images" => images.iter().map(|i| images::short(i)).collect::<Vec<_>>().join(", ")) } else { failed.join(" ") }
             });
-            // A pull brings the newest: no newer build waits for what was pulled. The file is shared
-            // with the desktop app, so it is read again and written only when something changed.
+            // A pull brings the newest: no newer build waits for what was pulled, and its notice
+            // goes. Read again and written only when something changed.
             let mut st = coxswain_core::state::AppState::load();
-            let before = st.images_newer.len();
-            st.images_newer.retain(|i, _| !pulled_ok.contains(i));
-            if st.images_newer.len() != before {
+            let mut changed = false;
+            for i in &pulled_ok {
+                changed |= images::updated(&mut st, i);
+            }
+            if !gone.is_empty() {
+                st.images_used.retain(|i, _| !gone.contains(i));
+                changed = true;
+            }
+            if changed {
                 let _ = st.save();
             }
             tx.send((coxswain_core::preview_tools::rows(&cfg), said, st.images_newer))
