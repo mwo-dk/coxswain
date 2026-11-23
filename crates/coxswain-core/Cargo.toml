@@ -16,11 +16,13 @@ description = "The shared core of Coxswain, the two-panel file manager: file ope
 test-home = []
 # The modules (`modules::MODULES`), a feature each, all on by default. A module left out of a
 # build is off whatever `[modules] off` says, and Settings shows it greyed (`modules::built`).
-# The apps pass `modules` on: `cargo build -p coxswain --no-default-features --features
-# coxswain-core/games` builds the terminal app with the games module alone.
+# The apps have the same features and pass them on: `cargo build -p coxswain
+# --no-default-features --features games` builds the terminal app with the games module alone.
 default = ["modules"]
 modules = ["documents", "office", "ebooks", "latex", "html", "diagrams", "openscad", "kicad", "data", "media", "old_formats", "geodata", "neural_networks", "games", "bom", "provenance", "disk_images"]
-documents = []
+# Its libraries: PDFs, mails and Outlook messages are read for search, Enter and Make searchable
+# with them too, so a build without it reads none of those.
+documents = ["dep:pdf-extract", "dep:mail-parser", "dep:cfb"]
 office = []
 ebooks = []
 latex = []
@@ -28,14 +30,15 @@ html = []
 diagrams = []
 openscad = []
 kicad = []
-data = []
-media = []
-old_formats = []
+data = ["dep:parquet"]
+# lofty: the length of a recording, for Transcribe too.
+media = ["dep:lofty"]
+old_formats = ["dep:jxl-oxide", "image/tiff", "image/tga", "image/pnm", "image/dds", "image/hdr", "image/exr", "image/qoi", "image/ff"]
 geodata = []
 neural_networks = []
 games = []
 bom = []
-provenance = []
+provenance = ["dep:x509-parser"]
 disk_images = []
 
 [dependencies]
@@ -60,11 +63,11 @@ sys-locale = "0.3.2"
 jiff = { version = "1", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-platform", "tzdb-concatenated"] }
 rusqlite = { version = "0.41.1", features = ["bundled", "hooks"] }
 quick-xml = "0.42.0"
-mail-parser = "0.11.9"
+mail-parser = { version = "0.11.9", optional = true }
 encoding_rs = "0.8.42"
-pdf-extract = "0.12.1"
+pdf-extract = { version = "0.12.1", optional = true }
 # The length of a song or a recording, for the hours Transcribe asks about (pure Rust).
-lofty = "0.25.4"
+lofty = { version = "0.25.4", optional = true }
 candle-core = "0.11.0"
 candle-nn = "0.11.0"
 candle-transformers = "0.11.0"
@@ -79,7 +82,7 @@ unicode-normalization = "0.1.25"
 # Provenance: DSSE payloads and signatures are base64.
 base64 = "0.23"
 # Provenance: who signed, from a Sigstore certificate. Parsing only: its `verify` feature stays off.
-x509-parser = "0.18.1"
+x509-parser = { version = "0.18.1", optional = true }
 # The helper's token, from the system's random source.
 getrandom = "0.4"
 # More archive formats, all pure Rust: bzip2 (its default backend), xz, zstd, 7z with AES.
@@ -93,7 +96,7 @@ lzxd = "0.2.7"
 sevenz-rust2 = { version = "0.25", features = ["aes256"] }
 # F3 on a Parquet file in the terminal app: its columns and first rows. Pure Rust codecs only
 # (snappy, gzip, lz4, brotli); a zstd file shows its columns and row count.
-parquet = { version = "60", default-features = false, features = ["snap", "flate2-zlib-rs", "lz4", "brotli"] }
+parquet = { version = "60", optional = true, default-features = false, features = ["snap", "flate2-zlib-rs", "lz4", "brotli"] }
 cozy-chess = "0.3.4"
 # Names sort by the language's alphabet: ICU4X's collator, pure Rust, with the tables of only
 # Coxswain's languages baked in (`src/collate/data`, made by tools/collation-data.sh).
@@ -106,18 +109,21 @@ zerovec = "0.11"
 # Compare files (`compare`): patience diffs of line hashes and of the words in a changed line.
 similar = "3.2.0"
 
-# Old pictures (`pictures`), all pure Rust: TIFF with its pages, TGA, Netpbm, DDS, Radiance HDR,
-# OpenEXR, QOI and farbfeld through `image`, written out as PNG for the desktop app's preview.
-image = { version = "0.25.10", default-features = false, features = ["tiff", "tga", "pnm", "dds", "hdr", "exr", "qoi", "ff", "png", "jpeg", "gif", "webp", "bmp"] }
+# Pictures, all pure Rust: the web's formats for Compare, thumbnails and maps; the old pictures
+# (`pictures`: TIFF with its pages, TGA, Netpbm, DDS, Radiance HDR, OpenEXR, QOI, farbfeld) come
+# with the old_formats module, written out as PNG for the desktop app's preview.
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp"] }
 # JPEG XL, in pure Rust; no colour management library (lcms2 is C).
-jxl-oxide = { version = "0.12.6", default-features = false, features = ["image", "rayon"] }
+jxl-oxide = { version = "0.12.6", optional = true, default-features = false, features = ["image", "rayon"] }
 # Outlook's `.msg` is a compound file (OLE); not the one tauri's `infer` brings (0.14).
-cfb = "0.16"
+cfb = { version = "0.16", optional = true }
 
 # statfs(2) for the ZFS dataset a folder is on, and chflags(2) for file flags.
 [dev-dependencies]
 # Builds the cabinets the tests read (MSZIP).
 cab = "0.6.0"
+# Builds the Outlook messages and old workbooks the tests read, also without the documents module.
+cfb = "0.16"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

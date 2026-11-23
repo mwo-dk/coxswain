@@ -8,6 +8,11 @@ import { highlight } from "./hl.js";
 import { convertFileSrc, invoke } from "./lib.js";
 import { t } from "./i18n.svelte.js";
 
+/** A library of a module left out of this web build (vite.config.js): each import below sits
+ *  behind its module's `__MODULE_<ID>__`, false then, so the bundle leaves it out. The page
+ *  treats such a module as off (`lib.js`), so this is only reached by a diagram inside a page. */
+const notBuilt = () => Promise.reject(new Error(t("modules.not_built")));
+
 /** Sanitized HTML. No `<style>`: a file's style sheet would restyle the whole window. `styles`
  *  keeps them for a diagram's own SVG (Mermaid scopes its rules to the diagram's id) and for HTML
  *  whose every piece is sanitized already. */
@@ -50,7 +55,7 @@ function withMath() {
 let mermaidReady;
 let mermaidSeq = 0;
 async function mermaid() {
-  mermaidReady ??= import("mermaid").then(({ default: m }) => m);
+  mermaidReady ??= __MODULE_DIAGRAMS__ ? import("mermaid").then(({ default: m }) => m) : notBuilt();
   const m = await mermaidReady;
   // Plain SVG text labels (no foreignObject HTML), so the sanitizer keeps them intact.
   // The diagram takes the theme's own colours, so it is green in Cyber and grey in Windows 95.
@@ -109,8 +114,9 @@ export async function renderMermaid(src) {
 export async function renderMarkdown(src) {
   if (/\$|\\\(|\\\[/.test(src)) await withMath();
   const html = clean(await marked.parse(src));
-  // Most documents have no diagram: no second parse and sanitizing for them.
-  if (!html.includes('class="language-mermaid"')) return html;
+  // Most documents have no diagram: no second parse and sanitizing for them. Without the
+  // diagrams module the blocks stay code.
+  if (!__MODULE_DIAGRAMS__ || !html.includes('class="language-mermaid"')) return html;
   const doc = new DOMParser().parseFromString(html, "text/html");
   for (const code of doc.querySelectorAll("pre > code.language-mermaid")) {
     // renderMermaid's result is already sanitized; parse it in an inert document too.
@@ -150,14 +156,14 @@ export function highlightOff(src, lang) {
 
 /** Word .docx as HTML (text, headings, lists, tables, embedded images). */
 export async function renderDocx(path, inside = false) {
-  const { default: mammoth } = await import("mammoth");
+  const { default: mammoth } = await (__MODULE_DOCUMENTS__ ? import("mammoth") : notBuilt());
   const r = await mammoth.convertToHtml({ arrayBuffer: await bytes(path, undefined, inside) });
   return clean(r.value);
 }
 
 /** A workbook (xlsx, xls, ods, csv, tsv): sheet names, and rows per sheet on demand. */
 export async function readSheet(path, inside = false) {
-  const XLSX = await import("xlsx");
+  const XLSX = await (__MODULE_DATA__ ? import("xlsx") : notBuilt());
   const wb = XLSX.read(await bytes(path, undefined, inside), { type: "array", sheetRows: 201, dense: true });
   return {
     names: wb.SheetNames,
@@ -272,7 +278,7 @@ export function contacts(src) {
 let vizReady;
 /** A Graphviz graph (.dot, .gv) as sanitized SVG, drawn by Graphviz compiled to WebAssembly. */
 export async function renderGraphviz(src) {
-  vizReady ??= import("@viz-js/viz").then((m) => m.instance());
+  vizReady ??= __MODULE_DIAGRAMS__ ? import("@viz-js/viz").then((m) => m.instance()) : notBuilt();
   try {
     return `<div class="diagram">${clean((await vizReady).renderString(src, { format: "svg" }))}</div>`;
   } catch (e) {
@@ -284,7 +290,7 @@ export async function renderGraphviz(src) {
  *  tables; not every font, effect or chart). LibreOffice, where there is one, follows with an
  *  exact rendering. */
 export async function renderPptx(path, inside = false) {
-  const [{ pptxToHtml }, { default: JSZip }] = await Promise.all([import("@jvmr/pptx-to-html"), import("jszip")]);
+  const [{ pptxToHtml }, { default: JSZip }] = await (__MODULE_OFFICE__ ? Promise.all([import("@jvmr/pptx-to-html"), import("jszip")]) : notBuilt());
   const slides = await pptxToHtml(await mendPptx(JSZip, await bytes(path, undefined, inside)), { width: 960, height: 540, scaleToFit: true, letterbox: false });
   return slides.map(clean);
 }
@@ -369,7 +375,7 @@ export function drawioPages(xml) {
  *  Mermaid and Graphviz here, the rest by their programs, installed or in an image already
  *  pulled, as pictures; one that cannot be drawn shows its source and why. */
 export async function renderAsciidoc(src) {
-  const [{ convert }, { source, blocks }] = await Promise.all([import("@asciidoctor/core"), invoke("adoc_blocks", { text: src })]);
+  const [{ convert }, { source, blocks }] = await Promise.all([__MODULE_DOCUMENTS__ ? import("@asciidoctor/core") : notBuilt(), invoke("adoc_blocks", { text: src })]);
   const html = clean(await convert(source, { safe: "secure", attributes: { showtitle: true } }));
   if (!blocks.length) return html;
   const doc = new DOMParser().parseFromString(html, "text/html");
@@ -399,7 +405,7 @@ export async function renderAsciidoc(src) {
 
 /** A Parquet file: its column schema, row count and the first 200 rows as a table. */
 export async function readParquet(path, inside = false) {
-  const [{ parquetMetadata, parquetReadObjects }, { compressors }] = await Promise.all([import("hyparquet"), import("hyparquet-compressors")]);
+  const [{ parquetMetadata, parquetReadObjects }, { compressors }] = await (__MODULE_DATA__ ? Promise.all([import("hyparquet"), import("hyparquet-compressors")]) : notBuilt());
   const file = await bytes(path, 500 * 1024 * 1024, inside);
   const meta = parquetMetadata(file);
   const objs = await parquetReadObjects({ file, rowEnd: 200, compressors });

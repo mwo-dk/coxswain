@@ -9,10 +9,14 @@
 //! resvg to the square's size in pixels, on the square's own colour, once per piece, colour and
 //! size. Windows Terminal draws sixel too, and is asked through the console's input. Elsewhere
 //! (no answer, the Linux console, Windows' own console) the board keeps its characters.
+//!
+//! The games module's: a build without it has no resvg, and no picture is drawn.
+#![cfg_attr(not(feature = "games"), allow(dead_code, unused_imports))]
 
 use ratatui::buffer::{Buffer, CellDiffOption};
 use ratatui::layout::Rect;
 use ratatui::style::Color;
+#[cfg(feature = "games")]
 use resvg::{tiny_skia, usvg};
 use std::collections::HashMap;
 use std::io::Write;
@@ -46,7 +50,7 @@ pub fn live() {
 
 /// What the terminal can show, asked the first time and kept.
 pub fn support() -> Option<Support> {
-    if !LIVE.load(Ordering::Relaxed) {
+    if !cfg!(feature = "games") || !LIVE.load(Ordering::Relaxed) {
         return None;
     }
     *SUPPORT.get_or_init(ask)
@@ -353,6 +357,7 @@ pub fn chess(piece: char) -> &'static [u8] {
 /// A piece on a square of colour `bg`, `cols` × `rows` cells of `cell` pixels: straight RGBA,
 /// opaque. A point's lines run through the middle of its middle cell, as the box characters
 /// of the points around it.
+#[cfg(feature = "games")]
 fn raster(pic: Picture, bg: (u8, u8, u8), cols: u16, rows: u16, cell: (u16, u16)) -> Option<tiny_skia::Pixmap> {
     use crate::pieces::{DOWN, LEFT, RIGHT, UP};
     let (w, h) = (cols as u32 * cell.0 as u32, rows as u32 * cell.1 as u32);
@@ -444,8 +449,15 @@ impl Pieces {
         self.finish(buf);
     }
 
+    /// The games module left out of the build: no picture, the characters stay.
+    #[cfg(not(feature = "games"))]
+    pub fn draw(&mut self, _: &mut Buffer, _: Rect, _: Picture, _: Color) -> bool {
+        false
+    }
+
     /// Draws `pic` over the cells of `area`, a square of colour `bg`. False when it could
     /// not be made: the characters stay.
+    #[cfg(feature = "games")]
     pub fn draw(&mut self, buf: &mut Buffer, area: Rect, pic: Picture, bg: Color) -> bool {
         let Color::Rgb(r, g, b) = bg else { return false };
         if area.width as usize > MARKS.len() || area.height as usize > MARKS.len() || area.is_empty() {
@@ -626,7 +638,7 @@ fn sixel(rgba: &[u8], w: usize, h: usize) -> String {
     s
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "games"))]
 mod tests {
     use super::*;
 

@@ -4755,7 +4755,7 @@
  "feature.modules.title": "Moduler: vælg visningerne",
  "feature.modules.what": "Slå de visninger fra, du ikke vil have indlæst; deres filer vises som tekst eller hex.",
  "feature.modules.q1": "Hvorfor vises en PDF eller et parti nu som tekst?",
- "feature.modules.a1": "Modulet, der viser den, er slået fra. Slå det til igen i Indstillinger ({settings}) → Moduler, så vises filen som før.",
+ "feature.modules.a1": "Modulet, der viser den, er slået fra. Slå det til igen i Indstillinger ({settings}) → Moduler, så vises filen som før. Hvis Indstillinger viser det gråt, »ikke med i denne udgave«, er denne kopi bygget fra kildekoden uden det.",
  "feature.modules.q2": "Holder Find op med at læse de filer, når et modul er slået fra?",
  "feature.modules.a2": "Nej. Moduler bestemmer, hvad apps viser; Find læser stadig ordene i de filer, når læsning af ord er slået til.",
  "feature.modules.q3": "Sender et modul mine filer nogen steder hen?",

@@ -3,7 +3,6 @@
 //! file's columns and first rows. F3 in the
 //! terminal app pages them as text; the desktop app's preview draws the same.
 
-use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
@@ -108,9 +107,10 @@ pub type Parquet = (u64, Vec<(String, String)>, Result<Vec<Vec<String>>, String>
 /// A Parquet file: its row count, its columns with their types, and the column names then the
 /// first `rows` rows. The rows are missing (with why) when they are compressed in a way only
 /// the desktop app reads (zstd).
+#[cfg(feature = "data")]
 pub fn parquet(path: &Path, rows: usize) -> Result<Parquet, String> {
     use parquet::file::reader::{FileReader, SerializedFileReader};
-    let r = SerializedFileReader::new(File::open(path).map_err(|e| e.to_string())?)
+    let r = SerializedFileReader::new(std::fs::File::open(path).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
     let meta = r.metadata().file_metadata();
     let schema: Vec<(String, String)> = meta
@@ -146,6 +146,12 @@ pub fn parquet(path: &Path, rows: usize) -> Result<Parquet, String> {
         }
     });
     Ok((count, schema, sample))
+}
+
+/// The data module left out of the build: no Parquet reader.
+#[cfg(not(feature = "data"))]
+pub fn parquet(_: &Path, _: usize) -> Result<Parquet, String> {
+    Err(crate::modules::not_built("data"))
 }
 
 /// A dBase table (`dbf`) as a table of its own: its fields as the schema, then the field
@@ -324,6 +330,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "data")]
     fn tables_show_a_parquet_file() {
         use parquet::data_type::{ByteArray, ByteArrayType, Int64Type};
         use parquet::file::writer::SerializedFileWriter;
@@ -340,7 +347,7 @@ mod tests {
                 .set_compression(parquet::basic::Compression::SNAPPY)
                 .build(),
         );
-        let mut w = SerializedFileWriter::new(File::create(&p).unwrap(), schema, props).unwrap();
+        let mut w = SerializedFileWriter::new(std::fs::File::create(&p).unwrap(), schema, props).unwrap();
         let mut g = w.next_row_group().unwrap();
         let mut c = g.next_column().unwrap().unwrap();
         c.typed::<Int64Type>()

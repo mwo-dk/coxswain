@@ -13,13 +13,13 @@ const { rules, reads, max_whole, cases } = JSON.parse(readFileSync(new URL("./vi
 async function load() {
   const lines = src.split("\n");
   const part = (n) => {
-    const at = lines.findIndex((l) => new RegExp(`^(export )?(let|function) ${n}\\b`).test(l));
+    const at = lines.findIndex((l) => new RegExp(`^(export )?(let|const|function) ${n}\\b`).test(l));
     assert.ok(at >= 0, n);
     let end = at + 1;
     while (end < lines.length && /^(\s|\}|$)/.test(lines[end]) && lines[end] !== "") end++;
     return lines.slice(at, end).join("\n").replace(/^export /, "");
   };
-  const code = ["viewerRules", "readsByKind", "setViewerRules", "moduleOf", "modulesOff", "setModulesOff", "moduleOff", "previewKind", "kindByName", "viewerReads"].map(part).join("\n");
+  const code = ["viewerRules", "readsByKind", "setViewerRules", "moduleOf", "modulesOff", "MODULES_OUT", "setModulesOff", "moduleOff", "previewKind", "kindByName", "viewerReads"].map(part).join("\n");
   return import("data:text/javascript," + encodeURIComponent(`${code}\nexport { setViewerRules, setModulesOff, moduleOff, previewKind, viewerReads };`));
 }
 

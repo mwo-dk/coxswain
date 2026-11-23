@@ -26,9 +26,27 @@ path = "src/bin/cox.rs"
 test = false
 
 [features]
-# Every module (coxswain-core's `modules`); `--no-default-features` leaves them all out.
+# Every module, a feature each (coxswain-core's, of the same names); `--no-default-features`
+# leaves them all out, `--features games,documents` puts those back.
 default = ["modules"]
-modules = ["coxswain-core/modules"]
+modules = ["documents", "office", "ebooks", "latex", "html", "diagrams", "openscad", "kicad", "data", "media", "old_formats", "geodata", "neural_networks", "games", "bom", "provenance", "disk_images"]
+documents = ["coxswain-core/documents"]
+office = ["coxswain-core/office"]
+ebooks = ["coxswain-core/ebooks"]
+latex = ["coxswain-core/latex"]
+html = ["coxswain-core/html"]
+diagrams = ["coxswain-core/diagrams"]
+openscad = ["coxswain-core/openscad"]
+kicad = ["coxswain-core/kicad"]
+data = ["coxswain-core/data"]
+media = ["coxswain-core/media"]
+old_formats = ["coxswain-core/old_formats"]
+geodata = ["coxswain-core/geodata"]
+neural_networks = ["coxswain-core/neural_networks"]
+games = ["coxswain-core/games", "dep:resvg"]
+bom = ["coxswain-core/bom"]
+provenance = ["coxswain-core/provenance"]
+disk_images = ["coxswain-core/disk_images"]
 
 [dependencies]
 coxswain-core.workspace = true
@@ -42,8 +60,8 @@ base64 = "0.23"
 syntect = { version = "5.3", default-features = false, features = ["parsing", "regex-fancy"] }
 two-face = { version = "0.5", default-features = false, features = ["syntect-fancy"] }
 # The chess pieces drawn as pictures where the terminal shows them (`pictures`): the SVGs
-# rendered in pure Rust, no fonts, text or raster images.
-resvg = { version = "0.49", default-features = false }
+# rendered in pure Rust, no fonts, text or raster images. The games module's.
+resvg = { version = "0.49", optional = true, default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

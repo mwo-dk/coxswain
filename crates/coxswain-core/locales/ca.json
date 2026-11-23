@@ -4853,7 +4853,7 @@
  "feature.modules.title": "Mòduls: tria els visors",
  "feature.modules.what": "Desactiva els visors que no vulguis carregar; els seus fitxers es mostren com a text o hexadecimal.",
  "feature.modules.q1": "Per què un PDF o una partida es mostra ara com a text?",
- "feature.modules.a1": "El mòdul que el mostra està desactivat. Torna’l a activar a Paràmetres ({settings}) → Mòduls, i el fitxer es mostra com abans.",
+ "feature.modules.a1": "El mòdul que el mostra està desactivat. Torna’l a activar a Paràmetres ({settings}) → Mòduls, i el fitxer es mostra com abans. Si Paràmetres el mostra en gris, «no és inclòs en aquesta compilació», aquesta còpia es va compilar des del codi font sense ell.",
  "feature.modules.q2": "Desactivar un mòdul fa que la cerca deixi de llegir aquests fitxers?",
  "feature.modules.a2": "No. Els mòduls decideixen què mostren les aplicacions; la cerca continua llegint les paraules d’aquests fitxers quan la lectura de paraules està activada.",
  "feature.modules.q3": "Algun mòdul envia els meus fitxers enlloc?",

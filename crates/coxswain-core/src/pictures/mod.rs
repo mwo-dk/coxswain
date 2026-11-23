@@ -8,6 +8,11 @@
 //! The files come from anywhere, so every reader holds for any bytes: bounded reads
 //! (`MAX_FILE`), no more pixels than `MAX_PIXELS`, no panic (`catch_unwind` over the crates'
 //! own readers as well), and errors said as text.
+//!
+//! The old_formats module: a build without it has none of these endings (no file is one of
+//! these pictures) and neither jxl-oxide nor `image`'s old formats; the readers it keeps
+//! (`thumbnail`, the limits) serve the web's pictures.
+#![cfg_attr(not(feature = "old_formats"), allow(dead_code))]
 
 mod iff;
 pub(crate) mod pcx;
@@ -44,6 +49,7 @@ enum Kind {
 }
 
 /// The endings, in small letters, and their readers.
+#[cfg(feature = "old_formats")]
 const ENDINGS: &[(&str, Kind)] = &[
     ("tif", Kind::Lib(ImageFormat::Tiff)),
     ("tiff", Kind::Lib(ImageFormat::Tiff)),
@@ -68,6 +74,9 @@ const ENDINGS: &[(&str, Kind)] = &[
     ("psd", Kind::Psd),
     ("psb", Kind::Psd),
 ];
+
+#[cfg(not(feature = "old_formats"))]
+const ENDINGS: &[(&str, Kind)] = &[];
 
 /// Every ending these pictures have, without the dot, for the desktop app's page.
 pub fn endings() -> Vec<&'static str> {
@@ -303,9 +312,13 @@ fn decode_in(path: &Path, src: Src, page: usize) -> Result<Option<Picture>, Stri
 }
 
 fn decode_kind(src: Src, k: Kind, page: usize) -> Result<Picture, String> {
+    // Only a TIFF has pages.
+    #[cfg(not(feature = "old_formats"))]
+    let _ = page;
     let unreadable = |e: &dyn std::fmt::Display| t!("pictures.unreadable", "why" => e);
     let one = |image: RgbaImage| Ok(Picture { image, pages: 1 });
     match k {
+        #[cfg(feature = "old_formats")]
         Kind::Lib(ImageFormat::Tiff) => {
             let mut bytes = read_all(src)?;
             let ifds = tiff_pages(&bytes);
@@ -325,11 +338,14 @@ fn decode_kind(src: Src, k: Kind, page: usize) -> Result<Picture, String> {
             let d = r.into_decoder().map_err(|e| unreadable(&e))?;
             one(lib(d)?)
         }
+        #[cfg(feature = "old_formats")]
         Kind::Jxl => {
             let d = jxl_oxide::integration::JxlDecoder::new(open(src)?)
                 .map_err(|e| unreadable(&e))?;
             one(lib(d)?)
         }
+        #[cfg(not(feature = "old_formats"))]
+        Kind::Jxl => Err(crate::modules::not_built("old_formats")),
         Kind::Iff => one(iff::decode(&read_all(src)?)?),
         Kind::Pcx => one(pcx::decode(&read_all(src)?)?),
         Kind::Xpm => one(xpm::decode_xpm(&read_all(src)?)?),
@@ -442,6 +458,7 @@ fn info_kind(src: Src, k: Kind) -> Option<Info> {
         Some(Info { format, width: w.into(), height: h.into(), colours: lib_colours(c), ..Info::default() })
     };
     match k {
+        #[cfg(feature = "old_formats")]
         Kind::Lib(ImageFormat::Tiff) => {
             // The header and the directories only, read with seeks: not the pictures.
             let mut f = open(src).ok()?;
@@ -460,10 +477,13 @@ fn info_kind(src: Src, k: Kind) -> Option<Info> {
             let d = r.into_decoder().ok()?;
             Some((d.dimensions(), d.color_type()))
         }),
+        #[cfg(feature = "old_formats")]
         Kind::Jxl => from(&|| {
             let d = jxl_oxide::integration::JxlDecoder::new(open(src).ok()?).ok()?;
             Some((d.dimensions(), d.color_type()))
         }),
+        #[cfg(not(feature = "old_formats"))]
+        Kind::Jxl => None,
         Kind::Psd => psd::info(&mut open(src).ok()?),
         Kind::Iff | Kind::Pcx | Kind::Xpm | Kind::Xbm => {
             let bytes = read_all(src).ok()?;
@@ -586,6 +606,7 @@ pub(crate) mod tests {
     /// the zip unpacks, with no copy of it on the disk; a web picture's bytes make a grid tile
     /// in memory, and bytes that are no picture none.
     #[test]
+    #[cfg(feature = "old_formats")]
     fn a_picture_inside_an_archive_is_read_from_memory() {
         let d = folder("inside");
         let ppm = d.join("a.ppm");
@@ -617,6 +638,7 @@ pub(crate) mod tests {
     /// at all for a PNG made from bytes handed in. A spoiled one's error is no call for a copy
     /// (a copy would fail the same); a spoiled GeoTIFF's is, since GDAL reads it from a file.
     #[test]
+    #[cfg(feature = "old_formats")]
     fn a_picture_inside_an_archive_is_unpacked_once() {
         let d = folder("unpacked-once");
         let tif = d.join("a.tif");
@@ -686,6 +708,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg(feature = "old_formats")]
     fn tiff_pages_are_found_and_shown_one_by_one() {
         let d = folder("tiff");
         // Two pages of 2×1 grey pixels, by hand: header, then each page's directory.
@@ -749,6 +772,7 @@ pub(crate) mod tests {
     }
 
     #[test]
+    #[cfg(feature = "old_formats")]
     fn crate_formats_and_their_facts() {
         let d = folder("lib");
         let p = d.join("a.ppm");

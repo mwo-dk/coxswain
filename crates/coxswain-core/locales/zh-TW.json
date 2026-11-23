@@ -4668,7 +4668,7 @@
  "feature.modules.title": "模組：選擇檢視器",
  "feature.modules.what": "關閉不想載入的檢視器；它們的檔案會以文字或十六進位顯示。",
  "feature.modules.q1": "為什麼 PDF 或棋譜現在以文字顯示？",
- "feature.modules.a1": "顯示它的模組已關閉。在「設定」（{settings}）→「模組」重新開啟，檔案就會像以前一樣顯示。",
+ "feature.modules.a1": "顯示它的模組已關閉。在「設定」（{settings}）→「模組」重新開啟，檔案就會像以前一樣顯示。 若設定中顯示為灰色（「不在此建置中」），這份副本是從原始碼建置的，不含該模組。",
  "feature.modules.q2": "關閉模組後，搜尋還會讀那些檔案嗎？",
  "feature.modules.a2": "會。模組只決定應用程式顯示什麼；讀取文字開啟時，搜尋仍會讀那些檔案裡的文字。",
  "feature.modules.q3": "有模組會把我的檔案傳到別處嗎？",

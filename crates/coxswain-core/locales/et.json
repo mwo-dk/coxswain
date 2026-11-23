@@ -4755,7 +4755,7 @@
  "feature.modules.title": "Moodulid: vali vaated",
  "feature.modules.what": "Lülita välja vaated, mida sa laadida ei taha; nende failid näidatakse tekstina või kuueteistkümnendkoodis.",
  "feature.modules.q1": "Miks näidatakse PDF-i või partiid nüüd tekstina?",
- "feature.modules.a1": "Seda näitav moodul on väljas. Lülita see uuesti sisse: Sätted ({settings}) → Moodulid, ja fail näidatakse nagu enne.",
+ "feature.modules.a1": "Seda näitav moodul on väljas. Lülita see uuesti sisse: Sätted ({settings}) → Moodulid, ja fail näidatakse nagu enne. Kui Sätted näitab seda hallina („pole selles järgus“), on see koopia lähtekoodist ilma selleta ehitatud.",
  "feature.modules.q2": "Kas otsing lõpetab nende failide lugemise, kui moodul on väljas?",
  "feature.modules.a2": "Ei. Moodulid otsustavad, mida rakendused näitavad; otsing loeb nende failide sõnu edasi, kui sõnade lugemine on sees.",
  "feature.modules.q3": "Kas mõni moodul saadab mu faile kuhugi?",

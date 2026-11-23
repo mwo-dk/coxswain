@@ -4755,7 +4755,7 @@
  "feature.modules.title": "Module: die Ansichten wählen",
  "feature.modules.what": "Schalte die Ansichten aus, die nicht geladen werden sollen; ihre Dateien werden als Text oder Hex gezeigt.",
  "feature.modules.q1": "Warum wird ein PDF oder eine Partie jetzt als Text gezeigt?",
- "feature.modules.a1": "Das Modul, das sie zeigt, ist aus. Schalte es in den Einstellungen ({settings}) → Module wieder ein, dann wird die Datei wie vorher gezeigt.",
+ "feature.modules.a1": "Das Modul, das sie zeigt, ist aus. Schalte es in den Einstellungen ({settings}) → Module wieder ein, dann wird die Datei wie vorher gezeigt. Zeigen die Einstellungen es ausgegraut, „nicht in diesem Build“, wurde diese Kopie aus dem Quellcode ohne es gebaut.",
  "feature.modules.q2": "Liest die Suche diese Dateien nicht mehr, wenn ein Modul aus ist?",
  "feature.modules.a2": "Doch. Module bestimmen, was die Apps zeigen; die Suche liest die Wörter in diesen Dateien weiter, wenn das Lesen von Wörtern an ist.",
  "feature.modules.q3": "Schickt ein Modul meine Dateien irgendwohin?",

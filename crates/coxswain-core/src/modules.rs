@@ -103,6 +103,12 @@ pub fn built(id: &str) -> bool {
     }
 }
 
+/// What a reader of the module `id` says when the module is left out of the build: it cannot
+/// read the file (its notice's text).
+pub fn not_built(id: &str) -> String {
+    find(id).map_or_else(|| id.to_string(), |m| crate::t!("modules.not_built_notice", "module" => m.label()))
+}
+
 static OFF: RwLock<Vec<String>> = RwLock::new(Vec::new());
 
 #[cfg(test)]

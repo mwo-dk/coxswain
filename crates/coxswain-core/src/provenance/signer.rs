@@ -2,6 +2,7 @@
 //! verified: the chain, the signature and the log are not checked.
 
 use serde::Serialize;
+#[cfg(feature = "provenance")]
 use x509_parser::prelude::*;
 
 /// Fulcio's claims, from the extensions under 1.3.6.1.4.1.57264.1. Docs:
@@ -30,9 +31,11 @@ pub enum Claim {
     Repository,
 }
 
+#[cfg(feature = "provenance")]
 const PREFIX: &str = "1.3.6.1.4.1.57264.1.";
 
 /// The claim of an extension's last arc. The legacy ones (1–6) are raw text; 8 and on are DER.
+#[cfg(feature = "provenance")]
 fn claim(arc: u32) -> Option<(Claim, bool)> {
     use Claim::*;
     Some(match arc {
@@ -85,6 +88,7 @@ impl Signer {
 }
 
 /// Reads a DER certificate.
+#[cfg(feature = "provenance")]
 pub fn read(der: &[u8]) -> Result<Signer, String> {
     let (_, cert) = parse_x509_certificate(der).map_err(|e| e.to_string())?;
     let identity = cert
@@ -129,7 +133,14 @@ pub fn read(der: &[u8]) -> Result<Signer, String> {
     })
 }
 
+/// The provenance module left out of the build: no certificate reader.
+#[cfg(not(feature = "provenance"))]
+pub fn read(_: &[u8]) -> Result<Signer, String> {
+    Err(crate::modules::not_built("provenance"))
+}
+
 /// A DER UTF8String's text; anything else as it is, lossily.
+#[cfg(feature = "provenance")]
 fn utf8_string(v: &[u8]) -> String {
     if let Ok((_, s)) = x509_parser::der_parser::der::parse_der_utf8string(v)
         && let Ok(s) = s.as_str()

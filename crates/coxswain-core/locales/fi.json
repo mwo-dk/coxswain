@@ -4755,7 +4755,7 @@
  "feature.modules.title": "Moduulit: valitse näkymät",
  "feature.modules.what": "Ota pois näkymät, joita et halua ladattavan; niiden tiedostot näytetään tekstinä tai heksana.",
  "feature.modules.q1": "Miksi PDF tai peli näkyy nyt tekstinä?",
- "feature.modules.a1": "Sen näyttävä moduuli on pois päältä. Ota se taas käyttöön kohdassa Asetukset ({settings}) → Moduulit, niin tiedosto näkyy kuten ennen.",
+ "feature.modules.a1": "Sen näyttävä moduuli on pois päältä. Ota se taas käyttöön kohdassa Asetukset ({settings}) → Moduulit, niin tiedosto näkyy kuten ennen. Jos Asetukset näyttää sen harmaana (”ei mukana tässä koostissa”), tämä kopio on käännetty lähdekoodista ilman sitä.",
  "feature.modules.q2": "Lakkaako haku lukemasta niitä tiedostoja, kun moduuli on pois?",
  "feature.modules.a2": "Ei. Moduulit ratkaisevat, mitä sovellukset näyttävät; haku lukee yhä niiden tiedostojen sanat, kun sanojen lukeminen on päällä.",
  "feature.modules.q3": "Lähettääkö jokin moduuli tiedostojani minnekään?",

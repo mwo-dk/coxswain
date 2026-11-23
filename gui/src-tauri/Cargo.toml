@@ -19,10 +19,10 @@ serde = { version = "1", features = ["derive"] }
 clipboard-rs = { version = "0.3.5", default-features = false, features = ["wayland"] }
 notify = "8"
 rusqlite = { version = "0.41.1", features = ["bundled", "hooks"] }
-kamadak-exif = "0.6.1"
-lofty = "0.25.4"
-x509-parser = "0.18.1"
-plist = "1.10.1"
+kamadak-exif = { version = "0.6.1", optional = true }
+lofty = { version = "0.25.4", optional = true }
+x509-parser = { version = "0.18.1", optional = true }
+plist = { version = "1.10.1", optional = true }
 toml_edit = "0.25.15"
 
 [features]
@@ -31,8 +31,26 @@ toml_edit = "0.25.15"
 # `npx tauri dev -- --no-default-features --features modules`.
 default = ["custom-protocol", "modules"]
 custom-protocol = ["tauri/custom-protocol"]
-# Every module (coxswain-core's `modules`).
-modules = ["coxswain-core/modules"]
+# Every module, a feature each (coxswain-core's, of the same names, and the libraries the
+# desktop app's own viewers of a module use).
+modules = ["documents", "office", "ebooks", "latex", "html", "diagrams", "openscad", "kicad", "data", "media", "old_formats", "geodata", "neural_networks", "games", "bom", "provenance", "disk_images"]
+documents = ["coxswain-core/documents"]
+office = ["coxswain-core/office"]
+ebooks = ["coxswain-core/ebooks"]
+latex = ["coxswain-core/latex"]
+html = ["coxswain-core/html"]
+diagrams = ["coxswain-core/diagrams"]
+openscad = ["coxswain-core/openscad"]
+kicad = ["coxswain-core/kicad"]
+data = ["coxswain-core/data", "dep:x509-parser", "dep:plist"]
+media = ["coxswain-core/media", "dep:kamadak-exif", "dep:lofty"]
+old_formats = ["coxswain-core/old_formats"]
+geodata = ["coxswain-core/geodata"]
+neural_networks = ["coxswain-core/neural_networks"]
+games = ["coxswain-core/games"]
+bom = ["coxswain-core/bom"]
+provenance = ["coxswain-core/provenance"]
+disk_images = ["coxswain-core/disk_images"]
 
 # Dragging files out of the window; on Linux and the BSDs GTK's own (`native_drag`).
 [target.'cfg(any(target_os = "macos", windows))'.dependencies]

@@ -4853,7 +4853,7 @@
  "feature.modules.title": "Moduli: scegli i visualizzatori",
  "feature.modules.what": "Disattiva i visualizzatori che non vuoi caricare; i loro file sono mostrati come testo o esadecimale.",
  "feature.modules.q1": "Perché un PDF o una partita ora si vede come testo?",
- "feature.modules.a1": "Il modulo che lo mostra è disattivato. Riattivalo in Impostazioni ({settings}) → Moduli, e il file si vede come prima.",
+ "feature.modules.a1": "Il modulo che lo mostra è disattivato. Riattivalo in Impostazioni ({settings}) → Moduli, e il file si vede come prima. Se le Impostazioni lo mostrano in grigio, «non incluso in questa build», questa copia è stata compilata dai sorgenti senza di esso.",
  "feature.modules.q2": "Disattivare un modulo fa smettere la ricerca di leggere quei file?",
  "feature.modules.a2": "No. I moduli decidono cosa mostrano le app; la ricerca continua a leggere le parole in quei file quando la lettura delle parole è attiva.",
  "feature.modules.q3": "Qualche modulo invia i miei file da qualche parte?",

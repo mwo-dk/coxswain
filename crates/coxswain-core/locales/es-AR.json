@@ -4853,7 +4853,7 @@
  "feature.modules.title": "Módulos: elegí los visores",
  "feature.modules.what": "Desactivá los visores que no querés cargar; sus archivos se muestran como texto o hexadecimal.",
  "feature.modules.q1": "¿Por qué un PDF o una partida se muestra ahora como texto?",
- "feature.modules.a1": "El módulo que lo muestra está desactivado. Activalo de nuevo en Configuración ({settings}) → Módulos, y el archivo se muestra como antes.",
+ "feature.modules.a1": "El módulo que lo muestra está desactivado. Activalo de nuevo en Configuración ({settings}) → Módulos, y el archivo se muestra como antes. Si Configuración lo muestra en gris, «no está en esta compilación», esta copia se compiló desde el código fuente sin él.",
  "feature.modules.q2": "¿Desactivar un módulo hace que la búsqueda deje de leer esos archivos?",
  "feature.modules.a2": "No. Los módulos deciden lo que muestran las apps; la búsqueda sigue leyendo las palabras de esos archivos cuando la lectura de palabras está activada.",
  "feature.modules.q3": "¿Algún módulo manda mis archivos a algún lado?",

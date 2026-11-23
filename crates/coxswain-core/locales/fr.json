@@ -4853,7 +4853,7 @@
  "feature.modules.title": "Modules : choisir les visionneuses",
  "feature.modules.what": "Désactivez les visionneuses que vous ne voulez pas charger ; leurs fichiers sont affichés en texte ou en hexadécimal.",
  "feature.modules.q1": "Pourquoi un PDF ou une partie s’affiche-t-il maintenant en texte ?",
- "feature.modules.a1": "Le module qui l’affiche est désactivé. Réactivez-le dans Réglages ({settings}) → Modules, et le fichier s’affiche comme avant.",
+ "feature.modules.a1": "Le module qui l’affiche est désactivé. Réactivez-le dans Réglages ({settings}) → Modules, et le fichier s’affiche comme avant. Si les Réglages l’affichent en grisé, « absent de cette compilation », cette copie a été compilée depuis les sources sans lui.",
  "feature.modules.q2": "Désactiver un module empêche-t-il la recherche de lire ces fichiers ?",
  "feature.modules.a2": "Non. Les modules décident de ce que les applications affichent ; la recherche lit toujours les mots de ces fichiers quand la lecture des mots est activée.",
  "feature.modules.q3": "Un module envoie-t-il mes fichiers quelque part ?",

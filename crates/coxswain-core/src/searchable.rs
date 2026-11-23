@@ -97,7 +97,8 @@ pub fn is_pdf(path: &Path) -> bool {
 pub fn scanned(path: &Path) -> bool {
     const MAX: u64 = 15_000_000;
     const LETTERS: usize = 20;
-    if !is_pdf(path) || !std::fs::metadata(path).is_ok_and(|m| m.len() <= MAX) {
+    // Without the documents module no PDF is read: none is offered.
+    if !cfg!(feature = "documents") || !is_pdf(path) || !std::fs::metadata(path).is_ok_and(|m| m.len() <= MAX) {
         return false;
     }
     let mut letters = 0;

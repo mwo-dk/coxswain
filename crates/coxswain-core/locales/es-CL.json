@@ -210,7 +210,7 @@
  "feature.meaning.a1": "Necesita un modelo de 465 MB que Coxswain no trae, y tiempo de procesador para leer tus archivos. Actívala con el nivel Nombres, texto y significado en Configuración → Buscar archivos, o con coxswain --meaning on.",
  "feature.meaning.what": "Encuentra archivos sobre lo que escribes, sin importar las palabras que usen ni el idioma, con un modelo en tu máquina.",
  "feature.mercurial.a2": "Nada: {switch_branch} ejecuta hg update --check, que se niega mientras haya un archivo cambiado. Haz antes un commit o un shelve.",
- "feature.modules.a1": "El módulo que lo muestra está desactivado. Actívalo de nuevo en Configuración ({settings}) → Módulos, y el archivo se muestra como antes.",
+ "feature.modules.a1": "El módulo que lo muestra está desactivado. Actívalo de nuevo en Configuración ({settings}) → Módulos, y el archivo se muestra como antes. Si Configuración lo muestra en gris, «no está en esta compilación», esta copia se compiló desde el código fuente sin él.",
  "feature.modules.title": "Módulos: elige los visores",
  "feature.modules.what": "Desactivá los visores que no quieres cargar; sus archivos se muestran como texto o hexadecimal.",
  "feature.mouse.a1": "Así lo hace Norton Commander. Pon Configuración → Comportamiento → Clic derecho en Abre el menú de acciones; el menú también está en {action_menu} y, en la app de escritorio, en Ctrl+clic derecho.",

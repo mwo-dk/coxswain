@@ -467,9 +467,11 @@ export function viewerReads(kind) {
  *  when it changes (`setModulesOff`). */
 let moduleOf = {};
 let modulesOff = new Set();
+/** Modules left out of this web build (`COXSWAIN_MODULES_OUT`, vite.config.js): off too. */
+const MODULES_OUT = typeof __MODULES_OUT__ === "undefined" ? [] : __MODULES_OUT__;
 export function setModulesOff(of, off, rows) {
   moduleOf = of ?? {};
-  modulesOff = new Set([...(off ?? []), ...(rows ?? []).filter((m) => !m.built).map((m) => m.id)]);
+  modulesOff = new Set([...(off ?? []), ...(rows ?? []).filter((m) => !m.built).map((m) => m.id), ...MODULES_OUT]);
 }
 
 /** The module that would show a file of `kind`, when it is off (`modules::off_for`). */

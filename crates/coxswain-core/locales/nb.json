@@ -4755,7 +4755,7 @@
  "feature.modules.title": "Moduler: velg visningene",
  "feature.modules.what": "Slå av visningene du ikke vil ha lastet inn; filene deres vises som tekst eller heks.",
  "feature.modules.q1": "Hvorfor vises en PDF eller et parti som tekst nå?",
- "feature.modules.a1": "Modulen som viser den, er slått av. Slå den på igjen i Innstillinger ({settings}) → Moduler, så vises filen som før.",
+ "feature.modules.a1": "Modulen som viser den, er slått av. Slå den på igjen i Innstillinger ({settings}) → Moduler, så vises filen som før. Hvis Innstillinger viser den grå, «ikke med i denne utgaven», ble denne kopien bygget fra kildekoden uten den.",
  "feature.modules.q2": "Slutter søket å lese de filene når en modul er slått av?",
  "feature.modules.a2": "Nei. Moduler bestemmer hva appene viser; søket leser fortsatt ordene i de filene når lesing av ord er på.",
  "feature.modules.q3": "Sender noen modul filene mine noe sted?",

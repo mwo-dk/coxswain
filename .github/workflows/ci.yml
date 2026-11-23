@@ -148,12 +148,20 @@ jobs:
           }
           exit $code
       - run: cargo clippy --workspace --all-targets --locked
-      # A packager can leave modules out (coxswain-core's features, one per module): the build with
-      # every module left out has to compile, and each module then reports itself as not built.
+      # A packager can leave modules out (a feature each of both apps and coxswain-core): the build
+      # with every module left out has to compile, each module then reports itself as not built,
+      # and the web build leaves every module's libraries out (`COXSWAIN_MODULES_OUT`).
       - name: Every module left out
         if: runner.os == 'Linux' && runner.arch == 'X64'
         run: |
           cargo check --workspace --all-targets --no-default-features --features coxswain-gui/custom-protocol --locked
+          out=$(sed -n 's/^modules = \[\(.*\)\]$/\1/p' crates/coxswain-core/Cargo.toml | tr -d '" ')
+          (cd gui && COXSWAIN_MODULES_OUT="$out" npx vite build --outDir "$RUNNER_TEMP/dist-no-modules")
+          # The libraries' own chunks (named after them) are not in it.
+          for c in mermaid viz xlsx jszip elk cytoscape; do
+            if compgen -G "$RUNNER_TEMP/dist-no-modules/assets/${c}[.-]*"; then exit 1; fi
+          done
+          test ! -e "$RUNNER_TEMP/dist-no-modules/vendor/netron"
           cargo test -p coxswain-core --no-default-features --lib --locked -- --exact modules::tests::a_module_left_out_of_the_build_is_off_and_cannot_be_turned_on
 
       # The terminal app ships as a static musl binary (Homebrew, releases): whatever the

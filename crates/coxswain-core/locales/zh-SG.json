@@ -4668,7 +4668,7 @@
  "feature.modules.title": "模块：选择查看器",
  "feature.modules.what": "关闭不想加载的查看器；它们的文件会以文本或十六进制显示。",
  "feature.modules.q1": "为什么 PDF 或棋谱现在以文本显示？",
- "feature.modules.a1": "显示它的模块已关闭。在“设置”（{settings}）→“模块”中重新开启，文件就会像以前一样显示。",
+ "feature.modules.a1": "显示它的模块已关闭。在“设置”（{settings}）→“模块”中重新开启，文件就会像以前一样显示。 若设置中显示为灰色（“不在此构建中”），这份副本是从源代码构建的，不含该模块。",
  "feature.modules.q2": "关闭模块后，搜索还会读取那些文件吗？",
  "feature.modules.a2": "会。模块只决定应用显示什么；读取文字开启时，搜索仍会读取那些文件中的文字。",
  "feature.modules.q3": "有模块会把我的文件发送到别处吗？",

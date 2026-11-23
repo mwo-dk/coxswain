@@ -4766,7 +4766,7 @@
  "feature.modules.title": "Modules: choose the viewers",
  "feature.modules.what": "Turn off the viewers you do not want loaded; their files are shown as text or hex.",
  "feature.modules.q1": "Why does a PDF or a game show as text now?",
- "feature.modules.a1": "The module that shows it is off. Turn it on again in Settings ({settings}) → Modules, and the file shows as before.",
+ "feature.modules.a1": "The module that shows it is off. Turn it on again in Settings ({settings}) → Modules, and the file shows as before. If Settings shows it greyed, “not in this build”, this copy was built from source without it.",
  "feature.modules.q2": "Does turning a module off stop Find reading those files?",
  "feature.modules.a2": "No. Modules decide what the apps show; Find still reads the words in those files when reading words is on.",
  "feature.modules.q3": "Does any module send my files anywhere?",

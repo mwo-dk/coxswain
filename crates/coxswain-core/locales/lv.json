@@ -4853,7 +4853,7 @@
  "feature.modules.title": "Moduļi: izvēlieties skatītājus",
  "feature.modules.what": "Izslēdziet skatītājus, kurus nevēlaties ielādēt; to faili tiek rādīti kā teksts vai heksadecimāli.",
  "feature.modules.q1": "Kāpēc PDF vai partija tagad tiek rādīta kā teksts?",
- "feature.modules.a1": "Modulis, kas to rāda, ir izslēgts. Ieslēdziet to atkal: Iestatījumi ({settings}) → Moduļi, un fails tiks rādīts kā iepriekš.",
+ "feature.modules.a1": "Modulis, kas to rāda, ir izslēgts. Ieslēdziet to atkal: Iestatījumi ({settings}) → Moduļi, un fails tiks rādīts kā iepriekš. Ja Iestatījumi to rāda pelēku (“nav šajā būvējumā”), šī kopija ir būvēta no pirmkoda bez tā.",
  "feature.modules.q2": "Vai, izslēdzot moduli, meklēšana pārstāj lasīt šos failus?",
  "feature.modules.a2": "Nē. Moduļi nosaka, ko rāda lietotnes; meklēšana joprojām lasa vārdus šajos failos, kad vārdu lasīšana ir ieslēgta.",
  "feature.modules.q3": "Vai kāds modulis kaut kur sūta manus failus?",

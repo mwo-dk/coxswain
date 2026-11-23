@@ -22,9 +22,12 @@ use std::path::Path;
 pub mod book;
 pub mod diagram;
 pub mod installed;
+#[cfg(feature = "documents")]
 pub mod mail;
+#[cfg(feature = "documents")]
 pub mod msg;
 pub mod notebook;
+#[cfg(feature = "documents")]
 pub mod pdf;
 pub mod plain;
 pub mod rtf;
@@ -32,6 +35,66 @@ pub mod sheet;
 pub mod slides;
 pub mod tika;
 pub mod word;
+
+/// The documents module left out of the build: its readers of PDFs, mails and Outlook messages
+/// (pdf-extract, mail-parser, cfb) with it, so search, Enter and Make searchable read none.
+#[cfg(not(feature = "documents"))]
+pub mod pdf {
+    use std::path::Path;
+    pub fn text(_: &Path, _: u64) -> Option<String> {
+        None
+    }
+    pub fn tidied(_: &Path, _: u64) -> Option<String> {
+        None
+    }
+    pub fn pages(_: &Path, _: u64, _: &mut (dyn FnMut(&str) -> bool + Send)) -> Option<()> {
+        None
+    }
+}
+
+#[cfg(not(feature = "documents"))]
+pub mod mail {
+    use std::path::Path;
+    pub fn text(_: &Path, _: u64) -> Option<String> {
+        None
+    }
+    #[derive(Clone, Debug, PartialEq)]
+    pub struct Listed {
+        pub start: u64,
+        pub len: u64,
+        pub secs: i64,
+        pub from: String,
+        pub subject: String,
+    }
+    pub fn mailbox(_: &Path) -> std::io::Result<Vec<Listed>> {
+        Err(std::io::Error::other(crate::modules::not_built("documents")))
+    }
+    pub fn count(_: &Path) -> std::io::Result<(usize, bool)> {
+        Err(std::io::Error::other(crate::modules::not_built("documents")))
+    }
+    pub struct Summary {
+        pub subject: String,
+        pub from: String,
+        pub to: String,
+        pub date: String,
+        pub text: String,
+        pub attachments: Vec<(Option<String>, usize)>,
+    }
+    pub fn summary(_: &Path, _: u64) -> Option<Summary> {
+        None
+    }
+}
+
+#[cfg(not(feature = "documents"))]
+pub mod msg {
+    use std::path::Path;
+    pub fn summary(_: &Path) -> Option<super::mail::Summary> {
+        None
+    }
+    pub fn text(_: &Path, _: u64) -> Option<String> {
+        None
+    }
+}
 
 /// The most text kept of one file. A book is about 1 MB; past this it is a data dump.
 pub const MAX_TEXT: usize = 4 * 1024 * 1024;
@@ -53,7 +116,9 @@ fn reader(path: &Path) -> Option<Reader> {
         return Some(|_, _| None);
     }
     Some(match ext.as_str() {
-        "pdf" => |path, max| pdf::tidied(path, max).or_else(|| installed::scanned_pdf(path)),
+        // Without the documents module no PDF is read, by OCR neither.
+        "pdf" if cfg!(feature = "documents") => |path, max| pdf::tidied(path, max).or_else(|| installed::scanned_pdf(path)),
+        "pdf" => |_, _| None,
         "docx" | "docm" | "dotx" | "odt" | "ott" => word::text,
         "xlsx" | "xlsm" | "xls" | "xlsb" | "ods" => sheet::text,
         "pptx" | "ppsx" | "potx" | "odp" => slides::text,

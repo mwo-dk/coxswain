@@ -4755,7 +4755,7 @@
  "feature.modules.title": "Moduler: välj visningarna",
  "feature.modules.what": "Stäng av visningarna du inte vill ha inlästa; deras filer visas som text eller hex.",
  "feature.modules.q1": "Varför visas en PDF eller ett parti som text nu?",
- "feature.modules.a1": "Modulen som visar den är avstängd. Slå på den igen i Inställningar ({settings}) → Moduler, så visas filen som förut.",
+ "feature.modules.a1": "Modulen som visar den är avstängd. Slå på den igen i Inställningar ({settings}) → Moduler, så visas filen som förut. Om Inställningar visar den gråtonad, ”inte med i den här versionen”, byggdes den här kopian från källkoden utan den.",
  "feature.modules.q2": "Slutar sökningen läsa de filerna när en modul är avstängd?",
  "feature.modules.a2": "Nej. Moduler avgör vad apparna visar; sökningen läser fortfarande orden i de filerna när läsning av ord är på.",
  "feature.modules.q3": "Skickar någon modul mina filer någonstans?",
