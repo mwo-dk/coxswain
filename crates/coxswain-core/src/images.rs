@@ -272,10 +272,7 @@ pub(crate) fn sweep(rt: &Path) {
 fn started(pid: u32) -> Option<Option<u64>> {
     match std::fs::read_to_string(format!("/proc/{pid}/stat")) {
         // Hidden (`hidepid`) is not gone: another user's process answers kill(0) with EPERM.
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            let gone = unsafe { libc::kill(pid as libc::pid_t, 0) } != 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH);
-            (!gone).then_some(None)
-        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => unlisted(pid),
         Err(_) => Some(None),
         // Field 22, `starttime`, in clock ticks since boot; counted after the `(name)`.
         Ok(s) => Some(s.rfind(')').and_then(|i| s[i + 1..].split_whitespace().nth(19)?.parse().ok())),
@@ -316,9 +313,89 @@ fn started(pid: u32) -> Option<Option<u64>> {
     }
 }
 
-/// shortcut: other systems (the BSDs, illumos) are not read yet, so every process is taken as
-/// alive and nothing is swept there; read their process start (kinfo_proc, psinfo) to sweep.
-#[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos", windows)))]
+/// `started` for a process the system does not list: gone only when kill(0) says there is no
+/// such process. Hidden (Linux's `hidepid`, FreeBSD's `see_other_uids`) is not gone: another
+/// user's process answers with EPERM.
+#[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd", target_os = "illumos"))]
+fn unlisted(pid: u32) -> Option<Option<u64>> {
+    let gone = unsafe { libc::kill(pid as libc::pid_t, 0) } != 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH);
+    (!gone).then_some(None)
+}
+
+/// The BSDs: the process's `kinfo_proc` (NetBSD's `kinfo_proc2`) by sysctl, its start in
+/// microseconds since 1970, as on macOS.
+#[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+fn started(pid: u32) -> Option<Option<u64>> {
+    #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
+    type Info = libc::kinfo_proc;
+    #[cfg(target_os = "netbsd")]
+    type Info = libc::kinfo_proc2;
+    let size = std::mem::size_of::<Info>();
+    let p = pid as libc::c_int;
+    #[cfg(target_os = "freebsd")]
+    let (mib, end) = ([libc::CTL_KERN, libc::KERN_PROC, libc::KERN_PROC_PID, p], std::mem::offset_of!(Info, ki_start) + std::mem::size_of::<libc::timeval>());
+    #[cfg(target_os = "netbsd")]
+    let (mib, end) = ([libc::CTL_KERN, libc::KERN_PROC2, libc::KERN_PROC_PID, p, size as libc::c_int, 1], std::mem::offset_of!(Info, p_ustart_usec) + 4);
+    #[cfg(target_os = "openbsd")]
+    let (mib, end) = ([libc::CTL_KERN, libc::KERN_PROC, libc::KERN_PROC_PID, p, size as libc::c_int, 1], std::mem::offset_of!(Info, p_ustart_usec) + 4);
+    let mut i: Info = unsafe { std::mem::zeroed() };
+    let mut len = size;
+    let rc = unsafe { libc::sysctl(mib.as_ptr(), mib.len() as libc::c_uint, (&raw mut i).cast(), &mut len, std::ptr::null_mut(), 0) };
+    if rc != 0 {
+        // FreeBSD says ESRCH for no such process; NetBSD and OpenBSD answer with nothing.
+        return if std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH) { unlisted(pid) } else { Some(None) };
+    }
+    if len == 0 {
+        return unlisted(pid);
+    }
+    // FreeBSD's kernel may fill a kinfo_proc of another size than libc's: only the start counts.
+    if len < end {
+        return Some(None);
+    }
+    #[cfg(target_os = "freebsd")]
+    let (sec, usec) = (i.ki_start.tv_sec as u64, i.ki_start.tv_usec as u64);
+    #[cfg(not(target_os = "freebsd"))]
+    let (sec, usec) = (i.p_ustart_sec as u64, i.p_ustart_usec as u64);
+    Some(Some(sec * 1_000_000 + usec))
+}
+
+/// illumos: `pr_start` of the process's `/proc/<pid>/psinfo`, in microseconds since 1970, as on
+/// the BSDs and macOS.
+#[cfg(target_os = "illumos")]
+fn started(pid: u32) -> Option<Option<u64>> {
+    match std::fs::read(format!("/proc/{pid}/psinfo")) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => unlisted(pid),
+        Err(_) => Some(None),
+        Ok(b) => Some(psinfo_start(&b, pid)),
+    }
+}
+
+/// `pr_start` of a 64-bit `psinfo_t` (libc has no such struct): `pr_pid` at byte 8, `pr_start`
+/// (a `timestruc_t`: seconds, nanoseconds) at byte 88. `None` unless `pr_pid` is `pid`, so a
+/// layout read wrong is never taken for a start.
+#[cfg(any(target_os = "illumos", test))]
+fn psinfo_start(b: &[u8], pid: u32) -> Option<u64> {
+    let int = |at: usize| Some(i64::from_ne_bytes(b.get(at..at + 8)?.try_into().ok()?));
+    let own = i32::from_ne_bytes(b.get(8..12)?.try_into().ok()?);
+    if own as u32 != pid {
+        return None;
+    }
+    let (sec, nsec) = (u64::try_from(int(88)?).ok()?, u64::try_from(int(96)?).ok()?);
+    Some(sec * 1_000_000 + nsec / 1000)
+}
+
+/// shortcut: other systems are not read, so every process is taken as alive and nothing is
+/// swept there; read their process start to sweep.
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    windows,
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "illumos"
+)))]
 fn started(_pid: u32) -> Option<Option<u64>> {
     Some(None)
 }
@@ -837,13 +914,54 @@ def456 coxswain-media-20-500-1 exited
     }
 
     /// This process is alive by `started`, with a start, and one that cannot exist is gone.
-    #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos", windows))]
+    /// Where the start is microseconds since 1970 (macOS, the BSDs, illumos), it is before now.
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        windows,
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "illumos"
+    ))]
     #[test]
     fn this_process_has_a_start_and_a_missing_one_is_gone() {
         let me = super::started(std::process::id());
-        assert!(matches!(me, Some(Some(_))), "{me:?}");
+        assert!(matches!(me, Some(Some(t)) if t > 0), "{me:?}");
         assert_eq!(me, super::started(std::process::id()));
         assert_eq!(super::started(u32::MAX - 1), None);
+        #[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd", target_os = "illumos"))]
+        {
+            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_micros() as u64;
+            let t = me.flatten().unwrap();
+            assert!(t <= now && now - t < 86_400_000_000 * 365, "start {t}, now {now}");
+        }
+    }
+
+    /// A child started after this process has a start no earlier than this one's; once it has
+    /// ended and been waited for, it is gone.
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd", target_os = "illumos"))]
+    #[test]
+    fn a_child_starts_later_and_is_gone_once_ended() {
+        let mut child = std::process::Command::new("sleep").arg("30").spawn().unwrap();
+        let (me, it) = (super::started(std::process::id()).flatten().unwrap(), super::started(child.id()));
+        assert!(matches!(it, Some(Some(t)) if t >= me), "{it:?} against {me}");
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert_eq!(super::started(child.id()), None);
+    }
+
+    /// psinfo's `pr_start` is read at its place, and only for the process it names.
+    #[test]
+    fn psinfo_start_is_read_for_its_own_process_only() {
+        let mut b = vec![0u8; 416];
+        b[8..12].copy_from_slice(&42i32.to_ne_bytes());
+        b[88..96].copy_from_slice(&1_700_000_000i64.to_ne_bytes());
+        b[96..104].copy_from_slice(&250_000_999i64.to_ne_bytes());
+        assert_eq!(super::psinfo_start(&b, 42), Some(1_700_000_000_250_000));
+        assert_eq!(super::psinfo_start(&b, 43), None);
+        assert_eq!(super::psinfo_start(&b[..100], 42), None);
     }
 
     /// What a hijacked program could leave in `/out`: a link to a secret, a link in a folder

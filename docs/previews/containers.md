@@ -186,10 +186,11 @@ So once a run, before its first container starts, Coxswain removes such leftover
   started at another time than `<start>` says, so it is another program that got the same id.
 
 A container of an older version has no start time in its name, so it goes only once no process
-has its id. Containers of any other name, images and anything else are never touched. On the BSDs
-and illumos, and inside a Flatpak (whose process ids the host does not see), Coxswain cannot
-read when a process started, so it removes nothing there; `podman ps -a --external` lists what
-is left, and `podman rm --storage <id>` removes one.
+has its id. Containers of any other name, images and anything else are never touched. Coxswain
+reads when a process started on every system it runs on: FreeBSD, the other BSDs and illumos,
+Linux, macOS and Windows. Only inside a Flatpak, whose process ids the host does not see, can it
+not, so it removes nothing there; `podman ps -a --external` lists what is left, and
+`podman rm --storage <id>` removes one.
 
 ## Pulling and removing images
 
