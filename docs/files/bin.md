@@ -171,7 +171,10 @@ uses: mount it with those options, and its bin is listed again.
 
 A disk's bin records each item's place relative to the disk's top. One that leads out of the
 disk, through `..`, as a whole path elsewhere, or through a folder on the way that is now a link
-or another disk, was not written by a put on that disk, or no longer leads where it did. In each case Coxswain
+or another disk, was not written by a put on that disk, or no longer leads where it did. A folder
+on the way that is someone else's, or that others may write without the sticky bit (a `775`
+folder your group may write), is refused too: they could swap it for a link while the file
+moves. `chmod g-w` on that folder lets the restore through. In each case Coxswain
 does not put it back there, and the dialog of what could not be done says *The place it was
 deleted from lies outside its disk: not put back*. Copy it out with **F5**, or delete it.
 

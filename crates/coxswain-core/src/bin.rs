@@ -824,13 +824,23 @@ pub(crate) mod fd {
                         // fails on one). Writable by the user alone, so it passes the rule above;
                         // the umask may close it further.
                         // SAFETY: a held folder and a valid C string.
-                        if unsafe { libc::mkdirat(at, part.as_ptr(), 0o755) } != 0 {
+                        let made = unsafe { libc::mkdirat(at, part.as_ptr(), 0o755) } == 0;
+                        if !made {
                             let e = io::Error::last_os_error();
                             if e.kind() != io::ErrorKind::AlreadyExists {
                                 return Err(e);
                             }
                         }
-                        open()?.0
+                        // One made here that fails the rule all the same (a default ACL that
+                        // lets the group write, an owner a network disk squashes): taken away
+                        // again, so nothing is left past a refusal.
+                        open().inspect_err(|_| {
+                            if made {
+                                // SAFETY: a held folder and a valid C string.
+                                unsafe { libc::unlinkat(at, part.as_ptr(), libc::AT_REMOVEDIR) };
+                            }
+                        })?
+                        .0
                     }
                     Err(e) => return Err(e),
                 };
