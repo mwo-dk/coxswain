@@ -750,7 +750,7 @@
  "convert.not_available": "{program} is not available",
  "convert.not_installed": "{program} is not installed",
  "convert.pull_failed": "Pulling {image} failed: {error}",
- "convert.pull_stopped": "Stopped pulling {image}: it is not there yet, and the part being downloaded was removed",
+ "convert.pull_stopped": "Stopped pulling {image}: it is not there yet",
  "convert.pulling": "Pulling {image}…",
  "convert.read_tables": "Read tables",
  "convert.render": "Render",

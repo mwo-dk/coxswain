@@ -462,8 +462,9 @@ pub fn pull_until(rt: &Path, image: &str, stop: &std::sync::atomic::AtomicBool) 
     let result = (|| {
         let mut c = crate::tools::command(rt);
         c.args(["pull", image]);
-        // Without a folder of its own (none could be made) it uses the runtime's own.
-        if let Some(t) = tmp.as_ref().filter(|t| std::fs::create_dir_all(t).is_ok()) {
+        // Without a folder of its own (none could be made) it uses the runtime's own. Not without
+        // XDG_RUNTIME_DIR: rootless podman would then keep its runroot under TMPDIR, which goes.
+        if let Some(t) = tmp.as_ref().filter(|t| (cfg!(test) || std::env::var_os("XDG_RUNTIME_DIR").is_some()) && std::fs::create_dir_all(t).is_ok()) {
             c.env("TMPDIR", t);
         }
         let mut child = crate::tools::hosted(c)
@@ -479,6 +480,18 @@ pub fn pull_until(rt: &Path, image: &str, stop: &std::sync::atomic::AtomicBool) 
         let e = std::thread::spawn(move || follow(err, &b));
         let status = loop {
             if stop.load(std::sync::atomic::Ordering::Relaxed) || stops(image) > since {
+                // SIGTERM first, which flatpak-spawn passes on to the host's podman; then SIGKILL.
+                #[cfg(unix)]
+                {
+                    // SAFETY: a signal to our own child, which has not been waited for yet.
+                    unsafe { libc::kill(child.id() as libc::pid_t, libc::SIGTERM) };
+                    for _ in 0..20 {
+                        if child.try_wait().ok().flatten().is_some() {
+                            break;
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+                    }
+                }
                 let _ = child.kill();
                 let _ = child.wait();
                 return Err(t!("convert.pull_stopped", "image" => short(image)));
@@ -516,7 +529,10 @@ fn follow(mut r: impl Read, image: &str) -> String {
         let Some(i) = acc.rfind(['\n', '\r']) else { continue };
         if let Some(line) = acc[..i].rsplit(['\n', '\r']).map(str::trim).find(|l| !l.is_empty()) {
             last = line.to_string();
-            PULLING.lock().unwrap().insert(image.to_string(), last.clone());
+            // Only while the pull is under way: a reader that outlives a stopped one adds nothing.
+            if let Some(l) = PULLING.lock().unwrap().get_mut(image) {
+                *l = last.clone();
+            }
         }
         acc.drain(..=i);
     }
@@ -1143,8 +1159,13 @@ exec sleep 60
 
     #[test]
     fn follow_keeps_last_complete_line() {
+        PULLING.lock().unwrap().insert("t".into(), String::new());
         assert_eq!(follow("one\ntwo\rthree".as_bytes(), "t"), "two");
         assert_eq!(pulling().get("t").map(String::as_str), Some("two"));
+        PULLING.lock().unwrap().remove("t");
+        // A reader that outlives its pull (stopped) adds no line that would stay for good.
+        assert_eq!(follow("late\n".as_bytes(), "t"), "late");
+        assert_eq!(pulling().get("t"), None);
     }
 
     #[test]

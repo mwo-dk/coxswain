@@ -780,7 +780,7 @@
  "convert.not_available": "{program} er ikkje tilgjengeleg",
  "convert.not_installed": "{program} er ikkje installert",
  "convert.pull_failed": "Klarte ikkje å hente {image}: {error}",
- "convert.pull_stopped": "Hentinga av {image} er stoppa: det er ikkje her enno, og delen som vart henta, er fjerna",
+ "convert.pull_stopped": "Hentinga av {image} er stoppa: det er ikkje her enno",
  "convert.pulling": "Hentar {image}…",
  "convert.read_tables": "Les tabellar",
  "convert.render": "Gjengi",

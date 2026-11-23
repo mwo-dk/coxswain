@@ -780,7 +780,7 @@
  "convert.not_available": "{program} ei ole käytettävissä",
  "convert.not_installed": "{program} ei ole asennettuna",
  "convert.pull_failed": "Kuvan {image} lataus epäonnistui: {error}",
- "convert.pull_stopped": "Kohteen {image} nouto pysäytettiin: sitä ei vielä ole, ja kesken jäänyt osa poistettiin",
+ "convert.pull_stopped": "Kohteen {image} nouto pysäytettiin: sitä ei vielä ole",
  "convert.pulling": "Noudetaan {image}…",
  "convert.read_tables": "Lue taulukot",
  "convert.render": "Renderöi",

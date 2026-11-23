@@ -780,7 +780,7 @@
  "convert.not_available": "{program} pole saadaval",
  "convert.not_installed": "{program} pole installitud",
  "convert.pull_failed": "Tõmmise {image} laadimine nurjus: {error}",
- "convert.pull_stopped": "{image} laadimine peatati: seda pole veel, ja pooleli jäänud osa eemaldati",
+ "convert.pull_stopped": "{image} laadimine peatati: seda pole veel",
  "convert.pulling": "Laaditakse {image}…",
  "convert.read_tables": "Loe tabelid",
  "convert.render": "Renderda",

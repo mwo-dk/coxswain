@@ -780,7 +780,7 @@
  "convert.not_available": "Το {program} δεν είναι διαθέσιμο",
  "convert.not_installed": "Το {program} δεν είναι εγκατεστημένο",
  "convert.pull_failed": "Η λήψη του {image} απέτυχε: {error}",
- "convert.pull_stopped": "Η λήψη του {image} διακόπηκε: δεν υπάρχει ακόμη, και το μέρος που κατέβαινε αφαιρέθηκε",
+ "convert.pull_stopped": "Η λήψη του {image} διακόπηκε: δεν υπάρχει ακόμη",
  "convert.pulling": "Λήψη του {image}…",
  "convert.read_tables": "Ανάγνωση πινάκων",
  "convert.render": "Απόδοση",

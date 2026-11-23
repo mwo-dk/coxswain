@@ -780,7 +780,7 @@
  "convert.not_available": "{program} er ikke tilgængelig",
  "convert.not_installed": "{program} er ikke installeret",
  "convert.pull_failed": "Kunne ikke hente {image}: {error}",
- "convert.pull_stopped": "Hentningen af {image} er stoppet: det er her ikke endnu, og den del, der blev hentet, er fjernet",
+ "convert.pull_stopped": "Hentningen af {image} er stoppet: det er her ikke endnu",
  "convert.pulling": "Henter {image}…",
  "convert.read_tables": "Læs tabeller",
  "convert.render": "Gengiv",

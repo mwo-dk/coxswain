@@ -754,7 +754,7 @@
  "convert.not_available": "{program} を利用できません",
  "convert.not_installed": "{program} がインストールされていません",
  "convert.pull_failed": "{image} のプルに失敗しました: {error}",
- "convert.pull_stopped": "{image} のプルを停止しました: まだ使えません。ダウンロード中だった部分は削除しました",
+ "convert.pull_stopped": "{image} のプルを停止しました: まだ使えません",
  "convert.pulling": "{image} をプル中…",
  "convert.read_tables": "表を読み取る",
  "convert.render": "レンダリング",

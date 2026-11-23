@@ -658,7 +658,8 @@
     const own = engineOf(conv)?.image;
     const id = setInterval(async () => {
       const p = await invoke("pull_progress").catch(() => ({}));
-      const [image, line] = own && own in p ? [own, p[own]] : (Object.entries(p)[0] ?? []);
+      // Only this preview's own image when it has one: Stop must not end another job's pull.
+      const [image, line] = own ? (own in p ? [own, p[own]] : []) : (Object.entries(p)[0] ?? []);
       pulling = image ? { image, text: `${t("convert.pulling", { image: image.split("@")[0] })} ${line ?? ""}` } : null;
     }, 500);
     return () => clearInterval(id);

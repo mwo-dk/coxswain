@@ -780,7 +780,7 @@
  "convert.not_available": "{program} is niet beschikbaar",
  "convert.not_installed": "{program} is niet geïnstalleerd",
  "convert.pull_failed": "Ophalen van {image} mislukt: {error}",
- "convert.pull_stopped": "Ophalen van {image} gestopt: het is er nog niet, en het deel dat werd opgehaald is verwijderd",
+ "convert.pull_stopped": "Ophalen van {image} gestopt: het is er nog niet",
  "convert.pulling": "{image} wordt opgehaald…",
  "convert.read_tables": "Tabellen lezen",
  "convert.render": "Renderen",

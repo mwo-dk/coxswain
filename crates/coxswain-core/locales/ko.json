@@ -754,7 +754,7 @@
  "convert.not_available": "{program}을(를) 사용할 수 없습니다",
  "convert.not_installed": "{program}이(가) 설치되어 있지 않습니다",
  "convert.pull_failed": "{image}을(를) 받지 못했습니다: {error}",
- "convert.pull_stopped": "{image} 받기를 중지했습니다: 아직 없으며, 받던 부분은 지웠습니다",
+ "convert.pull_stopped": "{image} 받기를 중지했습니다: 아직 없습니다",
  "convert.pulling": "{image} 받는 중…",
  "convert.read_tables": "표 읽기",
  "convert.render": "렌더링",

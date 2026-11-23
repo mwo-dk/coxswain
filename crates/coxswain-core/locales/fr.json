@@ -806,7 +806,7 @@
  "convert.not_available": "{program} n’est pas disponible",
  "convert.not_installed": "{program} n’est pas installé",
  "convert.pull_failed": "Échec du téléchargement de {image} : {error}",
- "convert.pull_stopped": "Téléchargement de {image} arrêté : l’image n’est pas encore là, et la partie en cours de téléchargement a été supprimée",
+ "convert.pull_stopped": "Téléchargement de {image} arrêté : l’image n’est pas encore là",
  "convert.pulling": "Téléchargement de {image}…",
  "convert.read_tables": "Lire les tableaux",
  "convert.render": "Afficher le rendu",

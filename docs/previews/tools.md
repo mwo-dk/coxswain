@@ -139,7 +139,7 @@ Default (…)* (*✗* in red, *nothing: install the program, or pull its image*,
 make them; *nothing: install duckdb* for a kind with no image, `duckdb = ""`); under the list are what is
 installed, the container and the file endings, and the keys **Enter** (the next choice),
 **C** (copy the install line), **P** (pull the image; while it downloads, **P** stops it, and the key line says
-*Pulling texlive:latest… · P: stop the pull*) and **Delete** (remove it). On a kind with
+*Pulling docker.io/texlive/texlive:latest… · P: stop the pull*) and **Delete** (remove it). On a kind with
 no image **Enter** skips *Container*, and the keys are **Enter**, **C** and **O**, which opens
 `config.toml` in your editor at `[preview.images]` (adding a commented example when there is
 none) to name an image. The

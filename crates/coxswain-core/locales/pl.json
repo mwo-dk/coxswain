@@ -832,7 +832,7 @@
  "convert.not_available": "{program} jest niedostępny",
  "convert.not_installed": "{program} nie jest zainstalowany",
  "convert.pull_failed": "Pobieranie {image} nie powiodło się: {error}",
- "convert.pull_stopped": "Zatrzymano pobieranie {image}: obrazu jeszcze nie ma, a pobierana część została usunięta",
+ "convert.pull_stopped": "Zatrzymano pobieranie {image}: obrazu jeszcze nie ma",
  "convert.pulling": "Pobieranie {image}…",
  "convert.read_tables": "Odczytaj tabele",
  "convert.render": "Renderuj",

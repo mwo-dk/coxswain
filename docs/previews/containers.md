@@ -219,20 +219,21 @@ A pull of several gigabytes can be stopped at any time:
 | Where | Desktop app | Terminal app |
 |---|---|---|
 | The preview pane, while it shows *Pulling docker.io/texlive/texlive:latest…* | **Stop** under the progress line | – (the terminal app's preview does not pull images) |
-| *Settings → Previews → Preview tools*, on the image's row | **Pull** reads **Stop** while that image downloads | **P** on the kind's row; the key line says *Pulling texlive:latest… · P: stop the pull* |
+| *Settings → Previews → Preview tools*, on the image's row | **Pull** reads **Stop** while that image downloads | **P** on the kind's row; the key line says *Pulling docker.io/texlive/texlive:latest… · P: stop the pull* |
 
 Stop ends every pull of that image under way, also one a conversion or the background update
 started. The preview then says *Stopped pulling docker.io/texlive/texlive:latest: it is not there
-yet, and the part being downloaded was removed*, with **Try again**; Settings says the same at the
-bottom of its window, and the row shows what it showed before the pull. A stopped pull is no failure: nothing waits to be
-tried again, and the next click pulls at once.
+yet*, with **Try again**; Settings says the same at the bottom of its window, and the row shows
+what it showed before the pull. A pull you started is no failure when stopped: nothing waits to
+be tried again, and the next click pulls at once. Whisper's image, which the app pulls by itself
+for [transcripts](../search/transcripts.md), is tried again on its own schedule.
 
 Nothing half-made is left as an image: podman and docker register an image only when all of it
 is there. The layers podman finished stay in its store for the next pull. The part it was still
-downloading it keeps in a temporary folder even when stopped, so Coxswain gives each pull a
-folder of its own, `~/.cache/coxswain/pull/<run>-<n>/`, and removes it when the pull ends; one
-left by an app that was killed goes at its next start. A `image_copy_tmp_dir` set in podman's
-`containers.conf` takes the place of that folder, and is then podman's to clean.
+downloading podman keeps in a temporary folder even when stopped, so on Linux, the BSDs and
+illumos Coxswain gives each pull a folder of its own, `~/.cache/coxswain/pull/<run>-<n>/`, and
+removes it when the pull ends; one left by an app that was killed goes at its next start. Docker
+cleans up after its own daemon; on macOS and Windows podman pulls inside its virtual machine.
 
 ## Keeping images up to date
 

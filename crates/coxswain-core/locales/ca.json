@@ -806,7 +806,7 @@
  "convert.not_available": "{program} no està disponible",
  "convert.not_installed": "{program} no està instal·lat",
  "convert.pull_failed": "No s'ha pogut baixar {image}: {error}",
- "convert.pull_stopped": "S'ha aturat la baixada de {image}: encara no hi és, i la part que s'estava baixant s'ha esborrat",
+ "convert.pull_stopped": "S'ha aturat la baixada de {image}: encara no hi és",
  "convert.pulling": "S'està baixant {image}…",
  "convert.read_tables": "Llegeix les taules",
  "convert.render": "Renderitza",
