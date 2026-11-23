@@ -1561,6 +1561,8 @@ pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Opt
         let _ = fs::create_dir_all(home.join("files")).and_then(|_| fs::create_dir_all(home.join("info")));
         // No other Coxswain empties the bins while this put may be moving file by file.
         let _held = crate::bin::fd::wait(&crate::bin::fd::bins_for(path))?;
+        // Looked at again under the lock, right before the move: still that bin, still sound.
+        let bin = if bin != home && put_bin(path).as_ref() != Some(&bin) { home.clone() } else { bin };
         let put = |bin: &Path| crate::xdg_trash::put_in_bin(bin, path).map(|n| Some(bin.join("info").join(format!("{n}.trashinfo")).to_string_lossy().into_owned()));
         return match put(&bin) {
             // A disk's bin that does not let this user write: the home bin, as the spec says.
@@ -1668,13 +1670,30 @@ fn disk_bin(top: &Path, uid: u32, dev: u64) -> Option<PathBuf> {
     // The spec's checks, so another user of the disk cannot lead the files elsewhere: `.Trash` a
     // folder of its own (no link) with the sticky bit, each bin and its `files` and `info` a
     // folder of its own, of this user, that no one else may write.
+    // A top others may write without the sticky bit: anyone could swap the bin for a link
+    // between the look and the put.
+    // shortcut: path lookups checked twice (here and again under the lock), not openat on held
+    // folders; a top that lets that race be won is refused instead.
+    let tm = fs::metadata(top).ok()?;
+    if tm.mode() & 0o022 != 0 && tm.mode() & 0o1000 == 0 {
+        return None;
+    }
     let shared = top.join(".Trash");
     let mine = shared.join(uid.to_string());
-    if fs::symlink_metadata(&shared).is_ok_and(|m| m.is_dir() && m.dev() == dev && m.permissions().mode() & 0o1000 != 0) && own_bin(&mine, uid, dev) {
+    // The sticky bit does not stop `.Trash`'s owner from moving our folder: only root's or the
+    // top's owner's is trusted.
+    if fs::symlink_metadata(&shared).is_ok_and(|m| m.is_dir() && m.dev() == dev && m.permissions().mode() & 0o1000 != 0 && trusted_owner(m.uid(), tm.uid())) && own_bin(&mine, uid, dev) {
         return Some(mine);
     }
     let own = top.join(format!(".Trash-{uid}"));
     own_bin(&own, uid, dev).then_some(own)
+}
+
+/// Whether a shared `.Trash` owned by `owner` may hold the user's bin on a top owned by `top`:
+/// root's or the top's owner's, who could take the disk's files anyway.
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+fn trusted_owner(owner: u32, top: u32) -> bool {
+    owner == 0 || owner == top
 }
 
 /// Whether `bin` is a bin of the user `uid` on device `dev`, with `files` and `info` in it: each
@@ -2547,6 +2566,12 @@ mod tests {
         mode(&own, 0o777);
         assert_eq!(super::disk_bin(&top, uid, dev), None);
         mode(&own, 0o700);
+        // A top others may write without the sticky bit: not used; with it, used.
+        mode(&top, 0o777);
+        assert_eq!(super::disk_bin(&top, uid, dev), None);
+        mode(&top, 0o1777);
+        assert_eq!(super::disk_bin(&top, uid, dev), Some(own.clone()));
+        mode(&top, 0o755);
         // Its files a link to elsewhere: not used.
         std::fs::remove_dir(own.join("files")).unwrap();
         std::fs::create_dir(d.join("elsewhere")).unwrap();
@@ -2567,6 +2592,9 @@ mod tests {
         mode(&other.join(".Trash"), 0o777);
         assert_eq!(super::disk_bin(&other, uid, dev), if root { Some(other.join(format!(".Trash-{uid}"))) } else { None });
         mode(&other, 0o755);
+        // A sticky .Trash of another user than root and the top's owner: not trusted.
+        assert!(super::trusted_owner(0, 1000) && super::trusted_owner(1000, 1000));
+        assert!(!super::trusted_owner(1001, 1000));
         // A link to a sticky folder: not used either.
         let _ = std::fs::remove_dir_all(other.join(format!(".Trash-{uid}")));
         let shared = d.join("shared");
