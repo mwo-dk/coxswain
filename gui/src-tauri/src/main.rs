@@ -1086,11 +1086,9 @@ fn quit_asking(app: tauri::AppHandle) {
 
 /// macOS: the question was answered with Cancel, so a quit the system asked for is called off.
 #[tauri::command]
-fn quit_cancelled(app: tauri::AppHandle) {
+fn quit_cancelled() {
     #[cfg(target_os = "macos")]
-    mac_menu::cancelled(&app);
-    #[cfg(not(target_os = "macos"))]
-    let _ = app;
+    mac_menu::cancelled();
 }
 
 /// The window's title. On Linux the title bar that GTK draws keeps the title it was made
@@ -3168,7 +3166,7 @@ fn main() {
             }
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::ExitRequested { .. } = event {
-                mac_menu::exit_requested(app);
+                mac_menu::exit_requested();
             }
             if let tauri::RunEvent::Exit = event {
                 if let Some(ctx) = app.try_state::<Ctx>() {
@@ -3207,6 +3205,7 @@ mod mac_menu {
     use objc2::runtime::{AnyClass, AnyObject, Bool, Imp, Sel};
     use objc2::{class, ffi, msg_send, sel};
     use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+    use std::ffi::c_void;
     use std::sync::OnceLock;
     use std::time::Duration;
     use tauri::{AppHandle, Manager, Wry};
@@ -3273,15 +3272,25 @@ mod mac_menu {
     /// A quit the page does not answer (a hung web view) is allowed after this long.
     const PAGE_WAITS: Duration = Duration::from_secs(30);
 
-    /// Tells AppKit the answer to a `terminate:` that was put off (`NSTerminateLater`).
-    fn reply(app: &AppHandle, yes: bool) {
-        let _ = app.run_on_main_thread(move || {
-            // SAFETY: on the main thread; `replyToApplicationShouldTerminate:` takes a BOOL.
-            unsafe {
-                let ns_app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-                let _: () = msg_send![ns_app, replyToApplicationShouldTerminate: Bool::new(yes)];
-            }
-        });
+    unsafe extern "C" {
+        static _dispatch_main_q: c_void;
+        fn dispatch_async_f(queue: *const c_void, context: *mut c_void, work: extern "C" fn(*mut c_void));
+    }
+
+    extern "C" fn reply_now(yes: *mut c_void) {
+        // SAFETY: on the main thread (the main queue); `replyToApplicationShouldTerminate:` takes a BOOL.
+        unsafe {
+            let ns_app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
+            let _: () = msg_send![ns_app, replyToApplicationShouldTerminate: Bool::new(!yes.is_null())];
+        }
+    }
+
+    /// Tells AppKit the answer to a `terminate:` that was put off (`NSTerminateLater`). It is sent
+    /// from the main queue, after the callback it is asked in: AppKit may end the app before the
+    /// reply returns, and tao's `applicationWillTerminate:` takes the lock that callback holds.
+    fn reply(yes: bool) {
+        // SAFETY: the context is a flag, not a pointer; the main queue is libdispatch's own.
+        unsafe { dispatch_async_f(&raw const _dispatch_main_q, usize::from(yes) as *mut c_void, reply_now) }
     }
 
     /// `applicationShouldTerminate:`, which tao's delegate does not answer: Quit in the Dock menu,
@@ -3301,11 +3310,10 @@ mod mac_menu {
             for w in app.webview_windows().values() {
                 let _ = w.close();
             }
-            let app = app.clone();
             std::thread::spawn(move || {
                 std::thread::sleep(PAGE_WAITS);
                 if ROUND.load(Ordering::SeqCst) == round && STATE.compare_exchange(1, 0, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
-                    reply(&app, true);
+                    reply(true);
                 }
             });
         }
@@ -3324,19 +3332,19 @@ mod mac_menu {
     }
 
     /// The question was answered with Cancel: the system's quit (a logout too) is called off.
-    pub fn cancelled(app: &AppHandle) {
+    pub fn cancelled() {
         if STATE.swap(0, Ordering::SeqCst) != 0 {
             ROUND.fetch_add(1, Ordering::SeqCst);
-            reply(app, false);
+            reply(false);
         }
     }
 
     /// The last window is gone: the system's quit goes on (tao's own stop would end only the
     /// wait AppKit runs while a reply is due).
-    pub fn exit_requested(app: &AppHandle) {
+    pub fn exit_requested() {
         if STATE.swap(0, Ordering::SeqCst) != 0 {
             ROUND.fetch_add(1, Ordering::SeqCst);
-            reply(app, true);
+            reply(true);
         }
     }
 

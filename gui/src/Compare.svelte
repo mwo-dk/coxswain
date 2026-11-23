@@ -130,6 +130,7 @@
       [cur, first] = [c, f];
       if (body) body.scrollTop = f * ROW;
       said = t("compare.saved");
+      if (force && m.quitAfter) close();
       return true;
     } catch (e) {
       if (String(e) === "changed") asking = "changed";
@@ -166,7 +167,7 @@
   }
 
   function tryClose(quit = false) {
-    m.quitAfter = quit;
+    m.quitAfter ||= quit;
     if (dirty) asking = "close";
     else close();
   }

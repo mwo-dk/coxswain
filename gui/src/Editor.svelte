@@ -296,6 +296,8 @@
       m.wrote = true;
       asking = null;
       said = t("editor.saved", { name });
+      // Saved over a changed file while the app was closing: nothing is unsaved now.
+      if (force && m.quitAfter) close();
       return true;
     } catch (e) {
       if (String(e) === "changed") asking = "changed";
@@ -312,6 +314,7 @@
       area.value = doc.text;
       asking = null;
       said = t("editor.reloaded");
+      if (m.quitAfter) close();
     } catch (e) {
       said = String(e);
     }
@@ -331,7 +334,7 @@
   }
 
   function tryClose(quit = false) {
-    m.quitAfter = quit;
+    m.quitAfter ||= quit;
     if (dirty) asking = "close";
     else close();
   }
