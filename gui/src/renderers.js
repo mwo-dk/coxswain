@@ -382,7 +382,13 @@ export async function renderAsciidoc(src) {
     else
       drawn = await invoke("adoc_diagram", { kind: b.kind, text: b.text }).then(
         // A picture, never inline SVG: its styles and scripts stay inside it.
-        (svg) => `<div class="diagram"><img src="data:image/svg+xml;base64,${base64(svg)}" alt="${escape(b.kind)}"></div>`,
+        async (svg) => {
+          const src = `data:image/svg+xml;base64,${base64(svg)}`;
+          // Loaded before it is shown: WebKit paints an SVG still loading its @font-face fonts (D2's)
+          // without its text and does not paint it again (#882, #1011).
+          await new Promise((done) => Object.assign(new Image(), { src, onload: done, onerror: done }));
+          return `<div class="diagram"><img src="${src}" alt="${escape(b.kind)}"></div>`;
+        },
         (err) => `<pre class="diagram-source">${escape(b.text)}</pre><p class="diagram-error">${escape(String(err?.message ?? err))}</p>`,
       );
     const part = new DOMParser().parseFromString(drawn, "text/html");

@@ -1,0 +1,1 @@
+| **A D2 diagram in an AsciiDoc file shows its labels the first time.** In the desktop app a `[d2]` block in the preview of an `.adoc` file showed boxes and arrows without their text; the picture is now shown once it has loaded, fonts included. | [Diagrams in the document](files/asciidoc-pdf.md#diagrams-in-the-document) |
