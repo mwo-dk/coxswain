@@ -116,7 +116,9 @@ fn reader(path: &Path) -> Option<Reader> {
         return Some(|_, _| None);
     }
     Some(match ext.as_str() {
-        "pdf" => |path, max| pdf::tidied(path, max).or_else(|| installed::scanned_pdf(path)),
+        // Without the documents module no PDF is read, by OCR neither.
+        "pdf" if cfg!(feature = "documents") => |path, max| pdf::tidied(path, max).or_else(|| installed::scanned_pdf(path)),
+        "pdf" => |_, _| None,
         "docx" | "docm" | "dotx" | "odt" | "ott" => word::text,
         "xlsx" | "xlsm" | "xls" | "xlsb" | "ods" => sheet::text,
         "pptx" | "ppsx" | "potx" | "odp" => slides::text,

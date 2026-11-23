@@ -16,8 +16,8 @@ description = "The shared core of Coxswain, the two-panel file manager: file ope
 test-home = []
 # The modules (`modules::MODULES`), a feature each, all on by default. A module left out of a
 # build is off whatever `[modules] off` says, and Settings shows it greyed (`modules::built`).
-# The apps pass `modules` on: `cargo build -p coxswain --no-default-features --features
-# coxswain-core/games` builds the terminal app with the games module alone.
+# The apps have the same features and pass them on: `cargo build -p coxswain
+# --no-default-features --features games` builds the terminal app with the games module alone.
 default = ["modules"]
 modules = ["documents", "office", "ebooks", "latex", "html", "diagrams", "openscad", "kicad", "data", "media", "old_formats", "geodata", "neural_networks", "games", "bom", "provenance", "disk_images"]
 # Its libraries: PDFs, mails and Outlook messages are read for search, Enter and Make searchable
@@ -122,6 +122,8 @@ cfb = { version = "0.16", optional = true }
 [dev-dependencies]
 # Builds the cabinets the tests read (MSZIP).
 cab = "0.6.0"
+# Builds the Outlook messages and old workbooks the tests read, also without the documents module.
+cfb = "0.16"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
