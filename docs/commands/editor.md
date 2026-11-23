@@ -33,7 +33,8 @@ opens this one too, rather than whichever of `vi`, `nano` and the like is instal
    *Edit here* in the command list (**F9**).
 3. Type. **Ctrl+S** saves.
 4. **Esc** closes. With changes not saved yet, it asks first. In the desktop app, closing the
-   whole window asks the same, and the app closes after *Save* or *Don't save*.
+   whole window asks the same (its close button, **Quit**, and on macOS **Cmd+Q** or *Coxswain →
+   Quit Coxswain* in the menu bar), and the app closes after *Save* or *Don't save*.
 
 In [Find](../search/find-file.md), **Shift+F4** on a hit edits that file; when the editor
 closes, the search is there as it was. In the terminal app's [viewer](view-and-edit.md#the-built-in-viewer),

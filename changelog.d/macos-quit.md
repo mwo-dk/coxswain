@@ -1,0 +1,1 @@
+| **Cmd+Q on macOS asks about unsaved text and keeps the session.** Quit in the menu bar (**Cmd+Q**) now closes the window the way its close button does: a change not saved in the editor or Compare is asked about first, and the open tabs and folders are kept for the next start. | [Editor](commands/editor.md#how-to-use-it) |
