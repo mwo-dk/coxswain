@@ -236,7 +236,8 @@ pub fn toggled(off: &[String], id: &str, on: bool) -> Vec<String> {
 /// The first time a file of a module that is off is shown as text: which module would show
 /// it, and where to turn it on; `None` after that (remembered with the dismissed notices).
 pub fn notice(state: &mut crate::state::AppState, m: &Module, settings_key: &str) -> Option<String> {
-    let id = format!("module-off:{}", m.id);
+    // Its own id when left out of the build: a notice seen while it was only off says otherwise.
+    let id = format!("{}:{}", if built(m.id) { "module-off" } else { "module-not-built" }, m.id);
     if state.notices_dismissed.contains(&id) {
         return None;
     }
@@ -296,7 +297,7 @@ mod tests {
         FORCE.with(|f| *f.borrow_mut() = Some(vec![]));
         for m in MODULES {
             let b = built(m.id);
-            assert!(b || !cfg!(feature = "modules"), "{}: its feature is missing from `built` or Cargo.toml", m.id);
+            assert_eq!(b, cfg!(feature = "modules"), "{}: built without its feature, or left out with it", m.id);
             assert_eq!(on(m.id), b, "{}", m.id);
             assert_eq!(off_for(m.kinds[0]).is_some(), !b, "{}", m.id);
             assert_eq!(toggled(&[], m.id, false), if b { vec![m.id.to_string()] } else { vec![] }, "{}", m.id);
