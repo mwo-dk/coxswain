@@ -157,7 +157,9 @@ It uses up to half the computer's cores (eight at most); the memory is the same 
 any size, but for 8 bytes a game. A tree is read in 10 to 30 ms, the start position's (all 12.3
 million games) too; the games list cut to the games after 1.e4 e5 (1.7 million of them) in under
 a second. While it is built, the disk holds the sorted parts too, about as much again as the
-index, removed once it is whole.
+index, removed once it is whole. The parts are merged straight into the index, on several
+threads, so at most the parts and the index are on the disk at once: twice the index, not three
+times.
 
 ## Settings and config.toml
 

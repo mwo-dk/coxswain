@@ -701,7 +701,12 @@ fn an_index_merged_in_ranges_is_the_one_merged_whole() {
     assert!(entries > (RUN * FAN) as u64, "{entries} entries: in rounds");
     assert!(!whole[1].is_empty(), "a tree kept");
     for ranges in [2, 5, 64] {
-        assert_eq!(made(format!("r{ranges}"), None, ranges).1, whole, "{ranges} ranges");
+        let (_, files, job) = made(format!("r{ranges}"), None, ranges);
+        assert_eq!(files, whole, "{ranges} ranges");
+        // Merged straight into the postings: at most the runs and what they were merged into,
+        // with the tree's parts (no parts of the postings to join).
+        let (runs, most) = (job.runs_held.load(Ordering::Relaxed), job.most_held.load(Ordering::Relaxed));
+        assert!(most <= 2 * runs + files[1].len() as u64, "{most} bytes held for {runs} of runs, {ranges} ranges");
     }
     let old = Index::open(&dir).unwrap();
     let kept = made("kept-whole".into(), Some((&old, 1500)), 1).1;
@@ -735,33 +740,35 @@ fn made_runs(d: &Dir, n: usize, seed: u64) -> (Vec<Run>, u64) {
     (runs, all)
 }
 
-/// The runs merged in `ranges` ranges and joined: the bytes, and the entries the merges read.
+/// The runs merged in `ranges` ranges into one file: the bytes, and the entries the merges read.
 fn merged_in(d: &Dir, runs: &[Run], ranges: usize) -> (Vec<u8>, u64) {
+    static N: AtomicU64 = AtomicU64::new(0);
     let job = Job::default();
-    let n = AtomicU64::new(0);
-    let segs = in_parts(runs, ranges, &job, |_, streams| {
-        let p = d.0.join(format!("seg-{}", n.fetch_add(1, Ordering::Relaxed)));
-        let mut w = Writer::new(BufWriter::new(File::create(&p)?));
-        merge(streams, &job, |e| w.push(e))?;
-        w.finish()?;
-        Ok(p)
-    })
-    .unwrap();
-    let mut w = Writer::new(vec![]);
-    join(&segs, &mut w).unwrap();
-    (w.finish().unwrap().0, job.merged.load(Ordering::Relaxed))
+    let p = d.0.join(format!("merged-{}", N.fetch_add(1, Ordering::Relaxed)));
+    merge_to(runs, ranges, &job, &p, |_| Ok(()), |_, _| Ok(())).unwrap();
+    let bytes = std::fs::read(&p).unwrap();
+    std::fs::remove_file(&p).unwrap();
+    (bytes, job.merged.load(Ordering::Relaxed))
 }
 
-/// A merge in ranges reads each entry once, and at most a block a run more for each range's
-/// start and end: its work grows with the entries, not faster (counted, and n against 8n).
+/// A merge in ranges reads each entry twice (counted, then written), and at most a block a run
+/// more for each range's start and end: its work grows with the entries, not faster (counted,
+/// and n against 8n).
 #[test]
-fn a_merge_in_ranges_reads_each_entry_about_once() {
+fn a_merge_in_ranges_reads_each_entry_twice() {
     let d = Dir::new();
     let ((small, _), (big, entries)) = (made_runs(&d, 20_000, 3), made_runs(&d, 160_000, 4));
     let (whole, read) = merged_in(&d, &big, 1);
-    assert_eq!(read, entries, "merged whole: each entry once");
+    assert_eq!(read, 2 * entries, "merged whole: each entry twice");
     let (bytes, read) = merged_in(&d, &big, 8);
     assert_eq!(bytes, whole);
-    assert!(read <= entries + 2 * 8 * 4 * BLOCK as u64, "{read} entries read of {entries}");
+    // As one writer writes the entries merged whole, also when a block goes over many ranges.
+    let mut w = Writer::new(vec![]);
+    merge(small.iter().map(|r| Stream::open(&r.path).unwrap()).collect(), &Job::default(), |e| w.push(e)).unwrap();
+    let one = w.finish().unwrap().0;
+    for ranges in [1, 3, 64] {
+        assert_eq!(merged_in(&d, &small, ranges).0, one, "{ranges} ranges");
+    }
+    assert!(read <= 2 * (entries + 2 * 8 * 4 * BLOCK as u64), "{read} entries read of {entries}");
     crate::assert_costs_at_most(10, || drop(merged_in(&d, &small, 8)), || drop(merged_in(&d, &big, 8)));
 }
