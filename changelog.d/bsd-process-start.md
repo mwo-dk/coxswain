@@ -1,0 +1,1 @@
+| **Containers of a killed run are removed on FreeBSD, the other BSDs and illumos too.** Coxswain now reads when a process started there as well, so the containers a killed or crashed run left in podman's storage, each holding its image, go at the next run, as on Linux, macOS and Windows. | [Containers](previews/containers.md#leftovers-of-a-run-that-was-killed) |
