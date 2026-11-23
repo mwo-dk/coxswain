@@ -70,9 +70,8 @@ These rules hold for every contributor and every Claude session in this reposito
   on a branch `rehearsal/vX.Y.Z`, tests every system, builds every file into a draft, checks it
   against `packaging/release-assets.sh`, runs the crates job's steps for both crates short of
   publishing (`cargo package`, which builds them, then a second pack without building whose
-  hashes must match) and
-  `brew audit` on the formula and cask, then deletes the draft and the branch; nothing is
-  published and no tag made. A red rehearsal gives a day to fix. Sunday 06:17 UTC `release-pr.yml`
+  hashes must match) and `brew audit` on the formula and cask, then deletes the draft and the
+  branch; nothing is published and no tag made. A red rehearsal gives a day to fix. Sunday 06:17 UTC `release-pr.yml`
   opens the release pull request with auto-merge on; it needs the secret `RELEASE_PR_TOKEN` (a
   fine-grained token for this repository with Contents and Pull requests read and write: a pull
   request made with `GITHUB_TOKEN` starts no checks) and fails naming it when missing. The Monday

@@ -883,7 +883,7 @@ jobs:
           sha256sum -c "$RUNNER_TEMP/crates.sha256"
       - name: Homebrew
         if: ${{ !cancelled() }}
-        # The token only here: `cargo publish` above runs every dependency's build script.
+        # The token only here: `cargo package` above runs every dependency's build script.
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.draft.outputs.tag }}
