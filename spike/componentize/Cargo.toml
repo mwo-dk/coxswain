@@ -1,0 +1,10 @@
+[package]
+name = "spike-componentize"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+# Turns the plugin's core module into a component (what `wasm-tools component new` does).
+# Built on the development machine only; the systems get the finished .wasm.
+[dependencies]
+wit-component = "0.263"

@@ -1,0 +1,12 @@
+[package]
+name = "spike-proc"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+# The native-program kind (#863 decision 2): the same reader as a separate program, its
+# messages JSON over stdin/stdout, or over HTTP on localhost.
+[dependencies]
+spike-games = { path = "../games" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

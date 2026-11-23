@@ -1,0 +1,12 @@
+[package]
+name = "spike-plugin"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+spike-games = { path = "../games" }
+wit-bindgen = { version = "0.63", default-features = false, features = ["macros", "realloc"] }

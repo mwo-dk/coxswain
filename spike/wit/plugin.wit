@@ -1,0 +1,49 @@
+package coxswain:spike@0.1.0;
+
+/// A reader: bytes in, typed rows out (#863 decisions 1, 3, 9).
+interface reader {
+  enum job { pgn-scan, pgn-parse, scid-table, scid-decode }
+
+  record row {
+    white: string,
+    black: string,
+    event: string,
+    site: string,
+    date: string,
+    %result: string,
+    eco: string,
+    plies: u32,
+  }
+
+  /// A chunk: a byte range (PGN) or a range of games (SCID).
+  record span { start: u64, end: u64 }
+
+  /// Cut the files into about `parts` chunks.
+  split: func(job: job, files: list<list<u8>>, parts: u32) -> list<span>;
+  /// One chunk into rows (`files[0]` is the chunk's own bytes for PGN).
+  work: func(job: job, files: list<list<u8>>, span: span) -> list<row>;
+  /// Read the files and keep the rows, for `page`; how many.
+  load: func(job: job, files: list<list<u8>>) -> u32;
+  /// Rows start .. start + count of what `load` kept.
+  page: func(start: u32, count: u32) -> list<row>;
+  /// One game's positions, as FEN, for the frame (decision 8).
+  positions: func(pgn: list<u8>) -> list<string>;
+}
+
+/// The terminal grid (decision 8): the plugin draws into cells, Coxswain hands it keys.
+interface grid {
+  /// Named colours: the theme contract. Coxswain maps them to the theme's colours.
+  enum colour { text, dim, accent, light-square, dark-square, white-piece, black-piece, highlight, background }
+  record cell { ch: char, fg: colour, bg: colour }
+  /// Open a game; its number of plies.
+  open: func(pgn: list<u8>) -> u32;
+  /// Draw into a width x height grid, row by row.
+  draw: func(width: u16, height: u16) -> list<cell>;
+  /// A key ("left", "right", "home", "end", "f" for flip); whether the picture changed.
+  key: func(name: string) -> bool;
+}
+
+world plugin {
+  export reader;
+  export grid;
+}

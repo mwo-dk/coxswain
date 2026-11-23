@@ -1,0 +1,17 @@
+# Plugin spike (#1024): throwaway, never shipped. Its own workspace, apart from Coxswain's.
+[workspace]
+resolver = "3"
+members = ["games", "plugin", "host", "proc-plugin", "componentize"]
+
+[workspace.package]
+edition = "2024"
+publish = false
+
+[profile.release]
+# As Coxswain's own release profile, so the binary sizes compare.
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[profile.release.package.spike-plugin]
+opt-level = 3
