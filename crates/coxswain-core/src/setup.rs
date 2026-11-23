@@ -507,10 +507,13 @@ fn amd_on_linux(
 }
 
 /// One AMD GPU from the kernel's view of it, and whether it shares the system's memory. A
-/// Ryzen's Radeon has only a small carve-out as VRAM (512 MB to 2 GB) and borrows the rest
-/// through GTT, which is what it may use. A card's GTT is system memory too, far slower than
-/// its VRAM, so a card counts its VRAM alone. amdgpu hides `board_info` on an APU (Linux 6.7
-/// and later).
+/// Ryzen's Radeon has only a carve-out as VRAM (of any size the BIOS sets) and borrows the
+/// rest through GTT, which is what it may use. A card's GTT is system memory too, far slower
+/// than its VRAM, so a card counts its VRAM alone. A card is told from an APU by files amdgpu
+/// makes for a card only: `board_info` (Linux 6.7 and later) and `pcie_bw` (older kernels too;
+/// its PCIe counters do not work on an APU, so amdgpu hides it there). Without power
+/// management (`amdgpu.dpm=0`, some virtual machines) a card has neither, so VRAM above 8 GB,
+/// more than any carve-out, also marks a card.
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn amd_device_on_linux(dev: &std::path::Path) -> ((Vendor, String, Option<u64>), bool) {
     let bytes = |f: &str| {
@@ -519,11 +522,10 @@ fn amd_device_on_linux(dev: &std::path::Path) -> ((Vendor, String, Option<u64>),
             .and_then(|b| b.trim().parse::<u64>().ok())
     };
     let (vram, gtt) = (bytes("mem_info_vram_total"), bytes("mem_info_gtt_total"));
-    // shortcut: before Linux 6.7 no card has `board_info`, so there a card with 2 GB of VRAM
-    // or less is taken for an APU and counts its GTT (overstated); and an APU whose carve-out
-    // is set above 2 GB counts only that (#1037).
-    let shared =
-        !dev.join("board_info").exists() && vram.is_some_and(|v| v <= 2 << 30) && gtt > vram;
+    let card = dev.join("board_info").exists()
+        || dev.join("pcie_bw").exists()
+        || vram.is_some_and(|v| v > 8 << 30);
+    let shared = !card && gtt > vram;
     let gb = if shared { gtt } else { vram }.map(|b| b.div_ceil(1 << 30));
     let name = std::fs::read_to_string(dev.join("product_name"))
         .ok()
@@ -707,7 +709,10 @@ fn ollama_on_card(vram: Option<u64>, why: impl FnOnce(&str) -> String) -> Advice
 
 /// Ollama on the card `name` through Vulkan.
 fn vulkan(name: &str, vram: Option<u64>) -> Advice {
-    ollama_on_card(vram, |chat| crate::t!("setup.why_vulkan", "gpu" => name, "chat" => chat))
+    ollama_on_card(
+        vram,
+        |chat| crate::t!("setup.why_vulkan", "gpu" => name, "chat" => chat),
+    )
 }
 
 fn advise_server(m: &Machine, found: &[Found]) -> Advice {
@@ -1908,11 +1913,7 @@ mod tests {
         assert!(found.is_empty(), "{found:?}");
         // Given up by the quick agent: sooner than the slow one would have. The time is waiting
         // on a socket, not work, so a slow machine adds little to it.
-        assert!(
-            start.elapsed() < SLOW_ANSWER,
-            "{:?}",
-            start.elapsed()
-        );
+        assert!(start.elapsed() < SLOW_ANSWER, "{:?}", start.elapsed());
         assert!(probe_url(&silent, None).is_none());
         drop(mute);
     }
@@ -2030,7 +2031,7 @@ mod tests {
     }
 
     /// A dedicated Radeon counts its VRAM; the Radeon in a Ryzen, with a small carve-out and
-    /// no `board_info`, counts what it borrows through GTT.
+    /// no `board_info` or `pcie_bw`, counts what it borrows through GTT.
     #[test]
     fn amd_memory_is_read_from_sysfs() {
         let root = std::env::temp_dir().join(format!("coxswain-test-amd-{}", std::process::id()));
@@ -2050,6 +2051,7 @@ mod tests {
                 ("mem_info_vram_total", &(16 * GIB).to_string()),
                 ("mem_info_gtt_total", &(32 * GIB).to_string()),
                 ("board_info", "type : cem\n"),
+                ("pcie_bw", "0 0 128\n"),
                 ("product_name", "AMD Radeon RX 7800 XT\n"),
             ],
         );
@@ -2069,16 +2071,40 @@ mod tests {
                 ("board_info", "type : cem\n"),
             ],
         );
+        // A small card on a kernel before 6.7 (`pcie_bw` only) keeps its VRAM too.
+        let old_small = dev(
+            "old-small",
+            &[
+                ("mem_info_vram_total", &(2 * GIB).to_string()),
+                ("mem_info_gtt_total", &(16 * GIB).to_string()),
+                ("pcie_bw", "0 0 128\n"),
+            ],
+        );
+        // An APU with a 4 GB carve-out, on any kernel: shared, counts its GTT.
+        let big_carve = dev(
+            "big-carve",
+            &[
+                ("mem_info_vram_total", &(4 * GIB).to_string()),
+                ("mem_info_gtt_total", &(60 * GIB).to_string()),
+            ],
+        );
         // A desktop Ryzen's small Radeon listed before a card: the card.
         let both: Vec<_> = ryzen.iter().chain(&card).cloned().collect();
         let got = |d| amd_on_linux(d).map(|((_, n, gb), s)| (n, gb, s));
-        assert_eq!(got(&both), Some(("AMD Radeon RX 7800 XT".into(), Some(16), false)));
+        assert_eq!(
+            got(&both),
+            Some(("AMD Radeon RX 7800 XT".into(), Some(16), false))
+        );
         assert_eq!(
             got(&card),
             Some(("AMD Radeon RX 7800 XT".into(), Some(16), false))
         );
         assert_eq!(got(&ryzen), Some(("AMD Radeon".into(), Some(88), true)));
         assert_eq!(got(&small), Some(("AMD Radeon".into(), Some(2), false)));
+        assert_eq!(got(&old_small), Some(("AMD Radeon".into(), Some(2), false)));
+        let mixed: Vec<_> = ryzen.iter().chain(&old_small).cloned().collect();
+        assert_eq!(got(&mixed), Some(("AMD Radeon".into(), Some(2), false)));
+        assert_eq!(got(&big_carve), Some(("AMD Radeon".into(), Some(60), true)));
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -2117,7 +2143,10 @@ mod tests {
         );
         assert_eq!(read("Orin, [Not Supported]\n").map(|r| r.2), Some(true));
         assert_eq!(read(""), None);
-        assert_eq!(nvidia_in_smi("NVIDIA GB10, [N/A]", 0).map(|r| r.0.2), Some(None));
+        assert_eq!(
+            nvidia_in_smi("NVIDIA GB10, [N/A]", 0).map(|r| r.0.2),
+            Some(None)
+        );
     }
 
     #[test]
@@ -2147,7 +2176,11 @@ mod tests {
             ram: 64,
         };
         // FreeBSD has no Lemonade: every card goes to Ollama's Vulkan there.
-        let amd = if cfg!(target_os = "freebsd") { Kind::Ollama } else { Kind::Lemonade };
+        let amd = if cfg!(target_os = "freebsd") {
+            Kind::Ollama
+        } else {
+            Kind::Lemonade
+        };
         assert_eq!(advise(&ryzen, &some).server, Some(amd));
         let mac = Machine {
             gpu: Some((Vendor::Apple, "Apple silicon".into(), None)),
