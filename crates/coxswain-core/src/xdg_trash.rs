@@ -3,7 +3,9 @@
 //! layout in `$XDG_DATA_HOME/Trash` (`~/.local/share/Trash`), `files/<name>` with its
 //! `info/<name>.trashinfo`. Files are only renamed in, never copied: one on another filesystem
 //! (the phone's storage under `~/storage`, another ZFS dataset than the home folder's on illumos)
-//! is refused, and the caller asks to delete it for good.
+//! is refused, and the caller asks to delete it for good. On the other freedesktop.org systems
+//! (the BSDs, Linux) it is the put into the home bin (`put_home`), which moves a file from
+//! another disk in file by file instead (#997).
 
 #![cfg_attr(
     not(any(target_os = "android", target_os = "illumos", target_os = "solaris")),
@@ -30,6 +32,13 @@ pub fn takes(path: &Path) -> bool {
 pub fn put(path: &Path) -> io::Result<String> {
     let trash = dir().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no home folder"))?;
     put_in(&trash, path, same_fs)
+}
+
+/// Move `path` into the home bin, from any disk: renamed, else moved across file by file
+/// (`crate::fs::bin_move`); the name it has there.
+pub fn put_home(path: &Path) -> io::Result<String> {
+    let trash = dir().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no home folder"))?;
+    put_in(&trash, path, |_, _| true)
 }
 
 /// The same device as `path` itself (a link is where it sits) and the trash, or the nearest
@@ -78,11 +87,15 @@ fn put_in(trash: &Path, path: &Path, same: fn(&Path, &Path) -> bool) -> io::Resu
         };
         let moved = f
             .write_all(body.as_bytes())
-            .and_then(|_| fs::rename(&path, files.join(&n)));
+            .and_then(|_| crate::fs::bin_move(&path, &files.join(&n)));
         return match moved {
             Ok(()) => Ok(n),
             Err(e) => {
-                let _ = fs::remove_file(&i);
+                // Kept while any of it is in the bin (a move across that could not all come
+                // back): it lists what is there.
+                if fs::symlink_metadata(files.join(&n)).is_err() {
+                    let _ = fs::remove_file(&i);
+                }
                 Err(e)
             }
         };
@@ -260,6 +273,49 @@ mod tests {
             assert_eq!(fs::read_to_string(&f).unwrap(), "binned");
             assert!(!trash.join("files").join(&n).exists());
         }
+    }
+
+    /// From another disk the put moves file by file (#997): a link goes as a link, never
+    /// followed; a failure half way brings back what went and leaves no info file; a pipe is
+    /// refused with everything left where it was.
+    #[test]
+    fn a_put_from_another_disk_moves_file_by_file_or_not_at_all() {
+        use crate::fs::{ACROSS, COPIES, FULL};
+        let d = tmp("across");
+        let (trash, dir) = (d.join("Trash"), d.join("dir"));
+        fs::create_dir_all(dir.join("sub")).unwrap();
+        fs::write(dir.join("a.txt"), "a").unwrap();
+        fs::write(dir.join("sub/b.txt"), "b").unwrap();
+        // A link to its own folder: followed, it would never end.
+        std::os::unix::fs::symlink(&dir, dir.join("loop")).unwrap();
+        let whole = |dir: &Path| {
+            assert_eq!(fs::read_to_string(dir.join("a.txt")).unwrap(), "a");
+            assert_eq!(fs::read_to_string(dir.join("sub/b.txt")).unwrap(), "b");
+            assert_eq!(fs::read_link(dir.join("loop")).unwrap(), d.join("dir"));
+        };
+        let empty = |what: &str| fs::read_dir(trash.join(what)).unwrap().count() == 0;
+        ACROSS.set(true);
+        // The second file fails (a full disk): what went comes back.
+        COPIES.set(0);
+        FULL.set(1 << 2);
+        let failed = put_in(&trash, &dir, |_, _| true);
+        FULL.set(0);
+        assert_eq!(failed.unwrap_err().kind(), io::ErrorKind::StorageFull);
+        whole(&dir);
+        assert!(empty("files") && empty("info"), "nothing left in the bin");
+        // A pipe is refused, and the rest stays too.
+        let pipe = std::ffi::CString::new(dir.join("sub/pipe").as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(pipe.as_ptr(), 0o600) }, 0);
+        assert_eq!(put_in(&trash, &dir, |_, _| true).unwrap_err().kind(), io::ErrorKind::Unsupported);
+        whole(&dir);
+        assert!(empty("files") && empty("info"));
+        fs::remove_file(dir.join("sub/pipe")).unwrap();
+        // Then it goes whole, listed by its info file.
+        let n = put_in(&trash, &dir, |_, _| true).unwrap();
+        ACROSS.set(false);
+        assert!(fs::symlink_metadata(&dir).is_err());
+        whole(&trash.join("files").join(&n));
+        assert!(info(&trash, &n).contains(&format!("Path={}\n", encode(&dir))));
     }
 
     #[test]

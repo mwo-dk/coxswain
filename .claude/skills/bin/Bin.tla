@@ -109,13 +109,15 @@ Make(s) ==
        /\ wanted' = wanted \cup {c}
   /\ UNCHANGED <<files, info, iid, pc, loc, lock>>
 
-(* Put: F8 on a file, or any program's put. xdg_trash::put_in (Termux, illumos); the trash
-   crate's move_to_trash (everywhere else) takes the same steps in the same order, with a
+(* Put: F8 on a file, or any program's put. xdg_trash::put_in (Termux, illumos, and the home
+   bin on the BSDs and Linux); the trash crate's move_to_trash (a disk's own bin there) takes
+   the same steps in the same order, with a
    placeholder at files/<n> that makes its rename refuse to replace. For each name in
    name_candidates order: symlink_metadata(files/<n>) must fail (put_check), then
    create_new(info/<n>.trashinfo) claims the name or, AlreadyExists, the next name is tried
-   (put_claim); write_all of the body (put_write); rename(path, files/<n>) (put_move); on a
-   failed rename remove_file(info) (put_fail). *)
+   (put_claim); write_all of the body (put_write); fs::bin_move(path, files/<n>): a rename, or
+   from another disk file by file, all or nothing (put_move, one step here); on a failed move
+   remove_file(info) while nothing is at files/<n> (put_fail). *)
 PutStart(a, s) ==
   /\ Idle(a) /\ origin[s] \in Cs
   /\ PutDuringEmpty \/ \A b \in Ps : ~Emptying(b)
@@ -159,7 +161,7 @@ PutMove(a) ==
 
 PutFail(a) ==
   /\ pc[a] = "put_fail"
-  /\ NoInfo(loc[a].n)
+  /\ IF files[loc[a].n] = None THEN NoInfo(loc[a].n) ELSE UNCHANGED <<info, iid>>
   /\ Done(a)
   /\ UNCHANGED <<origin, files, wanted>>
 

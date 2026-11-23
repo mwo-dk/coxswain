@@ -107,12 +107,7 @@ pub mod modules;
 pub mod view;
 pub mod viewers;
 pub mod viruses;
-#[cfg(any(
-    target_os = "android",
-    target_os = "illumos",
-    target_os = "solaris",
-    all(test, unix)
-))]
+#[cfg(any(all(unix, not(any(target_os = "macos", target_os = "ios"))), all(test, unix)))]
 mod xdg_trash;
 pub mod xiangqi;
 pub mod zfs;

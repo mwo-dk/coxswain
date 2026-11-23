@@ -1458,6 +1458,34 @@ fn rename_logged(src: &Path, dst: &Path, log: &mut Moved) -> io::Result<PathBuf>
     Ok(to)
 }
 
+/// `src` into a bin at `to`, which is not there: a rename, else (another disk) file by file as
+/// `move_across` does, all or nothing: failed or stopped, what went over comes back. Links go
+/// as links, a pipe, a socket or a device is refused, and Stop is looked at between files.
+#[cfg(unix)]
+pub(crate) fn bin_move(src: &Path, to: &Path) -> io::Result<()> {
+    #[cfg(test)]
+    let moved = if ACROSS.get() { Err(io::ErrorKind::CrossesDevices.into()) } else { fs::rename(src, to) };
+    #[cfg(not(test))]
+    let moved = fs::rename(src, to);
+    match moved {
+        Err(e) if e.kind() == io::ErrorKind::CrossesDevices => {}
+        r => return r,
+    }
+    let mut log = Moved::default();
+    let Err(e) = move_across(src, to, &mut log) else { return Ok(()) };
+    let back = put_back(&mut log);
+    for m in log.made.iter().rev() {
+        let _ = fs::remove_dir(m);
+    }
+    if !back {
+        return Err(io::Error::new(
+            e.kind(),
+            crate::t!("err.move_split", "error" => e, "from" => src.display(), "to" => to.display()),
+        ));
+    }
+    Err(e)
+}
+
 /// Delete a file, symlink (not its target) or directory tree; inside an archive, take it out of
 /// the archive.
 pub fn delete(path: &Path) -> io::Result<()> {
@@ -1490,7 +1518,8 @@ pub fn trash_locked(path: &Path, password: Option<&str>) -> io::Result<()> {
     trash_named(path, password).map(drop)
 }
 
-/// `trash_locked`; in Termux's own trash, the name it has there (for undo to put it back).
+/// `trash_locked`; in Coxswain's own put (Termux, illumos, the home bin on the BSDs and Linux),
+/// the name it has there (for undo to put it back).
 pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Option<String>> {
     writable(path)?;
     if !path.exists() && crate::archive::split(path).is_some() {
@@ -1512,13 +1541,21 @@ pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Opt
             ))
         };
     }
-    // What the crate would copy and cannot (a link, a pipe): never handed to it (#978).
+    // What cannot be moved from another disk (a pipe, a socket, a device): refused at once
+    // (#978).
     if !trash_takes(std::slice::from_ref(&path.to_path_buf())) {
         return Err(io::Error::new(io::ErrorKind::Unsupported, crate::t!("undo.no_trash")));
     }
-    // No other Coxswain empties the home bin while this put may be copying into it.
+    // No other Coxswain empties the home bin while this put may be moving into it file by file.
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios"))))]
     let _held = crate::bin::fd::wait(&crate::bin::fd::bins_for(path))?;
+    // The home bin is filled by Coxswain's own put, which moves a file from another disk file by
+    // file: the crate's copy follows a link to a folder, cannot be stopped, and leaves what it
+    // could not finish unlisted in the bin (#997). A disk's own bin takes it by a rename.
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+    if home_bin_put(path) {
+        return crate::xdg_trash::put_home(path).map(Some);
+    }
     #[cfg(not(any(target_os = "android", target_os = "illumos", target_os = "solaris")))]
     return trash::delete(path).map(|_| None).map_err(io::Error::other);
     #[cfg(any(target_os = "android", target_os = "illumos", target_os = "solaris"))]
@@ -1527,10 +1564,9 @@ pub(crate) fn trash_named(path: &Path, password: Option<&str>) -> io::Result<Opt
 
 /// Whether `trash` can take every one of `paths`. Coxswain's own trash (Termux, illumos) takes
 /// nothing from another filesystem, such as the phone's storage or another ZFS dataset. A
-/// freedesktop.org bin that would copy `path` into the home bin (`trash_renames` false) takes
-/// no link and no pipe, socket or device, nor a folder that holds one of the last three: the
-/// trash crate follows a link to a folder and makes empty files for ever, copies the bytes a
-/// link to a file leads to, and waits on a pipe for ever (#978).
+/// freedesktop.org bin that moves `path` into the home bin from another disk (`trash_renames`
+/// false) takes no pipe, socket or device, nor a folder that holds one: only files, folders and
+/// links can be moved across (#978, #997).
 pub fn trash_takes(paths: &[PathBuf]) -> bool {
     paths.iter().all(|p| bin_takes(p, true))
 }
@@ -1546,10 +1582,11 @@ fn bin_takes(path: &Path, deep: bool) -> bool {
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
     return crate::tools::flatpak().is_some()
         || if deep {
-            trash_renames(path) || copies(path, true)
+            trash_renames(path) || copies(path)
         } else {
-            // A file or a folder is taken without asking where its bin is (which may make one).
-            fs::symlink_metadata(path).is_ok_and(|m| m.is_file() || m.is_dir()) || trash_renames(path)
+            // A file, a folder or a link is taken without asking where its bin is (which may
+            // make one).
+            fs::symlink_metadata(path).is_ok_and(|m| m.is_file() || m.is_dir() || m.is_symlink()) || trash_renames(path)
         };
     #[cfg(not(all(unix, not(any(target_os = "macos", target_os = "ios")))))]
     {
@@ -1558,15 +1595,13 @@ fn bin_takes(path: &Path, deep: bool) -> bool {
     }
 }
 
-/// Whether the trash crate's copy takes `path` as it is: a file, or a folder of files, folders
-/// and (inside it, where the crate copies them as links) links. `top`: `path` is what was
-/// asked for, where a link is not taken.
+/// Whether a move across disks takes `path` as it is: a file, a link (as a link), or a folder
+/// of those and folders.
 #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
-fn copies(path: &Path, top: bool) -> bool {
+fn copies(path: &Path) -> bool {
     match fs::symlink_metadata(path).map(|m| m.file_type()) {
-        Ok(t) if t.is_file() => true,
-        Ok(t) if t.is_symlink() => !top,
-        Ok(t) if t.is_dir() => fs::read_dir(path).is_ok_and(|rd| rd.flatten().all(|e| copies(&e.path(), false))),
+        Ok(t) if t.is_file() || t.is_symlink() => true,
+        Ok(t) if t.is_dir() => fs::read_dir(path).is_ok_and(|rd| rd.flatten().all(|e| copies(&e.path()))),
         _ => false,
     }
 }
@@ -1578,26 +1613,43 @@ fn copies(path: &Path, top: bool) -> bool {
 pub(crate) fn trash_renames(path: &Path) -> bool {
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
     {
-        use std::os::unix::fs::MetadataExt;
-        let Ok(dev) = fs::symlink_metadata(path).map(|m| m.dev()) else { return false };
-        // On the home bin's disk (its nearest folder that exists).
-        let home = crate::dirs::data_dir().map(|d| d.join("Trash"));
-        if home.is_some_and(|t| t.ancestors().find_map(|a| fs::metadata(a).ok()).is_some_and(|m| m.dev() == dev)) {
-            return true;
-        }
-        // ponytail: the top is the highest folder on the same device, not the mount point the
-        // trash crate looks up; a nested btrfs subvolume reads as a disk of its own. A bind
-        // mount of the home bin's disk reads as that disk, though the crate copies across it.
-        // The upgrade is Coxswain's own put for a bin that copies (#997).
-        let top = path.ancestors().skip(1).take_while(|a| fs::metadata(a).is_ok_and(|m| m.dev() == dev)).last();
-        // SAFETY: getuid cannot fail.
-        top.is_some_and(|t| disk_bin(t, unsafe { libc::getuid() }, dev))
+        // ponytail: a bind mount of the home bin's disk reads as that disk, though a rename
+        // across it fails; Coxswain's own put then moves it file by file, refusing a pipe there
+        // after all (#997).
+        matches!(bin_of(path), Some(_))
     }
     #[cfg(not(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris")))))]
     {
         let _ = path;
         true
     }
+}
+
+/// Where a freedesktop.org put of `path` goes by a rename: `Some(true)` into the home bin (on its
+/// disk), `Some(false)` into the bin of its own disk; `None` when neither (it is not there, or
+/// its disk has no bin for this user), so it goes to the home bin from another disk.
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+fn bin_of(path: &Path) -> Option<bool> {
+    use std::os::unix::fs::MetadataExt;
+    let dev = fs::symlink_metadata(path).ok()?.dev();
+    // On the home bin's disk (its nearest folder that exists).
+    let home = crate::dirs::data_dir().map(|d| d.join("Trash"));
+    if home.is_some_and(|t| t.ancestors().find_map(|a| fs::metadata(a).ok()).is_some_and(|m| m.dev() == dev)) {
+        return Some(true);
+    }
+    // ponytail: the top is the highest folder on the same device, not the mount point the
+    // trash crate looks up; a nested btrfs subvolume reads as a disk of its own.
+    let top = path.ancestors().skip(1).take_while(|a| fs::metadata(a).is_ok_and(|m| m.dev() == dev)).last();
+    // SAFETY: getuid cannot fail.
+    top.is_some_and(|t| disk_bin(t, unsafe { libc::getuid() }, dev)).then_some(false)
+}
+
+/// Whether a put of `path` goes to the home bin, by Coxswain's own put: on the home bin's disk,
+/// or from another disk without a bin of its own. Otherwise the trash crate renames it into that
+/// disk's bin.
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+fn home_bin_put(path: &Path) -> bool {
+    bin_of(path) != Some(false)
 }
 
 /// Whether the disk whose top folder is `top` (device `dev`) has a bin for `uid`, as the trash
@@ -3054,24 +3106,24 @@ mod tests {
         fs::remove_dir_all(d).unwrap();
     }
 
-    /// What a bin that copies is not handed (#978): a link (to a folder it made empty files for
-    /// ever), a pipe, and a folder holding a pipe; a folder with a link inside goes.
+    /// What a put from another disk is not handed (#978): a pipe, and a folder holding one; a
+    /// link goes as a link (#997), alone or inside a folder.
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
     #[test]
-    fn a_bin_that_copies_is_not_handed_links_or_pipes() {
+    fn a_put_from_another_disk_is_not_handed_pipes() {
         use std::os::unix::ffi::OsStrExt;
         let d = tmp("bin-copies");
         mkdir(&d.join("dir")).unwrap();
         fs::write(d.join("dir/a.txt"), "a").unwrap();
         std::os::unix::fs::symlink(d.join("dir"), d.join("link")).unwrap();
         std::os::unix::fs::symlink("a.txt", d.join("dir/inner")).unwrap();
-        assert!(copies(&d.join("dir/a.txt"), true));
-        assert!(copies(&d.join("dir"), true), "a link inside is copied as a link");
-        assert!(!copies(&d.join("link"), true));
-        assert!(!copies(&d.join("nothing"), true));
+        assert!(copies(&d.join("dir/a.txt")));
+        assert!(copies(&d.join("dir")), "a link inside is moved as a link");
+        assert!(copies(&d.join("link")));
+        assert!(!copies(&d.join("nothing")));
         let pipe = std::ffi::CString::new(d.join("dir/pipe").as_os_str().as_bytes()).unwrap();
         assert_eq!(unsafe { libc::mkfifo(pipe.as_ptr(), 0o600) }, 0);
-        assert!(!copies(&d.join("dir"), true));
+        assert!(!copies(&d.join("dir")));
         // Where the bin takes it by a rename (the test home's disk), all of them still go.
         if trash_renames(&d.join("link")) {
             assert!(trash_takes(&[d.join("link"), d.join("dir")]));

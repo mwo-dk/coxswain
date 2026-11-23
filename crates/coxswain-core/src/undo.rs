@@ -116,9 +116,20 @@ pub fn trash_restores() -> bool {
         not(target_os = "solaris")
     )
 ))]
-fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
+fn restore(path: &Path, name: &Path, since: i64) -> io::Result<()> {
     use trash::os_limited;
     let want = comparable(path);
+    // Put in the home bin by Coxswain's own put, under this name (#997): that very item.
+    #[cfg(not(windows))]
+    if !name.as_os_str().is_empty()
+        && let Some(home) = crate::xdg_trash::dir()
+    {
+        let mut info = name.as_os_str().to_owned();
+        info.push(".trashinfo");
+        return restore_item(&home.join("info").join(info), &want);
+    }
+    #[cfg(windows)]
+    let _ = name;
     // ponytail: two trashings of one path within a second are told apart by nothing; the newest
     // listed wins.
     let item = os_limited::list()

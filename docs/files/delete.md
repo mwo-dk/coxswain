@@ -82,11 +82,16 @@ Not every file system has a trash the system can use. The error names the file. 
 **Shift+F8** to delete it for good, after checking.
 
 On FreeBSD, the other BSDs and Linux, a disk whose top folder you cannot write (a second disk
-mounted by the system, another ZFS dataset) has no bin of its own, and **F8** copies to the
-bin in your home folder instead. A link, a pipe, a socket or a device, and a folder that holds
-one of the last three, cannot be copied there. **F8** on one asks *No bin on this disk: delete …
-for good?* instead: **Yes** deletes it for good. Marked among other files, the others go to the
-bin and it stays where it is, named in the error.
+mounted by the system, another ZFS dataset) has no bin of its own, and **F8** moves it to the
+bin in your home folder instead, file by file as **F6** moves between disks: each file is
+copied, checked and only then removed, and a link goes as a link, never followed. The bin
+lists it from the start. **Esc** or **Stop**, or a file that cannot be moved, brings back what
+went over, so it is either in the bin whole or where it was. A pipe, a socket or a device, and
+a folder that holds one, cannot be moved there. **F8** on one asks *No bin on this disk:
+delete … for good?* instead: **Yes** deletes it for good. Marked among other files, the others
+go to the bin and it stays where it is, named in the error. The same holds for a folder
+mounted a second time from your home's disk (a container's or toolbox's bind mount), where a
+rename into the bin is refused too.
 
 #### Where do deleted files go on Linux?
 
@@ -132,8 +137,8 @@ arrives as a symbolic link, which Windows lets you make only with one of those.
 #### Can I stop a delete?
 
 Yes, between items: **Esc** on the progress line in the terminal app, **Stop** (or **Esc** on
-it) in the desktop app. The item it is on goes to the trash (or is deleted) as a whole, the
-rest stay, and the status line says `Stopped: 2 of 5 moved to the bin`; **Ctrl+Z** brings back
+it) in the desktop app. The item it is on goes to the trash (or is deleted) as a whole, or,
+when it was moving file by file from a disk without a bin, comes back whole; the rest stay, and the status line says `Stopped: 2 of 5 moved to the bin`; **Ctrl+Z** brings back
 from the trash the ones that went ([Stopping it](copy.md#stopping-it)).
 
 ---
