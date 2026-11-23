@@ -318,12 +318,19 @@ fn started(pid: u32) -> Option<Option<u64>> {
 /// user's process answers with EPERM.
 #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd", target_os = "illumos"))]
 fn unlisted(pid: u32) -> Option<Option<u64>> {
+    // Above i32::MAX kill() would ask for a process group: no process has such an id.
+    if pid > i32::MAX as u32 {
+        return None;
+    }
     let gone = unsafe { libc::kill(pid as libc::pid_t, 0) } != 0 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH);
     (!gone).then_some(None)
 }
 
-/// The BSDs: the process's `kinfo_proc` (NetBSD's `kinfo_proc2`) by sysctl, its start in
-/// microseconds since 1970, as on macOS.
+/// The BSDs: the process's `kinfo_proc` (NetBSD's `kinfo_proc2`) by sysctl. NetBSD keeps the
+/// start as the clock said at fork: microseconds since 1970, as on macOS. FreeBSD and OpenBSD
+/// add the boot time when asked, which moves whenever the clock is set (ntpd, `date`), so a live
+/// run would read another start than its name has: there it is counted from boot instead
+/// (FreeBSD in microseconds, OpenBSD in milliseconds).
 #[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
 fn started(pid: u32) -> Option<Option<u64>> {
     #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
@@ -331,13 +338,25 @@ fn started(pid: u32) -> Option<Option<u64>> {
     #[cfg(target_os = "netbsd")]
     type Info = libc::kinfo_proc2;
     let size = std::mem::size_of::<Info>();
-    let p = pid as libc::c_int;
+    let Ok(p) = libc::c_int::try_from(pid) else {
+        return None;
+    };
     #[cfg(target_os = "freebsd")]
     let (mib, end) = ([libc::CTL_KERN, libc::KERN_PROC, libc::KERN_PROC_PID, p], std::mem::offset_of!(Info, ki_start) + std::mem::size_of::<libc::timeval>());
     #[cfg(target_os = "netbsd")]
     let (mib, end) = ([libc::CTL_KERN, libc::KERN_PROC2, libc::KERN_PROC_PID, p, size as libc::c_int, 1], std::mem::offset_of!(Info, p_ustart_usec) + 4);
     #[cfg(target_os = "openbsd")]
     let (mib, end) = ([libc::CTL_KERN, libc::KERN_PROC, libc::KERN_PROC_PID, p, size as libc::c_int, 1], std::mem::offset_of!(Info, p_ustart_usec) + 4);
+    #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
+    let boot = || {
+        let mut t: libc::timeval = unsafe { std::mem::zeroed() };
+        let mut len = std::mem::size_of::<libc::timeval>();
+        let mib = [libc::CTL_KERN, libc::KERN_BOOTTIME];
+        let rc = unsafe { libc::sysctl(mib.as_ptr(), 2, (&raw mut t).cast(), &mut len, std::ptr::null_mut(), 0) };
+        (rc == 0 && len == std::mem::size_of::<libc::timeval>()).then(|| t.tv_sec as i64 * 1_000_000 + t.tv_usec as i64)
+    };
+    #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
+    let before = boot();
     let mut i: Info = unsafe { std::mem::zeroed() };
     let mut len = size;
     let rc = unsafe { libc::sysctl(mib.as_ptr(), mib.len() as libc::c_uint, (&raw mut i).cast(), &mut len, std::ptr::null_mut(), 0) };
@@ -352,15 +371,35 @@ fn started(pid: u32) -> Option<Option<u64>> {
     if len < end {
         return Some(None);
     }
+    // A record of another process (FreeBSD looks a large number up as a thread id), or one
+    // without its start (exiting, or NetBSD's lock taken), tells nothing.
     #[cfg(target_os = "freebsd")]
-    let (sec, usec) = (i.ki_start.tv_sec as u64, i.ki_start.tv_usec as u64);
+    let (own, sec, usec) = (i.ki_pid, i.ki_start.tv_sec as i64, i.ki_start.tv_usec as i64);
     #[cfg(not(target_os = "freebsd"))]
-    let (sec, usec) = (i.p_ustart_sec as u64, i.p_ustart_usec as u64);
-    Some(Some(sec * 1_000_000 + usec))
+    let (own, sec, usec) = (i.p_pid, i.p_ustart_sec as i64, i.p_ustart_usec as i64);
+    #[cfg(target_os = "freebsd")]
+    let valid = sec != 0;
+    #[cfg(not(target_os = "freebsd"))]
+    let valid = i.p_uvalid != 0;
+    if own != p || !valid {
+        return Some(None);
+    }
+    let start = sec * 1_000_000 + usec;
+    // The clock set between the two reads: the boot time is not the one the start was made with.
+    #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
+    let start = match before {
+        Some(b) if before == boot() => start - b,
+        _ => return Some(None),
+    };
+    // shortcut: OpenBSD rounds start+boot to microseconds after adding, so the difference can
+    // flip by 1 µs after a clock step; milliseconds make that rare, not impossible.
+    #[cfg(target_os = "openbsd")]
+    let start = start / 1000;
+    Some(u64::try_from(start).ok())
 }
 
 /// illumos: `pr_start` of the process's `/proc/<pid>/psinfo`, in microseconds since 1970, as on
-/// the BSDs and macOS.
+/// NetBSD and macOS.
 #[cfg(target_os = "illumos")]
 fn started(pid: u32) -> Option<Option<u64>> {
     match std::fs::read(format!("/proc/{pid}/psinfo")) {
@@ -914,7 +953,7 @@ def456 coxswain-media-20-500-1 exited
     }
 
     /// This process is alive by `started`, with a start, and one that cannot exist is gone.
-    /// Where the start is microseconds since 1970 (macOS, the BSDs, illumos), it is before now.
+    /// Where the start is microseconds since 1970 (macOS, NetBSD, illumos), it is before now.
     #[cfg(any(
         target_os = "linux",
         target_os = "android",
@@ -931,7 +970,7 @@ def456 coxswain-media-20-500-1 exited
         assert!(matches!(me, Some(Some(t)) if t > 0), "{me:?}");
         assert_eq!(me, super::started(std::process::id()));
         assert_eq!(super::started(u32::MAX - 1), None);
-        #[cfg(any(target_os = "macos", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd", target_os = "illumos"))]
+        #[cfg(any(target_os = "macos", target_os = "netbsd", target_os = "illumos"))]
         {
             let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_micros() as u64;
             let t = me.flatten().unwrap();
