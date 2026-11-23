@@ -1656,7 +1656,7 @@ pub fn find(query: &str, within: &dyn Fn(&Path) -> bool, max: usize) -> Vec<(Pat
             .into_iter()
             .filter_map(|i| {
                 let line = line_of(&table, &table.get(i, done.games)?);
-                Some(crate::index::Hit { path: done.source.clone(), is_dir: false, snippet: Some(marked(&line, &words)), similar: None, game: Some(i) })
+                Some(crate::index::Hit { path: done.source.clone(), is_dir: false, snippet: Some(marked(&line, &words)), similar: None, game: Some(i), away: None })
             })
             .collect();
         out.push((done.source.clone(), hits, n));

@@ -1996,11 +1996,17 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                         Mode::List { at, new } if here => {
                             lines.extend(pair(&label, "", head));
                             let items: Vec<&str> = value.as_array().map(|a| a.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
+                            // A folder read whose disk is not plugged in says so, and how many of its files can still be found.
+                            let roots = if o.name == "text_roots" { app.index.status().roots } else { vec![] };
                             for (j, item) in items.iter().enumerate() {
                                 if j == *at {
                                     cursor_line = lines.len();
                                 }
                                 lines.push(Line::from(Span::styled(fit(&format!("     − {}", fit_left(item, w.saturating_sub(7))), w), if j == *at { selected } else { base })));
+                                if let Some((_, _, (bytes, files))) = roots.iter().find(|(p, at, _)| at.is_none() && p == Path::new(item)) {
+                                    let away = t!("settings.search_root_away", "size" => coxswain_core::settings::human(*bytes), "files" => coxswain_core::tn!("preview.files", *files));
+                                    lines.push(Line::from(Span::styled(fit(&format!("       {away}"), w), base.add_modifier(Modifier::DIM))));
+                                }
                             }
                             let prompt = format!("     + {}: ", t!("settings.search_add"));
                             let field = fit_left(new, w.saturating_sub(prompt.width() + 1));

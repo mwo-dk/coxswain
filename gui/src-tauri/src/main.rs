@@ -1699,7 +1699,7 @@ async fn find(query: String, scope: Option<PathBuf>, chip: coxswain_core::find::
     tauri::async_runtime::spawn_blocking(move || {
         let kind = find::parse(&query).0.unwrap_or(chip);
         let rows = if kind == Kind::All { find::ALL_ROWS } else { cfg.max_results.min(GUI_MAX_HITS) };
-        let found = index.find(&query, scope.as_deref(), chip, rows);
+        let found = index.find(&query, scope.as_deref(), chip, rows, find::away_shown(&dismissed));
         let ask = find::ask_ready(&cfg).and_then(|_| ask_problem.map_or(Ok(()), |p| Err(Off::AskModel(p))));
         let slow = coxswain_core::setup::poor(&cfg, false).into_iter().find(|p| p.ask);
         let rows = find::rows(&query, chip, &found, ask.clone(), slow.as_ref(), |id| dismissed.iter().any(|d| d == id));
@@ -1709,10 +1709,19 @@ async fn find(query: String, scope: Option<PathBuf>, chip: coxswain_core::find::
             .iter()
             .map(|r| {
                 let mut v = serde_json::to_value(r).unwrap_or_default();
-                if let find::Row::Ask { off: Some(off) } | find::Row::Off { off, .. } = r {
-                    v["text"] = off.text().into();
-                    v["step"] = off.step().into();
-                    v["dismiss"] = off.dismiss_id().into();
+                match r {
+                    find::Row::Ask { off: Some(off) } | find::Row::Off { off, .. } => {
+                        v["text"] = off.text().into();
+                        v["step"] = off.step().into();
+                        v["dismiss"] = off.dismiss_id().into();
+                    }
+                    find::Row::Away { disks, hidden } => v["text"] = find::away_text(disks, *hidden).into(),
+                    find::Row::Hit { hit, .. } => {
+                        if let Some(away) = &hit.away {
+                            v["hit"]["mark"] = away.mark().into();
+                        }
+                    }
+                    _ => {}
                 }
                 v
             })
@@ -1721,6 +1730,19 @@ async fn find(query: String, scope: Option<PathBuf>, chip: coxswain_core::find::
     })
     .await
     .map_err(|e| e.to_string())
+}
+
+/// Enter on Find's line of disks that are not plugged in: their hits hidden, or shown again.
+#[tauri::command(async)]
+fn find_away(ctx: tauri::State<Ctx>) -> Res<()> {
+    ctx.edit(coxswain_core::find::toggle_away)
+}
+
+/// Where a hit of Find or a source of Ask opens: on a disk that is not plugged in, where the
+/// disk is mounted now, or the error "Plug in BACKUP1 to open this file".
+#[tauri::command(async)]
+fn hit_place(path: PathBuf, away: Option<coxswain_core::store::Away>) -> Res<PathBuf> {
+    coxswain_core::find::place(&coxswain_core::index::Hit { path, away, ..Default::default() })
 }
 
 /// "Read this folder too": `dir` added to the folders whose text is read; the helper starts again.
@@ -1739,7 +1761,8 @@ async fn find_read_too(dir: PathBuf, ctx: tauri::State<'_, Ctx>) -> Res<UiConfig
 #[derive(Clone, Serialize)]
 #[serde(tag = "k", rename_all = "snake_case")]
 enum AskEvent {
-    Sources { paths: Vec<PathBuf>, similar: Vec<usize>, read: String },
+    /// `away`: each source's disk when it is not plugged in, with its mark.
+    Sources { paths: Vec<PathBuf>, similar: Vec<usize>, read: String, away: Vec<Option<(coxswain_core::store::Away, String)>> },
     Piece { text: String },
 }
 
@@ -1750,12 +1773,15 @@ enum AskEvent {
 async fn ask(question: String, earlier: Vec<(String, String)>, scope: Option<PathBuf>, here: PathBuf, on_event: tauri::ipc::Channel<AskEvent>, ctx: tauri::State<'_, Ctx>) -> Res<()> {
     use std::sync::atomic::Ordering;
     let (index, cfg, asking) = (ctx.index.clone(), ctx.cfg().search.clone(), ctx.asking.clone());
+    let away = coxswain_core::find::away_shown(&ctx.state.lock().map_err(|e| e.to_string())?.notices_dismissed);
     let me = asking.fetch_add(1, Ordering::SeqCst) + 1;
     tauri::async_runtime::spawn_blocking(move || {
         // The chat model loads while the sources are looked up.
         coxswain_core::meaning::warm(&cfg);
-        let (sources, similar) = coxswain_core::ask::sources(|q, s, b| index.passages(q, s, b), &cfg, &earlier, &question, scope.as_deref(), &here)?;
-        let _ = on_event.send(AskEvent::Sources { paths: sources.iter().map(|(p, _)| p.clone()).collect(), similar, read: coxswain_core::ask::read(&sources) });
+        let (sources, similar) = coxswain_core::ask::sources(|q, s, b| index.passages(q, s, b, away), &cfg, &earlier, &question, scope.as_deref(), &here)?;
+        let paths: Vec<PathBuf> = sources.iter().map(|(p, _)| p.clone()).collect();
+        let away = index.away(&paths).into_iter().map(|a| a.map(|a| { let mark = a.mark(); (a, mark) })).collect();
+        let _ = on_event.send(AskEvent::Sources { paths, similar, read: coxswain_core::ask::read(&sources), away });
         // Stopped while searching: the model is not asked (a request it would work on alone).
         if asking.load(Ordering::SeqCst) != me {
             return Ok(());
@@ -3145,7 +3171,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(refuse_in_pick_mode(picking, tauri::generate_handler![
-            get_config, action_menu, hint, enter_on, hint_once, action_ran, hints_reset, notices, dismiss_notice, changes, read_changes, set_title, quit_asking, quit_cancelled, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, terminals, git_config, places, disks, get_state, repos, repo_edit, save_session, save_favorites, set_tags, set_note, get_note, bin_summary, bin_question, bin_restore, bin_delete, bin_empty, bin_finder,
+            get_config, action_menu, hint, enter_on, hint_once, action_ran, hints_reset, notices, dismiss_notice, find_away, hit_place, changes, read_changes, set_title, quit_asking, quit_cancelled, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, terminals, git_config, places, disks, get_state, repos, repo_edit, save_session, save_favorites, set_tags, set_note, get_note, bin_summary, bin_question, bin_restore, bin_delete, bin_empty, bin_finder,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, folder_to_add, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, replace::replace_plan, replace::replace_apply, replace::replace_progress, replace::replace_stop, attrs::attrs_plan, attrs::attrs_apply, attrs::attrs_progress, attrs::attrs_stop, folders_sync::sync_check, folders_sync::sync_plan, folders_sync::sync_apply, folders_sync::sync_progress, folders_sync::sync_stop, undo, undo_next, open_path, suggest_translation, edit_path, edit_open, edit_save, compare::compare_open, compare::compare_close, compare::compare_state, compare::compare_rows, compare::compare_hex, compare::compare_next, compare::compare_take, compare::compare_undo, compare::compare_save, compare::folders_open, compare::folders_close, compare::folders_state, compare::folders_states, compare::folders_diff_only, compare::folders_ahead, open_keys, open_config_at, scripts_folder,
             plain_error, viewer_detect, module_notice, git_blame, git_line_history, git_lines_cancel, git_lines_here,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_has_password, archive_peek, archive_beside, archive_unpack_beside, asset::inside_forget, disk_image_facts, cloud_fetch, properties, set_flags, set_permissions,

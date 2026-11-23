@@ -169,6 +169,9 @@ pub struct Found {
     pub about: Group,
     pub history: Group,
     pub off: Vec<Off>,
+    /// The names of the disks that are not plugged in, when their hits were left out.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub away: Vec<String>,
 }
 
 impl Found {
@@ -354,7 +357,8 @@ pub fn fused(words: Words, meaning: &[Hit], w: Weights) -> Vec<Hit> {
 
 /// What Find looks for: names from `names`, words and meaning from `store` (or why there is
 /// none), below `scope` when given, `rows` hits per group at most. `text_roots`: the folders
-/// whose text is read.
+/// whose text is read. `away`: with the hits on disks that are not plugged in.
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     names: impl FnOnce(&str, usize) -> Results,
     store: Result<&Store, Off>,
@@ -363,6 +367,7 @@ pub fn run(
     scope: Option<&Path>,
     kind: Kind,
     rows: usize,
+    away: bool,
 ) -> Found {
     let (prefix, q) = parse(query);
     let kind = prefix.unwrap_or(kind);
@@ -390,11 +395,22 @@ pub fn run(
         let rest: Vec<Hit> = r.hits.into_iter().filter(|h| !models.iter().any(|m| m.path == h.path)).collect();
         let mut hits = models;
         hits.extend(rest);
+        // The files of disks that are not plugged in, by the names the store kept, after those
+        // on disk.
+        let (kept, gone) = match &store {
+            Ok(s) if away => s.away_names(q, scope, rows),
+            _ => (vec![], 0),
+        };
+        let gone = gone - kept.iter().filter(|a| hits.iter().any(|h| h.path == a.path)).count();
+        hits.extend(kept.into_iter().filter(|a| !hits.iter().any(|h| h.path == a.path)).collect::<Vec<_>>());
         hits.truncate(rows.max(new));
         found.names = Group {
             hits,
-            total: r.total + new,
+            total: r.total + new + gone,
         };
+    }
+    if !away && let Ok(s) = &store {
+        found.away = s.away_labels();
     }
     if kind == Kind::Names || kind == Kind::All && syntax {
         return found;
@@ -419,10 +435,10 @@ pub fn run(
     let (words, every) = if kind == Kind::About {
         Default::default()
     } else {
-        store.search_words(q, scope, deep)
+        store.search_words_with(q, scope, deep, away)
     };
     let meaning = if store.meaning.load(std::sync::atomic::Ordering::Relaxed) {
-        store.similar(q, scope, deep)
+        store.similar_with(q, scope, deep, away)
     } else {
         found.off.push(Off::MeaningOff);
         vec![]
@@ -534,6 +550,11 @@ pub enum Row {
         group: GroupId,
         off: Off,
     },
+    /// Hits on disks that are not plugged in (their names), shown or `hidden`: Enter turns it.
+    Away {
+        disks: Vec<String>,
+        hidden: bool,
+    },
 }
 
 impl Row {
@@ -541,6 +562,37 @@ impl Row {
     pub fn selectable(&self) -> bool {
         !matches!(self, Row::Head { .. })
     }
+}
+
+/// The id, among the notices dismissed, under which hits on disks that are not plugged in are
+/// hidden.
+pub const AWAY_HIDDEN: &str = "find-away";
+
+/// Whether the hits on disks that are not plugged in are shown, by the notices dismissed: what
+/// the apps ask `run` for.
+pub fn away_shown(dismissed: &[String]) -> bool {
+    !dismissed.iter().any(|d| d == AWAY_HIDDEN)
+}
+
+/// The line of `Row::Away`: whose hits, and what Enter does.
+pub fn away_text(disks: &[String], hidden: bool) -> String {
+    let disks = disks.join(", ");
+    t!(if hidden { "find.away_hidden" } else { "find.away_shown" }, "disks" => disks)
+}
+
+/// Enter on `Row::Away`: hits on disks that are not plugged in hidden, or shown again.
+pub fn toggle_away(st: &mut crate::state::AppState) {
+    if st.notices_dismissed.iter().any(|d| d == AWAY_HIDDEN) {
+        st.notices_dismissed.retain(|d| d != AWAY_HIDDEN);
+    } else {
+        crate::notices::dismiss(st, AWAY_HIDDEN);
+    }
+}
+
+/// Where a hit opens: its path; a hit on a disk that is not plugged in, where the disk is now,
+/// or what to say while it is away (`Away::open`).
+pub fn place(hit: &Hit) -> Result<PathBuf, String> {
+    hit.away.as_ref().map_or_else(|| Ok(hit.path.clone()), |a| a.open(&hit.path))
 }
 
 /// In *All*, each group shows this many hits; the rest are a Tab away.
@@ -582,8 +634,17 @@ pub fn rows(
         Kind::InFiles => matches!(g, GroupId::InFiles | GroupId::History),
         _ => g.kind() == kind,
     };
+    // The disks that are not plugged in: those with hits listed, or, with their hits left out
+    // (`run`'s `away`), every one.
+    let hidden = !found.away.is_empty();
+    let mut disks: Vec<String> = found.away.clone();
     for g in order(shape).into_iter().filter(|g| wanted(*g)) {
         let group = found.group(g);
+        for a in group.hits.iter().filter_map(|h| h.away.as_ref()) {
+            if !disks.contains(&a.label) {
+                disks.push(a.label.clone());
+            }
+        }
         let mut hits = group.hits.iter();
         if group.hits.is_empty() {
             // Why the group is empty: the reasons that belong to it.
@@ -626,6 +687,9 @@ pub fn rows(
                 n: group.total - shown,
             });
         }
+    }
+    if !disks.is_empty() {
+        out.push(Row::Away { disks, hidden });
     }
     out
 }
@@ -734,6 +798,7 @@ mod tests {
             snippet: Some(p.into()),
             similar: None,
             game: None,
+            away: None,
         }
     }
 
@@ -817,6 +882,42 @@ mod tests {
         // Ties keep the word order.
         let (in_files, ..) = fuse(all(&words), &[], WEIGHTS);
         assert_eq!(paths(&in_files), ["/a", "/b", "/c"]);
+    }
+
+    /// Hits on a disk that is not plugged in are listed, with a line naming the disk that hides
+    /// them; hidden, the line stays to show them again.
+    #[test]
+    fn find_rows_mark_and_hide_hits_on_away_disks() {
+        let away = |p: &str, label: &str| Hit {
+            away: Some(crate::store::Away { label: label.into(), disk: None }),
+            ..hit(p)
+        };
+        let found = Found {
+            names: Group { hits: vec![hit("/n"), away("/b/n", "BACKUP1")], total: 2 },
+            in_files: Group { hits: vec![away("/b/w", "BACKUP1"), away("/c/w", "OLD")], total: 2 },
+            ..Found::default()
+        };
+        let hits = |r: &[Row]| r.iter().filter(|r| matches!(r, Row::Hit { .. })).count();
+        let shown = rows("rocket", Kind::All, &found, Ok(()), None, |_| false);
+        assert_eq!(hits(&shown), 4);
+        assert_eq!(shown.last(), Some(&Row::Away { disks: vec!["BACKUP1".into(), "OLD".into()], hidden: false }));
+        // Hidden, the store left them out (`run`'s `away`) and named the disks away.
+        let left_out = Found {
+            names: Group { hits: vec![hit("/n")], total: 1 },
+            away: vec!["BACKUP1".into(), "OLD".into()],
+            ..Found::default()
+        };
+        let hidden = rows("rocket", Kind::All, &left_out, Ok(()), None, |_| false);
+        assert_eq!(hits(&hidden), 1, "only the hit on disk");
+        assert_eq!(hidden.last(), Some(&Row::Away { disks: vec!["BACKUP1".into(), "OLD".into()], hidden: true }));
+        assert!(away_shown(&[]) && !away_shown(&[AWAY_HIDDEN.to_string()]));
+        assert!(away_text(&["BACKUP1".into()], true).contains("BACKUP1"));
+        // Enter on the line turns it, and again back.
+        let mut st = crate::state::AppState::default();
+        toggle_away(&mut st);
+        assert!(st.notices_dismissed.iter().any(|d| d == AWAY_HIDDEN));
+        toggle_away(&mut st);
+        assert!(!st.notices_dismissed.iter().any(|d| d == AWAY_HIDDEN));
     }
 
     #[test]

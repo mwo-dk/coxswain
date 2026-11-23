@@ -6,7 +6,7 @@
   import { tick, untrack } from "svelte";
   import { ui, setPreviewTool, setTheme, themeIds, themeName, tab, showInTab, keysOf } from "./app.svelte.js";
   import { invoke, size, parent, without, setModulesOff } from "./lib.js";
-  import { t, setLanguage } from "./i18n.svelte.js";
+  import { t, tn, setLanguage } from "./i18n.svelte.js";
   import CopyLine from "./CopyLine.svelte";
   import derafsh from "../../docs/flags/derafsh.svg?url";
 
@@ -221,8 +221,8 @@
   const rootInfo = (dir) => {
     const r = index?.roots?.find(([p]) => p === dir);
     if (!r) return "";
-    const [, at, [bytes]] = r;
-    return at ? t("settings.search_root_size", { size: size(bytes) }) : t("settings.search_root_away", { size: size(bytes) });
+    const [, at, [bytes, files]] = r;
+    return at ? t("settings.search_root_size", { size: size(bytes) }) : t("settings.search_root_away", { size: size(bytes), files: tn("preview.files", files) });
   };
   async function addFolder(name, input) {
     const dir = await invoke("folder_to_add", { panel: tab()?.dir ?? ui.cfg.home, input: input ?? "" });

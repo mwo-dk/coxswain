@@ -161,7 +161,7 @@
     const events = new Channel();
     events.onmessage = (e) => {
       if (ui.modal !== m) return void invoke("ask_stop");
-      if (e.k === "sources") Object.assign(turn, { sources: e.paths, similar: e.similar ?? [], read: e.read });
+      if (e.k === "sources") Object.assign(turn, { sources: e.paths, similar: e.similar ?? [], read: e.read, away: e.away ?? [] });
       else turn.a += e.text;
       // Follows the answer down, unless you scrolled up to read something.
       const end = !listEl || listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 40;
@@ -210,10 +210,31 @@
     else if (r.row === "ask" && !r.off) askNow(m);
     else if (r.row === "slow") takeBetter(r.poor);
     else if (r.row === "more") refind(m, { chip: { names: "names", in_files: "in_files", history: "in_files", about: "about" }[r.group] });
+    else if (r.row === "away") {
+      // The cursor stays on the line, where Enter turns it back.
+      invoke("find_away")
+        .then(runSearch)
+        .then(() => {
+          const at = m.out?.rows?.findIndex((x) => x.row === "away") ?? -1;
+          if (at >= 0) m.cursor = at;
+        }, (e) => (ui.status = String(e)));
+    }
     else if (r.off) findStep(m, r.off);
   }
 
+  /** Where a hit opens: on a disk that is not plugged in, where the disk is now; while it is
+   *  away, null, and the status line says to plug it in. */
+  async function hitPlace(h) {
+    if (!h.away) return h.path;
+    return invoke("hit_place", { path: h.path, away: h.away }).catch((e) => ((ui.status = String(e)), null));
+  }
+  /** An Ask source as a hit: its path, and its disk when that is not plugged in. */
+  const sourceHit = (c, i) => ({ path: c.sources[i], away: c.away?.[i]?.[0] });
+
   async function goToHit(h) {
+    const path = await hitPlace(h);
+    if (!path) return;
+    h = { ...h, path };
     close();
     const tb = tab();
     // A commit: its folder as it was then.
@@ -428,7 +449,8 @@
 
   /** Find's files, for Find and replace: those it lists, what was searched in them typed in. */
   function replaceFound(m) {
-    const files = [...new Set((m.out?.rows ?? []).filter((r) => r.row === "hit" && !r.hit.is_dir && !isHistory(r.hit.path)).map((r) => r.hit.path))];
+    // Not those on a disk that is not plugged in: they cannot be changed.
+    const files = [...new Set((m.out?.rows ?? []).filter((r) => r.row === "hit" && !r.hit.is_dir && !r.hit.away && !isHistory(r.hit.path)).map((r) => r.hit.path))];
     const text = m.chip === "in_files" || prefix(m.query).kind === "in_files";
     const dirs = files.map(parent);
     let base = dirs[0] ?? "";
@@ -524,17 +546,20 @@
       refind(m, { chip, query: prefix(m.query).rest, show: chip === "ask" ? "answer" : "list" });
     } else if (k === "Enter" && answer) {
       if (question) askNow(m);
-      else if (src[m.cursor]) goToHit({ path: src[m.cursor] });
+      else if (src[m.cursor]) goToHit(sourceHit(m.chat.at(-1), m.cursor));
     } else if (k === "Enter") enterRow(m, rows[m.cursor]);
     else if (answer && k === "Up") m.cursor = Math.max(0, m.cursor - 1);
     else if (answer && k === "Down") m.cursor = Math.min(src.length - 1, m.cursor + 1);
     else if (k === "Up" || k === "Down" || k === "PageUp" || k === "PageDown") m.cursor = step(rows, m.cursor, { Up: -1, Down: 1, PageUp: -15, PageDown: 15 }[k]);
     else if (act === "edit" || act === "edit_here") {
-      const p = answer ? src[m.cursor] : rows[m.cursor]?.row === "hit" && !rows[m.cursor].hit.is_dir ? rows[m.cursor].hit.path : null;
-      if (!p || isHistory(p)) return true;
-      // The built-in editor over the search, which comes back as it was when it closes.
-      if (act === "edit_here") ui.modal = { kind: "editor", path: p, back: m };
-      else invoke("edit_path", { path: p }).catch((err) => (ui.status = String(err)));
+      const h = answer ? (src[m.cursor] ? sourceHit(m.chat.at(-1), m.cursor) : null) : rows[m.cursor]?.row === "hit" && !rows[m.cursor].hit.is_dir ? rows[m.cursor].hit : null;
+      if (!h || isHistory(h.path)) return true;
+      hitPlace(h).then((p) => {
+        if (!p) return;
+        // The built-in editor over the search, which comes back as it was when it closes.
+        if (act === "edit_here") ui.modal = { kind: "editor", path: p, back: m };
+        else invoke("edit_path", { path: p }).catch((err) => (ui.status = String(err)));
+      });
     } else if (k === "Delete" && rows[m.cursor]?.dismiss && e.target?.selectionStart === m.query.length) dismissRow(m, rows[m.cursor]);
     else return false;
     return true;
@@ -918,7 +943,7 @@
             {#each m.chat ?? [] as c, ci (ci)}
               <p class="question" dir="auto">{c.q}</p>
               <p class="answer" dir="auto">
-                {#each cited(c.a) as { part, n }, pi (pi)}{#if n && c.sources[n - 1]}<button class="cite" title={c.sources[n - 1]} onclick={() => goToHit({ path: c.sources[n - 1] })}>{part}</button>{:else}{part}{/if}{/each}{#if m.asking && ci === m.chat.length - 1}<span class="typing">▍</span>{/if}
+                {#each cited(c.a) as { part, n }, pi (pi)}{#if n && c.sources[n - 1]}<button class="cite" title={c.sources[n - 1]} onclick={() => goToHit(sourceHit(c, n - 1))}>{part}</button>{:else}{part}{/if}{/each}{#if m.asking && ci === m.chat.length - 1}<span class="typing">▍</span>{/if}
               </p>
               {#if m.asking && ci === m.chat.length - 1 && !c.a && c.sources.length}<p class="meta">{t("dialogs.ask_waiting", { model: ui.cfg.ask_name })}</p>{/if}
               {#if c.error}<p class="err">{c.error}</p>{/if}
@@ -926,7 +951,7 @@
                 {#if c.read}<p class="meta">{c.read}</p>{/if}
                 <ol class="sources">
                   {#each c.sources as src, i (i)}
-                    <li><button class:cursor={ci === m.chat.length - 1 && i === m.cursor} onclick={() => goToHit({ path: src })}><b>{basename(src)}</b> <span class="where"><bdi>{parent(src)}</bdi></span>{#if c.similar?.[i]} <span class="where">{tn("ask.similar_files", c.similar[i])}</span>{/if}</button></li>
+                    <li><button class:cursor={ci === m.chat.length - 1 && i === m.cursor} onclick={() => goToHit(sourceHit(c, i))}><b>{basename(src)}</b> <span class="where"><bdi>{parent(src)}</bdi></span>{#if c.away?.[i]} <span class="away">{c.away[i][1]}</span>{/if}{#if c.similar?.[i]} <span class="where">{tn("ask.similar_files", c.similar[i])}</span>{/if}</button></li>
                   {/each}
                 </ol>
               {/if}
@@ -960,6 +985,8 @@
                   <button class="link step" onclick={() => takeBetter(r.poor)}>{r.poor.button ?? t("find.step_settings")}</button>
                 {:else if r.row === "more"}
                   <button class="more" class:cursor={i === m.cursor} onclick={() => enterRow(m, r)}>{t("find.more", { n: num(r.n) })}</button>
+                {:else if r.row === "away"}
+                  <button class="more" class:cursor={i === m.cursor} onclick={() => enterRow(m, r)}>{r.text}</button>
                 {:else if r.row === "off"}
                   <span class="offtext" class:cursor={i === m.cursor}>{r.text}</span>
                   <button class="link step" onclick={() => findStep(m, r.off)}>{r.step}</button>
@@ -977,6 +1004,7 @@
                       <b>{basename(h.path)}</b>
                       <span class="where"><bdi>{parent(h.path)}</bdi></span>
                     {/if}
+                    {#if h.mark}<span class="away">{h.mark}</span>{/if}
                     {#if h.similar != null}<span class="snippet about" dir="auto">{h.snippet}</span>
                     {:else if h.snippet}<span class="snippet" dir="auto">{@html marked(h.snippet)}</span>{/if}
                   </button>
@@ -1627,6 +1655,16 @@
   }
   .hits .x {
     color: var(--hidden-fg);
+  }
+  /* A hit or a source on a disk that is not plugged in: "on BACKUP1 — not plugged in". */
+  .away {
+    flex: none;
+    padding: 0 0.4em;
+    border-radius: 0.3em;
+    border: 1px solid var(--hidden-fg);
+    color: var(--hidden-fg);
+    font-size: 0.8em;
+    white-space: nowrap;
   }
   .hits .more {
     color: var(--hidden-fg);
