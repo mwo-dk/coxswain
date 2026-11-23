@@ -525,7 +525,8 @@ pub(crate) fn find<R: Read + Seek>(
     name: &str,
 ) -> io::Result<Option<(Listing, usize)>> {
     let l = read_keeping(file, &mut |n| n == name)?;
-    let i = l.entries.iter().position(|e| !e.dir);
+    // A name given twice: its later file, as an extract leaves it.
+    let i = l.entries.iter().rposition(|e| !e.dir);
     Ok(i.map(|i| (l, i)))
 }
 

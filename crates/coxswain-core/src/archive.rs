@@ -1215,12 +1215,17 @@ const NOT_SHARED: u32 = 0o022;
 
 /// A tar's files, hard links and folders into `to`, as `tar::Archive::unpack` does, its
 /// folders last so a read-only one does not keep out what is in it. Symbolic links (which may
-/// point anywhere, and need a right of their own on Windows) and devices are left out.
+/// point anywhere, and need a right of their own on Windows) and devices are left out. A name
+/// given twice keeps the later file; names that differ only in case (or Unicode form) on a file
+/// system that ignores those are both kept, the later as `name (2).ext`, as `copy_entries` does.
 fn unpack_tar(mut tar: tar::Archive<Box<dyn Read>>, to: &Path) -> io::Result<()> {
     tar.set_mask(NOT_SHARED);
     // Long paths on Windows: `\\?\` in front, as the crate does.
     let to = &to.canonicalize().unwrap_or_else(|_| to.to_path_buf());
     let mut dirs = vec![];
+    // The files written, by the path asked for and the one taken, and those paths folded.
+    let mut written = std::collections::HashMap::<PathBuf, PathBuf>::new();
+    let mut folded = std::collections::HashSet::<String>::new();
     for e in tar.entries()? {
         let mut e = e?;
         let t = e.header().entry_type();
@@ -1229,19 +1234,37 @@ fn unpack_tar(mut tar: tar::Archive<Box<dyn Read>>, to: &Path) -> io::Result<()>
         }
         if t.is_dir() {
             dirs.push(e);
-        } else if (t.is_file() || t.is_gnu_sparse() || t.is_hard_link())
-            && let Err(err) = e.unpack_in(to)
-        {
-            // Stopped inside it: the file half written goes (only a plain name below `to`,
-            // which was made empty for this).
-            if crate::stop::asked()
-                && let Ok(p) = e.path()
-                && p.components().all(|c| matches!(c, std::path::Component::Normal(_)))
-                && std::fs::symlink_metadata(to.join(&p)).is_ok_and(|m| m.is_file())
-            {
-                let _ = std::fs::remove_file(to.join(&p));
+        } else if t.is_file() || t.is_gnu_sparse() || t.is_hard_link() {
+            // Only a plain name below `to` (which was made empty for this) is placed here; the
+            // crate refuses the rest.
+            let asked = e.path().ok().filter(|p| p.components().all(|c| matches!(c, std::path::Component::Normal(_)))).map(|p| to.join(p));
+            let took = asked.as_ref().map(|asked| match written.get(asked) {
+                Some(took) => took.clone(),
+                // Only its case differs from a file written here, and the disk sees one file.
+                None if !t.is_hard_link() && folded.contains(&fold(asked)) && std::fs::symlink_metadata(asked).is_ok() => {
+                    crate::fs::free_name(asked.parent().unwrap_or(to), &asked.file_name().unwrap_or_default().to_string_lossy())
+                }
+                None => asked.clone(),
+            });
+            let r = match (&asked, &took) {
+                (Some(asked), Some(took)) if took != asked => e.unpack(took).map(drop),
+                _ => e.unpack_in(to).map(drop),
+            };
+            if let Err(err) = r {
+                // Stopped inside it: the file half written goes.
+                if crate::stop::asked()
+                    && let Some(took) = &took
+                    && std::fs::symlink_metadata(took).is_ok_and(|m| m.is_file())
+                {
+                    let _ = std::fs::remove_file(took);
+                }
+                return Err(err);
             }
-            return Err(err);
+            if let (Some(asked), Some(took)) = (asked, took) {
+                folded.insert(fold(&asked));
+                folded.insert(fold(&took));
+                written.insert(asked, took);
+            }
         }
     }
     dirs.sort_by(|a, b| b.path_bytes().cmp(&a.path_bytes()));
@@ -1643,19 +1666,21 @@ fn in_place(archive: &Path, name: &str) -> io::Result<Option<(PathBuf, u64, u64)
     let range = match kind(archive) {
         Some(Kind::Zip) => {
             let mut f = BufReader::new(open_raw(archive)?);
-            match crate::zip_dir::find(&mut f, name) {
+            match crate::zip_dir::find(&mut f, name, listed_twice(archive, &|n| n == name)?) {
                 Ok(Some(c)) => c.stored(&mut f)?,
                 _ => None,
             }
         }
         Some(Kind::Tar(Pack::None)) if window_of(archive).is_none() => {
             let mut found = None;
+            // A name given twice: its later file, so all headers are read then.
+            let twice = listed_twice(archive, &|n| n == name)?;
             tar_named(
                 tar::Archive::new(BufReader::new(File::open(archive)?)).entries_with_seek()?,
                 |n, _, e| {
                     if n == name && e.header().entry_type().is_file() {
                         found = Some((e.raw_file_position(), e.size()));
-                        return Ok(false);
+                        return Ok(twice);
                     }
                     Ok(true)
                 },
@@ -2920,7 +2945,10 @@ fn entry_of(path: &Path) -> io::Result<(PathBuf, String, Item, Held)> {
         io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.not_in_archive"))
     })?;
     let (archive, inner, held) = resolve(&archive, &inner, false)?;
-    let it = items(&archive)?.iter().find(|it| it.name == inner).map(ItemRef::owned).ok_or_else(|| {
+    // A name given twice: its later file, as every way one file comes out reads it.
+    let all = items(&archive)?;
+    let file = all.iter().filter(|it| it.name == inner && !it.dir && !it.link).last();
+    let it = file.or_else(|| all.iter().find(|it| it.name == inner)).map(ItemRef::owned).ok_or_else(|| {
         io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_the_archive", "name" => inner))
     })?;
     if it.dir {
@@ -3213,8 +3241,9 @@ struct Copy<'a> {
     unchecked: bool,
     /// Only the entries it names come out, the rest are read past (`copy_out_files`).
     only: Option<&'a std::collections::HashSet<String>>,
-    /// Told each file written whole.
-    wrote: Option<&'a dyn Fn(&Path)>,
+    /// Told each file written whole: the path asked for, and the one it took (`name (2)` beside
+    /// a name that differs only in case, on a file system that ignores it).
+    wrote: Option<&'a dyn Fn(&Path, &Path)>,
 }
 
 impl Default for Copy<'_> {
@@ -3305,7 +3334,6 @@ fn copy_entries(
             None if std::fs::symlink_metadata(path).is_err() => path,
             // Only its case (or Unicode form) differs from one written here, on a file system
             // that ignores those: both kept, the later as `name (2).ext`, as a copy keeps both.
-            // shortcut: a program's permission bits go to the name asked for, not `name (2)` (#994).
             None if folded.borrow().contains(&fold(path)) => {
                 let name = path.file_name().unwrap_or_default().to_string_lossy();
                 free = crate::fs::free_name(path.parent().unwrap_or(Path::new("")), &name);
@@ -3349,11 +3377,14 @@ fn copy_entries(
             folded.borrow_mut().insert(fold(path));
             out.set(out.get() + 1);
             if let Some(wrote) = how.wrote {
-                wrote(path);
+                wrote(asked, path);
             }
         }
         Ok(())
     };
+    // The path a file asked for at `path` was written to: `name (2)` where only its case differs.
+    #[cfg(unix)]
+    let took = |path: &Path| written.borrow().get(path).cloned().unwrap_or_else(|| path.to_path_buf());
     let k = kind(archive).ok_or_else(|| not_archive(archive))?;
     if k == Kind::Image {
         // Folders made here, files read out of their layers, each layer once at most.
@@ -3375,7 +3406,7 @@ fn copy_entries(
         // A script stays one; nothing but the permission bits is taken.
         #[cfg(unix)]
         for (_, path, mode, _) in files.iter().filter(|(_, _, m, _)| how.head.is_none() && m & 0o111 != 0) {
-            std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(mode & 0o755))?;
+            std::fs::set_permissions(took(path), std::os::unix::fs::PermissionsExt::from_mode(mode & 0o755))?;
         }
         return Ok(());
     }
@@ -3463,7 +3494,7 @@ fn copy_entries(
                 // A program stays one; nothing but the permission bits is taken.
                 #[cfg(unix)]
                 if how.head.is_none() && e.mode & 0o111 != 0 {
-                    std::fs::set_permissions(&path, std::os::unix::fs::PermissionsExt::from_mode(e.mode & 0o755))?;
+                    std::fs::set_permissions(took(&path), std::os::unix::fs::PermissionsExt::from_mode(e.mode & 0o755))?;
                 }
                 // The one file asked for is out: nothing after it is read.
                 done = e.name == inner;
@@ -3479,7 +3510,7 @@ fn copy_entries(
         // One file, not locked: found in the directory as it is gone through, and unpacked from
         // its place, without building the whole directory (`zip_dir`).
         let mut file = BufReader::new(Joined::open(archive)?);
-        let one = match (!inner.is_empty()).then(|| crate::zip_dir::find(&mut file, inner)) {
+        let one = match (!inner.is_empty()).then(|| crate::zip_dir::find(&mut file, inner, listed_twice(archive, &|n| n == inner)?)) {
             Some(Ok(c)) => c.filter(|c| !c.encrypted()),
             Some(Err(e)) if !crate::zip_dir::is_unsure(&e) => return Err(e),
             _ => None,
@@ -3501,7 +3532,7 @@ fn copy_entries(
             #[cfg(unix)]
             if let Some(m) = c.unix_mode().filter(|m| how.head.is_none() && m & 0o111 != 0) {
                 std::fs::set_permissions(
-                    &path,
+                    took(&path),
                     std::os::unix::fs::PermissionsExt::from_mode(m & 0o777 & !NOT_SHARED),
                 )?;
             }
@@ -3579,7 +3610,7 @@ fn copy_entries(
             #[cfg(unix)]
             if let Some(m) = mode.filter(|m| how.head.is_none() && m & 0o111 != 0) {
                 std::fs::set_permissions(
-                    &path,
+                    took(&path),
                     std::os::unix::fs::PermissionsExt::from_mode(m & 0o777 & !NOT_SHARED),
                 )?;
             }
@@ -3618,6 +3649,8 @@ fn copy_entries(
         let mut r = seven(archive, password)?;
         let locked = seven_locked(r.archive());
         let mut failed = None;
+        // Files named `inner` its block gives before the one asked for (its last): read past.
+        let past = std::cell::Cell::new(0usize);
         let mut each = |e: &sevenz_rust2::ArchiveEntry,
                         from: &mut dyn Read|
          -> Result<bool, sevenz_rust2::Error> {
@@ -3625,9 +3658,11 @@ fn copy_entries(
                 return Ok(false);
             }
             let name = e.name.replace('\\', "/").trim_end_matches('/').to_string();
+            let earlier = !e.is_directory && name == inner && past.get() > 0;
+            past.set(past.get() - usize::from(earlier));
             // Read past, not skipped: in a solid 7z the next entry comes from the same stream.
-            let Some(path) = place(&name) else {
-                if let Err(err) = skip(&name) {
+            let Some(path) = place(&name).filter(|_| !earlier) else {
+                if let Err(err) = if earlier { Ok(()) } else { skip(&name) } {
                     failed = Some(err);
                     return Ok(false);
                 }
@@ -3692,12 +3727,12 @@ fn copy_entries(
             *used |= locked;
             return Ok(());
         }
-        let one = a
-            .files
-            .iter()
-            .position(|f| !f.is_directory && f.name.replace('\\', "/") == inner);
+        // A name given twice: its later file, as an extract leaves it.
+        let named = |f: &sevenz_rust2::ArchiveEntry| !f.is_directory && f.name.replace('\\', "/") == inner;
+        let one = a.files.iter().rposition(named);
         match one.map(|i| (i, a.stream_map.file_block_index[i])) {
-            Some((_, Some(b))) => {
+            Some((i, Some(b))) => {
+                past.set((0..i).filter(|&j| named(&a.files[j]) && a.stream_map.file_block_index[j] == Some(b)).count());
                 sevenz_rust2::BlockDecoder::new(1, b, a, &pw, &mut Joined::open(archive)?)
                     .for_each_entries(&mut each)
                     .map(drop)
@@ -4239,7 +4274,7 @@ fn rewrite(
                         .and_then(|m| std::fs::set_permissions(&tmp, m.permissions()))
                         .or_else(|e| if exists { Err(e) } else { Ok(()) })
                 })
-                .and_then(|_| std::fs::rename(&tmp, archive))
+                .and_then(|_| put_in_place(&tmp, archive))
                 .inspect_err(|_| drop(std::fs::remove_file(&tmp)))
                 .inspect(|_| crate::fs::sync_dir(archive.parent().unwrap_or(Path::new(""))))
         }
@@ -4254,6 +4289,29 @@ fn rewrite(
         remember(archive, pw);
     }
     done
+}
+
+#[cfg(test)]
+/// Times `put_in_place` waited for another program to let go of an archive.
+static WAITED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// `tmp`, the archive written anew, in `archive`'s place. On Windows a file that another program
+/// holds open without letting it be deleted (an app reading the archive, a virus scanner) cannot
+/// be replaced while it does: tried again for up to two seconds (#1007).
+fn put_in_place(tmp: &Path, archive: &Path) -> io::Result<()> {
+    let mut tries = 0;
+    loop {
+        match std::fs::rename(tmp, archive) {
+            // Access denied, a sharing violation.
+            Err(e) if cfg!(windows) && matches!(e.raw_os_error(), Some(5 | 32)) && tries < 100 => {
+                tries += 1;
+                #[cfg(test)]
+                WAITED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+            r => return r,
+        }
+    }
 }
 
 /// Take `inner` (files, or folders and everything in them) out of the archive: it is written
@@ -4731,8 +4789,10 @@ thread_local! {
 /// pass through it, rather than each from the archive's start, as a solid 7z or a compressed tar
 /// unpacks one file (a game database's three files: once, not three times). Each is written
 /// under a passing name and gets its own when whole, never over a file; stopped or failed, the
-/// files whole so far stay. The files it wrote, and how it ended.
-pub fn copy_out_files(archive: &Path, names: &[String], dest: &Path, password: Option<&str>) -> (Vec<PathBuf>, io::Result<()>) {
+/// files whole so far stay. The files it wrote, each as the path asked for and the one it took
+/// (`name (2)` beside a name that differs only in case, on a file system that ignores it), and
+/// how it ended.
+pub fn copy_out_files(archive: &Path, names: &[String], dest: &Path, password: Option<&str>) -> (Vec<(PathBuf, PathBuf)>, io::Result<()>) {
     let wrote = std::cell::RefCell::new(vec![]);
     let r = (|| {
         let within = names.first().and_then(|n| n.rsplit_once('/')).map_or("", |(f, _)| f);
@@ -4741,12 +4801,12 @@ pub fn copy_out_files(archive: &Path, names: &[String], dest: &Path, password: O
         crate::stop::expect(all.iter().filter(|it| only.contains(it.name)).map(|it| it.size).sum());
         let password = password_for(archive, password);
         let (mut any, mut used) = (false, false);
-        let note = |p: &Path| wrote.borrow_mut().push(p.to_path_buf());
+        let note = |asked: &Path, took: &Path| wrote.borrow_mut().push((asked.to_path_buf(), took.to_path_buf()));
         copy_entries(archive, within, dest, password.as_deref(), Copy { only: Some(&only), wrote: Some(&note), ..Copy::default() }, &mut any, &mut used)?;
         if let (true, Some(pw)) = (used, &password) {
             remember(archive, pw);
         }
-        match names.iter().find(|n| !wrote.borrow().contains(&dest.join(n.rsplit('/').next().unwrap_or(n)))) {
+        match names.iter().find(|n| !wrote.borrow().iter().any(|(asked, _)| *asked == dest.join(n.rsplit('/').next().unwrap_or(n)))) {
             Some(n) => Err(io::Error::new(io::ErrorKind::NotFound, format!("{n} is not in {}", archive.display()))),
             None => Ok(()),
         }
@@ -4771,20 +4831,38 @@ mod tests {
         // Names that differ only in case, in a zip (the zip crate reads a name given twice once).
         let zp = d.join("case.zip");
         let mut w = zip::ZipWriter::new(File::create(&zp).unwrap());
-        for (name, text) in [("x.h", "lower"), ("X.h", "upper")] {
-            w.start_file(name, SimpleFileOptions::default()).unwrap();
+        // The later a program: its permission bits go to the name it took (#994).
+        for (name, text, mode) in [("x.h", "lower", 0o644), ("X.h", "upper", 0o755)] {
+            w.start_file(name, SimpleFileOptions::default().unix_permissions(mode)).unwrap();
             io::Write::write_all(&mut w, text.as_bytes()).unwrap();
         }
         w.finish().unwrap();
-        let to = extract(&zp, &d.join("x")).unwrap();
-        let mut got: Vec<_> = std::fs::read_dir(&to).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
-        got.sort();
-        let read = |n: &str| std::fs::read_to_string(to.join(n)).unwrap();
-        if ignores_case {
-            assert_eq!(got, ["X (2).h", "x.h"]);
-            assert_eq!((read("x.h"), read("X (2).h")), ("lower".into(), "upper".into()));
-        } else {
-            assert_eq!(got, ["X.h", "x.h"]);
+        // A tar of the same: its Extract (Ctrl+E) gives what the zip's and F5 give (#994).
+        let cp = d.join("case.tar");
+        let mut t = tar::Builder::new(File::create(&cp).unwrap());
+        for (name, text, mode) in [("x.h", "lower", 0o644), ("X.h", "upper", 0o755)] {
+            let mut h = tar::Header::new_gnu();
+            h.set_size(5);
+            h.set_mode(mode);
+            t.append_data(&mut h, name, text.as_bytes()).unwrap();
+        }
+        t.into_inner().unwrap();
+        for p in [&zp, &cp] {
+            let to = extract(p, &d.join(format!("x-{}", p.file_name().unwrap().to_string_lossy()))).unwrap();
+            let mut got: Vec<_> = std::fs::read_dir(&to).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
+            got.sort();
+            let read = |n: &str| std::fs::read_to_string(to.join(n)).unwrap();
+            let upper = if ignores_case { "X (2).h" } else { "X.h" };
+            let mut want = [upper, "x.h"];
+            want.sort();
+            assert_eq!(got, want, "{}", p.display());
+            assert_eq!((read("x.h"), read(upper)), ("lower".into(), "upper".into()), "{}", p.display());
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let mode = |n: &str| std::fs::metadata(to.join(n)).unwrap().permissions().mode() & 0o111;
+                assert_eq!((mode("x.h"), mode(upper)), (0, 0o111), "{}", p.display());
+            }
         }
         // A tar's folder copied out (F5) gives what Extract gives: the later one.
         let tp = d.join("twice.tar");
@@ -4829,6 +4907,52 @@ mod tests {
             list(&one, 10).unwrap();
         }
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// A name a zip or a 7z gives twice: one file of it (F5, F3, the preview) is the later
+    /// entry, as Extract leaves it; also from a locked 7z, which the crate unpacks (#994).
+    #[test]
+    fn a_name_twice_in_a_zip_or_7z_reads_the_later_file() {
+        let d = crate::fs::Scratch::named("zip-7z-twice");
+        let text = |r: &mut dyn Read| {
+            let mut s = String::new();
+            r.read_to_string(&mut s)?;
+            Ok(s)
+        };
+        let zp = d.join("twice.zip");
+        std::fs::write(&zp, hand_zip(&[("d/a.txt", b"old", b""), ("d/b.txt", b"bee", b""), ("d/a.txt", b"newer", b"")])).unwrap();
+        let open = d.join("twice.7z");
+        let locked = d.join("locked.7z");
+        for (p, pw) in [(&open, None), (&locked, Some("pw"))] {
+            // Solid: both in one block, the earlier read past on the way to the later.
+            let mut w = sevenz_rust2::ArchiveWriter::create(p).unwrap();
+            if let Some(pw) = pw {
+                w.set_content_methods(seven_locking(pw));
+                w.set_encrypt_header(false);
+            }
+            let all = [("d/a.txt", "old"), ("d/b.txt", "bee"), ("d/a.txt", "newer")];
+            let entries = all.iter().map(|(n, t)| {
+                let mut e = sevenz_rust2::ArchiveEntry::new_file(n);
+                e.size = t.len() as u64;
+                e
+            });
+            let readers = all.iter().map(|(_, t)| sevenz_rust2::SourceReader::new(io::Cursor::new(t.as_bytes().to_vec()))).collect();
+            w.push_archive_entries(entries.collect(), readers).unwrap();
+            w.finish().unwrap();
+        }
+        for (p, pw) in [(&zp, None), (&open, None), (&locked, Some("pw"))] {
+            let at = p.display();
+            let out = d.join(format!("out-{}", p.file_name().unwrap().to_string_lossy()));
+            std::fs::create_dir_all(&out).unwrap();
+            let got = copy_out(p, "d/a.txt", &out, pw, false).unwrap();
+            assert_eq!(std::fs::read_to_string(got).unwrap(), "newer", "{at}");
+            assert_eq!(entry_size(&p.join("d/a.txt")).unwrap(), 5, "{at}");
+            if pw.is_none() {
+                assert_eq!(stream(&p.join("d/a.txt"), text).unwrap(), "newer", "{at}");
+                let to = extract(p, &out).unwrap();
+                assert_eq!(std::fs::read_to_string(to.join("d/a.txt")).unwrap(), "newer", "{at}: Extract");
+            }
+        }
     }
 
     /// A name a tar gives twice is read as tar gives it, the later file, by every way one file
@@ -5124,7 +5248,7 @@ mod tests {
             let before = PASSES.get();
             let (wrote, r) = copy_out_files(&archive, &names, &out, None);
             assert_eq!(PASSES.get() - before, 1, "{name}");
-            assert_eq!(wrote, [out.join("a.pgn")], "{name}");
+            assert_eq!(wrote, [(out.join("a.pgn"), out.join("a.pgn"))], "{name}");
             assert!(r.is_err(), "{name}");
             assert_eq!(std::fs::read(out.join("c.pgn")).unwrap(), b"mine");
             assert_eq!(std::fs::read(out.join("a.pgn")).unwrap(), std::fs::read(d.join("src/db/a.pgn")).unwrap());
@@ -7035,12 +7159,15 @@ mod tests {
                         format!("{}|{}|{tag}", zip.display(), d.join("x.txt").display()),
                     )
                     .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::piped())
                     .spawn()
                     .unwrap()
             })
             .collect();
-        for mut k in kids {
-            assert!(k.wait().unwrap().success());
+        // A child that failed says why.
+        for k in kids {
+            let out = k.wait_with_output().unwrap();
+            assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
         }
         let (names, _) = list(&zip, 100).unwrap();
         assert_eq!(
@@ -7050,6 +7177,36 @@ mod tests {
             names.iter().map(|e| &e.name).collect::<Vec<_>>()
         );
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// Another program holds the archive open without letting it be deleted (an app reading it,
+    /// a virus scanner): a change waits until it lets go, rather than failing (#1007).
+    #[cfg(windows)]
+    #[test]
+    fn an_archive_change_waits_for_a_reader_that_holds_it() {
+        use std::os::windows::fs::OpenOptionsExt;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let d = crate::fs::Scratch::named("archive-held");
+        std::fs::write(d.join("x.txt"), "x").unwrap();
+        let zip = d.join("held.zip");
+        create(&zip, &[d.join("x.txt")]).unwrap();
+        // Read alone shared (FILE_SHARE_READ): no write, no delete, no rename over it.
+        let held = std::fs::OpenOptions::new().read(true).share_mode(1).open(&zip).unwrap();
+        let done = AtomicBool::new(false);
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                // Let go once the change has waited for it (or ended without waiting).
+                while WAITED.load(Ordering::Relaxed) == 0 && !done.load(Ordering::Relaxed) {
+                    std::thread::yield_now();
+                }
+                drop(held);
+            });
+            let r = add(&zip, &[("y.txt".into(), d.join("x.txt"))], None);
+            done.store(true, Ordering::Relaxed);
+            r.unwrap();
+        });
+        let (names, _) = list(&zip, 10).unwrap();
+        assert_eq!(names.len(), 2);
     }
 
     #[test]
