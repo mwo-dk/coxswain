@@ -80,15 +80,6 @@ fn run(mut c: Command, max: usize, stop: &AtomicBool) -> io::Result<(Vec<u8>, bo
     });
     let start = Instant::now();
     let status = loop {
-        if let Some(s) = child.try_wait()? {
-            break Some(s);
-        }
-        if reader.is_finished() {
-            // All it may print is read: it is stopped rather than waited for.
-            let _ = child.kill();
-            let _ = child.wait();
-            break None;
-        }
         if stop.load(Ordering::Relaxed) || start.elapsed() > BUDGET {
             let _ = child.kill();
             let _ = child.wait();
@@ -99,8 +90,20 @@ fn run(mut c: Command, max: usize, stop: &AtomicBool) -> io::Result<(Vec<u8>, bo
                 io::Error::new(io::ErrorKind::TimedOut, t!("blame.too_long"))
             });
         }
+        if let Some(s) = child.try_wait()? {
+            break Some(s);
+        }
+        if reader.is_finished() {
+            // All it may print is read: it is stopped rather than waited for.
+            let _ = child.kill();
+            let _ = child.wait();
+            break None;
+        }
         std::thread::sleep(Duration::from_millis(20));
     };
+    if stop.load(Ordering::Relaxed) {
+        return Err(io::Error::new(io::ErrorKind::Interrupted, t!("blame.stopped")));
+    }
     let mut buf = reader.join().map_err(|_| io::Error::other("reader"))??;
     let why = errs.join().unwrap_or_default();
     let more = buf.len() > max;
