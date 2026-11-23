@@ -104,8 +104,8 @@ jobs:
           useradd -m -d /export/home/alice alice || { useradd -d /export/home/alice alice; mkdir -p /export/home/alice; chown alice /export/home/alice; }
           s=application/coxswain-index
           # svcadm disable -s can wait for ever on a service that will not stop: bounded, and the
-          # reason shown.
-          stop() {
+          # reason shown. Not named stop: ksh93, OmniOS's sh, has that alias (kill -s STOP).
+          disable_bounded() {
             svcadm disable $s
             i=0
             until [ "$(svcs -H -o state $s)" = disabled ]; do
@@ -117,7 +117,7 @@ jobs:
           svcadm enable $s
           sleep 8
           svcs -H -o state $s | grep -q maintenance || { echo "started without a user" >&2; exit 1; }
-          stop
+          disable_bounded
           svccfg -s $s setprop start/user = astring: alice
           svcadm refresh $s
           svcadm enable $s
@@ -126,7 +126,7 @@ jobs:
           tail -5 "$(svcs -L $s)"
           svcs -H -o state $s | grep -q online
           test -s /export/home/alice/.cache/coxswain/index.addr
-          stop
+          disable_bounded
           sleep 2
           if pgrep -u alice coxswain; then echo "still running" >&2; exit 1; fi
           sh install/install-unix.sh --uninstall --yes --prefix /usr/local
