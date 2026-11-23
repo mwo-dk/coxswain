@@ -1,0 +1,1 @@
+| **Quit from the Dock menu and AppleScript `quit` on macOS ask about unsaved text too.** They now close the window the way its close button does, as Cmd+Q does: a change not saved in the editor or Compare is asked about first. Logging out or shutting down is cancelled by that question and has to be asked for again. | [Editor](commands/editor.md#how-to-use-it) |
