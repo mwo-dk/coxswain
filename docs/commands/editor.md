@@ -35,7 +35,7 @@ opens this one too, rather than whichever of `vi`, `nano` and the like is instal
 4. **Esc** closes. With changes not saved yet, it asks first. In the desktop app, closing the
    whole window asks the same (its close button, **Quit**, and on macOS **Cmd+Q**, *Coxswain →
    Quit Coxswain* in the menu bar, *Quit* in the Dock menu, and AppleScript `quit`; logging out
-   or shutting down is cancelled by the question, so ask again after it), and the app closes after *Save* or *Don't save*.
+   or shutting down while Coxswain is open is cancelled: Coxswain quits, then log out again), and the app closes after *Save* or *Don't save*.
 
 In [Find](../search/find-file.md), **Shift+F4** on a hit edits that file; when the editor
 closes, the search is there as it was. In the terminal app's [viewer](view-and-edit.md#the-built-in-viewer),

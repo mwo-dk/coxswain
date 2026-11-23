@@ -3232,6 +3232,7 @@ mod mac_menu {
         }
     }
 
+    /// The Quit item of the app menu.
     pub fn on_event(app: &AppHandle, event: MenuEvent) {
         if event.id() == QUIT {
             quit_all(app);
@@ -3244,8 +3245,8 @@ mod mac_menu {
     /// AppleScript `quit`, and logging out or shutting down all send `terminate:`, which ends the
     /// process past the close request. The reply is Cancel (0) with the windows closed as above:
     /// the last one closed ends the app (tao stops its loop, it does not call `terminate:`
-    /// again). With no window left it is Now (1). A logout or shutdown is cancelled by the
-    /// Cancel and has to be asked for again (#1096).
+    /// again). With no window left it is Now (1). A logout or shutdown with a window open
+    /// is cancelled by the Cancel, also with nothing to ask, and has to be asked for again (#1096).
     extern "C-unwind" fn should_terminate(_this: &AnyObject, _cmd: Sel, _sender: *mut AnyObject) -> usize {
         match APP.get() {
             Some(app) if !app.webview_windows().is_empty() => {
@@ -3268,6 +3269,8 @@ mod mac_menu {
             if delegate.is_null() {
                 return;
             }
+            // Set again, in case AppKit noted at `setDelegate:` which methods the delegate answers.
+            let _: () = msg_send![ns_app, setDelegate: delegate];
             let class = (*delegate).class() as *const AnyClass as *mut AnyClass;
             let imp: Imp = std::mem::transmute(should_terminate as extern "C-unwind" fn(&AnyObject, Sel, *mut AnyObject) -> usize);
             // NO when the class has the method already: then it is left as it is.
