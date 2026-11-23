@@ -80,11 +80,23 @@ is kept out of sight like a disk's, but it is not found at another path.
 No. A folder the helper cannot list for now (an sshfs or NFS mount that dropped, a folder the system
 refuses, a read error) keeps its text and its vectors, and its files are still found. When it
 answers again, only the files that changed are read. Only a folder that is not there any more
-loses its text. An empty folder where a disk was mounted is not told apart yet: its text goes.
+loses its text.
+
+#### A disk is mounted inside my home folder. What happens when it is unplugged?
+
+Its text and vectors stay, out of sight, as for a disk that is one of the *Folders read*. The
+helper notes each folder inside the folders read where another disk is mounted (an external
+drive at `~/backup`, an encrypted folder at `~/Private`). When such a folder is later empty and
+on its parent's disk, the disk is taken as away: Find leaves its files out until it is mounted
+there again, and then only the files that changed are read. An empty folder there cannot be told
+from one emptied by hand: to let its text go, delete the empty folder. On Windows a disk mounted
+in a folder is not walked into, so this does not arise there.
 
 #### How do I get rid of an old disk's text?
 
-**Remove** next to it under *Folders read*, or take it out of `text_roots`.
+**Remove** next to it under *Folders read*, or take it out of `text_roots`. For a disk that was
+mounted inside one of the folders read, delete the empty folder it was mounted on: at the next
+pass its text goes.
 
 ---
 [← Previous: Cloud files](cloud-files.md) · [Next: Search by meaning →](meaning.md)

@@ -263,7 +263,8 @@ impl Store {
         // total from the index alone: twenty times faster over a million files. `roots` knows each root's disk and
         // where on it the root is, and where its rows are (`at`): a disk mounted elsewhere
         // keeps its rows. `skipped` holds the folders left
-        // out of the walk with their bytes and files; `hashes`, files' BLAKE3 as they were.
+        // out of the walk with their bytes and files; `hashes`, files' BLAKE3 as they were;
+        // `mounts`, the folders below a root where another disk was mounted (2.38).
         db.execute_batch(
             "CREATE TABLE IF NOT EXISTS files(id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, size INTEGER NOT NULL, modified INTEGER NOT NULL, has_text INTEGER);
              CREATE INDEX IF NOT EXISTS files_size ON files(size);
@@ -271,6 +272,7 @@ impl Store {
              CREATE TABLE IF NOT EXISTS skipped(path TEXT PRIMARY KEY, bytes INTEGER NOT NULL, files INTEGER NOT NULL);
              CREATE TABLE IF NOT EXISTS hashes(path TEXT PRIMARY KEY, size INTEGER NOT NULL, modified INTEGER NOT NULL, hash TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS roots(path TEXT PRIMARY KEY, volume TEXT, inside TEXT, at TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS mounts(path TEXT PRIMARY KEY);
              CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS chunks(file INTEGER NOT NULL, n INTEGER NOT NULL, vector BLOB NOT NULL, PRIMARY KEY(file, n));
              CREATE TABLE IF NOT EXISTS errors(at INTEGER NOT NULL, path TEXT, what TEXT NOT NULL);
@@ -1191,6 +1193,39 @@ impl Store {
         } else {
             tx.commit()
         }
+    }
+
+    /// The folders below the roots where another disk was mounted, as the last scan saw them.
+    fn mounts(&self) -> HashSet<String> {
+        let db = self.db.lock().unwrap();
+        let Ok(mut q) = db.prepare("SELECT path FROM mounts") else {
+            return HashSet::new();
+        };
+        q.query_map([], |r| r.get(0))
+            .map(|rows| rows.flatten().collect())
+            .unwrap_or_default()
+    }
+
+    /// The folders where another disk is mounted are now `mounts`.
+    fn mounts_are(&self, mounts: &HashSet<String>) -> rusqlite::Result<()> {
+        let mut db = self.db.lock().unwrap();
+        let tx = db.transaction()?;
+        tx.execute("DELETE FROM mounts", [])?;
+        for m in mounts {
+            tx.prepare_cached("INSERT INTO mounts(path) VALUES (?1)")?
+                .execute([m])?;
+        }
+        tx.commit()
+    }
+
+    /// The folders `dirs` are no longer left out: their totals go, their rows stay.
+    fn drop_totals(&self, dirs: &[String]) -> rusqlite::Result<()> {
+        let db = self.db.lock().unwrap();
+        for dir in dirs {
+            db.prepare_cached("DELETE FROM skipped WHERE path = ?1")?
+                .execute([dir])?;
+        }
+        Ok(())
     }
 
     /// Where each root's rows are, as the store last saw it: path -> (disk, place on it, rows at).
@@ -2984,6 +3019,54 @@ struct Walk {
     /// not being there: a mount that dropped, a refusal, an I/O error. What the store has at
     /// and below them stays, as a disk that is not plugged in keeps its rows (#965).
     unlisted: Vec<String>,
+    /// Folders where another disk than their parent's is mounted.
+    mounts: Vec<String>,
+    /// Folders where a disk was mounted, now empty and on their parent's disk: the disk is not
+    /// plugged in (or not unlocked), and the rows below them stay, out of sight (#983).
+    away: Vec<String>,
+}
+
+/// Folders a test takes for ones another disk is mounted on.
+#[cfg(test)]
+static MOUNTED: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+/// The device (disk) the folder `path` is on, `None` where it cannot be told (Windows, whose
+/// mounted folders the walk does not go into).
+fn device(path: &Path) -> Option<u64> {
+    #[cfg(test)]
+    if MOUNTED.lock().unwrap().iter().any(|p| path.starts_with(p)) {
+        return Some(u64::MAX);
+    }
+    let meta = std::fs::symlink_metadata(path).ok()?;
+    #[cfg(unix)]
+    return Some(std::os::unix::fs::MetadataExt::dev(&meta));
+    #[cfg(not(unix))]
+    {
+        drop(meta);
+        cfg!(test).then_some(0)
+    }
+}
+
+/// Whether another disk than its parent's is mounted on the folder `dir`.
+fn mounted(dir: &Path) -> bool {
+    match (device(dir), dir.parent().and_then(device)) {
+        (Some(a), Some(b)) => a != b,
+        _ => false,
+    }
+}
+
+/// Whether `path` is below a folder whose disk is away (`mount_away`).
+fn below_away_mount(store: &Store, path: &Path) -> bool {
+    store
+        .mounts()
+        .iter()
+        .any(|m| path.starts_with(m) && mount_away(Path::new(m)))
+}
+
+/// Whether `dir`, where a disk was mounted, is now an empty folder on its parent's disk: the
+/// disk is away. A folder emptied by hand is not told from it.
+fn mount_away(dir: &Path) -> bool {
+    !mounted(dir) && crate::fs::read_dir(dir).is_ok_and(|mut d| d.next().is_none())
 }
 
 /// Whether `path` is at or below one of the folders `kept` (as `below` gives them).
@@ -3032,6 +3115,7 @@ fn walk(
     stop: &AtomicBool,
 ) -> Option<Walk> {
     let mut found = Walk::default();
+    let had_mounts = store.mounts();
     // Folders left out are only measured, one thread, like the rest of the scan.
     let slow = rayon::ThreadPoolBuilder::new()
         .num_threads(1)
@@ -3041,6 +3125,14 @@ fn walk(
     while let Some(dir) = stack.pop() {
         if stop.load(Ordering::Relaxed) {
             return None;
+        }
+        if let Some(text) = dir.to_str() {
+            if mounted(&dir) {
+                found.mounts.push(text.to_string());
+            } else if had_mounts.contains(text) && mount_away(&dir) {
+                found.away.push(text.to_string());
+                continue;
+            }
         }
         let entries = match list(&dir) {
             Ok(entries) => entries,
@@ -3350,13 +3442,23 @@ fn scan_for(
     let Some(found) = walk(store, roots.clone(), cfg, &mut known, stop) else {
         return Ok(false);
     };
-    // Rows of a disk that is not plugged in stay, and those of a folder that could not be
-    // listed.
+    // Rows of a disk that is not plugged in stay, below a root or a folder it was mounted on,
+    // and those of a folder that could not be listed.
+    let mut offline = offline;
+    offline.extend(found.away.iter().cloned());
     let kept: Vec<(String, String)> = offline
         .iter()
         .chain(&found.unlisted)
         .map(|at| below(at))
         .collect();
+    // The folders disks are mounted on, and those not walked now that were.
+    let mounts: HashSet<String> = store
+        .mounts()
+        .into_iter()
+        .filter(|m| held(&kept, m))
+        .chain(found.mounts.iter().cloned())
+        .collect();
+    store.mounts_are(&mounts)?;
     // Commits are not files on disk: `history` keeps them.
     let gone: Vec<String> = known
         .into_iter()
@@ -4572,7 +4674,9 @@ pub fn refresh(
             later.extend(path.parent().map(Path::to_path_buf));
         }
         match std::fs::symlink_metadata(&path) {
-            Err(e) if not_there(&e) => gone.push(text),
+            // Below a folder whose disk went: not gone, away (#983).
+            Err(e) if not_there(&e) && !below_away_mount(store, &path) => gone.push(text),
+            Err(e) if not_there(&e) => {}
             // Not there to look at for now (a mount that dropped, a refusal): its rows stay.
             Err(_) => {}
             Ok(meta) if meta.is_file() => {
@@ -4642,8 +4746,14 @@ pub fn measure(
     let Some(found) = walk(store, again, cfg, &mut Known::default(), stop) else {
         return Ok(());
     };
-    // A folder with a part that could not be listed keeps its rows.
-    gone.retain(|g| !found.unlisted.iter().any(|u| below(u).0.starts_with(&below(g).0)));
+    // A folder with a part that could not be listed, or a disk away, keeps its rows; a folder
+    // no longer left out loses its total all the same (#1039).
+    let kept_part = |g: &String| {
+        (found.unlisted.iter().chain(&found.away)).any(|u| below(u).0.starts_with(&below(g).0))
+    };
+    let totals: Vec<String> = gone.iter().filter(|g| kept_part(g)).cloned().collect();
+    gone.retain(|g| !kept_part(g));
+    store.drop_totals(&totals)?;
     skipped.extend(found.skipped);
     store.apply(
         &gone,
@@ -4674,11 +4784,13 @@ pub fn keep_current(
     };
     // The watcher's changes are taken at once, also while a scan or a read goes on, into a set.
     let (waiting, over) = (Mutex::new(HashSet::new()), AtomicBool::new(false));
+    // Set when the loop below ends, however it ends: the thread taking the changes ends with it.
+    let ended = AtomicBool::new(false);
     std::thread::scope(|s| {
         if let Some(changes) = changes {
-            let (waiting, over) = (&waiting, &over);
+            let (waiting, over, ended) = (&waiting, &over, &ended);
             s.spawn(move || {
-                while !stop.load(Ordering::Relaxed) {
+                while !stop.load(Ordering::Relaxed) && !ended.load(Ordering::Relaxed) {
                     match changes.recv_timeout(Duration::from_millis(200)) {
                         Ok(mut paths) => {
                             // Only paths under the folders walked (where `refresh` looks): the
@@ -4694,57 +4806,92 @@ pub fn keep_current(
                 }
             });
         }
-        while !stop.load(Ordering::Relaxed) {
-            store.cleared.store(false, Ordering::SeqCst);
-            over.store(false, Ordering::Relaxed);
-            let scanned = scan_for(store, cfg, stop, Some(SLICE));
-            let mut more = matches!(scanned, Ok(true));
-            // Index now is done with once the backlog is, whether the scan worked or not: a
-            // failing one is not run again at once, over and over.
-            if !more {
-                store.hurry.store(false, Ordering::Relaxed);
-            }
-            if scanned.is_ok() {
-                *store.error.lock().unwrap() = None;
-            }
-            store.warm_signs();
-            report(scanned.map(|_| ()));
-            let (mut rest, mut refreshed, mut measured) =
-                (Instant::now(), Instant::now(), Instant::now());
-            let (mut now, mut later) = (HashSet::new(), HashSet::new());
-            // Again ten minutes after the hashes and vectors are done, or at Index now; not while
-            // they go on (Index now only takes the rests from them then).
-            let calm = |rest: Instant| {
-                rest.elapsed() < Duration::from_secs(600) && !store.hurry.load(Ordering::Relaxed)
-            };
-            while (more || calm(rest))
-                && !store.cleared.load(Ordering::Relaxed)
-                && !stop.load(Ordering::Relaxed)
-                && !over.load(Ordering::Relaxed)
-            {
-                std::thread::sleep(Duration::from_millis(200));
-                // All that came during a slice, at once.
-                now.extend(std::mem::take(&mut *waiting.lock().unwrap()));
-                if !now.is_empty() && refreshed.elapsed() > Duration::from_secs(2) {
-                    report(refresh(store, cfg, &mut now, &mut later, stop));
-                    refreshed = Instant::now();
-                }
-                if !later.is_empty() && measured.elapsed() > Duration::from_secs(60) {
-                    report(measure(store, cfg, &mut later, stop));
-                    measured = Instant::now();
-                }
-                if more {
-                    let r = backlog(store, stop, Some(SLICE));
-                    more = matches!(r, Ok(true));
-                    if !more {
-                        store.hurry.store(false, Ordering::Relaxed);
-                    }
-                    report(r.map(|_| ()));
-                    rest = Instant::now();
-                }
-            }
+        // A panic in the loop shows at once, in the helper's log and as the store's error,
+        // instead of when the helper stops (#1039); the helper goes on answering searches.
+        let run = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            keep_current_loop(store, cfg, stop, &waiting, &over, &report)
+        }));
+        ended.store(true, Ordering::Relaxed);
+        if let Err(panic) = run {
+            let why = panic
+                .downcast_ref::<&str>()
+                .map(|s| s.to_string())
+                .or_else(|| panic.downcast_ref::<String>().cloned())
+                .unwrap_or_default();
+            let e = format!("the search store stopped keeping up: {why}");
+            crate::helper::note(format_args!("search store: {e}"));
+            *store.error.lock().unwrap_or_else(|p| p.into_inner()) = Some(e);
         }
     });
+}
+
+/// Stores (by their path) whose `keep_current` loop a test makes panic.
+#[cfg(test)]
+static PANIC_IN_LOOP: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+/// `keep_current`'s loop, with the watcher's changes waiting in `waiting`.
+fn keep_current_loop(
+    store: &Store,
+    cfg: &SearchConfig,
+    stop: &AtomicBool,
+    waiting: &Mutex<HashSet<PathBuf>>,
+    over: &AtomicBool,
+    report: &dyn Fn(rusqlite::Result<()>),
+) {
+    while !stop.load(Ordering::Relaxed) {
+        #[cfg(test)]
+        if PANIC_IN_LOOP.lock().unwrap().contains(&store.path) {
+            panic!("a test's panic");
+        }
+        store.cleared.store(false, Ordering::SeqCst);
+        over.store(false, Ordering::Relaxed);
+        let scanned = scan_for(store, cfg, stop, Some(SLICE));
+        let mut more = matches!(scanned, Ok(true));
+        // Index now is done with once the backlog is, whether the scan worked or not: a
+        // failing one is not run again at once, over and over.
+        if !more {
+            store.hurry.store(false, Ordering::Relaxed);
+        }
+        if scanned.is_ok() {
+            *store.error.lock().unwrap() = None;
+        }
+        store.warm_signs();
+        report(scanned.map(|_| ()));
+        let (mut rest, mut refreshed, mut measured) =
+            (Instant::now(), Instant::now(), Instant::now());
+        let (mut now, mut later) = (HashSet::new(), HashSet::new());
+        // Again ten minutes after the hashes and vectors are done, or at Index now; not while
+        // they go on (Index now only takes the rests from them then).
+        let calm = |rest: Instant| {
+            rest.elapsed() < Duration::from_secs(600) && !store.hurry.load(Ordering::Relaxed)
+        };
+        while (more || calm(rest))
+            && !store.cleared.load(Ordering::Relaxed)
+            && !stop.load(Ordering::Relaxed)
+            && !over.load(Ordering::Relaxed)
+        {
+            std::thread::sleep(Duration::from_millis(200));
+            // All that came during a slice, at once.
+            now.extend(std::mem::take(&mut *waiting.lock().unwrap()));
+            if !now.is_empty() && refreshed.elapsed() > Duration::from_secs(2) {
+                report(refresh(store, cfg, &mut now, &mut later, stop));
+                refreshed = Instant::now();
+            }
+            if !later.is_empty() && measured.elapsed() > Duration::from_secs(60) {
+                report(measure(store, cfg, &mut later, stop));
+                measured = Instant::now();
+            }
+            if more {
+                let r = backlog(store, stop, Some(SLICE));
+                more = matches!(r, Ok(true));
+                if !more {
+                    store.hurry.store(false, Ordering::Relaxed);
+                }
+                report(r.map(|_| ()));
+                rest = Instant::now();
+            }
+        }
+    }
 }
 
 /// The most different paths the watcher's changes keep while they wait.
@@ -5325,6 +5472,160 @@ mod tests {
         assert!(waiting.lock().unwrap().is_empty() && over.load(Ordering::Relaxed));
         wait_for(&waiting, vec![PathBuf::from("c")], &over);
         assert!(waiting.lock().unwrap().is_empty(), "the scan to come sees it");
+    }
+
+    /// A folder below a root where a disk was mounted, empty now and on its parent's disk (the
+    /// disk unplugged, or an encrypted folder not unlocked), keeps its files' text and vectors,
+    /// out of sight, and they are not read again when it is back; a folder gone loses them (#983).
+    #[test]
+    fn store_keeps_an_empty_mount_point() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-mount-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let (home, mnt) = (d.join("home"), d.join("home/mnt"));
+        std::fs::create_dir_all(mnt.join("deep")).unwrap();
+        std::fs::write(home.join("plan.txt"), "Orbit at dawn.\n").unwrap();
+        std::fs::write(mnt.join("deep/log.txt"), "Ferry at noon.\n").unwrap();
+        let cfg = SearchConfig {
+            text_roots: vec![home.clone()],
+            ..SearchConfig::default()
+        };
+        let (store, go) = (
+            Store::open(&d.join("search.db")).unwrap(),
+            AtomicBool::new(false),
+        );
+        let found = |q: &str| store.search(q, None, 10).total;
+        let log = key(&mnt.join("deep/log.txt")).unwrap();
+        // The file's row: whether it has its text and its vectors, and how many vectors.
+        let row = || {
+            let db = store.db.lock().unwrap();
+            let had: Option<(Option<i64>, Option<i64>)> = db
+                .query_row("SELECT has_text, embedded FROM files WHERE path = ?1", [&log], |r| {
+                    Ok((r.get(0)?, r.get(1)?))
+                })
+                .ok();
+            let vectors: i64 = db
+                .query_row("SELECT count(*) FROM chunks", [], |r| r.get(0))
+                .unwrap();
+            (had, vectors)
+        };
+        MOUNTED.lock().unwrap().push(mnt.clone());
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(store.mounts(), [key(&mnt).unwrap()].into_iter().collect());
+        let id: i64 = store
+            .db
+            .lock()
+            .unwrap()
+            .query_row("SELECT id FROM files WHERE path = ?1", [&log], |r| r.get(0))
+            .unwrap();
+        store.put_vectors(id, &[vec![0u8; 8]]).unwrap();
+        let read = row();
+        assert_eq!((found("ferry"), read.1), (1, 1));
+
+        // Unplugged: the folder is empty and on its parent's disk. The rows stay, out of sight.
+        std::fs::rename(mnt.join("deep"), d.join("deep")).unwrap();
+        MOUNTED.lock().unwrap().retain(|p| *p != mnt);
+        for _ in 0..2 {
+            scan(&store, &cfg, &go).unwrap();
+            assert_eq!(row(), read, "kept while away");
+            assert_eq!(found("ferry"), 0, "out of sight while away");
+            assert_eq!(found("orbit"), 1, "the rest is walked as before");
+            assert!(store.mounts().contains(&key(&mnt).unwrap()), "still known as a mount");
+        }
+        // The watcher says the file went: it is away too.
+        refresh(
+            &store,
+            &cfg,
+            &mut [mnt.join("deep/log.txt")].into_iter().collect(),
+            &mut HashSet::new(),
+            &go,
+        )
+        .unwrap();
+        assert_eq!(row(), read, "kept when the watcher saw it go");
+
+        // Back: found again, nothing read or made again.
+        std::fs::rename(d.join("deep"), mnt.join("deep")).unwrap();
+        MOUNTED.lock().unwrap().push(mnt.clone());
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!((row(), found("ferry")), (read, 1));
+
+        // Not a mount any more, and gone: its rows go.
+        MOUNTED.lock().unwrap().retain(|p| *p != mnt);
+        std::fs::remove_dir_all(&mnt).unwrap();
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(row(), (None, 0));
+        assert!(store.mounts().is_empty());
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A folder that stops being left out but has a part that cannot be listed loses its old
+    /// total at once, not at the next scan (#1039).
+    #[test]
+    fn store_drops_the_total_of_a_folder_read_again_in_part() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-total-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let (home, out) = (d.join("home"), d.join("home/notes"));
+        std::fs::create_dir_all(out.join("sub")).unwrap();
+        std::fs::write(out.join(".nosearch"), "").unwrap();
+        std::fs::write(out.join("sub/a.txt"), "Ferry at noon.\n").unwrap();
+        let cfg = SearchConfig {
+            text_roots: vec![home.clone()],
+            ..SearchConfig::default()
+        };
+        let (store, go) = (
+            Store::open(&d.join("search.db")).unwrap(),
+            AtomicBool::new(false),
+        );
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!(store.size(&out).map(|s| s.0), Some((15, 2)), "left out: its total");
+        std::fs::remove_file(out.join(".nosearch")).unwrap();
+        REFUSED.lock().unwrap().push(out.join("sub"));
+        measure(&store, &cfg, &mut [out.clone()].into_iter().collect(), &go).unwrap();
+        REFUSED.lock().unwrap().retain(|p| *p != out.join("sub"));
+        assert_eq!(
+            store.size(&out).map(|s| s.0),
+            Some((0, 0)),
+            "read again, its unlisted part not counted"
+        );
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    /// A panic in `keep_current`'s loop ends it at once, as the store's error, while the
+    /// watcher's changes still come (#1039).
+    #[test]
+    fn a_panic_in_keep_current_shows_at_once() {
+        let d = std::env::temp_dir().join(format!("coxswain-store-panic-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let store = Store::open(&d.join("search.db")).unwrap();
+        PANIC_IN_LOOP.lock().unwrap().push(store.path.clone());
+        let (tx, rx) = std::sync::mpsc::channel();
+        let (go, ended) = (AtomicBool::new(false), AtomicBool::new(false));
+        let mut alone = false;
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                keep_current(&store, &SearchConfig::default(), &go, Some(rx));
+                ended.store(true, Ordering::Relaxed);
+            });
+            let limit = Instant::now() + crate::test_limit(Duration::from_secs(10));
+            while !ended.load(Ordering::Relaxed) && Instant::now() < limit {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            alone = ended.load(Ordering::Relaxed);
+            // Stop it either way, so a failure does not hang the test.
+            go.store(true, Ordering::Relaxed);
+        });
+        PANIC_IN_LOOP.lock().unwrap().retain(|p| *p != store.path);
+        drop(tx);
+        assert!(alone, "ended without being stopped");
+        assert!(
+            store.error.lock().unwrap().as_deref().is_some_and(|e| e.contains("a test's panic")),
+            "{:?}",
+            store.error.lock().unwrap()
+        );
+        drop(store);
+        std::fs::remove_dir_all(d).unwrap();
     }
 
     #[test]
