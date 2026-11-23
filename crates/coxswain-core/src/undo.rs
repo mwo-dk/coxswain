@@ -780,9 +780,9 @@ fn run_items(
         let mut done = 0;
         for p in items {
             let to = cfs::target(p, dst);
-            // What the pass wrote, never a file that came meanwhile.
-            if wrote.contains(&to) {
-                rec.done(p, &to);
+            // What the pass wrote, never a file that came meanwhile; under the name it took.
+            if let Some((_, took)) = wrote.iter().find(|(asked, _)| *asked == to) {
+                rec.done(p, took);
                 done += 1;
             } else if let Err(e) = &r {
                 failed.push((p.clone(), io::Error::new(e.kind(), e.to_string())));
@@ -1101,6 +1101,39 @@ mod tests {
         assert_eq!(u.done, 1, "{:?}", u.refused);
         assert!(!d.join("out/g.txt").exists() && d.join("out/deep/f.txt").exists());
         assert!(d.join("src/g.txt").exists(), "the original stays");
+    }
+
+    /// `x.h` and `X.h` of one folder of a compressed tar, copied in one pass: both come out and
+    /// are recorded under the names they took (`X (2).h` where the disk ignores case), so the
+    /// job says nothing is missing and undo takes back both (#1048).
+    #[test]
+    fn a_one_pass_copy_of_names_in_two_cases_is_recorded_as_written() {
+        let d = tmp("two-cases");
+        let tgz = d.join("h.tar.gz");
+        let mut t = tar::Builder::new(flate2::write::GzEncoder::new(fs::File::create(&tgz).unwrap(), flate2::Compression::default()));
+        for (name, text) in [("inc/x.h", "lower"), ("inc/X.h", "upper")] {
+            let mut h = tar::Header::new_gnu();
+            h.set_size(text.len() as u64);
+            h.set_mode(0o644);
+            t.append_data(&mut h, name, text.as_bytes()).unwrap();
+        }
+        t.into_inner().unwrap().finish().unwrap();
+        fs::create_dir(d.join("out")).unwrap();
+        fs::write(d.join("probe"), "").unwrap();
+        let ignores_case = d.join("PROBE").exists();
+        let items = [tgz.join("inc/x.h"), tgz.join("inc/X.h")];
+        assert!(crate::archive::one_pass(&items, &d.join("out")).is_some(), "one pass");
+        let (failed, rec) = run(Op::Copy, &items, &d.join("out"), None, |_| {});
+        assert!(failed.is_empty(), "{failed:?}");
+        let upper = d.join("out").join(if ignores_case { "X (2).h" } else { "X.h" });
+        let tos: Vec<_> = rec.items.iter().map(|i| i.to.clone()).collect();
+        assert_eq!(tos, [d.join("out/x.h"), upper.clone()]);
+        assert_eq!(fs::read_to_string(&upper).unwrap(), "upper");
+        if in_ci() && cfs::trash_takes(std::slice::from_ref(&d.to_path_buf())) {
+            let u = rec.undo(|_| {});
+            assert_eq!(u.done, 2, "{:?}", u.refused);
+            assert!(!d.join("out/x.h").exists() && !upper.exists());
+        }
     }
 
     #[test]

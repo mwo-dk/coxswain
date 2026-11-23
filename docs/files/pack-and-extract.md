@@ -226,17 +226,17 @@ another folder.
 #### What happens when an archive holds the same name twice?
 
 The later entry is the one you get, as tar and other programs give it, with **Ctrl+E** and with
-**F5** on a folder of the archive, and in a tar also with **F5** on the file itself or on marked
-files, and when it is opened. A move out (**F6**) of such a name, the file or a folder holding
+**F5** on a folder of the archive, and also with **F5** on the file itself or on marked files,
+and when it is opened (**F3**, the preview), out of a tar, a zip or a 7z alike. A move out (**F6**) of such a name, the file or a folder holding
 it, is refused before anything is written, as taking it out of the archive would take both
 entries; the archive keeps both. A zip that holds a name twice is read with that name once, so
 it is left as it is: a move out of it and anything that writes it anew (adding, renaming, a new
 folder) is refused with *This zip gives a name twice*; a folder given twice (as in some `.jar`
 files) loses nothing, so such a zip is changed as any other. Names that differ only in case (`xt_CONNMARK.h` and
-`xt_connmark.h`) on macOS and Windows, whose disks ignore case: out of a zip or a 7z, and with
-**F5** out of any archive, both come out, the later as `xt_connmark (2).h`, as a copy keeps both
-files; **Ctrl+E** of a tar still keeps only the later one. On Linux and the BSDs they come out
-under their own names.
+`xt_connmark.h`) on macOS and Windows, whose disks ignore case: with **Ctrl+E** and with **F5**
+out of any archive, both come out, the later as `xt_connmark (2).h` (a program staying one), as a
+copy keeps both files, and **Ctrl+Z** takes back both. On Linux and the BSDs they come out under
+their own names.
 
 #### Can I stop packing or extracting?
 

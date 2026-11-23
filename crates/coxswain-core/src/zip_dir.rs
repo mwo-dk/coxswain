@@ -289,13 +289,14 @@ pub(crate) fn entries<R: Read + Seek>(
     Ok(())
 }
 
-/// The entry named `name` (a file, not a folder), found by going through the directory.
-pub(crate) fn find<R: Read + Seek>(file: &mut R, name: &str) -> io::Result<Option<Central>> {
+/// The entry named `name` (a file, not a folder), found by going through the directory: the
+/// first, or with `last` (a name given twice) the last, which the directory is read to its end for.
+pub(crate) fn find<R: Read + Seek>(file: &mut R, name: &str, last: bool) -> io::Result<Option<Central>> {
     let mut found = None;
     entries(file, &mut |c| {
         if c.name == name && !c.dir() {
             found = Some(c);
-            return false;
+            return last;
         }
         true
     })?;
@@ -384,12 +385,12 @@ mod tests {
                     assert_eq!(got, want, "{name}");
                 }
             }
-            let last = super::find(&mut f, "dir250/file 299 – ü.txt")
+            let last = super::find(&mut f, "dir250/file 299 – ü.txt", false)
                 .unwrap()
                 .unwrap();
             assert_eq!(last.size, "the text of file 299\n".len() as u64 * 299);
             assert!(
-                super::find(&mut f, "dir250/").unwrap().is_none(),
+                super::find(&mut f, "dir250/", false).unwrap().is_none(),
                 "a folder is no file"
             );
         }
