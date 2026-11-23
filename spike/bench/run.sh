@@ -9,9 +9,9 @@ cd "$(dirname "$0")/.."
 cargo build -q --release -p spike-host -p spike-proc ${SPIKE_BUILD:---features spike-host/pulley,spike-host/wasmi}
 H=${CARGO_TARGET_DIR:-target}/release/spike-host
 export SPIKE_WASM=plugin.wasm SPIKE_CORE=plugin-core.wasm
-N=$(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc)
+N=$(getconf _NPROCESSORS_ONLN 2>/dev/null || getconf NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpuonline 2>/dev/null || nproc)
 [ "$N" -gt 8 ] && N=8
-echo "{\"system\": \"$(uname -srm)\", \"cpus\": $(getconf _NPROCESSORS_ONLN 2>/dev/null || nproc), \"threads\": $N}"
+echo "{\"system\": \"$(uname -srm)\", \"cpus\": $N, \"threads\": $N}"
 pgn=$D/full.pgn
 scid="$D/scid-big.si4 $D/scid-big.sn4 $D/scid-big.sg4"
 for job in pgn-scan pgn-parse scid-table scid-decode; do
