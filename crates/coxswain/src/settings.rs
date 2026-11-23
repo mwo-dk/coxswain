@@ -205,7 +205,9 @@ pub struct Settings {
     /// Preview tools, read when Previews opens, after a change and after a pull, by a thread:
     /// it asks every program and the container runtime.
     tools: Option<Vec<coxswain_core::preview_tools::Row>>,
-    tools_rx: Option<mpsc::Receiver<(Vec<coxswain_core::preview_tools::Row>, Option<String>)>>,
+    tools_rx: Option<mpsc::Receiver<(Vec<coxswain_core::preview_tools::Row>, Option<String>, std::collections::BTreeMap<String, String>)>>,
+    /// Images a check found a newer build of (`AppState::images_newer`), read with the tools.
+    newer: std::collections::BTreeMap<String, String>,
     /// The servers a Subversion or CVS history may be read from (`AppState::history_servers`).
     servers: Vec<String>,
     /// Chess: the known engines, looked for when Previews opens; what *Test engine* read from
@@ -253,6 +255,7 @@ impl Settings {
             models: None,
             tools: None,
             tools_rx: None,
+            newer: Default::default(),
             servers: st.history_servers.clone(),
             engines: vec![],
             engine: None,
@@ -298,12 +301,27 @@ impl Settings {
         let cfg = app.cfg.preview.clone();
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
+            let mut pulled_ok: Vec<String> = vec![];
             let said = pull.map(|images| {
                 let rt = coxswain_core::tools::container_runtime(&cfg).map(|r| r.1);
-                let failed: Vec<String> = images.iter().filter_map(|i| rt.as_ref().ok_or_else(coxswain_core::tools::no_runtime).and_then(|rt| coxswain_core::images::pulls::retry_job(rt, i)).err()).collect();
+                let mut failed: Vec<String> = vec![];
+                for i in &images {
+                    match rt.as_ref().ok_or_else(coxswain_core::tools::no_runtime).and_then(|rt| coxswain_core::images::pulls::retry_job(rt, i)) {
+                        Ok(()) => pulled_ok.push(i.clone()),
+                        Err(e) => failed.push(e),
+                    }
+                }
                 if failed.is_empty() { t!("ptools.pulled", "images" => images.iter().map(|i| coxswain_core::images::short(i)).collect::<Vec<_>>().join(", ")) } else { failed.join(" ") }
             });
-            tx.send((coxswain_core::preview_tools::rows(&cfg), said))
+            // A pull brings the newest: no newer build waits for what was pulled. The file is shared
+            // with the desktop app, so it is read again and written only when something changed.
+            let mut st = coxswain_core::state::AppState::load();
+            let before = st.images_newer.len();
+            st.images_newer.retain(|i, _| !pulled_ok.contains(i));
+            if st.images_newer.len() != before {
+                let _ = st.save();
+            }
+            tx.send((coxswain_core::preview_tools::rows(&cfg), said, st.images_newer))
         });
         self.tools_rx = Some(rx);
     }
@@ -331,9 +349,10 @@ impl Settings {
             });
             self.engine = Some(r);
         }
-        if let Some((rows, said)) = self.tools_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
+        if let Some((rows, said, newer)) = self.tools_rx.as_ref().and_then(|rx| rx.try_recv().ok()) {
             self.tools_rx = None;
             self.tools = Some(rows);
+            self.newer = newer;
             if let Some(said) = said {
                 self.said = Some((said, false));
             }
@@ -639,7 +658,7 @@ fn choices(name: &str, cfg: &Config) -> Option<Vec<(String, String)>> {
     Some(match name {
         "preview_prefer" => pairs(&[("auto", "settings.prefer_auto"), ("local", "settings.prefer_local"), ("container", "settings.prefer_container")]),
         "preview_container" => pairs(&[("auto", "settings.container_auto"), ("podman", "podman"), ("docker", "docker"), ("off", "settings.container_off")]),
-        "image_updates" => pairs(&[("off", "settings.image_updates_off"), ("weekly", "settings.image_updates_weekly"), ("monthly", "settings.image_updates_monthly")]),
+        "image_updates" => pairs(&[("off", "settings.image_updates_off"), ("ask", "settings.image_updates_ask"), ("ask-monthly", "settings.image_updates_ask_monthly"), ("weekly", "settings.image_updates_weekly"), ("monthly", "settings.image_updates_monthly")]),
         "glyphs" => pairs(&[("nerd", "settings.glyphs_nerd"), ("ascii", "settings.glyphs_ascii")]),
         "right_click" => pairs(&[("mark", "settings.right_click_mark"), ("menu", "settings.right_click_menu")]),
         "typing" => pairs(&[("find", "settings.typing_find"), ("command", "settings.typing_command")]),
@@ -1696,6 +1715,7 @@ fn explain(app: &App, s: &Settings, rows: &[Row]) -> Vec<Span<'static>> {
                         (None, Some(d)) => format!("{} ({d})", t!("settings.image_not_pulled")),
                         (None, None) => t!("settings.image_not_pulled"),
                     };
+                    let state = if coxswain_core::images::asks(&app.cfg.preview.image_updates) && s.newer.contains_key(&i.image) && i.pulled.is_some() { format!("{state}, {}", t!("settings.image_newer")) } else { state };
                     parts.push(if i.image.is_empty() { t!("ptools.container_none", "key" => i.key) } else { t!("ptools.container", "image" => coxswain_core::images::short(&i.image), "state" => state) });
                 }
                 // ClamAV reads any file: no endings, and no separator left dangling.

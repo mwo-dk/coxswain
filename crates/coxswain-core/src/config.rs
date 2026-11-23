@@ -1582,8 +1582,9 @@ pub struct PreviewConfig {
     /// Build a LaTeX document by itself when it is shown and its sources changed, instead of
     /// waiting for *Build PDF*.
     pub latex_auto: bool,
-    /// Keep the pulled images up to date: "off", "weekly" or "monthly". The desktop app pulls
-    /// them in the background, never on battery, and removes each replaced copy by its id.
+    /// Keep the pulled images up to date: "off", "ask" or "ask-monthly" (look each week or
+    /// month whether a pulled image has a newer build, and ask), "weekly" or "monthly" (pull
+    /// at once). Never on battery. An update removes each replaced copy by its id.
     pub image_updates: String,
     /// Remove an image of `images` that no preview used for 90 days (desktop app).
     pub image_prune: bool,

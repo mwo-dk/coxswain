@@ -6103,6 +6103,9 @@ pub fn main() {
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::EnableMouseCapture);
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::EnableBracketedPaste);
     pictures::live();
+    if app.pick.is_none() {
+        coxswain_core::images::watch_in_terminal();
+    }
     let res = main_loop(&mut term, &mut app);
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableBracketedPaste);
     let _ = execute!(std::io::stdout(), ratatui::crossterm::event::DisableMouseCapture);

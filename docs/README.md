@@ -64,7 +64,7 @@ mindmap
 | Page | What it covers |
 |---|---|
 | [Panels and keys](panels/README.md) | The area's pages, finding what Coxswain can do (F1, F9, Shift+F10, hints), and the main keys of both apps |
-| [The first-run guide](panels/first-run.md) | The four steps shown on the first start (panels and keys, how far Find looks, looks with the Nerd Font check, privacy), skipping, opening it again (F1, Settings → Overview) |
+| [The first-run guide](panels/first-run.md) | The four steps (five when podman or docker is found) shown on the first start (panels and keys, how far Find looks, looks with the Nerd Font check, container images, privacy), skipping, opening it again (F1, Settings → Overview) |
 | [The screen](panels/the-screen.md) | Panels, active panel, title bar with the version, status line and notices, F-key bar (*12 Settings* at its right end in the terminal app), archives shown in the pane, starting in a folder |
 | [Notices and what's new](panels/notices.md) | The version in the title, the tips, the count on Settings, *What's new* and `coxswain --whats-new` |
 | [Moving around and going to a folder](panels/moving.md) | Cursor keys, Enter, parent, other panel, refresh, Alt+F1/Alt+F2, Ctrl+L, cd |

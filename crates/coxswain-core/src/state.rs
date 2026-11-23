@@ -47,6 +47,9 @@ pub struct AppState {
     pub hints_shown: BTreeMap<String, u32>,
     /// Unix time of the last round of container image updates (`images`).
     pub images_checked: u64,
+    /// Image -> the newer build a check found (`images::check`), until it is pulled: what the
+    /// notice offers to update. Replaced by every check.
+    pub images_newer: BTreeMap<String, String>,
     /// Container image -> Unix time a preview last ran in it (`images::stale`).
     pub images_used: BTreeMap<String, u64>,
     /// The servers a Subversion or CVS history may be read from (`wc::server`): each asked once.
@@ -83,6 +86,7 @@ impl Default for AppState {
             migrated: vec![],
             hints_shown: BTreeMap::new(),
             images_checked: 0,
+            images_newer: BTreeMap::new(),
             images_used: BTreeMap::new(),
             history_servers: vec![],
             newer: serde_json::Map::new(),

@@ -92,14 +92,14 @@ open it outside the pane:
   rendered file opens in your browser.
 - **Download a tool by itself.** Pulling a container image, the one big download, waits for a
   click, and the engine button says what will be pulled, and how big it is, beforehand. Only
-  *Keep images up to date* in *Settings → Previews*, when you turn it on, pulls again by itself,
-  and only the images you already pulled ([Keeping images up to date](containers.md#keeping-images-up-to-date)).
+  *Keep images up to date* in *Settings → Previews*, when you turn it on, looks for newer builds
+  of the images you already pulled and asks (both apps), or pulls them again by itself (the desktop app) ([Keeping images up to date](containers.md#keeping-images-up-to-date)).
 
 ### What does reach the network
 
 | What | When |
 |---|---|
-| Pulling a container image | After your click on the engine or **Pull**; weekly or monthly for the images already pulled when *Keep images up to date* is on (desktop app, not on battery) |
+| Pulling a container image | After your click on the engine or **Pull**; weekly or monthly for the images already pulled when *Keep images up to date* is on: *Weekly* or *Monthly* (desktop app, not on battery), or, with *Check … then ask me*, only a lookup of the newest build at the registry (both apps), the pull after your **Update** |
 | tectonic's package bundle | When tectonic builds a document; tectonic's own design |
 | Typst Universe packages (`@preview/…`) | When an installed typst builds a document that imports one it does not have yet; typst's own design ([Typst](documents.md#typst)) |
 

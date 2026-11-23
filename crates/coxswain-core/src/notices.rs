@@ -21,6 +21,8 @@ pub struct Notice {
     pub copy: Option<String>,
     /// The line of config.toml it is about: shown with a button that opens the file there.
     pub config_line: Option<usize>,
+    /// The container image a newer build of which this is about: *Update* pulls it.
+    pub image: Option<String>,
 }
 
 impl Notice {
@@ -31,6 +33,7 @@ impl Notice {
             settings,
             copy: None,
             config_line: None,
+            image: None,
         }
     }
 }
@@ -111,6 +114,15 @@ pub fn all(cfg: &Config, status: &Status, state: &AppState, terminal: bool) -> V
             t!("notice.search_error", "why" => why),
             Some("search"),
         ));
+    }
+    // A check found a newer build of a pulled image: Update pulls it, Not now (dismissed) waits
+    // for a newer one still. The terminal app names where to update it.
+    if crate::images::asks(&cfg.preview.image_updates) && cfg.preview.container != "off" {
+        for (image, build) in state.images_newer.iter().filter(|(i, _)| cfg.preview.images.values().any(|c| c == *i)) {
+            let name = crate::images::short(image);
+            let text = if terminal { t!("notice.image_newer_tui", "image" => name) } else { t!("notice.image_newer", "image" => name) };
+            all.push(Notice { image: Some(image.clone()), ..Notice::new(format!("image-newer:{image}@{build}"), text, Some("previews")) });
+        }
     }
     if let Some(why) = status.meaning_error.as_ref().filter(|_| status.meaning) {
         all.push(Notice::new(

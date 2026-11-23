@@ -753,6 +753,8 @@
  "settings.keys_hint": "Les touches se changent dans config.toml sous [keys]; les deux apps les lisent à leur démarrage.",
  "settings.level": "Jusqu’où la recherche doit-elle regarder?",
  "settings.out.cloud_where": "vos services infonuagiques",
+ "settings.out.images_ask_monthly": "Images de conteneur pour les aperçus, au téléchargement; chaque mois, leur registre est interrogé pour savoir si une image téléchargée a un build plus récent (seul son nom est envoyé)",
+ "settings.out.images_ask_weekly": "Images de conteneur pour les aperçus, au téléchargement; chaque semaine, leur registre est interrogé pour savoir si une image téléchargée a un build plus récent (seul son nom est envoyé)",
  "settings.preview_cache_size": "{size} dans le cache; refaits quand une source change; ceux non affichés depuis 30 jours partent d’eux-mêmes",
  "settings.status.down": "Le serveur sur {host} ne répond pas. Est-il démarré?",
  "settings.status.pull_fault_gone": "le registre n’a pas l’image; un Coxswain plus récent en indique une qu’il a",

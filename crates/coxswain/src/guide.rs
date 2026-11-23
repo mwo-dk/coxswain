@@ -5,7 +5,7 @@
 use crate::ui::{dstyle, fit, frame, sty};
 use crate::{App, Dialog};
 use coxswain_core::config::Config;
-use coxswain_core::guide::{self as cg, STEPS, THEMES};
+use coxswain_core::guide::{self as cg, IMAGE_CHOICES, THEMES};
 use coxswain_core::settings::{self as cs, Level};
 use coxswain_core::t;
 use ratatui::layout::Rect;
@@ -35,14 +35,19 @@ enum Row {
     /// The line that installs a Nerd Font, to copy.
     Font,
     Updates,
+    /// How the pulled images are kept up to date, and whether unused ones go.
+    Images,
+    Prune,
 }
 
-fn rows(step: usize) -> Vec<Row> {
-    match step {
-        1 => Level::ALL.into_iter().map(Row::Level).collect(),
-        2 => [Row::Theme, Row::Language, Row::Icons].into_iter().chain(crate::settings::install_line("nerd-font").map(|_| Row::Font)).collect(),
-        3 => vec![Row::Updates],
-        0 => vec![Row::Typing],
+/// The rows of step `kind` (its number, `cg::plan`).
+fn rows(kind: usize) -> Vec<Row> {
+    match kind {
+        2 => Level::ALL.into_iter().map(Row::Level).collect(),
+        3 => [Row::Theme, Row::Language, Row::Icons].into_iter().chain(crate::settings::install_line("nerd-font").map(|_| Row::Font)).collect(),
+        4 => vec![Row::Updates],
+        5 => vec![Row::Images, Row::Prune],
+        1 => vec![Row::Typing],
         _ => vec![],
     }
 }
@@ -70,11 +75,12 @@ impl App {
     /// A key in the guide.
     pub fn guide_key(&mut self, mut g: Box<Guide>, key: coxswain_core::config::Key, esc: bool) {
         use coxswain_core::config::KeyCode;
-        let rows = rows(g.step);
+        let plan = cg::plan(&self.cfg);
+        let rows = rows(plan[g.step.min(plan.len() - 1)]);
         g.said = None;
         match key.code {
             _ if esc => return self.guide_close(),
-            KeyCode::Enter if g.step + 1 >= STEPS => return self.guide_close(),
+            KeyCode::Enter if g.step + 1 >= plan.len() => return self.guide_close(),
             KeyCode::Enter => (g.step, g.cursor) = (g.step + 1, 0),
             KeyCode::Backspace => (g.step, g.cursor) = (g.step.saturating_sub(1), 0),
             KeyCode::Up => g.cursor = g.cursor.saturating_sub(1),
@@ -118,6 +124,8 @@ impl App {
             }
             Row::Icons => set("glyphs", if self.cfg.plain_glyphs() { "nerd" } else { "ascii" }.into()),
             Row::Updates => set("check_updates", (!self.cfg.check_updates).into()),
+            Row::Images => set("image_updates", next(&IMAGE_CHOICES, if self.cfg.preview.image_updates == "ask-monthly" { "ask" } else { &self.cfg.preview.image_updates }, back).into()),
+            Row::Prune => set("image_prune", (!self.cfg.preview.image_prune).into()),
             Row::Font => {
                 let line = crate::settings::install_line("nerd-font").unwrap_or_default();
                 copy(&line);
@@ -136,8 +144,9 @@ impl App {
 pub fn draw(f: &mut Frame, app: &mut App) {
     let t = app.theme.clone();
     let Some(Dialog::Guide(g)) = &app.dialog else { return };
-    let (step, cursor, said) = (g.step, g.cursor, g.said.clone());
-    let inner = frame(f, app, f.area(), &cg::title(step));
+    let plan = cg::plan(&app.cfg);
+    let (step, cursor, said) = (g.step.min(plan.len() - 1), g.cursor, g.said.clone());
+    let inner = frame(f, app, f.area(), &cg::title(&plan, step));
     if inner.height < 6 || inner.width < 30 {
         return;
     }
@@ -151,8 +160,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let para = |s: String| Line::from(Span::raw(s));
     let mut lines: Vec<Line> = vec![];
     let row = |i: usize, text: String| Line::from(Span::styled(fit(&format!(" {text}"), w), if i == cursor { selected } else { base }));
-    match step {
-        0 => {
+    match plan[step] {
+        1 => {
             lines.push(para(t!("guide.panels_intro")));
             lines.push(Line::from(""));
             for (label, key) in cg::keys(cfg) {
@@ -166,7 +175,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             let typing = if cfg.type_to_jump(false) { t!("settings.typing_find") } else { t!("settings.typing_command") };
             lines.push(row(0, format!("{}: ‹ {typing} ›", t!("setting.typing"))));
         }
-        1 => {
+        2 => {
             lines.push(para(t!("guide.find_intro", "key" => app.key_label(coxswain_core::config::Action::Search))));
             lines.push(Line::from(""));
             let now = cs::level(&cfg.search);
@@ -178,7 +187,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(t!("guide.find_setup"), dim)));
         }
-        2 => {
+        3 => {
             lines.push(para(t!("guide.looks_intro")));
             lines.push(Line::from(""));
             // As Settings names them; a theme of the user's own by its name.
@@ -197,6 +206,16 @@ pub fn draw(f: &mut Frame, app: &mut App) {
                 lines.push(Line::from(vec![Span::styled("  \u{f07b} \u{f15b}  ", head), Span::raw(t!("guide.icons_unknown"))]));
             }
             lines.push(Line::from(Span::styled(t!("guide.looks_more"), dim)));
+        }
+        5 => {
+            lines.push(para(t!("guide.images_intro")));
+            lines.push(Line::from(""));
+            let now = crate::settings::choice_label("image_updates", &cfg.preview.image_updates);
+            lines.push(row(0, format!("{}: ‹ {now} ›", t!("setting.image_updates"))));
+            let mark = if cfg.preview.image_prune { "[x]" } else { "[ ]" };
+            lines.push(row(1, format!("{mark} {}", t!("setting.image_prune"))));
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(t!("guide.images_where"), dim)));
         }
         _ => {
             lines.push(para(t!("guide.privacy_intro")));
@@ -222,7 +241,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     f.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), body);
     let (line, st) = match said {
         Some((s, bad)) => (s, if bad { red } else { dim }),
-        None => (t!(if step + 1 < STEPS { "guide.keys_tui" } else { "guide.keys_tui_last" }), dim),
+        None => (t!(if step + 1 < plan.len() { "guide.keys_tui" } else { "guide.keys_tui_last" }), dim),
     };
     f.render_widget(Paragraph::new(fit(&line, w)).style(st), Rect { x: inner.x + 2, y: inner.bottom() - 1, width: w as u16, height: 1 });
 }
@@ -248,17 +267,18 @@ mod tests {
             let buf = term.backend().buffer().clone();
             (0..24).map(|y| (0..80).map(|x| buf[(x, y)].symbol().to_string()).collect::<String>()).collect::<Vec<_>>().join("\n")
         };
-        for n in 1..=STEPS {
+        let steps = cg::plan(&app.cfg).len();
+        for n in 1..=steps {
             let scr = screen(&mut app);
-            assert!(scr.contains(&format!("{n} of 4")), "{scr}");
+            assert!(scr.contains(&format!("{n} of {steps}")), "{scr}");
             assert!(scr.contains("Esc"), "the keys are said:\n{scr}");
-            if n < STEPS {
+            if n < steps {
                 key(&mut app, KeyCode::Enter);
             }
         }
         assert!(screen(&mut app).contains("ask GitHub"), "step 4: the update check");
         key(&mut app, KeyCode::Backspace);
-        assert!(matches!(&app.dialog, Some(Dialog::Guide(g)) if g.step == 2));
+        assert!(matches!(&app.dialog, Some(Dialog::Guide(g)) if g.step == steps - 2));
         key(&mut app, KeyCode::Esc);
         assert!(app.dialog.is_none(), "Esc skips the rest");
         assert_eq!(next(&THEMES, "nc", false), "midnight");

@@ -306,7 +306,7 @@ prefer = "auto"          # "auto" (installed program first, else container), "lo
 container = "auto"       # "auto" (podman, else docker), "podman", "docker", "off"
 timeout = 120            # seconds per conversion; pulling is not counted
 latex_auto = true        # build LaTeX by itself when shown and changed
-image_updates = "off"    # "weekly", "monthly": the desktop app pulls the pulled images again
+image_updates = "off"    # "ask", "ask-monthly": look and ask; "weekly", "monthly": the desktop app pulls
 image_prune = false      # remove an image no preview, Make PDF searchable or Scan for viruses used for 90 days
 virus_scan = false       # Scan for viruses with ClamAV (Alt+I), only when asked
 
@@ -327,7 +327,7 @@ latex = "docker.io/texlive/texlive:latest"   # or :latest-medium, about 960 MB t
 | *Timeout (seconds)* | `timeout` | 10 to 3600, `120` |
 | *Previews made so far* | – | The cache size, **Clear** |
 | *Preview tools* | `tools.*`, `images.*` | A row per kind: what is installed, its image with **Pull** and **Remove**, what is used, the choice, **Try** ([above](#preview-tools-in-settings)) |
-| *Keep images up to date* | `image_updates` | *Off* (`off`, default), *Weekly* (`weekly`), *Monthly* (`monthly`) ([Containers](containers.md#keeping-images-up-to-date)) |
+| *Keep images up to date* | `image_updates` | *Off* (`off`, default), *Check weekly, then ask me* (`ask`), *Check monthly, then ask me* (`ask-monthly`), *Weekly* (`weekly`), *Monthly* (`monthly`) ([Containers](containers.md#keeping-images-up-to-date)) |
 | *Remove images not used for 90 days* | `image_prune` | off ([Containers](containers.md#removing-unused-images)) |
 | *Scan for viruses with ClamAV* | `virus_scan` | off ([Scan for viruses](../files/virus-scan.md)) |
 

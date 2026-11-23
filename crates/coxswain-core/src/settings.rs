@@ -1067,10 +1067,13 @@ pub fn outbound(cfg: &Config) -> Vec<Out> {
         hosts.sort();
         hosts.dedup();
         if !hosts.is_empty() {
-            let what = match crate::images::every(&cfg.preview.image_updates) {
-                Some(7) => "settings.out.images_weekly",
-                Some(_) => "settings.out.images_monthly",
-                None => "settings.out.images",
+            let asks = crate::images::asks(&cfg.preview.image_updates);
+            let what = match (crate::images::every(&cfg.preview.image_updates), asks) {
+                (Some(7), true) => "settings.out.images_ask_weekly",
+                (Some(_), true) => "settings.out.images_ask_monthly",
+                (Some(7), false) => "settings.out.images_weekly",
+                (Some(_), false) => "settings.out.images_monthly",
+                (None, _) => "settings.out.images",
             };
             v.push(out(what, &hosts.join(", "), false));
         }

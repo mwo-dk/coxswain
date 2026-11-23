@@ -2,9 +2,9 @@
 
 # The first-run guide
 
-The first time Coxswain starts, a short guide opens in both apps: four steps that show the two
-panels and their keys, ask how far Find should look, let you choose how it looks, and say what
-can leave the machine. Every step can be skipped. Each choice is written to `config.toml` at once,
+The first time Coxswain starts, a short guide opens in both apps: four steps (five when podman or docker is found) that show the two
+panels and their keys, ask how far Find should look, let you choose how it looks, ask whether the
+container images of previews are kept up to date, and say what can leave the machine. Every step can be skipped. Each choice is written to `config.toml` at once,
 as in Settings, so closing the guide halfway keeps what you chose.
 
 ![The desktop app's first-run guide at step 1, Two panels · 1 of 4: a picture of two folders side by side, the keys Tab, Enter, F5, F6, Alt+F7, Alt+U, F9 and F1, the Typing letters choice (Jump to a name), and Skip and Next](../screenshots/guide-panels.png)
@@ -14,7 +14,7 @@ as in Settings, so closing the guide halfway keeps what you chose.
 ## Contents
 
 - [When it opens](#when-it-opens)
-- [The four steps](#the-four-steps)
+- [The steps](#the-steps)
 - [Keys](#keys)
 - [Opening it again](#opening-it-again)
 - [How the two apps differ](#how-the-two-apps-differ)
@@ -31,14 +31,19 @@ if your `config.toml` had keys that 2.0 renamed, a notice that lists them; see
 It does not open when that first start is `--settings` or, in the desktop app, `--duplicates`:
 what you asked for comes first. **F1** opens it then ([Opening it again](#opening-it-again)).
 
-## The four steps
+## The steps
 
 | Step | Title | What it shows | What you can do |
 |---|---|---|---|
 | 1 | *Two panels* | Two folders side by side; the lit one is active, and what you copy or move goes to the other one. The keys to know first, as your `[keys]` set them: **Tab** other panel, **Enter** open, **F5** copy, **F6** move, **Ctrl+F** Find, **F9** commands, **F1** help. Under them: *Shift+F10 / Menu: what you can do with what is under the cursor. A right-click opens that menu or marks; Settings → Behaviour chooses which.* ([The action menu](action-menu.md)) and *F1 → Features lists every feature with its keys and answers to the common questions.* ([Features and questions](features.md)) | Read, then choose *Typing letters*: *Jump to a name* or *Go to the command line* ([Quick search](quick-search.md#typing-letters-or-the-command-line)) |
 | 2 | *Finding files* | How far Find looks: the four search levels of [Search settings](../search/settings.md): *Names only*, *Names and text* (the default), *+ meaning*, *+ Ask*, each with what it costs | Choose a level. *+ meaning* and *+ Ask* need a model: when none is chosen yet, the [setup guide](../search/setup.md) opens, and when it closes you are back at this step |
 | 3 | *Looks* | Four themes (Cyber, Classic blue, Tokyo Night, Light), the language, and the icons | Choose a theme and a language; the screen changes at once. Icons: see below. More themes, fonts and sizes are in Settings → Looks |
+| 4 of 5 | *Container images* | Only when podman or docker is found (`[preview] container` not `"off"`). One line on what it does: some previews run in container images that Coxswain downloads; checking sends only the image's name to its registry (`docker.io`, `ghcr.io`), and an update removes the old copy | Choose *Off* (the default), *Check weekly, then ask me*, *Weekly* or *Monthly* for *Keep images up to date*, and tick *Remove images not used for 90 days* ([Containers](../previews/containers.md#keeping-images-up-to-date)). Terminal app: **Space** or **←** **→** on the row |
 | 4 | *Privacy* | "Nothing leaves this machine unless you turn it on." The update check (at start and then once a day, to GitHub: `api.github.com`, or the file of the channel your copy came from) and the list of what can leave the machine with the settings as they are now; then a line that viewers you do not need can be turned off ([Modules](../customise/modules.md)) | Switch the update check off or on; **Choose modules** (desktop app) opens Settings at *Modules*, the terminal app names Settings → *Modules*; *Done* closes the guide |
+
+<!-- screenshot: guide-images.png: the desktop app's first-run guide at Container images · 4 of 5: the four choices Off, Check weekly then ask me, Weekly, Monthly, the 90-day box and the line on what is sent -->
+
+<!-- screenshot: guide-images-tui.png: the terminal app's first-run guide at Container images · 4 of 5 in Classic blue: the row Keep images up to date with its choice, the 90-day row and the line on what is sent -->
 
 **Icons (step 3).** The file and git icons need a Nerd Font.
 
@@ -65,7 +70,7 @@ Coxswain never runs an install line; it only shows it and copies it.
 | **↑** **↓** | – (use the mouse or Tab between fields) | Choose a row of the step |
 | **Space**, **←** **→** | – | Change the row: the next level, theme, language; flip the icons or the update check; copy an install line |
 
-The desktop app also has **Skip**, **Back** and **Next** (*Done* on step 4) buttons, and **×** in
+The desktop app also has **Skip**, **Back** and **Next** (*Done* on the last step) buttons, and **×** in
 the title bar. The key line at the bottom says the keys: "Enter next · Esc skip" in the desktop
 app, "↑↓ choose · Space change · Enter next · Backspace back · Esc skip" in the terminal app.
 
@@ -93,6 +98,7 @@ app, "↑↓ choose · Space change · Enter next · Backspace back · Esc skip"
 | Theme | `[gui] theme` (desktop), `theme` (terminal) |
 | Language | `language` |
 | Icons | `glyphs = "ascii"` or `"nerd"` |
+| Container images (when shown) | `[preview] image_updates` (`off`, `ask`, `weekly`, `monthly`), `[preview] image_prune` |
 | Update check | `check_updates` |
 
 Your comments in `config.toml` are kept. That the guide was seen is kept in `state.json` as
@@ -111,6 +117,12 @@ again*.
 It is for a first start. After an update you
 get what is new instead: *What's new* under Settings → *Overview* in both apps (or
 `coxswain --whats-new`), and [What's new in 2.0](../whats-new-2.md).
+
+#### Why does the guide have a container images step on one machine and not on another?
+
+It appears only when podman or docker is found (and `[preview] container` is not `"off"`): without
+one there is nothing to keep up to date. It comes before *Privacy*, so that step lists what your
+choice sends. *Off* is the default, and nothing leaves the machine until you choose otherwise.
 
 #### Did skipping change anything?
 
@@ -131,7 +143,7 @@ See [Glyphs and fonts](../customise/glyphs-and-fonts.md).
 
 #### Does the guide send anything anywhere?
 
-No. Step 4 only shows what could leave the machine,
+No. The container images step, when shown, sends nothing itself: it only saves your choice. The last step only shows what could leave the machine,
 lets you switch the update check, and says where viewers can be turned off (**Choose modules**
 in the desktop app opens Settings at *Modules*).
 

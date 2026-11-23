@@ -335,6 +335,10 @@ NEEDS_HARDWARE = {
     "tui-zfs-snapshots.png": "FreeBSD with ZFS snapshots (the picture there shows the key bar before 12 Settings)",
     "freebsd-sidebar-be.png": "a FreeBSD desktop with a ZFS root, boot environments and jails",
     "macos-setup-builtin.png": "a Mac",
+    "images-update-notice.png": "podman or docker with a pulled image that has a newer build (the sandbox has neither)",
+    "images-update-notice-tui.png": "podman or docker with a pulled image that has a newer build (the sandbox has neither)",
+    "guide-images.png": "podman or docker found by the first-run guide (the sandbox has neither)",
+    "guide-images-tui.png": "podman or docker found by the first-run guide (the sandbox has neither)",
 }
 
 
