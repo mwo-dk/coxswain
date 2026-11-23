@@ -129,6 +129,11 @@ fn restore(path: &Path, _name: &Path, since: i64) -> io::Result<()> {
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, t!("undo.not_in_trash")))?;
     #[cfg(not(windows))]
     return restore_item(Path::new(&item.id), &want);
+    // The crate's own check follows links: a link to nothing at the place would be replaced.
+    #[cfg(windows)]
+    if std::fs::symlink_metadata(&want).is_ok() {
+        return Err(io::Error::new(io::ErrorKind::AlreadyExists, t!("undo.taken")));
+    }
     #[cfg(windows)]
     os_limited::restore_all([item]).map_err(|e| match e {
         trash::Error::RestoreCollision { .. } => {
