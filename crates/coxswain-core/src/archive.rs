@@ -499,9 +499,7 @@ fn messages(mbox: &Path) -> io::Result<Arc<[crate::extract::mail::Listed]>> {
 
 /// The file name a message of a mailbox has inside it: its number, date, sender and subject.
 fn message_name(i: usize, digits: usize, m: &crate::extract::mail::Listed) -> String {
-    let date = chrono::DateTime::from_timestamp(m.secs, 0)
-        .filter(|_| m.secs > 0)
-        .map(|d| d.format("%Y-%m-%d").to_string());
+    let date = Some(m.secs).filter(|s| *s > 0).and_then(|s| crate::clock::utc(s, "%Y-%m-%d"));
     let words: Vec<&str> = [date.as_deref().unwrap_or(""), &m.from, &m.subject]
         .into_iter()
         .filter(|w| !w.trim().is_empty())
@@ -1891,12 +1889,10 @@ fn seven_secs(e: &sevenz_rust2::ArchiveEntry) -> u64 {
 /// Seconds since the Unix epoch of a zip's date and time, which is local time without a zone
 /// (as zip tools write it); a time that does not exist (a clock change) takes the one after.
 fn unix(t: zip::DateTime) -> u64 {
-    use chrono::TimeZone;
-    let local = chrono::NaiveDate::from_ymd_opt(t.year() as i32, t.month() as u32, t.day() as u32)
-        .and_then(|d| d.and_hms_opt(t.hour() as u32, t.minute() as u32, t.second() as u32));
-    local
-        .and_then(|l| chrono::Local.from_local_datetime(&l).earliest())
-        .map_or(0, |d| d.timestamp().max(0) as u64)
+    jiff::civil::DateTime::new(t.year() as i16, t.month() as i8, t.day() as i8, t.hour() as i8, t.minute() as i8, t.second() as i8, 0)
+        .ok()
+        .and_then(crate::clock::from_local)
+        .map_or(0, |d| d.max(0) as u64)
 }
 
 /// An entry of an archive: its path inside, size, whether a folder, modified (seconds), locked.
@@ -4055,8 +4051,7 @@ enum New {
 
 /// A zip's date and time (local, without a zone) from seconds since the Unix epoch.
 fn zip_time(secs: u64) -> zip::DateTime {
-    use chrono::{Datelike, TimeZone, Timelike};
-    let Some(l) = chrono::Local.timestamp_opt(secs as i64, 0).single() else {
+    let Some(l) = jiff::Timestamp::from_second(secs as i64).ok().map(|t| t.to_zoned_datetime(jiff::tz::TimeZone::system())) else {
         return zip::DateTime::default();
     };
     zip::DateTime::from_date_and_time(
@@ -6175,7 +6170,6 @@ mod tests {
     /// saw, and one Coxswain makes shows the right time in other tools.
     #[test]
     fn archive_zip_times_are_local() {
-        use chrono::{Datelike, TimeZone, Timelike};
         // A zip's time has two-second steps. The clock, not a file's time: a build from a
         // package (Nix) dates its sources at 1970, before the first time a zip can hold.
         let now = std::time::SystemTime::now()
@@ -6183,7 +6177,7 @@ mod tests {
             .unwrap()
             .as_secs()
             & !1;
-        let local = chrono::Local.timestamp_opt(now as i64, 0).unwrap();
+        let local = jiff::Timestamp::from_second(now as i64).unwrap().to_zoned_datetime(jiff::tz::TimeZone::system());
         let t = zip_time(now);
         assert_eq!(
             (
@@ -6192,7 +6186,7 @@ mod tests {
                 t.day() as u32,
                 t.hour() as u32
             ),
-            (local.year(), local.month(), local.day(), local.hour())
+            (i32::from(local.year()), local.month() as u32, local.day() as u32, local.hour() as u32)
         );
         assert_eq!(unix(t), now, "and back");
     }

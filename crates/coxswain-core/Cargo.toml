@@ -34,7 +34,7 @@ flate2 = "1.1.10"
 blake3 = "1.8.7"
 sys-locale = "0.3.2"
 # Zip entries carry local time without a zone: the system's zone turns it into a moment and back.
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
+jiff = { version = "1", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-platform", "tzdb-concatenated"] }
 rusqlite = { version = "0.41.1", features = ["bundled", "hooks"] }
 quick-xml = "0.42.0"
 mail-parser = "0.11.9"

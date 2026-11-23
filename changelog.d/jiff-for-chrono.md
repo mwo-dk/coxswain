@@ -1,0 +1,1 @@
+| **A zip's time that a clock change skipped now reads as the hour after.** A file time of 02:30 on the night the clock jumps forward showed as 1970 and now shows 03:30. Dates elsewhere look the same. | [Pack and extract](files/pack-and-extract.md) |

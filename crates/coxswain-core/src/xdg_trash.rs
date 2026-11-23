@@ -103,7 +103,7 @@ fn put_at(trash: &Path, top: Option<&Path>, path: &Path, same: fn(&Path, &Path) 
     let body = format!(
         "[Trash Info]\nPath={}\nDeletionDate={}\n",
         encode(top.and_then(|t| path.strip_prefix(t).ok()).unwrap_or(&path)),
-        chrono::Local::now().format("%Y-%m-%dT%H:%M:%S")
+        crate::clock::now_local("%Y-%m-%dT%H:%M:%S")
     );
     // The info file is made first and exclusively: it claims the name.
     for n in crate::fs::name_candidates(&name) {
@@ -230,7 +230,7 @@ mod tests {
             .strip_prefix("DeletionDate=")
             .unwrap();
         assert!(
-            chrono::NaiveDateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S").is_ok(),
+            jiff::civil::DateTime::strptime("%Y-%m-%dT%H:%M:%S", date).is_ok(),
             "{date}"
         );
         // A folder goes in whole.

@@ -741,12 +741,8 @@ fn parse_list(s: &str, max: usize) -> Vec<Entry> {
             continue;
         };
         let modified = get("Modified")
-            .and_then(|m| chrono::NaiveDateTime::parse_from_str(m.get(..19)?, "%Y-%m-%d %H:%M:%S").ok())
-            .and_then(|t| {
-                use chrono::TimeZone;
-                chrono::Local.from_local_datetime(&t).earliest()
-            })
-            .map_or(0, |t| t.timestamp().max(0) as u64);
+            .and_then(|m| crate::clock::parse_local(m.get(..19)?, "%Y-%m-%d %H:%M:%S"))
+            .map_or(0, |t| t.max(0) as u64);
         out.push(Entry {
             // 7-Zip writes `\` between folders on Windows; elsewhere it is a letter of a name.
             name: if cfg!(windows) { path.replace('\\', "/") } else { path.to_string() }.trim_end_matches('/').to_string(),

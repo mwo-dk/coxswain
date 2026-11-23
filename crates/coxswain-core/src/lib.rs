@@ -39,6 +39,7 @@ pub mod facts;
 pub mod features;
 pub mod find;
 pub mod flags;
+pub mod clock;
 pub mod fs;
 pub mod geo;
 pub mod git;

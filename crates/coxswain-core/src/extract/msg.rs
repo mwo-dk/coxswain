@@ -123,7 +123,7 @@ fn read(path: &Path) -> Option<Summary> {
         _ => name,
     };
     let to = string(&mut f, "", 0x0e04);
-    let date = when(&mut f).and_then(|s| chrono::DateTime::from_timestamp(s, 0)).map(|d| d.to_rfc2822()).unwrap_or_default();
+    let date = when(&mut f).and_then(crate::clock::rfc2822).unwrap_or_default();
     let body = property(&mut f, "", 0x1000).map(|b| String::from_utf8_lossy(&b).into_owned()).filter(|t| !t.trim().is_empty());
     let text = body
         .or_else(|| property(&mut f, "", 0x1013).map(|h| super::mail::plain(&String::from_utf8_lossy(&h))))

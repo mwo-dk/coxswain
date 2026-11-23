@@ -402,8 +402,8 @@ pub fn facts(path: &Path) -> Option<Vec<(String, String)>> {
     if !i.platforms.is_empty() {
         out.push((t!("container_image.platforms"), join(i.platforms.clone(), ", ")));
     }
-    if let Some(d) = c["created"].as_str().and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok()) {
-        out.push((t!("container_image.created"), d.to_utc().format("%Y-%m-%d %H:%M UTC").to_string()));
+    if let Some(d) = c["created"].as_str().and_then(crate::clock::rfc3339).and_then(|d| crate::clock::utc(d, "%Y-%m-%d %H:%M UTC")) {
+        out.push((t!("container_image.created"), d));
     }
     let sizes: Vec<String> = i.layers.iter().map(|(_, n)| crate::settings::human(*n)).collect();
     out.push((t!("facts.layers"), format!("{}: {}", i.layers.len(), join(sizes, ", "))));
@@ -1180,6 +1180,7 @@ pub(crate) mod tests {
         assert_eq!(v("container_image.tags").as_deref(), Some("demo:1"));
         assert_eq!(v("container_image.platform").as_deref(), Some("linux/amd64"));
         assert_eq!(v("container_image.ports").as_deref(), Some("80/tcp"));
+        assert_eq!(v("container_image.created").as_deref(), Some("2026-10-01 12:00 UTC"));
         assert_eq!(title(&img).as_deref(), Some("demo:1"));
         assert!(crate::archive::read_only(&img));
         let _ = std::fs::remove_dir_all(&dir);

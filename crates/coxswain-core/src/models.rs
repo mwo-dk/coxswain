@@ -87,10 +87,7 @@ impl Entry {
 
 /// The date of `secs` since 1970, here.
 fn date(secs: u64) -> String {
-    let t = crate::fs::epoch(secs);
-    chrono::DateTime::<chrono::Local>::from(t)
-        .format("%Y-%m-%d")
-        .to_string()
+    crate::clock::local(secs.min(253_402_300_799) as i64, "%Y-%m-%d").unwrap_or_default()
 }
 
 /// Where the built-in models are kept: the cache folder's `models`.

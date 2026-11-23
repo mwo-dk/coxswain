@@ -193,7 +193,7 @@ impl Table {
                 let ms = (le(8).unwrap_or(0) >> 32) as i64;
                 // Julian day 2440588 is 1970-01-01.
                 let secs = (day - 2_440_588) * 86_400 + ms / 1000;
-                chrono::DateTime::from_timestamp(secs, 0).map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string()).unwrap_or_default()
+                crate::clock::utc(secs, "%Y-%m-%d %H:%M:%S").unwrap_or_default()
             }
             'M' | 'G' | 'P' | 'B' => {
                 let t = text(raw, Decode::Utf8OrAnsi);
