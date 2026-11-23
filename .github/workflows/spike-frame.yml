@@ -55,7 +55,13 @@ jobs:
           home=$(mktemp -d)
           export HOME=$home XDG_CONFIG_HOME=$home/.config XDG_CACHE_HOME=$home/.cache XDG_DATA_HOME=$home/.local/share
           if [ "$RUNNER_OS" = Linux ]; then
-            WEBKIT_DISABLE_DMABUF_RENDERER=1 timeout 180 xvfb-run -a "$exe" > frame.json
+            Xvfb :99 -screen 0 1280x1024x24 &
+            xvfb=$!
+            rc=0
+            DISPLAY=:99 WEBKIT_DISABLE_DMABUF_RENDERER=1 timeout 180 "$exe" > frame.json 2> frame.err || rc=$?
+            kill "$xvfb" || true
+            echo "exit status $rc"
+            tail -n 60 frame.err
           else
             # The app ends itself after 120 s at most (and the step's own limit stands behind it).
             "$exe" > frame.json
@@ -66,4 +72,6 @@ jobs:
         if: always()
         with:
           name: frame-${{ matrix.os }}
-          path: spike/frame-app/frame.json
+          path: |
+            spike/frame-app/frame.json
+            spike/frame-app/frame.err
