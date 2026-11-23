@@ -489,6 +489,7 @@ const RUN_FOLDERS: &[&str] = &[
     "ocr",
     "export",
     "clamscan",
+    "pull",
     "peek",
     "nested",
     "cbv",

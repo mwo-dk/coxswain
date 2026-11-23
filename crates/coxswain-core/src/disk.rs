@@ -79,7 +79,7 @@ const OWN: &[(&str, &[&str], bool)] = &[
     // The work of conversions, scans and drags, one folder per run (`spill::RUN_FOLDERS`).
     (
         "work",
-        &["scratch", "media", "geo", "ocr", "export", "clamscan", "drag", "provenance"],
+        &["scratch", "media", "geo", "ocr", "export", "clamscan", "pull", "drag", "provenance"],
         true,
     ),
     // Chess analyses kept, and ChessBase archives unpacked to be read.

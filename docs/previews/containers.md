@@ -166,7 +166,7 @@ as ffmpeg's and ImageMagick's ([How calibre runs](ebooks.md#how-calibre-runs)).
 
 A run longer than the timeout (120 s by default) is stopped and its container removed. Make PDF
 searchable, Convert video or audio, Convert or edit pictures, Convert geodata, Export 3D model and Export from KiCad have none: **Stop** ends them. Pulling
-the image is not counted.
+the image is not counted: **Stop** next to its progress line ends it ([Stopping a pull](#stopping-a-pull)).
 
 ### Leftovers of a run that was killed
 
@@ -211,6 +211,28 @@ is left, and `podman rm --storage <id>` removes one.
   time or update it to the newest, and **Remove** to free the space.
 - Unless you turn on one of the two options below, Coxswain never updates or removes an image
   by itself.
+
+### Stopping a pull
+
+A pull of several gigabytes can be stopped at any time:
+
+| Where | Desktop app | Terminal app |
+|---|---|---|
+| The preview pane, while it shows *Pulling docker.io/texlive/texlive:latest…* | **Stop** under the progress line | – (the terminal app's preview does not pull images) |
+| *Settings → Previews → Preview tools*, on the image's row | **Pull** reads **Stop** while that image downloads | **P** on the kind's row; the key line says *Pulling texlive:latest… · P: stop the pull* |
+
+Stop ends every pull of that image under way, also one a conversion or the background update
+started. The preview then says *Stopped pulling docker.io/texlive/texlive:latest: it is not there
+yet, and the part being downloaded was removed*, with **Try again**; Settings says the same at the
+bottom of its window, and the row shows what it showed before the pull. A stopped pull is no failure: nothing waits to be
+tried again, and the next click pulls at once.
+
+Nothing half-made is left as an image: podman and docker register an image only when all of it
+is there. The layers podman finished stay in its store for the next pull. The part it was still
+downloading it keeps in a temporary folder even when stopped, so Coxswain gives each pull a
+folder of its own, `~/.cache/coxswain/pull/<run>-<n>/`, and removes it when the pull ends; one
+left by an app that was killed goes at its next start. A `image_copy_tmp_dir` set in podman's
+`containers.conf` takes the place of that folder, and is then podman's to clean.
 
 ## Keeping images up to date
 
@@ -387,6 +409,12 @@ download, 2.2 GB on disk) for a smaller one, or install a TeX distribution.
 
 Its image is not pulled yet, and a 2.8 GB download never starts without a click. Press **Build
 PDF**, or **Pull** it in Settings first.
+
+#### Can I stop a download that is taking too long?
+
+Yes: **Stop** under the progress line in the preview pane, or on the image's row in *Settings →
+Previews → Preview tools* (**P** there in the terminal app). Nothing half-downloaded is left as an
+image ([Stopping a pull](#stopping-a-pull)).
 
 #### Does Coxswain update the images?
 

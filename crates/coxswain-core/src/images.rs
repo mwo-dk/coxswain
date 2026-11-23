@@ -435,13 +435,38 @@ pub fn pull(rt: &Path, image: &str) -> Result<(), String> {
     pull_until(rt, image, &std::sync::atomic::AtomicBool::new(false))
 }
 
-/// `pull`, which `stop` ends: the pull is killed, and what it fetched so far the runtime
-/// keeps for the next one.
+/// How many times *Stop* was pressed on the pulls of each image (`stop_pull`).
+static STOPS: Mutex<BTreeMap<String, u64>> = Mutex::new(BTreeMap::new());
+
+/// *Stop* on the pulls of `image` under way, from a preview or Settings: each one ends as if
+/// its own stop flag were set. A pull started later is not stopped.
+pub fn stop_pull(image: &str) {
+    *STOPS.lock().unwrap().entry(image.to_string()).or_default() += 1;
+}
+
+/// How many times *Stop* was pressed on `image`'s pulls: one that saw fewer at its start ends.
+pub(crate) fn stops(image: &str) -> u64 {
+    STOPS.lock().unwrap().get(image).copied().unwrap_or(0)
+}
+
+/// `pull`, which `stop` (or `stop_pull`) ends: the pull is killed. The runtime registers no
+/// image until the whole of it is there; the layers it finished stay in its store, and the
+/// part it was downloading, which podman keeps in its temporary folder even when it ends on
+/// a signal, goes with that folder: the pull is given one of its own (`TMPDIR`) under the
+/// cache's `pull/`, removed when it ends, and by the next start when the run was killed.
 pub fn pull_until(rt: &Path, image: &str, stop: &std::sync::atomic::AtomicBool) -> Result<(), String> {
+    static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let since = stops(image);
+    let tmp = crate::helper::folder().map(|c| c.join("pull").join(format!("{}-{}", crate::spill::run(), N.fetch_add(1, std::sync::atomic::Ordering::Relaxed))));
     PULLING.lock().unwrap().insert(image.to_string(), String::new());
     let result = (|| {
-        let mut child = crate::tools::command(rt)
-            .args(["pull", image])
+        let mut c = crate::tools::command(rt);
+        c.args(["pull", image]);
+        // Without a folder of its own (none could be made) it uses the runtime's own.
+        if let Some(t) = tmp.as_ref().filter(|t| std::fs::create_dir_all(t).is_ok()) {
+            c.env("TMPDIR", t);
+        }
+        let mut child = crate::tools::hosted(c)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -453,10 +478,10 @@ pub fn pull_until(rt: &Path, image: &str, stop: &std::sync::atomic::AtomicBool) 
         let t = std::thread::spawn(move || follow(out, &a));
         let e = std::thread::spawn(move || follow(err, &b));
         let status = loop {
-            if stop.load(std::sync::atomic::Ordering::Relaxed) {
+            if stop.load(std::sync::atomic::Ordering::Relaxed) || stops(image) > since {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(t!("searchable.stopped"));
+                return Err(t!("convert.pull_stopped", "image" => short(image)));
             }
             if let Some(s) = child.try_wait().map_err(|e| e.to_string())? {
                 break s;
@@ -471,6 +496,9 @@ pub fn pull_until(rt: &Path, image: &str, stop: &std::sync::atomic::AtomicBool) 
             Err(t!("convert.pull_failed", "image" => short(image), "error" => last_err))
         }
     })();
+    if let Some(t) = tmp {
+        let _ = std::fs::remove_dir_all(t);
+    }
     PULLING.lock().unwrap().remove(image);
     result
 }
@@ -981,6 +1009,52 @@ def456 coxswain-media-20-500-1 exited
         assert!(superseded(&cfg, &st).iter().all(|(old, _)| former(old).is_none()));
         cfg.images.insert("imagemagick".into(), FORMER[0].0.into());
         assert!(superseded(&cfg, &st).iter().all(|(old, _)| old != FORMER[0].0));
+    }
+
+    /// Stop on an image ends its pull (inside a job here): the runtime is killed, the pull says it was stopped, and
+    /// the temporary folder it was given (`TMPDIR`), with what it downloaded there, is gone. A
+    /// pull started after the press runs to its end.
+    #[cfg(unix)]
+    #[test]
+    fn images_stop_pull_ends_it_and_removes_its_folder() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = std::env::temp_dir().join(format!("coxswain-test-stop-pull-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let rt = d.join("podman");
+        // `slow:1` downloads into its TMPDIR until killed; anything else is pulled at once.
+        std::fs::write(&rt, format!("#!/bin/sh
+[ \"$2\" = slow:1 ] || exit 0
+echo \"$TMPDIR\" > {0}/tmpdir
+echo part > \"$TMPDIR/blob\"
+echo 'Copying blob 1'
+exec sleep 60
+", d.display())).unwrap();
+        std::fs::set_permissions(&rt, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let image = "slow:1";
+        let stopper = std::thread::spawn({
+            let d = d.clone();
+            move || {
+                let start = std::time::Instant::now();
+                while !d.join("tmpdir").exists() || !pulling().contains_key(image) {
+                    assert!(start.elapsed() < crate::test_limit(std::time::Duration::from_secs(30)), "the pull never started");
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                }
+                stop_pull(image);
+            }
+        });
+        let r = pulls::in_job(&rt, image, &std::sync::atomic::AtomicBool::new(false));
+        stopper.join().unwrap();
+        assert_eq!(r, Err(t!("convert.pull_stopped", "image" => image)));
+        assert_eq!(pulls::failure(image), None, "a stopped pull is no failure to try again");
+        let tmp = std::fs::read_to_string(d.join("tmpdir")).unwrap();
+        let tmp = Path::new(tmp.trim());
+        assert!(tmp.ends_with(Path::new("pull").join(tmp.file_name().unwrap())) && tmp.to_string_lossy().contains(crate::spill::run()), "{tmp:?}");
+        assert!(!tmp.exists(), "the part downloaded goes with its folder");
+        assert!(!pulling().contains_key(image));
+        assert_eq!(pull_until(&rt, "quick:1", &std::sync::atomic::AtomicBool::new(false)), Ok(()));
+        stop_pull("quick:1");
+        assert_eq!(pull_until(&rt, "quick:1", &std::sync::atomic::AtomicBool::new(false)), Ok(()), "a press before the pull does not stop it");
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     /// A runtime that has the images named in `has` and writes what it removes to `rm.log`.

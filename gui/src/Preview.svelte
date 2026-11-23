@@ -651,14 +651,15 @@
     return () => (clearTimeout(timer), clearTimeout(later));
   });
 
-  // While a container run pulls its image, show the runtime's progress line.
-  let pulling = $state("");
+  // While a container run pulls its image, show the runtime's progress line, with Stop.
+  let pulling = $state(null);
   $effect(() => {
-    if (conv?.status !== "running") return void (pulling = "");
+    if (conv?.status !== "running") return void (pulling = null);
+    const own = engineOf(conv)?.image;
     const id = setInterval(async () => {
       const p = await invoke("pull_progress").catch(() => ({}));
-      const [image, line] = Object.entries(p)[0] ?? [];
-      pulling = image ? `${t("convert.pulling", { image: image.split("@")[0] })} ${line ?? ""}` : "";
+      const [image, line] = own && own in p ? [own, p[own]] : (Object.entries(p)[0] ?? []);
+      pulling = image ? { image, text: `${t("convert.pulling", { image: image.split("@")[0] })} ${line ?? ""}` } : null;
     }, 500);
     return () => clearInterval(id);
   });
@@ -1053,7 +1054,11 @@
           <p class="more">{engineOf(conv)?.note}</p>
         {:else if conv.status === "running"}
           <p class="more">{t("preview.rendering_with", { engine: engineOf(conv)?.label })}</p>
-          {#if pulling}<p class="more mono">{pulling}</p>{/if}
+          {#if pulling}
+            <p class="more mono">{pulling.text}</p>
+            <!-- Ends the download; the run then says it was stopped, with Try again. -->
+            <button class="render" onclick={() => invoke("pull_stop", { image: pulling.image })}>{t("searchable.stop")}</button>
+          {/if}
         {:else if conv.status === "error"}
           <pre class="diagram-error mono">{conv.error}</pre>
           <button class="render" onclick={() => renderConv()}>{t("common.try_again")}</button>
