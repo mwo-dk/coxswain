@@ -123,22 +123,40 @@ not used, not that it is left out of the build (for that, see below).
 
 ## Building without some modules
 
-When you build Coxswain from source, each module is a cargo feature of `coxswain-core` named
-after it (`games`, `documents`, `disk_images` …), all on by default. To leave some out, turn the
-default features off and name the modules you want:
+When you build Coxswain from source, each module is a cargo feature of both apps named after it
+(`games`, `documents`, `disk_images` …), all on by default. To leave some out, turn the default
+features off and name the modules you want:
 
 ```sh
-cargo build --release -p coxswain --no-default-features --features coxswain-core/games,coxswain-core/documents
-cargo build --release -p coxswain-gui --no-default-features --features custom-protocol,coxswain-core/games
+cargo build --release -p coxswain --no-default-features --features games,documents
+cd gui && COXSWAIN_MODULES_OUT=diagrams,data,neural_networks npm run build && cd ..
+cargo build --release -p coxswain-gui --no-default-features --features custom-protocol,games,documents
 ```
+
+The desktop app's viewers are bundled by its web build, which a cargo feature does not reach:
+`COXSWAIN_MODULES_OUT` names the modules that build leaves out (a name that is no module stops
+it). A module left out of either is off in the desktop app.
 
 A module left out is off whatever `[modules] off` says: Settings → *Modules* shows it greyed
 (`[-]` and dimmed in the terminal app, a box that cannot be ticked in the desktop app) with *not in this build*, and it
 cannot be turned on there. Its files are shown as text or hex, as with a module turned off.
 
-For now this leaves the module's viewer unused, not its code out of the program: the libraries
-the modules use are shared with search, Enter into mailboxes and the chess engine, and the
-desktop app's viewers are bundled by its web build, which a cargo feature does not reach.
+Its libraries are left out of the program with it, and with them what else uses them:
+
+| Module | Left out of both apps | Left out of the desktop app's web build | Also gone |
+|---|---|---|---|
+| `documents` | pdf-extract, mail-parser, cfb | mammoth, Asciidoctor.js | Find, Ask and *Make searchable* read no PDF, mail or Outlook message; a `.mbox` no longer opens like a folder |
+| `office` | | pptx-to-html, JSZip | |
+| `diagrams` | | Mermaid, Viz.js, draw.io's viewer | Mermaid blocks in Markdown stay code |
+| `data` | parquet; in the desktop app x509-parser, plist | SheetJS, hyparquet | |
+| `media` | lofty; in the desktop app kamadak-exif | | Transcribe does not know a recording's length beforehand |
+| `old_formats` | jxl-oxide, `image`'s old formats | | Compare shows no TIFF or other old picture side by side |
+| `neural_networks` | | Netron | |
+| `games` | resvg (the terminal app's piece pictures) | the piece pictures | |
+| `provenance` | x509-parser (who signed) | | |
+
+The other modules have no library of their own: leaving them out turns their viewers off. The
+viewers' own code (the chess engine among it) is still in the program for now.
 
 ## Questions
 
@@ -152,7 +170,9 @@ from source ([Building without some modules](#building-without-some-modules)).
 #### Does turning a module off stop Find reading those files?
 
 No. Modules decide what the apps show; Find still reads the words in those files when reading
-words is on (Settings → *Finding files*).
+words is on (Settings → *Finding files*). Only a module left out of the build takes some of
+them along: without `documents`, Find reads no PDF, mail or Outlook message ([Building without
+some modules](#building-without-some-modules)).
 
 #### Does any module send my files anywhere?
 
@@ -169,7 +189,9 @@ the program your system gives it. Turn the module on again to open it on Coxswai
 
 Yes, when you build from source: each module is a cargo feature, all on by default (see
 [Building without some modules](#building-without-some-modules)). Settings → *Modules* then shows
-the ones left out greyed, marked *not in this build*. The release builds have every module.
+the ones left out greyed, marked *not in this build*, and their libraries are not in the
+program; for the desktop app's web build, name them in `COXSWAIN_MODULES_OUT` too. The release
+builds have every module.
 
 #### What happened to bom_viewer, provenance_viewer and ebooks?
 

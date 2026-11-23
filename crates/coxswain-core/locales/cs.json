@@ -4856,7 +4856,7 @@
  "feature.modules.title": "Moduly: vyberte prohlížeče",
  "feature.modules.what": "Vypněte prohlížeče, které nechcete načítat; jejich soubory se ukážou jako text nebo hexadecimálně.",
  "feature.modules.q1": "Proč se PDF nebo partie teď ukazuje jako text?",
- "feature.modules.a1": "Modul, který ji ukazuje, je vypnutý. Zapněte ho znovu v Nastavení ({settings}) → Moduly a soubor se ukáže jako dřív.",
+ "feature.modules.a1": "Modul, který ji ukazuje, je vypnutý. Zapněte ho znovu v Nastavení ({settings}) → Moduly a soubor se ukáže jako dřív. Pokud jej Nastavení ukazuje šedě („není v tomto sestavení“), tato kopie byla sestavena ze zdrojového kódu bez něj.",
  "feature.modules.q2": "Přestane hledání číst ty soubory, když je modul vypnutý?",
  "feature.modules.a2": "Ne. Moduly rozhodují, co aplikace ukazují; hledání dál čte slova v těch souborech, když je čtení slov zapnuté.",
  "feature.modules.q3": "Posílá nějaký modul mé soubory někam?",

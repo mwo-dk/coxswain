@@ -210,6 +210,13 @@ pub async fn cert_info(path: PathBuf) -> Res<Vec<Cert>> {
     crate::blocking(move || certs(&path)).await
 }
 
+/// The data module left out of the build: no certificate reader (x509-parser).
+#[cfg(not(feature = "data"))]
+fn certs(_: &Path) -> Res<Vec<Cert>> {
+    Err(coxswain_core::modules::not_built("data"))
+}
+
+#[cfg(feature = "data")]
 fn certs(path: &Path) -> Res<Vec<Cert>> {
     use x509_parser::prelude::*;
     let data = whole(path)?;
@@ -313,6 +320,13 @@ pub async fn plist_xml(path: PathBuf) -> Res<String> {
     crate::blocking(move || plist_text(&path)).await
 }
 
+/// The data module left out of the build: no property list reader (plist).
+#[cfg(not(feature = "data"))]
+fn plist_text(_: &Path) -> Res<String> {
+    Err(coxswain_core::modules::not_built("data"))
+}
+
+#[cfg(feature = "data")]
 fn plist_text(path: &Path) -> Res<String> {
     let max = coxswain_core::viewers::MAX_WHOLE;
     let data = whole(path)?;
@@ -335,6 +349,7 @@ fn plist_text(path: &Path) -> Res<String> {
 /// order, each counted as often as it is reached (64 per object, a string's or data's bytes, a
 /// container's references and slots), with one running total, so a fault the crate stops at
 /// (`true`: it refuses the file) comes only after what it would have built is counted.
+#[cfg(feature = "data")]
 fn binary_plist_fits(d: &[u8], max: u64) -> bool {
     const NODE: u64 = 64;
     // Deeper than any real list; a deep tree is also dropped by recursion.
@@ -448,6 +463,18 @@ pub async fn file_facts(path: PathBuf, ctx: tauri::State<'_, crate::Ctx>) -> Res
     .or(Ok(vec![]))
 }
 
+/// The media module left out of the build: no photo facts (kamadak-exif), no song facts (lofty).
+#[cfg(not(feature = "media"))]
+fn exif_facts(_: &Path) -> Vec<(String, String)> {
+    vec![]
+}
+
+#[cfg(not(feature = "media"))]
+fn audio_facts(_: &Path) -> Vec<(String, String)> {
+    vec![]
+}
+
+#[cfg(feature = "media")]
 fn exif_facts(path: &Path) -> Vec<(String, String)> {
     use exif::{In, Tag};
     // Inside an archive: from the bytes the preview's picture was served from.
@@ -486,6 +513,7 @@ fn exif_facts(path: &Path) -> Vec<(String, String)> {
     out
 }
 
+#[cfg(feature = "media")]
 fn audio_facts(path: &Path) -> Vec<(String, String)> {
     use lofty::prelude::*;
     // Inside an archive: from the bytes the player was served from.
@@ -879,6 +907,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(all(feature = "documents", feature = "data"))]
     fn mail_and_plist() {
         let d = std::env::temp_dir().join(format!("coxswain-test-mail-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();

@@ -86,8 +86,12 @@ const ENDINGS: &[(&str, Kind)] = &[
     (".cab", Kind::Ro(crate::archive_ro::Format::Cab)),
 ];
 
-/// What opens like a folder but is no archive search looks into: a comic, a mailbox.
+/// What opens like a folder but is no archive search looks into: a comic, a mailbox (read with
+/// the documents module's mail reader: not in a build without it).
+#[cfg(feature = "documents")]
 const OPEN_ONLY: &[(&str, Kind)] = &[(".cbz", Kind::Zip), (".mbox", Kind::Mbox)];
+#[cfg(not(feature = "documents"))]
+const OPEN_ONLY: &[(&str, Kind)] = &[(".cbz", Kind::Zip)];
 
 /// What `path` opens as: an archive by its ending, a comic or a mailbox, else a disk image
 /// when those open, or an OCI layout's `index.json`. A plain tar that is a container image
@@ -5508,6 +5512,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "documents")]
     fn a_mailbox_opens_like_a_folder_of_messages_read_only() {
         let d = crate::pictures::tests::folder("mbox");
         let mbox = d.join("Launch.mbox");

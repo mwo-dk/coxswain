@@ -408,7 +408,9 @@ fn remove(engine: &Engine, name: &str) {
 
 // ---------------------------------------------------------------- what to transcribe
 
-/// How long the sound of a file is, in seconds, when its header says.
+/// How long the sound of a file is, in seconds, when its header says. Read with the media
+/// module's lofty: a build without that module knows no length.
+#[cfg(feature = "media")]
 pub fn duration(path: &Path) -> Option<u64> {
     use lofty::prelude::*;
     // The file comes from anywhere and lofty is other people's code: a panic is no length.
@@ -416,6 +418,11 @@ pub fn duration(path: &Path) -> Option<u64> {
         .ok()
         .flatten()?;
     (secs > 0).then_some(secs)
+}
+
+#[cfg(not(feature = "media"))]
+pub fn duration(_: &Path) -> Option<u64> {
+    None
 }
 
 /// What a request would transcribe: the files, and the seconds of those whose length is known.

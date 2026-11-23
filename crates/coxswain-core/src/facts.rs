@@ -180,7 +180,7 @@ pub fn text_copy(path: &Path) -> Option<Result<(PathBuf, String), String>> {
     })())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "documents", feature = "old_formats"))]
 mod tests {
     use super::*;
 

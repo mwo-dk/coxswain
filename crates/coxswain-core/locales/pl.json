@@ -4951,7 +4951,7 @@
  "feature.modules.title": "Moduły: wybierz przeglądarki",
  "feature.modules.what": "Wyłącz przeglądarki, których nie chcesz wczytywać; ich pliki są pokazywane jako tekst lub szesnastkowo.",
  "feature.modules.q1": "Dlaczego PDF albo partia pokazuje się teraz jako tekst?",
- "feature.modules.a1": "Moduł, który go pokazuje, jest wyłączony. Włącz go ponownie w Ustawienia ({settings}) → Moduły, a plik pokaże się jak wcześniej.",
+ "feature.modules.a1": "Moduł, który go pokazuje, jest wyłączony. Włącz go ponownie w Ustawienia ({settings}) → Moduły, a plik pokaże się jak wcześniej. Jeśli Ustawienia pokazują go wyszarzonego („brak w tej kompilacji”), ta kopia została zbudowana ze źródeł bez niego.",
  "feature.modules.q2": "Czy wyłączenie modułu sprawia, że wyszukiwanie przestaje czytać te pliki?",
  "feature.modules.a2": "Nie. Moduły decydują, co pokazują aplikacje; wyszukiwanie dalej czyta słowa w tych plikach, gdy czytanie słów jest włączone.",
  "feature.modules.q3": "Czy jakiś moduł wysyła gdzieś moje pliki?",

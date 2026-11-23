@@ -4755,7 +4755,7 @@
  "feature.modules.title": "Moduluak: aukeratu ikustaileak",
  "feature.modules.what": "Desaktibatu kargatu nahi ez dituzun ikustaileak; haien fitxategiak testu edo hamaseitar gisa erakusten dira.",
  "feature.modules.q1": "Zergatik erakusten da orain PDF bat edo partida bat testu gisa?",
- "feature.modules.a1": "Hura erakusten duen modulua desaktibatuta dago. Aktibatu berriro Ezarpenak ({settings}) → Moduluak atalean, eta fitxategia lehen bezala erakutsiko da.",
+ "feature.modules.a1": "Hura erakusten duen modulua desaktibatuta dago. Aktibatu berriro Ezarpenak ({settings}) → Moduluak atalean, eta fitxategia lehen bezala erakutsiko da. Ezarpenek grisez erakusten badute («ez dago konpilazio honetan»), kopia hau iturburu-kodetik konpilatu zen hura gabe.",
  "feature.modules.q2": "Modulu bat desaktibatzeak bilaketak fitxategi horiek irakurtzeari uztea dakar?",
  "feature.modules.a2": "Ez. Moduluek erabakitzen dute aplikazioek zer erakusten duten; bilaketak fitxategi horietako hitzak irakurtzen jarraitzen du hitzen irakurketa aktibatuta dagoenean.",
  "feature.modules.q3": "Modulu batek nire fitxategiak inora bidaltzen ditu?",

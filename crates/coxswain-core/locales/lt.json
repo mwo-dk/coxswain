@@ -4853,7 +4853,7 @@
  "feature.modules.title": "Moduliai: pasirinkite peržiūros programas",
  "feature.modules.what": "Išjunkite peržiūros programas, kurių nenorite įkelti; jų failai rodomi kaip tekstas arba šešioliktainiu pavidalu.",
  "feature.modules.q1": "Kodėl PDF ar partija dabar rodoma kaip tekstas?",
- "feature.modules.a1": "Ją rodantis modulis išjungtas. Vėl įjunkite jį: Parametrai ({settings}) → Moduliai, ir failas bus rodomas kaip anksčiau.",
+ "feature.modules.a1": "Ją rodantis modulis išjungtas. Vėl įjunkite jį: Parametrai ({settings}) → Moduliai, ir failas bus rodomas kaip anksčiau. Jei Nustatymai jį rodo pilką („nėra šiame darinyje“), ši kopija sukurta iš išeities kodo be jo.",
  "feature.modules.q2": "Ar išjungus modulį paieška nustoja skaityti tuos failus?",
  "feature.modules.a2": "Ne. Moduliai lemia, ką rodo programos; paieška ir toliau skaito tų failų žodžius, kai žodžių skaitymas įjungtas.",
  "feature.modules.q3": "Ar koks nors modulis kur nors siunčia mano failus?",

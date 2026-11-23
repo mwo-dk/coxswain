@@ -4755,7 +4755,7 @@
  "feature.modules.title": "Modular: vel visingane",
  "feature.modules.what": "Slå av visingane du ikkje vil ha lasta inn; filene deira blir viste som tekst eller heks.",
  "feature.modules.q1": "Kvifor blir ein PDF eller eit parti vist som tekst no?",
- "feature.modules.a1": "Modulen som viser han, er slått av. Slå han på att i Innstillingar ({settings}) → Modular, så blir fila vist som før.",
+ "feature.modules.a1": "Modulen som viser han, er slått av. Slå han på att i Innstillingar ({settings}) → Modular, så blir fila vist som før. Om Innstillingar viser han grå, «ikkje med i denne utgåva», vart denne kopien bygd frå kjeldekoden utan han.",
  "feature.modules.q2": "Sluttar søket å lesa dei filene når ein modul er slått av?",
  "feature.modules.a2": "Nei. Modular avgjer kva appane viser; søket les framleis orda i dei filene når lesing av ord er på.",
  "feature.modules.q3": "Sender nokon modul filene mine nokon stad?",

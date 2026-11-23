@@ -97,5 +97,5 @@ pub fn parse(text: &str) -> Result<Attestations, Error> {
     ingest::from_text(text)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "provenance"))]
 mod tests;

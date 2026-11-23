@@ -4755,7 +4755,7 @@
  "feature.modules.title": "Modules: kies de weergaven",
  "feature.modules.what": "Zet de weergaven uit die je niet geladen wilt hebben; hun bestanden worden als tekst of hex getoond.",
  "feature.modules.q1": "Waarom wordt een pdf of een partij nu als tekst getoond?",
- "feature.modules.a1": "De module die het toont, staat uit. Zet hem weer aan in Instellingen ({settings}) → Modules, en het bestand wordt getoond zoals eerst.",
+ "feature.modules.a1": "De module die het toont, staat uit. Zet hem weer aan in Instellingen ({settings}) → Modules, en het bestand wordt getoond zoals eerst. Toont Instellingen het grijs, ‘niet in deze build’, dan is deze kopie zonder die module uit de broncode gebouwd.",
  "feature.modules.q2": "Leest Zoeken die bestanden niet meer als een module uit staat?",
  "feature.modules.a2": "Jawel. Modules bepalen wat de apps tonen; Zoeken leest de woorden in die bestanden nog steeds als het lezen van woorden aan staat.",
  "feature.modules.q3": "Stuurt een module mijn bestanden ergens heen?",
