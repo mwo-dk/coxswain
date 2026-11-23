@@ -538,20 +538,28 @@ pub(crate) mod fd {
     }
 
     /// The bins of `dirs` that pass `real`. One refused with items in it is kept in
-    /// `UNTRUSTED`, for the notice.
+    /// `UNTRUSTED`, for the notice; each look sets it anew, so a bin put right since is no
+    /// longer named.
     pub(crate) fn usable(dirs: Vec<PathBuf>) -> Vec<Bin> {
+        let (ok, refused) = judged(dirs);
+        *UNTRUSTED.lock().unwrap_or_else(|e| e.into_inner()) = refused;
+        ok
+    }
+
+    /// `usable` without the notice: the bins that pass, and one refused with items in it.
+    pub(crate) fn judged(dirs: Vec<PathBuf>) -> (Vec<Bin>, Option<PathBuf>) {
         let (ok, refused): (Vec<Bin>, Vec<Bin>) = dirs.into_iter().map(Bin::at).partition(real);
-        // One refused with items in it: the notice says once why they are not listed.
         // Never through a link: it may lead anywhere.
         let folder = |p: &Path| fs::symlink_metadata(p).is_ok_and(|m| m.is_dir());
-        if let Some(b) = refused.into_iter().find(|b| {
-            folder(&b.dir)
-                && folder(&b.dir.join("info"))
-                && fs::read_dir(b.dir.join("info")).is_ok_and(|mut rd| rd.next().is_some())
-        }) {
-            *UNTRUSTED.lock().unwrap_or_else(|e| e.into_inner()) = Some(b.dir);
-        }
-        ok
+        let named = refused
+            .into_iter()
+            .find(|b| {
+                folder(&b.dir)
+                    && folder(&b.dir.join("info"))
+                    && fs::read_dir(b.dir.join("info")).is_ok_and(|mut rd| rd.next().is_some())
+            })
+            .map(|b| b.dir);
+        (ok, named)
     }
 
     /// A bin that can be used: the bin folder, its `info` and its `files` (when there; none is
@@ -730,14 +738,37 @@ pub(crate) mod fd {
         item(b, path.file_name()?).filter(|i| i.path == path).map(|i| (b, i))
     }
 
-    /// Whether an item of `b` may go back to `origin`, its info file's `Path=`: never through
-    /// `..`, and a disk's bin only under that disk's top. An info file is text anyone with the
-    /// bin's rights wrote; one that names a place elsewhere is listed (and emptied) but never
-    /// put back there.
+    /// Whether an item of `b` may go back to `origin`, its info file's `Path=`. A disk's bin:
+    /// only to a name under that disk's top, never through `..`, and through no link or other
+    /// disk on the way (a stick another machine wrote may hold `docs -> ~/.config`). An info
+    /// file is text whoever wrote the disk chose; one that names a place elsewhere is listed
+    /// (and emptied) but never put back there. The home bin's places are the user's own.
+    // shortcut: the folders are looked at here, then followed by the move; a top others may
+    // write without the sticky bit is refused, so only the user or root can swap one between.
     pub(crate) fn may_restore(b: &Bin, origin: &Path) -> bool {
-        origin.is_absolute()
-            && !origin.components().any(|c| c == std::path::Component::ParentDir)
-            && b.top.as_ref().is_none_or(|t| origin.starts_with(t))
+        let Some(top) = &b.top else { return true };
+        let Ok(rest) = origin.strip_prefix(top) else { return false };
+        if rest.file_name().is_none()
+            || rest.components().any(|c| !matches!(c, std::path::Component::Normal(_)))
+        {
+            return false;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let Ok(dev) = fs::symlink_metadata(top).map(|m| m.dev()) else { return false };
+            // Each folder on the way that is there: a folder of the disk, never a link.
+            let mut at = top.clone();
+            for c in rest.parent().into_iter().flat_map(Path::components) {
+                at.push(c);
+                match fs::symlink_metadata(&at) {
+                    Ok(m) if m.is_dir() && m.dev() == dev => {}
+                    Ok(_) => return false,
+                    Err(_) => break,
+                }
+            }
+        }
+        true
     }
 
     /// An item's file and its info file, as `id` tells them: looked at again before each removal,
@@ -1771,14 +1802,26 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn bin_never_reaches_through_a_link() {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+        let mode = |p: &Path, m: u32| fs::set_permissions(p, fs::Permissions::from_mode(m)).unwrap();
+        // SAFETY: getuid cannot fail.
+        let uid = unsafe { libc::getuid() };
         let d = crate::fs::Scratch::named("bin-link");
+        mode(&d, 0o755);
         let outside = d.join("outside");
         fs::create_dir_all(outside.join("docs")).unwrap();
         fs::write(outside.join("docs/keep.txt"), "keep").unwrap();
         fs::write(outside.join("a.txt"), "keep").unwrap();
-        let b = d.join(".Trash-1000");
+        // The user's own bin, which passes every other check (so only the link refuses it).
+        let b = d.join(format!(".Trash-{uid}"));
         fs::create_dir_all(b.join("info")).unwrap();
-        std::os::unix::fs::symlink(&outside, b.join("files")).unwrap();
+        fs::create_dir_all(b.join("files")).unwrap();
+        mode(&b, 0o700);
+        mode(&b.join("info"), 0o700);
+        let kept = |dir: PathBuf| real(&Bin::at(dir));
+        assert!(kept(b.clone()), "a bin, without the link");
+        fs::remove_dir(b.join("files")).unwrap();
+        symlink(&outside, b.join("files")).unwrap();
         fs::write(b.join("info/docs.trashinfo"), "[Trash Info]\nPath=docs\n").unwrap();
         fs::write(
             b.join("info/a.txt.trashinfo"),
@@ -1796,22 +1839,40 @@ mod tests {
         );
         assert_eq!(fs::read_to_string(outside.join("a.txt")).unwrap(), "keep");
         // `info` a link, the bin itself a link, `.Trash` above `<uid>` a link: none is a bin.
-        let kept = |dir: PathBuf| real(&Bin::at(dir));
         assert!(!kept(b.clone()));
-        let c = d.join("c/.Trash-1000");
+        let c = d.join(format!("c/.Trash-{uid}"));
         fs::create_dir_all(c.join("files")).unwrap();
-        std::os::unix::fs::symlink(&outside, c.join("info")).unwrap();
+        mode(&d.join("c"), 0o755);
+        mode(&c, 0o700);
+        mode(&c.join("files"), 0o700);
+        symlink(&outside, c.join("info")).unwrap();
         assert!(!kept(c));
-        std::os::unix::fs::symlink(d.join("real"), d.join("linked")).unwrap();
+        let t = d.join("t");
+        fs::create_dir_all(&t).unwrap();
+        mode(&t, 0o755);
+        let linked = t.join(format!(".Trash-{uid}"));
         fs::create_dir_all(d.join("real/info")).unwrap();
-        assert!(!kept(d.join("linked")));
-        fs::create_dir_all(d.join("t/.Trash-target/1000/info")).unwrap();
-        fs::create_dir_all(d.join("t2")).unwrap();
-        std::os::unix::fs::symlink(d.join("t/.Trash-target"), d.join("t2/.Trash")).unwrap();
-        assert!(!kept(d.join("t2/.Trash/1000")));
-        // A bin with no `files` yet is a bin, and empty.
-        assert!(kept(d.join("real")));
-        assert!(disk_bins([d.join("c"), d.join("t2")].into_iter()).is_empty());
+        mode(&d.join("real"), 0o700);
+        mode(&d.join("real/info"), 0o700);
+        symlink(d.join("real"), &linked).unwrap();
+        assert!(!kept(linked));
+        let shared = d.join("t-shared");
+        fs::create_dir_all(shared.join(format!("{uid}/info"))).unwrap();
+        mode(&shared, 0o1777);
+        mode(&shared.join(uid.to_string()), 0o700);
+        mode(&shared.join(format!("{uid}/info")), 0o700);
+        let t2 = d.join("t2");
+        fs::create_dir_all(&t2).unwrap();
+        mode(&t2, 0o755);
+        symlink(&shared, t2.join(".Trash")).unwrap();
+        assert!(!kept(t2.join(format!(".Trash/{uid}"))));
+        // The same layout without the link: a bin; one with no `files` yet is a bin, and empty.
+        fs::remove_file(t2.join(".Trash")).unwrap();
+        fs::rename(&shared, t2.join(".Trash")).unwrap();
+        assert!(kept(t2.join(format!(".Trash/{uid}"))));
+        fs::rename(t2.join(".Trash"), &shared).unwrap();
+        symlink(&shared, t2.join(".Trash")).unwrap();
+        assert!(disk_bins([d.join("c"), t2.clone(), t.clone()].into_iter()).is_empty());
     }
 
     /// A disk's bin another user could have made, or could lead elsewhere, is no bin: nothing
@@ -1849,11 +1910,10 @@ mod tests {
             assert_eq!(restore_in(&bins, &[own.join("files/a.txt")], true).done, 0);
             assert_eq!(empty_in(&bins).done, 0);
             assert!(own.join("files/a.txt").exists() && !top.join("docs/a.txt").exists());
-            assert_eq!(usable(vec![own.clone()]), vec![]);
-            assert_eq!(UNTRUSTED.lock().unwrap().clone(), Some(own.clone()), "the notice names it");
+            assert_eq!(judged(vec![own.clone()]), (vec![], Some(own.clone())), "the notice names it");
             mode(&p, 0o700);
         }
-        assert_eq!(usable(vec![own.clone()]), bins.to_vec());
+        assert_eq!(judged(vec![own.clone()]), (bins.to_vec(), None));
         // A top others may write without the sticky bit: anyone could swap the bin; with it,
         // a bin.
         mode(&top, 0o777);
@@ -1906,7 +1966,12 @@ mod tests {
             fs::set_permissions(p, fs::Permissions::from_mode(0o700)).unwrap();
         }
         let outside = d.join("outside");
+        fs::create_dir(&outside).unwrap();
+        // A folder on the way that is a link off the disk (a stick another machine wrote).
+        std::os::unix::fs::symlink(&outside, top.join("link")).unwrap();
         for (name, path) in [
+            ("linked.txt", "link/linked.txt".to_string()),
+            ("top.txt", String::new()),
             ("up.txt", "../outside/up.txt".to_string()),
             ("deep.txt", "docs/../../outside/deep.txt".to_string()),
             ("whole.txt", format!("{}/whole.txt", outside.display())),
@@ -1917,19 +1982,20 @@ mod tests {
             fs::write(b.join("info").join(format!("{name}.trashinfo")), format!("[Trash Info]\nPath={path}\n")).unwrap();
         }
         let bins = [Bin::at(b.clone())];
-        assert_eq!(list_in(&bins).len(), 5, "listed all the same");
+        assert_eq!(list_in(&bins).len(), 7, "listed all the same");
         let item = |n: &str| b.join("files").join(n);
-        let r = restore_in(&bins, &[item("up.txt"), item("deep.txt"), item("whole.txt"), item("ok.txt"), item("in.txt")], true);
+        let all = ["linked.txt", "top.txt", "up.txt", "deep.txt", "whole.txt", "ok.txt", "in.txt"].map(item);
+        let r = restore_in(&bins, &all, true);
         assert_eq!(r.done, 2, "{:?}", r.failed);
-        assert_eq!(r.failed.len(), 3);
+        assert_eq!(r.failed.len(), 5);
         assert!(r.failed.iter().all(|f| f.ends_with(&crate::t!("bin.bad_origin"))), "{:?}", r.failed);
-        assert!(!outside.exists(), "nothing put outside the top");
+        assert_eq!(fs::read_dir(&outside).unwrap().count(), 0, "nothing put outside the top");
         assert!(top.join("docs/ok.txt").exists() && top.join("docs/in.txt").exists());
-        // The home bin's whole paths go anywhere of the user's, never through `..`.
+        assert!(!d.join("top (2)").exists());
+        // The home bin's places are the user's own, whole paths anywhere.
         let home = Bin { dir: d.join("Trash"), top: None };
         assert!(may_restore(&home, Path::new("/srv/a.txt")));
-        assert!(!may_restore(&home, Path::new("/srv/../etc/a.txt")));
-        assert_eq!(empty_in(&bins).done, 3, "Empty takes them");
+        assert_eq!(empty_in(&bins).done, 5, "Empty takes them");
     }
 
     /// An info file named `..`, `.` or nothing names `files` or the bin itself: never an item.
@@ -2202,11 +2268,21 @@ mod tests {
         // SAFETY: getuid cannot fail.
         let uid = unsafe { libc::getuid() };
         let (a, b, c) = (d.join("a"), d.join("b"), d.join("c"));
+        let mode = |p: &Path, m: u32| fs::set_permissions(p, fs::Permissions::from_mode(m)).unwrap();
         fs::create_dir_all(a.join(format!(".Trash-{uid}/info"))).unwrap();
         fs::create_dir_all(b.join(format!(".Trash/{uid}/info"))).unwrap();
-        fs::set_permissions(b.join(".Trash"), fs::Permissions::from_mode(0o1777)).unwrap();
         // Not sticky: anyone could have put it there; left out.
         fs::create_dir_all(c.join(format!(".Trash/{uid}/info"))).unwrap();
+        // As the spec asks, whatever the umask: tops no one else writes, bins the user's alone.
+        for t in [&a, &b, &c] {
+            mode(t, 0o755);
+        }
+        for p in [a.join(format!(".Trash-{uid}")), b.join(format!(".Trash/{uid}")), c.join(format!(".Trash/{uid}"))] {
+            mode(&p, 0o700);
+            mode(&p.join("info"), 0o700);
+        }
+        mode(&b.join(".Trash"), 0o1777);
+        mode(&c.join(".Trash"), 0o777);
         let found = disk_bins([a.clone(), b.clone(), c].into_iter());
         assert_eq!(
             found,

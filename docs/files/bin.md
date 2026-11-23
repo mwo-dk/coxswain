@@ -92,8 +92,8 @@ only when no other user of the machine can have made it or can change it: the sa
 **F8** makes before it puts files there ([Delete](delete.md#why-did-f8-on-a-shared-disk-put-my-files-in-the-home-bin)).
 A bin that fails them is left out, and when it holds items, a notice names it once
 ([Why is a disk's bin left out?](#why-is-a-disks-bin-left-out)). An item whose recorded place
-leads out of its disk (through `..`, or a whole path elsewhere) is listed and goes with *Empty
-the bin*, but is never restored there.
+leads out of its disk (through `..`, a whole path elsewhere, or a folder on the way that is a
+link or another disk) is listed and goes with *Empty the bin*, but is never restored there.
 
 ## Settings and config.toml
 
@@ -156,13 +156,16 @@ system or the top's owner, and your `.Trash-1000` (or `.Trash/1000`) and its `fi
 are real folders of yours that no one else may write. When one is left out and holds items, the
 notice *The bin … is not yours alone* names it once (terminal app: the status line; desktop
 app: *Settings → What's new*). Check who owns it with `ls -ld`; when it is yours and only its
-mode is wrong, `chmod 700` it and its `files` and `info`. A stick mounted so that everyone may
-write it has no bin Coxswain uses.
+mode is wrong, `chmod 700` it and its `files` and `info`, and the notice goes at the next look.
+A disk mounted so that everyone may write its top (NTFS or FAT mounted without `dmask=022` or
+`umask=022`), or one that shows another owner (sshfs without `idmap=user`), has no bin Coxswain
+uses: mount it with those options, and its bin is listed again.
 
 #### Why does a restore say the place lies outside its disk?
 
 A disk's bin records each item's place relative to the disk's top. One that leads out of the
-disk, through `..` or as a whole path elsewhere, was not written by a put on that disk: Coxswain
+disk, through `..`, as a whole path elsewhere, or through a folder on the way that is now a link
+or another disk, was not written by a put on that disk, or no longer leads where it did: Coxswain
 does not put it back there, and the dialog of what could not be done says *The place it was
 deleted from lies outside its disk: not put back*. Copy it out with **F5**, or delete it.
 
