@@ -3197,7 +3197,8 @@ mod mac_menu {
                 &PredefinedMenuItem::hide(app, None)?,
                 &PredefinedMenuItem::hide_others(app, None)?,
                 &PredefinedMenuItem::separator(app)?,
-                &MenuItem::with_id(app, QUIT, format!("{} {}", coxswain_core::t!("action.quit"), info.name), true, Some("Cmd+Q"))?,
+                // English, as the predefined items around it are.
+                &MenuItem::with_id(app, QUIT, format!("Quit {}", info.name), true, Some("Cmd+Q"))?,
             ],
         )?;
         menu.remove_at(0)?;
@@ -3205,10 +3206,14 @@ mod mac_menu {
         Ok(menu)
     }
 
-    /// Quit: every window closed as by its close button; the last one closed ends the app.
+    /// Quit: every window closed as by its close button; the last one closed ends the app. A
+    /// hidden (Cmd+H) or minimised window is shown first, so a question about unsaved text is seen.
     pub fn on_event(app: &AppHandle, event: MenuEvent) {
         if event.id() == QUIT {
             for w in app.webview_windows().values() {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
                 let _ = w.close();
             }
         }
