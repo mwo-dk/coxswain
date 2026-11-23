@@ -86,7 +86,7 @@ that changed on the disk since it was read is not written over without asking: *
 read, so saving one never needs the other as it is now: the side copied from may change on the
 disk, or go, and the side asked for is still written with the lines copied. A side that changed
 on the disk before a copy is not copied from or into: the status line says *A file changed on the
-disk since it was read*; close and compare again. Closing with copies not saved asks *Save the changes?*, also when the whole window is closed (on macOS **Cmd+Q**, *Quit* in the Dock menu and AppleScript `quit` too).
+disk since it was read*; close and compare again. Closing with copies not saved asks *Save the changes?*, also when the whole window is closed (on macOS **Cmd+Q**, *Quit* in the Dock menu, AppleScript `quit` and logging out or shutting down too).
 
 Only text files of at most 16 MB can be changed; a document, a bigger file or a read-only one
 says *That side cannot be changed here*.

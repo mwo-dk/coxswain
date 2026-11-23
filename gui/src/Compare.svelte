@@ -159,6 +159,12 @@
     if (m.quitAfter) getCurrentWindow().close();
   }
 
+  // Cancel on the question: a quit the system asked for (the Dock, a logout) is called off too.
+  function cancelAsk() {
+    asking = null;
+    if (m.quitAfter) (m.quitAfter = false), invoke("quit_cancelled");
+  }
+
   function tryClose(quit = false) {
     m.quitAfter = quit;
     if (dirty) asking = "close";
@@ -170,7 +176,7 @@
   }
 
   m.key = (k, act) => {
-    if (k === "Esc") return asking ? (asking = null) : tryClose(), true;
+    if (k === "Esc") return asking ? cancelAsk() : tryClose(), true;
     if (act === "quit") return tryClose(), true;
     const keys = {
       Up: () => go(cur - 1),
@@ -314,13 +320,13 @@
       <span>{t("compare.ask_close_gui")}</span>
       <button class="primary" onclick={saveAndClose}>{t("compare.save")}</button>
       <button class="danger" onclick={close}>{t("editor.discard")}</button>
-      <button onclick={() => (asking = null)}>{t("common.cancel")}</button>
+      <button onclick={() => cancelAsk()}>{t("common.cancel")}</button>
     </div>
   {:else if asking === "changed"}
     <div class="ask">
       <span>{t("compare.ask_changed_gui")}</span>
       <button class="danger" onclick={() => save(true)}>{t("editor.save_over")}</button>
-      <button onclick={() => (asking = null)}>{t("common.cancel")}</button>
+      <button onclick={() => cancelAsk()}>{t("common.cancel")}</button>
     </div>
   {/if}
   <footer>
