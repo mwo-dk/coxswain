@@ -8,6 +8,14 @@ question off.
 
 ![The Delete dialog: Move "old-draft.docx" to the bin?, the buttons Move to bin and Cancel, and the line Enter Move to bin · Esc Cancel](../screenshots/files-delete.png)
 
+## Contents
+
+- [How to use it](#how-to-use-it)
+- [What you see](#what-you-see)
+- [Settings and config.toml](#settings-and-configtoml)
+- [In the terminal app](#in-the-terminal-app)
+- [Questions](#questions)
+
 ## How to use it
 
 1. Mark the files, or put the cursor on one.
@@ -92,6 +100,17 @@ delete … for good?* instead: **Yes** deletes it for good. Marked among other f
 go to the bin and it stays where it is, named in the error. The same holds for a folder
 mounted a second time from your home's disk (a container's or toolbox's bind mount), where a
 rename into the bin is refused too.
+
+#### Why did F8 on a shared disk put my files in the home bin?
+
+On FreeBSD, the other BSDs and Linux, **F8** uses a disk's own bin only when no other user of
+the machine could lead your files somewhere else through it. The disk's top folder must be
+yours or the system's, and others may write in it only when it has the sticky bit (as `/tmp`
+has). A shared `.Trash` there must have the sticky bit and belong to the system or the top's
+owner. Your `.Trash-1000` (or `.Trash/1000`) and its `files` and `info` must be real folders of
+yours that no one else may write. When any of that is not so, the files go to the bin in your
+home folder, moved file by file as above. Coxswain makes a disk's bin readable by you alone,
+and closes one that others could read, as it holds the places your files came from.
 
 #### Where do deleted files go on Linux?
 

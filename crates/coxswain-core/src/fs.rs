@@ -1717,8 +1717,12 @@ fn own_bin(bin: &Path, uid: u32, dev: u64) -> bool {
         let Ok(m) = fs::symlink_metadata(p) else { return false };
         let sound = m.is_dir() && m.dev() == dev && m.uid() == uid && m.mode() & 0o022 == 0;
         // One made readable by others (as Coxswain's own before 2.38) is closed: it holds the
-        // places the files came from.
-        sound && (m.mode() & 0o077 == 0 || fs::set_permissions(p, fs::Permissions::from_mode(0o700)).is_ok())
+        // places the files came from. A disk without permissions (FAT) may refuse; its mount
+        // decides who reads.
+        if sound && m.mode() & 0o077 != 0 {
+            let _ = fs::set_permissions(p, fs::Permissions::from_mode(0o700));
+        }
+        sound
     };
     ok(bin) && ok(&bin.join("files")) && ok(&bin.join("info"))
 }
@@ -2620,7 +2624,8 @@ mod tests {
         mode(&other.join(".Trash"), 0o777);
         assert_eq!(super::disk_bin(&other, uid, dev), if root { Some(other.join(format!(".Trash-{uid}"))) } else { None });
         mode(&other, 0o755);
-        // A sticky .Trash of another user than root and the top's owner: not trusted.
+        // A sticky .Trash of another user than root and the top's owner: not trusted. (Owners
+        // other than our own need root to make, so only the rule itself is tested here.)
         assert!(super::trusted_owner(0, 1000) && super::trusted_owner(1000, 1000));
         assert!(!super::trusted_owner(1001, 1000));
         // A link to a sticky folder: not used either.

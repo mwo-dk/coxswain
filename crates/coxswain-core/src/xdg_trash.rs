@@ -30,10 +30,18 @@ pub fn make(trash: &Path) -> io::Result<()> {
     if let Some(up) = trash.parent() {
         fs::create_dir_all(up)?;
     }
+    use std::os::unix::fs::PermissionsExt;
     let mut b = fs::DirBuilder::new();
     b.recursive(true).mode(0o700);
     b.create(trash.join("files"))?;
-    b.create(trash.join("info"))
+    b.create(trash.join("info"))?;
+    // One made readable by others before (Coxswain's own before 2.38): closed.
+    for d in [trash.to_path_buf(), trash.join("files"), trash.join("info")] {
+        if fs::symlink_metadata(&d).is_ok_and(|m| m.is_dir() && m.permissions().mode() & 0o077 != 0) {
+            let _ = fs::set_permissions(&d, fs::Permissions::from_mode(0o700));
+        }
+    }
+    Ok(())
 }
 
 /// Whether `path` is on the trash's filesystem, so it can be renamed in.

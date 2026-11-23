@@ -134,8 +134,9 @@ system's bin in your file manager, or install Coxswain another way ([Install](..
 #### A USB stick's deleted files are not listed.
 
 Each disk keeps its own bin at its top (`.Trash-1000` on a stick). It is listed while the disk
-is mounted; files deleted on a disk without a bin were deleted for good (see
-[Delete](delete.md)).
+is mounted. On FreeBSD, the other BSDs and Linux, files deleted on a disk without a bin of
+yours went to the bin in your home folder, so look there; elsewhere they were deleted for good
+(see [Delete](delete.md#why-did-f8-on-a-shared-disk-put-my-files-in-the-home-bin)).
 
 #### The bin opens a folder called @bin instead.
 
