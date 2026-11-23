@@ -392,6 +392,7 @@
  "news.for_you": "Para ti",
  "news.show_me": "Muéstrame",
  "notice.bin_shadowed": "Una carpeta real llamada @bin en tu carpeta personal ({path}) oculta la papelera: Papelera abre esa carpeta en su lugar. Cámbiale el nombre o movela para ver la papelera de nuevo.",
+ "notice.bin_untrusted": "La papelera {path} no es solo tuya: otro usuario pudo haberla creado o puede cambiarla. Sus elementos no se muestran, no se restauran ni se vacían. Revisa de quién son la papelera y sus carpetas files e info.",
  "notice.cjk_font": "No hay ninguna fuente china, japonesa ni coreana instalada, así que los caracteres pueden verse como cuadraditos. Instala una, por ejemplo noto-fonts-cjk (Arch), fonts-noto-cjk (Debian, Ubuntu) o google-noto-sans-cjk-fonts (Fedora).",
  "notice.cjk_font_cmd": "No hay ninguna fuente china, japonesa ni coreana instalada, así que sus letras pueden verse como cuadros. Instala una con: {cmd}",
  "notice.cloud": "Se encontró {names}: los archivos que están solo en línea se encuentran solo por nombre, así que no se descarga nada. Cámbialo en Configuración",

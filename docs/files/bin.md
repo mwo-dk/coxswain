@@ -87,6 +87,14 @@ moved, renamed or made in the bin: restore it, or copy it out*. **F5** copies fi
 
 Only real folders count as a bin: a disk's `.Trash-1000` whose `files` or `info` is a link (to your home, say) is left out, so emptying can never reach through it.
 
+On FreeBSD, the other BSDs, illumos and Linux a disk's bin is listed, restored from and emptied
+only when no other user of the machine can have made it or can change it: the same checks
+**F8** makes before it puts files there ([Delete](delete.md#why-did-f8-on-a-shared-disk-put-my-files-in-the-home-bin)).
+A bin that fails them is left out, and when it holds items, a notice names it once
+([Why is a disk's bin left out?](#why-is-a-disks-bin-left-out)). An item whose recorded place
+leads out of its disk (through `..`, or a whole path elsewhere) is listed and goes with *Empty
+the bin*, but is never restored there.
+
 ## Settings and config.toml
 
 No Settings item. The keys are `bin`, `bin_restore`, `bin_delete` and `bin_empty` under
@@ -137,6 +145,26 @@ Each disk keeps its own bin at its top (`.Trash-1000` on a stick). It is listed 
 is mounted. On FreeBSD, the other BSDs and Linux, files deleted on a disk without a bin of
 yours went to the bin in your home folder, so look there; elsewhere they were deleted for good
 (see [Delete](delete.md#why-did-f8-on-a-shared-disk-put-my-files-in-the-home-bin)).
+
+#### Why is a disk's bin left out?
+
+Another user of the machine could have made a `.Trash-1000` on a shared disk, filled it with
+items of their choosing, and named the places they would be restored to. So a disk's bin counts
+only when the disk's top folder is yours or the system's (others may write in it only when it has
+the sticky bit, as `/tmp` has), a shared `.Trash` there has the sticky bit and belongs to the
+system or the top's owner, and your `.Trash-1000` (or `.Trash/1000`) and its `files` and `info`
+are real folders of yours that no one else may write. When one is left out and holds items, the
+notice *The bin … is not yours alone* names it once (terminal app: the status line; desktop
+app: *Settings → What's new*). Check who owns it with `ls -ld`; when it is yours and only its
+mode is wrong, `chmod 700` it and its `files` and `info`. A stick mounted so that everyone may
+write it has no bin Coxswain uses.
+
+#### Why does a restore say the place lies outside its disk?
+
+A disk's bin records each item's place relative to the disk's top. One that leads out of the
+disk, through `..` or as a whole path elsewhere, was not written by a put on that disk: Coxswain
+does not put it back there, and the dialog of what could not be done says *The place it was
+deleted from lies outside its disk: not put back*. Copy it out with **F5**, or delete it.
 
 #### The bin opens a folder called @bin instead.
 

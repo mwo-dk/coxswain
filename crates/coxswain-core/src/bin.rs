@@ -93,6 +93,10 @@ pub fn restores() -> bool {
 /// says why, once.
 pub static LIMITED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// A disk's bin with items that `fd::real` refused (another user may have made it or may lead
+/// it elsewhere): the notice says once why its items are not listed.
+pub static UNTRUSTED: Mutex<Option<PathBuf>> = Mutex::new(None);
+
 /// What is in the bin, newest first.
 pub fn list() -> io::Result<Vec<Item>> {
     if limited_here() {
@@ -530,13 +534,32 @@ pub(crate) mod fd {
         ));
         dirs.sort();
         dirs.dedup();
-        dirs.into_iter().map(Bin::at).filter(real).collect()
+        usable(dirs)
+    }
+
+    /// The bins of `dirs` that pass `real`. One refused with items in it is kept in
+    /// `UNTRUSTED`, for the notice.
+    pub(crate) fn usable(dirs: Vec<PathBuf>) -> Vec<Bin> {
+        let (ok, refused): (Vec<Bin>, Vec<Bin>) = dirs.into_iter().map(Bin::at).partition(real);
+        // One refused with items in it: the notice says once why they are not listed.
+        // Never through a link: it may lead anywhere.
+        let folder = |p: &Path| fs::symlink_metadata(p).is_ok_and(|m| m.is_dir());
+        if let Some(b) = refused.into_iter().find(|b| {
+            folder(&b.dir)
+                && folder(&b.dir.join("info"))
+                && fs::read_dir(b.dir.join("info")).is_ok_and(|mut rd| rd.next().is_some())
+        }) {
+            *UNTRUSTED.lock().unwrap_or_else(|e| e.into_inner()) = Some(b.dir);
+        }
+        ok
     }
 
     /// A bin that can be used: the bin folder, its `info` and its `files` (when there; none is
     /// an empty bin) are real folders, never links, and so is `.Trash` above `.Trash/<uid>`. A
     /// link there (a stick with `.Trash-1000/files -> /home/you`) would have Empty delete
-    /// whatever it points at.
+    /// whatever it points at. A disk's bin passes the spec's checks too, as a put's does
+    /// (`crate::fs::trusted_disk_bin`): another user of the disk could have made it, to have
+    /// their items listed and put back where they choose (#1077).
     pub fn real(b: &Bin) -> bool {
         let folder = |p: &Path| fs::symlink_metadata(p).is_ok_and(|m| m.is_dir());
         let files = b.dir.join("files");
@@ -548,10 +571,26 @@ pub(crate) mod fd {
             && folder(&b.dir)
             && folder(&b.dir.join("info"))
             && (folder(&files) || fs::symlink_metadata(&files).is_err())
+            && trusted(b)
     }
 
-    /// The bins on these disks' tops that are there: `.Trash/<uid>` (when `.Trash` is a sticky
-    /// folder of its own, not a link) and `.Trash-<uid>`.
+    /// A disk's bin no other user can have made or lead elsewhere; the home bin is the user's.
+    #[cfg(unix)]
+    fn trusted(b: &Bin) -> bool {
+        use std::os::unix::fs::MetadataExt;
+        let Some(top) = &b.top else { return true };
+        // SAFETY: getuid cannot fail.
+        let uid = unsafe { libc::getuid() };
+        fs::symlink_metadata(top).is_ok_and(|m| crate::fs::trusted_disk_bin(top, &b.dir, uid, m.dev(), false))
+    }
+
+    #[cfg(not(unix))]
+    fn trusted(_: &Bin) -> bool {
+        true
+    }
+
+    /// The bins on these disks' tops that are there and pass `real`: `.Trash/<uid>` and
+    /// `.Trash-<uid>`.
     #[cfg(unix)]
     #[cfg_attr(
         any(
@@ -562,17 +601,11 @@ pub(crate) mod fd {
         allow(dead_code)
     )]
     pub fn disk_bins(tops: impl Iterator<Item = PathBuf>) -> Vec<PathBuf> {
-        use std::os::unix::fs::PermissionsExt;
         // SAFETY: getuid cannot fail.
         let uid = unsafe { libc::getuid() };
         let mut out = vec![];
         for top in tops {
-            let shared = top.join(".Trash");
-            if fs::symlink_metadata(&shared)
-                .is_ok_and(|m| m.is_dir() && m.permissions().mode() & 0o1000 != 0)
-            {
-                out.push(shared.join(uid.to_string()));
-            }
+            out.push(top.join(".Trash").join(uid.to_string()));
             out.push(top.join(format!(".Trash-{uid}")));
         }
         out.retain(|d| real(&Bin::at(d.clone())));
@@ -687,14 +720,24 @@ pub(crate) mod fd {
         PathBuf::from(String::from_utf8_lossy(&out).into_owned())
     }
 
-    /// The item at `path`, if it is one of `bins`' (never a path elsewhere).
-    fn find(bins: &[Bin], path: &Path) -> Option<Item> {
+    /// The item at `path`, if it is one of `bins`' (never a path elsewhere), and its bin.
+    fn find<'a>(bins: &'a [Bin], path: &Path) -> Option<(&'a Bin, Item)> {
         let b = bins
             .iter()
             .find(|b| path.parent() == Some(b.dir.join("files").as_path()) && real(b))?;
         // That item alone: listing the whole bin for each one made Empty and a restore of
         // many items quadratic.
-        item(b, path.file_name()?).filter(|i| i.path == path)
+        item(b, path.file_name()?).filter(|i| i.path == path).map(|i| (b, i))
+    }
+
+    /// Whether an item of `b` may go back to `origin`, its info file's `Path=`: never through
+    /// `..`, and a disk's bin only under that disk's top. An info file is text anyone with the
+    /// bin's rights wrote; one that names a place elsewhere is listed (and emptied) but never
+    /// put back there.
+    pub(crate) fn may_restore(b: &Bin, origin: &Path) -> bool {
+        origin.is_absolute()
+            && !origin.components().any(|c| c == std::path::Component::ParentDir)
+            && b.top.as_ref().is_none_or(|t| origin.starts_with(t))
     }
 
     /// An item's file and its info file, as `id` tells them: looked at again before each removal,
@@ -737,10 +780,14 @@ pub(crate) mod fd {
     pub(crate) fn restore_held(bins: &[Bin], paths: &[PathBuf], free_name: bool) -> Done {
         let mut done = Done::default();
         for p in paths {
-            let Some(item) = find(bins, p) else {
+            let Some((b, item)) = find(bins, p) else {
                 done.failed.push(failed(p, crate::t!("err.not_in_trash")));
                 continue;
             };
+            if !may_restore(b, &item.origin) {
+                done.failed.push(failed(p, crate::t!("bin.bad_origin")));
+                continue;
+            }
             let was = ids(&item.path);
             let mut to = item.origin.clone();
             if fs::symlink_metadata(&to).is_ok() {
@@ -1765,6 +1812,124 @@ mod tests {
         // A bin with no `files` yet is a bin, and empty.
         assert!(kept(d.join("real")));
         assert!(disk_bins([d.join("c"), d.join("t2")].into_iter()).is_empty());
+    }
+
+    /// A disk's bin another user could have made, or could lead elsewhere, is no bin: nothing
+    /// in it is listed, put back, deleted or emptied, and the notice names it (#1077). The
+    /// spec's checks, as a put's (`crate::fs::trusted_disk_bin`). A bin of another owner needs
+    /// root to make: one named for another uid stands in (its owner is not that uid).
+    #[cfg(unix)]
+    #[test]
+    fn bin_takes_no_disk_bin_another_user_could_have_made() {
+        use std::os::unix::fs::{symlink, PermissionsExt};
+        let mode = |p: &Path, m: u32| fs::set_permissions(p, fs::Permissions::from_mode(m)).unwrap();
+        let d = crate::fs::Scratch::named("bin-planted");
+        // SAFETY: getuid cannot fail.
+        let uid = unsafe { libc::getuid() };
+        let top = d.join("top");
+        let make = |b: &Path| {
+            fs::create_dir_all(b.join("files")).unwrap();
+            fs::create_dir_all(b.join("info")).unwrap();
+            for p in [b, &b.join("files"), &b.join("info")] {
+                mode(p, 0o700);
+            }
+            fs::write(b.join("files/a.txt"), "planted").unwrap();
+            fs::write(b.join("info/a.txt.trashinfo"), "[Trash Info]\nPath=docs/a.txt\n").unwrap();
+        };
+        let own = top.join(format!(".Trash-{uid}"));
+        make(&own);
+        mode(&top, 0o755);
+        let bins = [Bin::at(own.clone())];
+        let listed = || list_in(&bins).len();
+        assert_eq!(listed(), 1, "the user's own bin");
+        // Writable by others, the bin, its info or its files: no bin.
+        for p in [own.clone(), own.join("info"), own.join("files")] {
+            mode(&p, 0o777);
+            assert_eq!(listed(), 0, "{} writable by others", p.display());
+            assert_eq!(restore_in(&bins, &[own.join("files/a.txt")], true).done, 0);
+            assert_eq!(empty_in(&bins).done, 0);
+            assert!(own.join("files/a.txt").exists() && !top.join("docs/a.txt").exists());
+            assert_eq!(usable(vec![own.clone()]), vec![]);
+            assert_eq!(UNTRUSTED.lock().unwrap().clone(), Some(own.clone()), "the notice names it");
+            mode(&p, 0o700);
+        }
+        assert_eq!(usable(vec![own.clone()]), bins.to_vec());
+        // A top others may write without the sticky bit: anyone could swap the bin; with it,
+        // a bin.
+        mode(&top, 0o777);
+        assert_eq!(listed(), 0);
+        mode(&top, 0o1777);
+        assert_eq!(listed(), 1);
+        mode(&top, 0o755);
+        // A bin named for another user: not this user's, whoever owns it.
+        let other = top.join(format!(".Trash-{}", uid + 1));
+        make(&other);
+        assert_eq!(list_in(&[Bin::at(other.clone())]).len(), 0);
+        // Of another owner: refused, as a put's (us seen as someone else).
+        use std::os::unix::fs::MetadataExt;
+        let dev = fs::metadata(&top).unwrap().dev();
+        assert!(crate::fs::trusted_disk_bin(&top, &own, uid, dev, false));
+        assert!(!crate::fs::trusted_disk_bin(&top, &other, uid + 1, dev, false));
+        // Nothing made by a look: a bin with no `files` yet is an empty bin, and stays so.
+        let shared = top.join(".Trash");
+        let mine = shared.join(uid.to_string());
+        fs::create_dir_all(mine.join("info")).unwrap();
+        mode(&mine, 0o700);
+        mode(&mine.join("info"), 0o700);
+        // A shared .Trash that is not sticky: anyone could swap the user's folder in it.
+        mode(&shared, 0o777);
+        assert!(!real(&Bin::at(mine.clone())));
+        mode(&shared, 0o1777);
+        assert!(real(&Bin::at(mine.clone())));
+        assert!(!mine.join("files").exists(), "a look makes nothing");
+        // The user's folder in it a link: no bin.
+        fs::remove_dir_all(&mine).unwrap();
+        fs::create_dir_all(d.join("elsewhere/info")).unwrap();
+        symlink(d.join("elsewhere"), &mine).unwrap();
+        assert!(!real(&Bin::at(mine.clone())));
+    }
+
+    /// An info file's `Path=` that leads out of its disk (`..`, or a whole path elsewhere) is
+    /// listed, and goes with Empty, but is never put back there (#1077).
+    #[cfg(unix)]
+    #[test]
+    fn bin_restores_only_under_its_disks_top() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = crate::fs::Scratch::named("bin-origin");
+        // SAFETY: getuid cannot fail.
+        let uid = unsafe { libc::getuid() };
+        let top = d.join("top");
+        let b = top.join(format!(".Trash-{uid}"));
+        fs::create_dir_all(b.join("files")).unwrap();
+        fs::create_dir_all(b.join("info")).unwrap();
+        for p in [&top, &b, &b.join("files"), &b.join("info")] {
+            fs::set_permissions(p, fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let outside = d.join("outside");
+        for (name, path) in [
+            ("up.txt", "../outside/up.txt".to_string()),
+            ("deep.txt", "docs/../../outside/deep.txt".to_string()),
+            ("whole.txt", format!("{}/whole.txt", outside.display())),
+            ("ok.txt", "docs/ok.txt".to_string()),
+            ("in.txt", format!("{}/docs/in.txt", top.display())),
+        ] {
+            fs::write(b.join("files").join(name), name).unwrap();
+            fs::write(b.join("info").join(format!("{name}.trashinfo")), format!("[Trash Info]\nPath={path}\n")).unwrap();
+        }
+        let bins = [Bin::at(b.clone())];
+        assert_eq!(list_in(&bins).len(), 5, "listed all the same");
+        let item = |n: &str| b.join("files").join(n);
+        let r = restore_in(&bins, &[item("up.txt"), item("deep.txt"), item("whole.txt"), item("ok.txt"), item("in.txt")], true);
+        assert_eq!(r.done, 2, "{:?}", r.failed);
+        assert_eq!(r.failed.len(), 3);
+        assert!(r.failed.iter().all(|f| f.ends_with(&crate::t!("bin.bad_origin"))), "{:?}", r.failed);
+        assert!(!outside.exists(), "nothing put outside the top");
+        assert!(top.join("docs/ok.txt").exists() && top.join("docs/in.txt").exists());
+        // The home bin's whole paths go anywhere of the user's, never through `..`.
+        let home = Bin { dir: d.join("Trash"), top: None };
+        assert!(may_restore(&home, Path::new("/srv/a.txt")));
+        assert!(!may_restore(&home, Path::new("/srv/../etc/a.txt")));
+        assert_eq!(empty_in(&bins).done, 3, "Empty takes them");
     }
 
     /// An info file named `..`, `.` or nothing names `files` or the bin itself: never an item.

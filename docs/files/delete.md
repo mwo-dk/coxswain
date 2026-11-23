@@ -111,6 +111,8 @@ owner. Your `.Trash-1000` (or `.Trash/1000`) and its `files` and `info` must be 
 yours that no one else may write. When any of that is not so, the files go to the bin in your
 home folder, moved file by file as above. Coxswain makes a disk's bin readable by you alone,
 and closes one that others could read, as it holds the places your files came from.
+The bin's panel lists, restores from and empties a disk's bin only under the same checks
+([Bin](bin.md#why-is-a-disks-bin-left-out)).
 
 #### Where do deleted files go on Linux?
 
