@@ -738,44 +738,202 @@ pub(crate) mod fd {
         item(b, path.file_name()?).filter(|i| i.path == path).map(|i| (b, i))
     }
 
-    /// Whether an item of `b` may go back to `origin`, its info file's `Path=`. A disk's bin:
-    /// only to a name under that disk's top, never through `..`, and through no link or other
-    /// disk on the way (a stick another machine wrote may hold `docs -> ~/.config`). An info
-    /// file is text whoever wrote the disk chose; one that names a place elsewhere is listed
-    /// (and emptied) but never put back there. The home bin's places are the user's own.
-    // shortcut: the folders are looked at here, then followed by the move; a top others may
-    // write without the sticky bit is refused, so only the user or root can swap one between.
+    /// Whether an item of `b` may go back to `origin`, its info file's `Path=`: `place` would
+    /// take it, making nothing.
     pub(crate) fn may_restore(b: &Bin, origin: &Path) -> bool {
-        let Some(top) = &b.top else { return true };
-        let Ok(rest) = origin.strip_prefix(top) else { return false };
-        if rest.file_name().is_none()
-            || rest.components().any(|c| !matches!(c, std::path::Component::Normal(_)))
-        {
-            return false;
+        place(b, origin, false).is_ok()
+    }
+
+    /// Where an item of `b` goes back to: `origin`, its info file's `Path=`, with the folders on
+    /// the way made when `make` (else a missing one is taken as to be made). The home bin's
+    /// places are the user's own: a path. A disk's bin: only a name under that disk's top,
+    /// never through `..`, reached folder by folder from the top through no link and no other
+    /// disk (a stick another machine wrote may hold `docs -> ~/.config`), each folder held open
+    /// and each missing one made inside the one held, so nothing is made or put where a link
+    /// another user swapped in since leads. An info file is text whoever wrote the disk chose;
+    /// one that names a place elsewhere is listed (and emptied) but never put back there:
+    /// `bin.bad_origin`.
+    pub(crate) fn place(b: &Bin, origin: &Path, make: bool) -> io::Result<Place> {
+        let Some(top) = &b.top else {
+            if make {
+                origin.parent().map_or(Ok(()), fs::create_dir_all)?;
+            }
+            return Ok(Place::new(origin));
+        };
+        let bad = || io::Error::new(io::ErrorKind::InvalidInput, crate::t!("bin.bad_origin"));
+        let rest = origin.strip_prefix(top).map_err(|_| bad())?;
+        let Some(name) = rest.file_name() else { return Err(bad()) };
+        if rest.components().any(|c| !matches!(c, std::path::Component::Normal(_))) {
+            return Err(bad());
         }
         #[cfg(unix)]
         {
+            use std::os::unix::ffi::OsStrExt;
             use std::os::unix::fs::MetadataExt;
-            let Ok(dev) = fs::symlink_metadata(top).map(|m| m.dev()) else { return false };
-            // SAFETY: getuid cannot fail.
-            let uid = unsafe { libc::getuid() };
-            // Each folder on the way that is there: a folder of the disk, never a link, that
-            // only the user or root can change (the rule the top has): others may write it
-            // only with the sticky bit, which keeps them from swapping what is the user's.
-            let mut at = top.clone();
-            for c in rest.parent().into_iter().flat_map(Path::components) {
-                at.push(c);
-                match fs::symlink_metadata(&at) {
-                    Ok(m) if m.is_dir()
-                        && m.dev() == dev
-                        && (m.uid() == uid || m.uid() == 0)
-                        && (m.mode() & 0o022 == 0 || m.mode() & 0o1000 != 0) => {}
-                    Ok(_) => return false,
-                    Err(_) => break,
+            let c = |s: &std::ffi::OsStr| std::ffi::CString::new(s.as_bytes()).map_err(|_| bad());
+            let flags = libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC;
+            // Held open as it was looked at: a folder of the top's disk, never a link.
+            let held = |fd: libc::c_int, dev: Option<u64>| -> io::Result<(std::os::fd::OwnedFd, u64)> {
+                if fd < 0 {
+                    let e = io::Error::last_os_error();
+                    return Err(if e.kind() == io::ErrorKind::NotFound { e } else { bad() });
                 }
+                // SAFETY: a descriptor just opened, owned here alone.
+                let f = fs::File::from(unsafe { <std::os::fd::OwnedFd as std::os::fd::FromRawFd>::from_raw_fd(fd) });
+                let m = f.metadata()?;
+                if !m.is_dir() || dev.is_some_and(|d| d != m.dev()) {
+                    return Err(bad());
+                }
+                Ok((f.into(), m.dev()))
+            };
+            let top_c = c(top.as_os_str())?;
+            // SAFETY: a valid C string.
+            let (mut dir, dev) = held(unsafe { libc::open(top_c.as_ptr(), flags) }, None)?;
+            for part in rest.parent().into_iter().flat_map(Path::components) {
+                let part = c(part.as_os_str())?;
+                let at = std::os::fd::AsRawFd::as_raw_fd(&dir);
+                // SAFETY: a held folder and a valid C string.
+                let open = || held(unsafe { libc::openat(at, part.as_ptr(), flags) }, Some(dev));
+                dir = match open() {
+                    Ok((d, _)) => d,
+                    Err(e) if e.kind() == io::ErrorKind::NotFound && !make => {
+                        return Ok(Place::new(origin));
+                    }
+                    Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                        // Inside the folder held, never through a link at the name (mkdirat
+                        // fails on one), as the umask has it, as the restore made them before.
+                        // SAFETY: a held folder and a valid C string.
+                        if unsafe { libc::mkdirat(at, part.as_ptr(), 0o777) } != 0 {
+                            let e = io::Error::last_os_error();
+                            if e.kind() != io::ErrorKind::AlreadyExists {
+                                return Err(e);
+                            }
+                        }
+                        open()?.0
+                    }
+                    Err(e) => return Err(e),
+                };
+            }
+            Ok(Place { path: origin.to_path_buf(), at: Some((dir, c(name)?)) })
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = name;
+            Ok(Place::new(origin))
+        }
+    }
+
+    /// Where `move_new` puts an item: a path, or (a disk's bin) a name in a folder held open,
+    /// which every step reaches without looking the folders up again.
+    pub(crate) struct Place {
+        path: PathBuf,
+        #[cfg(unix)]
+        at: Option<(std::os::fd::OwnedFd, std::ffi::CString)>,
+    }
+
+    impl Place {
+        pub(crate) fn new(path: &Path) -> Place {
+            Place {
+                path: path.to_path_buf(),
+                #[cfg(unix)]
+                at: None,
             }
         }
-        true
+
+        #[cfg(unix)]
+        fn at(&self) -> Option<(libc::c_int, *const libc::c_char)> {
+            self.at.as_ref().map(|(d, n)| (std::os::fd::AsRawFd::as_raw_fd(d), n.as_ptr()))
+        }
+
+        #[cfg(unix)]
+        fn from_c(from: &Path) -> io::Result<std::ffi::CString> {
+            std::ffi::CString::new(std::os::unix::ffi::OsStrExt::as_bytes(from.as_os_str()))
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
+        }
+
+        #[cfg(unix)]
+        fn ok(r: libc::c_int) -> io::Result<()> {
+            if r == 0 { Ok(()) } else { Err(io::Error::last_os_error()) }
+        }
+
+        fn id(&self) -> Option<Id> {
+            #[cfg(unix)]
+            if let Some((d, n)) = self.at() {
+                // SAFETY: zeroed is a valid `stat`, filled by fstatat.
+                let mut st: libc::stat = unsafe { std::mem::zeroed() };
+                // SAFETY: a held folder, a valid C string, a `stat` to fill.
+                if unsafe { libc::fstatat(d, n, &mut st, libc::AT_SYMLINK_NOFOLLOW) } != 0 {
+                    return None;
+                }
+                #[cfg(target_os = "netbsd")]
+                let nsec = st.st_ctimensec;
+                #[cfg(not(target_os = "netbsd"))]
+                let nsec = st.st_ctime_nsec;
+                #[allow(clippy::unnecessary_cast)]
+                return Some((st.st_dev as u64, st.st_ino as u64, st.st_ctime as i64, nsec as i64));
+            }
+            id(&self.path)
+        }
+
+        fn link(&self, from: &Path) -> io::Result<()> {
+            #[cfg(test)]
+            if NO_LINK.get() {
+                return Err(io::ErrorKind::PermissionDenied.into());
+            }
+            #[cfg(unix)]
+            if let Some((d, n)) = self.at() {
+                let f = Self::from_c(from)?;
+                // SAFETY: valid C strings and a held folder; links are not followed.
+                return Self::ok(unsafe { libc::linkat(libc::AT_FDCWD, f.as_ptr(), d, n, 0) });
+            }
+            fs::hard_link(from, &self.path)
+        }
+
+        fn rename(&self, from: &Path) -> io::Result<()> {
+            #[cfg(unix)]
+            if let Some((d, n)) = self.at() {
+                let f = Self::from_c(from)?;
+                // SAFETY: valid C strings and a held folder.
+                return Self::ok(unsafe { libc::renameat(libc::AT_FDCWD, f.as_ptr(), d, n) });
+            }
+            fs::rename(from, &self.path)
+        }
+
+        fn remove(&self) -> io::Result<()> {
+            #[cfg(unix)]
+            if let Some((d, n)) = self.at() {
+                // SAFETY: a held folder and a valid C string.
+                return Self::ok(unsafe { libc::unlinkat(d, n, 0) });
+            }
+            fs::remove_file(&self.path)
+        }
+
+        /// An empty file made at the place, failing when anything is there (a link too): its id
+        /// from the handle.
+        fn claim(&self) -> io::Result<Option<Id>> {
+            #[cfg(unix)]
+            if let Some((d, n)) = self.at() {
+                let flags = libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC;
+                // SAFETY: a held folder and a valid C string.
+                let fd = unsafe { libc::openat(d, n, flags, 0o666 as libc::c_uint) };
+                if fd < 0 {
+                    return Err(io::Error::last_os_error());
+                }
+                // SAFETY: a descriptor just opened, owned here alone.
+                let f = fs::File::from(unsafe { <std::os::fd::OwnedFd as std::os::fd::FromRawFd>::from_raw_fd(fd) });
+                return Ok(f.metadata().ok().map(|m| id_of(&m)));
+            }
+            Ok(fs::OpenOptions::new().write(true).create_new(true).open(&self.path)?.metadata().ok().map(|m| id_of(&m)))
+        }
+
+        /// Whether a step that fails here may be done again as a move across disks: never for a
+        /// name in a held folder, which is on the bin's disk.
+        fn by_path(&self) -> bool {
+            #[cfg(unix)]
+            return self.at.is_none();
+            #[cfg(not(unix))]
+            true
+        }
     }
 
     /// An item's file and its info file, as `id` tells them: looked at again before each removal,
@@ -845,25 +1003,8 @@ pub(crate) mod fd {
                 done.failed.push(failed(p, crate::t!("err.not_in_trash")));
                 continue;
             }
-            // Made writable by the user alone whatever the umask (`002` makes them group
-            // writable), so the look below passes them.
-            let made = to.parent().map_or(Ok(()), |up| {
-                let mut d = fs::DirBuilder::new();
-                d.recursive(true);
-                #[cfg(unix)]
-                std::os::unix::fs::DirBuilderExt::mode(&mut d, 0o755);
-                d.create(up)
-            });
-            // Looked at again with every folder on the way there, right before the move: none
-            // swapped for a link since (only the user or root could), none planted where one was
-            // missing (a link followed by the making is seen now).
-            // shortcut: path lookups, not openat on held folders; the folders' rule above
-            // leaves that race to the user and root.
-            if made.is_ok() && !may_restore(b, &to) {
-                done.failed.push(failed(p, crate::t!("bin.bad_origin")));
-                continue;
-            }
-            let moved = made.and_then(|_| move_new(&item.path, &to, was.0));
+            // The folders on the way made, and held, right before the move.
+            let moved = place(b, &to, true).and_then(|at| move_to(&item.path, &at, was.0));
             match moved {
                 Ok(ours) => {
                     if ours {
@@ -873,6 +1014,7 @@ pub(crate) mod fd {
                 }
                 // Not the item found any more (#901): said of the item, not of its place.
                 Err(e) if e.kind() == io::ErrorKind::NotFound => done.failed.push(failed(p, e)),
+                Err(e) if e.kind() == io::ErrorKind::InvalidInput => done.failed.push(failed(p, e)),
                 Err(e) => done.failed.push(failed(&to, e)),
             }
         }
@@ -892,6 +1034,11 @@ pub(crate) mod fd {
     // ponytail: that move checks, then moves: a file made in that instant at `to` is replaced.
     // Windows restores through the shell, with the same check first.
     pub fn move_new(from: &Path, to: &Path, was: Option<Id>) -> io::Result<bool> {
+        move_to(from, &Place::new(to), was)
+    }
+
+    /// `move_new` to `to`, a path or a name in a held folder.
+    pub(crate) fn move_to(from: &Path, to: &Place, was: Option<Id>) -> io::Result<bool> {
         let across = |e: &io::Error| {
             #[cfg(test)]
             if crate::fs::ACROSS.get() {
@@ -906,7 +1053,7 @@ pub(crate) mod fd {
         };
         #[cfg(test)]
         let simulated = || {
-            if crate::fs::ACROSS.get() {
+            if crate::fs::ACROSS.get() && to.by_path() {
                 Err(io::Error::from(io::ErrorKind::CrossesDevices))
             } else {
                 Ok(())
@@ -915,27 +1062,17 @@ pub(crate) mod fd {
         #[cfg(not(test))]
         let simulated = || Ok(());
         let first = if fs::symlink_metadata(from)?.is_dir() {
-            if fs::symlink_metadata(to).is_ok() {
+            if to.id().is_some() {
                 return Err(io::Error::new(
                     io::ErrorKind::AlreadyExists,
-                    crate::t!("err.exists", "path" => to.display()),
+                    crate::t!("err.exists", "path" => to.path.display()),
                 ));
             }
-            simulated().and_then(|_| fs::rename(from, to)).map(|_| true)
+            simulated().and_then(|_| to.rename(from)).map(|_| true)
         } else {
-            #[cfg(test)]
-            let link = |f: &Path, t: &Path| {
-                if NO_LINK.get() {
-                    Err(io::ErrorKind::PermissionDenied.into())
-                } else {
-                    fs::hard_link(f, t)
-                }
-            };
-            #[cfg(not(test))]
-            let link = fs::hard_link;
-            match simulated().and_then(|_| link(from, to)) {
+            match simulated().and_then(|_| to.link(from)) {
                 Ok(()) => {
-                    let now = id(to);
+                    let now = to.id();
                     // The file looked at, not one put under its name between that look and the
                     // link (#901). A link changes the change time: device and inode only.
                     // shortcut: a file freed and another given its inode in that instant goes
@@ -950,9 +1087,9 @@ pub(crate) mod fd {
                         midway();
                         #[cfg(unix)]
                         if let bin @ Some(_) = id(from)
-                            && id(to) == bin
+                            && to.id() == bin
                         {
-                            let _ = fs::remove_file(to);
+                            let _ = to.remove();
                         }
                         return Err(io::Error::new(
                             io::ErrorKind::NotFound,
@@ -980,18 +1117,12 @@ pub(crate) mod fd {
                     // not ours): the empty file claims `to`, and the rename replaces only that.
                     // Its id from the handle, not the name: a file saved at `to` in between is
                     // never taken for it.
-                    let made = fs::OpenOptions::new()
-                        .write(true)
-                        .create_new(true)
-                        .open(to)?
-                        .metadata()
-                        .ok()
-                        .map(|m| id_of(&m));
+                    let made = to.claim()?;
                     // The empty file, removed only while it is still the one made here: a file
                     // saved at `to` since stays.
                     let unclaim = || {
-                        if made.is_some() && id(to) == made {
-                            let _ = fs::remove_file(to);
+                        if made.is_some() && to.id() == made {
+                            let _ = to.remove();
                         }
                     };
                     midway();
@@ -1009,14 +1140,14 @@ pub(crate) mod fd {
                             ));
                         }
                     }
-                    fs::rename(from, to).inspect_err(|_| unclaim()).map(|_| true)
+                    to.rename(from).inspect_err(|_| unclaim()).map(|_| true)
                 }
                 Err(e) => Err(e),
             }
         };
         match first {
-            Err(e) if e.kind() != io::ErrorKind::AlreadyExists && across(&e) => {
-                crate::fs::rename(from, to).map(|_| true)
+            Err(e) if e.kind() != io::ErrorKind::AlreadyExists && to.by_path() && across(&e) => {
+                crate::fs::rename(from, &to.path).map(|_| true)
             }
             r => r,
         }
@@ -2004,18 +2135,11 @@ mod tests {
             fs::write(b.join("files").join(name), name).unwrap();
             fs::write(b.join("info").join(format!("{name}.trashinfo")), format!("[Trash Info]\nPath={path}\n")).unwrap();
         }
-        // A folder on the way others may write without the sticky bit: they could swap it.
-        fs::create_dir_all(top.join("open/in")).unwrap();
-        fs::set_permissions(top.join("open/in"), fs::Permissions::from_mode(0o755)).unwrap();
-        fs::set_permissions(top.join("open"), fs::Permissions::from_mode(0o777)).unwrap();
         let bins = [Bin::at(b.clone())];
-        assert!(!may_restore(&bins[0], &top.join("open/in/x.txt")));
-        fs::set_permissions(top.join("open"), fs::Permissions::from_mode(0o1777)).unwrap();
-        assert!(may_restore(&bins[0], &top.join("open/in/x.txt")), "sticky: what is the user's stays");
-        // A link planted where a folder on the way was missing: seen after the making, before
-        // the move.
+        // A link planted where a folder on the way was missing, after the look: nothing is
+        // made or put inside where it leads.
         fs::write(b.join("files/planted.txt"), "planted").unwrap();
-        fs::write(b.join("info/planted.txt.trashinfo"), "[Trash Info]\nPath=gone/planted.txt\n").unwrap();
+        fs::write(b.join("info/planted.txt.trashinfo"), "[Trash Info]\nPath=gone/sub/planted.txt\n").unwrap();
         MIDWAY.set(Some(Box::new({
             let (top, outside) = (top.clone(), outside.clone());
             move || {
@@ -2025,7 +2149,9 @@ mod tests {
         let r = restore_in(&bins, &[b.join("files/planted.txt")], true);
         MIDWAY.set(None);
         assert_eq!((r.done, r.failed.len()), (0, 1), "{:?}", r.failed);
+        assert!(r.failed[0].ends_with(&crate::t!("bin.bad_origin")), "{:?}", r.failed);
         assert!(b.join("files/planted.txt").exists());
+        assert_eq!(fs::read_dir(&outside).unwrap().count(), 0, "nothing made through the link");
         fs::remove_file(top.join("gone")).unwrap();
         fs::remove_file(b.join("files/planted.txt")).unwrap();
         fs::remove_file(b.join("info/planted.txt.trashinfo")).unwrap();
@@ -2045,6 +2171,17 @@ mod tests {
         let home = Bin { dir: d.join("Trash"), top: None };
         assert!(may_restore(&home, Path::new("/srv/a.txt")));
         assert_eq!(empty_in(&bins).done, 5, "Empty takes them");
+        // Into a held folder: without hard links (claimed, then renamed), and a folder.
+        fs::write(b.join("files/nolink.txt"), "n").unwrap();
+        fs::write(b.join("info/nolink.txt.trashinfo"), "[Trash Info]\nPath=new/deep/nolink.txt\n").unwrap();
+        fs::create_dir_all(b.join("files/dir/sub")).unwrap();
+        fs::write(b.join("info/dir.trashinfo"), "[Trash Info]\nPath=new/dir\n").unwrap();
+        NO_LINK.set(true);
+        let r = restore_in(&bins, &[item("nolink.txt"), item("dir")], false);
+        NO_LINK.set(false);
+        assert_eq!((r.done, r.failed), (2, Vec::<String>::new()));
+        assert_eq!(fs::read_to_string(top.join("new/deep/nolink.txt")).unwrap(), "n");
+        assert!(top.join("new/dir/sub").is_dir() && list_in(&bins).is_empty());
     }
 
     /// An info file named `..`, `.` or nothing names `files` or the bin itself: never an item.
