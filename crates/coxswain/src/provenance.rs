@@ -809,7 +809,7 @@ fn dep_key(r: &Resource) -> String {
 
 /// An RFC 3339 time as local time, as the panels show dates; anything else as it is.
 fn when(s: &str) -> String {
-    chrono::DateTime::parse_from_rfc3339(s).map_or_else(|_| s.to_string(), |t| date(t.timestamp().max(0) as u64))
+    coxswain_core::clock::rfc3339(s).map_or_else(|| s.to_string(), |t| date(t.max(0) as u64))
 }
 
 fn checkout(s: &Source) -> Option<&Path> {
@@ -853,6 +853,13 @@ mod tests {
     use super::*;
     use ratatui::backend::TestBackend;
     use ratatui::Terminal;
+
+    #[test]
+    fn provenance_times_show_as_local_dates_and_other_text_stays() {
+        assert_eq!(when("2026-10-01T12:00:00Z"), date(1_790_856_000));
+        assert_eq!(when("2026-10-01T14:00:00+02:00"), date(1_790_856_000));
+        assert_eq!(when("sometime"), "sometime");
+    }
 
     fn fixture(p: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../coxswain-core/src/provenance/testdata").join(p)

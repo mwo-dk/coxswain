@@ -669,7 +669,7 @@ mod imp {
 
     /// The name of the folder aside: when, and which run.
     fn aside_name() -> OsString {
-        let now = chrono::Local::now().format("%Y%m%d-%H%M%S");
+        let now = crate::clock::now_local("%Y%m%d-%H%M%S");
         OsString::from(format!("{ASIDE}{now}-{}-{}", crate::spill::run(), crate::pinned::token()))
     }
 

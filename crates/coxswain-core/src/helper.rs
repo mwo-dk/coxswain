@@ -289,7 +289,7 @@ pub(crate) fn note(what: std::fmt::Arguments) {
     }
     eprintln!(
         "{} coxswain {VERSION}: {what}",
-        chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+        crate::clock::now_local("%Y-%m-%d %H:%M:%S")
     );
 }
 
@@ -1553,7 +1553,7 @@ fn app_note(dir: &Path, what: std::fmt::Arguments) {
         let _ = writeln!(
             f,
             "{} coxswain {VERSION} (app, process {}): {what}",
-            chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+            crate::clock::now_local("%Y-%m-%d %H:%M:%S"),
             std::process::id()
         );
     }

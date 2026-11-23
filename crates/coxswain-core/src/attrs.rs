@@ -100,23 +100,24 @@ pub struct Progress {
 /// A date and time as a person writes it, in local time: `2026-10-21 14:30`, with seconds, or a
 /// day alone (midnight).
 pub fn parse_date(s: &str) -> Option<SystemTime> {
-    use chrono::{Local, NaiveDate, NaiveDateTime, TimeZone};
+    use jiff::civil::{Date, DateTime};
     let s = s.trim().replace('T', " ");
     let naive = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]
         .iter()
-        .find_map(|f| NaiveDateTime::parse_from_str(&s, f).ok())
-        .or_else(|| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok().and_then(|d| d.and_hms_opt(0, 0, 0)))?;
+        .find_map(|f| DateTime::strptime(f, &s).ok())
+        .or_else(|| Date::strptime("%Y-%m-%d", &s).ok().map(|d| d.at(0, 0, 0, 0)))?;
     // Within what every system's file times hold (Windows counts from 1601).
-    if !(1601..=9999).contains(&chrono::Datelike::year(&naive)) {
+    if !(1601..=9999).contains(&naive.year()) {
         return None;
     }
-    Local.from_local_datetime(&naive).earliest().map(SystemTime::from)
+    let secs = crate::clock::from_local(naive)?;
+    if secs >= 0 { Some(crate::fs::epoch(secs as u64)) } else { SystemTime::UNIX_EPOCH.checked_sub(std::time::Duration::from_secs(secs.unsigned_abs())) }
 }
 
 /// A date for a person: `2026-10-21 14:30:05`, local time.
 pub fn show_date((s, n): (i64, u32)) -> String {
-    use chrono::{Local, TimeZone};
-    Local.timestamp_opt(s, n).single().map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string()).unwrap_or_default()
+    let _ = n;
+    crate::clock::local(s, "%Y-%m-%d %H:%M:%S").unwrap_or_default()
 }
 
 /// Bits as `ls` shows them (`rwxr-xr-x`); on Windows the attributes (`read-only, hidden`).

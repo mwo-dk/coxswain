@@ -730,7 +730,7 @@ pub fn parse_svn_log(xml: &[u8]) -> Vec<Commit> {
         X::End(tag, text) => match (tag, now.as_mut()) {
             ("author", Some(c)) => c.author = text.to_string(),
             ("date", Some(c)) => {
-                c.time = chrono::DateTime::parse_from_rfc3339(text).map_or(0, |d| d.timestamp().max(0) as u64)
+                c.time = crate::clock::rfc3339(text).map_or(0, |d| d.max(0) as u64)
             }
             ("msg", Some(c)) => c.subject = text.lines().next().unwrap_or_default().to_string(),
             ("logentry", _) => out.extend(now.take()),
@@ -1313,9 +1313,9 @@ pub fn parse_cvs_root(root: &str) -> Option<(String, String)> {
 /// A CVS date: `2026/10/01 12:00:00` (CVS 1.11) or `2026-10-01 12:00:00 +0000` (1.12), in UTC.
 fn cvs_log_time(s: &str) -> Option<u64> {
     let s = s.trim();
-    let fixed = chrono::DateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S %z").map(|d| d.timestamp());
+    let fixed = jiff::Timestamp::strptime("%Y-%m-%d %H:%M:%S %z", s).map(|t| t.as_second());
     let t = fixed.or_else(|_| {
-        chrono::NaiveDateTime::parse_from_str(s, "%Y/%m/%d %H:%M:%S").map(|d| d.and_utc().timestamp())
+        jiff::civil::DateTime::strptime("%Y/%m/%d %H:%M:%S", s)?.to_zoned_datetime(jiff::tz::TimeZone::UTC).map(|z| z.timestamp().as_second())
     });
     t.ok().filter(|t| *t >= 0).map(|t| t as u64)
 }
@@ -1665,6 +1665,16 @@ impl Vcs for Cvs {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wc_cvs_dates_are_utc() {
+        // 2026-10-01 12:00:00 UTC, in both of CVS's spellings; an offset is applied.
+        assert_eq!(cvs_log_time("2026/10/01 12:00:00"), Some(1_790_856_000));
+        assert_eq!(cvs_log_time(" 2026-10-01 12:00:00 +0000 "), Some(1_790_856_000));
+        assert_eq!(cvs_log_time("2026-10-01 14:00:00 +0200"), Some(1_790_856_000));
+        assert_eq!(cvs_log_time("1969-12-31 23:00:00 +0000"), None);
+        assert_eq!(cvs_log_time("2026/10/01"), None);
+    }
 
     #[test]
     fn wc_skel_and_branch_names() {

@@ -693,8 +693,8 @@ pub fn gpx(xml: &str) -> Gpx {
             },
             Ok(Event::Text(t)) if in_time => {
                 let s = t.into_inner().trim().to_string();
-                if let (Ok(when), Some(p)) = (chrono::DateTime::parse_from_rfc3339(&s), g.tracks.last_mut().and_then(|t| t.last_mut()).and_then(|s| s.last_mut())) {
-                    p.2 = Some(when.timestamp());
+                if let (Some(when), Some(p)) = (crate::clock::rfc3339(&s), g.tracks.last_mut().and_then(|t| t.last_mut()).and_then(|s| s.last_mut())) {
+                    p.2 = Some(when);
                 }
             }
             Ok(Event::Eof) | Err(_) => break,

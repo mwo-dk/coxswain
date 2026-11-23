@@ -296,13 +296,10 @@ fn items(cabs: &[Cab]) -> io::Result<(Vec<Run>, Vec<Item>)> {
 fn entry(f: &File) -> Entry {
     let (d, t) = (f.date, f.time);
     // The local time it was written in, without a zone: taken as a moment here.
-    let modified = chrono::NaiveDate::from_ymd_opt(1980 + i32::from(d >> 9), u32::from(d >> 5 & 15), u32::from(d & 31))
-        .and_then(|d| d.and_hms_opt(u32::from(t >> 11), u32::from(t >> 5 & 63), u32::from(t & 31) * 2))
-        .and_then(|l| {
-            use chrono::TimeZone;
-            chrono::Local.from_local_datetime(&l).earliest()
-        })
-        .map_or(0, |d| d.timestamp().max(0) as u64);
+    let modified = jiff::civil::DateTime::new(1980 + (d >> 9) as i16, (d >> 5 & 15) as i8, (d & 31) as i8, (t >> 11) as i8, (t >> 5 & 63) as i8, (t & 31) as i8 * 2, 0)
+        .ok()
+        .and_then(crate::clock::from_local)
+        .map_or(0, |d| d.max(0) as u64);
     Entry {
         name: clean(&f.name.replace('\\', "/")),
         size: u64::from(f.size),

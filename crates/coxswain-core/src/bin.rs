@@ -644,10 +644,7 @@ pub(crate) mod fd {
             if let Some(p) = l.strip_prefix("Path=") {
                 path = Some(decode(p.trim_end()));
             } else if let Some(d) = l.strip_prefix("DeletionDate=") {
-                date = chrono::NaiveDateTime::parse_from_str(d.trim(), "%Y-%m-%dT%H:%M:%S")
-                    .ok()
-                    .and_then(|t| t.and_local_timezone(chrono::Local).earliest())
-                    .map_or(0, |t| t.timestamp());
+                date = crate::clock::parse_local(d.trim(), "%Y-%m-%dT%H:%M:%S").unwrap_or(0);
             }
         }
         let path = path?;
@@ -1359,11 +1356,7 @@ mod tests {
         assert_eq!(l[1].path, b.dir.join("files/a.2.txt"));
         assert_eq!((l[0].size, l[2].size, l[2].is_dir), (3, 5, true));
         let want =
-            chrono::NaiveDateTime::parse_from_str("2026-10-01T12:00:00", "%Y-%m-%dT%H:%M:%S")
-                .unwrap()
-                .and_local_timezone(chrono::Local)
-                .unwrap()
-                .timestamp();
+            crate::clock::parse_local("2026-10-01T12:00:00", "%Y-%m-%dT%H:%M:%S").unwrap();
         assert_eq!(l[0].deleted, want);
     }
 

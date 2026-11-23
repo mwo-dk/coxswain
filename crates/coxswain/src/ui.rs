@@ -4,7 +4,6 @@ use crate::{App, Dialog};
 use coxswain_core::{t, tn};
 use coxswain_core::config::{self, Action, Key, KeyCode};
 use coxswain_core::git::Kind;
-use chrono::{Local, TimeZone};
 use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
@@ -139,7 +138,7 @@ fn size_latin(n: u64) -> String {
 }
 
 pub(crate) fn date(secs: u64) -> String {
-    coxswain_core::i18n::digits(Local.timestamp_opt(secs as i64, 0).single().map(|t| t.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_default())
+    coxswain_core::i18n::digits(coxswain_core::clock::local(secs as i64, "%Y-%m-%d %H:%M").unwrap_or_default())
 }
 
 pub fn draw(f: &mut Frame, app: &mut App) {

@@ -34,7 +34,7 @@ impl Language {
 }
 
 fn still_new(until: &Option<&'static str>) -> bool {
-    until.is_some_and(|day| chrono::Utc::now().format("%Y-%m-%d").to_string().as_str() < day)
+    until.is_some_and(|day| crate::clock::today_utc().as_str() < day)
 }
 
 fn new_now<S: serde::Serializer>(until: &Option<&'static str>, s: S) -> Result<S::Ok, S::Error> {
@@ -369,12 +369,7 @@ pub fn date(secs: u64) -> String {
 }
 
 fn local(secs: u64, format: &str) -> String {
-    let t = crate::fs::epoch(secs);
-    digits(
-        chrono::DateTime::<chrono::Local>::from(t)
-            .format(format)
-            .to_string(),
-    )
+    digits(crate::clock::local(secs.min(jiff::Timestamp::MAX.as_second() as u64) as i64, format).unwrap_or_default())
 }
 
 /// `s` in capitals, except Georgian: it has no capitals in running text, and its Mtavruli
@@ -832,7 +827,7 @@ mod tests {
         for l in LANGUAGES {
             if let Some(day) = l.new_until {
                 assert!(
-                    chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").is_ok(),
+                    jiff::civil::Date::strptime("%Y-%m-%d", day).is_ok(),
                     "{}: {day}",
                     l.code
                 );

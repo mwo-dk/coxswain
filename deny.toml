@@ -5,7 +5,7 @@ ignore = [
   "RUSTSEC-2024-0370", # proc-macro-error: unmaintained; proc macro inside glib 0.18, pulled by tauri
   "RUSTSEC-2026-0192", # ttf-parser: unmaintained; font parsing inside lopdf, pulled by pdf-extract
   "RUSTSEC-2025-0141", # bincode 1: unmaintained; syntect reads its own built-in grammars with it (data in the binary, never a file's), pulled by syntect and two-face
-  "RUSTSEC-2026-0543", # chrono: unmaintained, all versions; used in 15 places for dates and local time, replacing it (jiff or time) is its own job
+  "RUSTSEC-2026-0543", # chrono: unmaintained, all versions; only parquet (coxswain-core) pulls it now, our own code uses jiff; drop this once parquet does without chrono
 ]
 
 [licenses]
