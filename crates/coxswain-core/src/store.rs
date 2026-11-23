@@ -6666,7 +6666,8 @@ mod tests {
         assert_eq!(store.away_names("plans", None, 10).1, 0);
         // Hidden: left out, as an app that cannot mark them gets them.
         assert_eq!(store.search_words_with("orbit", None, 10, false).0.total, 0);
-        assert_eq!(store.away_labels(), ["disk".to_string()]);
+        // Named by where the temporary folder's disk is mounted: `C:\` on Windows, else "disk".
+        assert_eq!(store.away_labels(), [hit.away.as_ref().unwrap().label.clone()]);
         // Opening it says to plug the disk in: it is not there, and nowhere else.
         let label = hit.away.as_ref().unwrap().label.clone();
         assert_eq!(crate::find::place(&hit), Err(crate::t!("find.plug_in", "disk" => label)));
