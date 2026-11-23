@@ -399,7 +399,7 @@
   const limits = $derived([["time", t("settings.chess_limit_time")], ["depth", t("settings.chess_limit_depth")], ["nodes", t("settings.chess_limit_nodes")]]);
   const preferLabel = (v) => t({ auto: "settings.prefer_auto", local: "settings.prefer_local", container: "settings.prefer_container" }[v] ?? "settings.prefer_auto");
   const installed = (r) => r.programs.filter((p) => p.path);
-  const imageState = (im) => (tools.pulling[im.image] != null ? tools.pulling[im.image] || t("common.loading") : tools.failed?.[im.image] ? tools.failed[im.image] : im.pulled != null ? t("settings.image_pulled", { size: size(im.pulled) }) : im.download ? `${t("settings.image_not_pulled")} (${im.download})` : t("settings.image_not_pulled"));
+  const imageState = (im) => (tools.pulling[im.image] != null ? tools.pulling[im.image] || t("common.loading") : tools.failed?.[im.image] ? tools.failed[im.image] : im.pulled != null ? t("settings.image_pulled", { size: size(im.pulled) }) + (ui.cfg.settings.image_updates?.startsWith("ask") && tools.newer?.[im.image] ? `, ${t("settings.image_newer")}` : "") : im.download ? `${t("settings.image_not_pulled")} (${im.download})` : t("settings.image_not_pulled"));
   // ------------------------------------------------------------ the chess engine
   /** The known engines (only looked for, never run), and what Test engine read: the chosen
    *  engine's name and options, "testing" while it runs, or why it could not. */
@@ -546,6 +546,19 @@
     return { destroy: () => o.disconnect() };
   }
   let flashCopied = $state("");
+  let updating = $state("");
+  // The notice of a newer image build: pulled here, the old copy removed; it goes when done.
+  async function updateImage(n) {
+    updating = n.image;
+    try {
+      await invoke("image_update", { image: n.image });
+      ui.news.notices = ui.news.notices.filter((x) => x.id !== n.id);
+      loadTools();
+    } catch (e) {
+      error = String(e);
+    }
+    updating = "";
+  }
   function actOnNotice(n) {
     invoke("dismiss_notice", { id: n.id }).catch(() => {});
     ui.news.notices = ui.news.notices.filter((x) => x.id !== n.id);
@@ -690,9 +703,9 @@
               <div class="tip">
                 <span>{n.text}</span>
                 {#if n.copy}<button title={n.copy} onclick={() => invoke("copy_text", { text: n.copy }).then(() => (flashCopied = n.id), (e) => (error = String(e)))}>{flashCopied === n.id ? t("common.copied") : t("common.copy")}</button>{/if}
-                {#if n.settings}<button onclick={() => actOnNotice(n)}>{t("news.show_me")}</button>{/if}
+                {#if n.image}<button disabled={updating === n.image} onclick={() => updateImage(n)}>{updating === n.image ? t("common.loading") : t("notice.image_update")}</button>{:else if n.settings}<button onclick={() => actOnNotice(n)}>{t("news.show_me")}</button>{/if}
                 {#if n.config_line}<button onclick={() => invoke("open_config_at", { line: n.config_line }).catch((e) => (error = String(e)))}>{t("config.open_at", { line: n.config_line })}</button>{/if}
-                <button title={t("news.dismiss_hint")} onclick={() => actOnNotice({ ...n, settings: null })}>{t("news.dismiss")}</button>
+                <button title={t("news.dismiss_hint")} onclick={() => actOnNotice({ ...n, settings: null })}>{n.image ? t("notice.image_not_now") : t("news.dismiss")}</button>
               </div>
             {/each}
           {/if}
@@ -1004,7 +1017,7 @@
           <summary>{t("settings.group.images")}</summary>
           {@render choice("preview_container", [["auto", t("settings.container_auto")], ["podman", "podman"], ["docker", "docker"], ["off", t("settings.container_off")]])}
           {@render text("latex_image")}
-          {@render choice("image_updates", [["off", t("settings.image_updates_off")], ["weekly", t("settings.image_updates_weekly")], ["monthly", t("settings.image_updates_monthly")]])}
+          {@render choice("image_updates", [["off", t("settings.image_updates_off")], ["ask", t("settings.image_updates_ask")], ["ask-monthly", t("settings.image_updates_ask_monthly")], ["weekly", t("settings.image_updates_weekly")], ["monthly", t("settings.image_updates_monthly")]])}
           {@render check("image_prune")}
           <p class="hint">{t("settings.previews_more")}</p>
         </details>

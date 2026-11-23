@@ -11,7 +11,10 @@
 
   const m = $derived(ui.modal);
   const s = $derived(ui.cfg.settings);
-  const STEPS = 4;
+  // The steps by number, in order: the images step (5) only with podman or docker.
+  const steps = $derived(ui.cfg.guide_steps);
+  const STEPS = $derived(steps.length);
+  const kind = $derived(steps[m.step]);
   let error = $state("");
 
   // Closed in any way (Done, Skip, Esc, the setup guide taking over): not shown by itself again.
@@ -56,7 +59,7 @@
   // Step 3: whether a Nerd Font is there (asked once).
   let nerd = $state(undefined);
   $effect(() => {
-    if (m.step === 2 && nerd === undefined) invoke("nerd_font").then((v) => (nerd = v), () => (nerd = null));
+    if (kind === 3 && nerd === undefined) invoke("nerd_font").then((v) => (nerd = v), () => (nerd = null));
   });
   const swatch = (id) => ui.cfg.themes[id]?.panel ?? {};
   const keyOf = (name) => ui.cfg.actions[name]?.[1] ?? "";
@@ -64,11 +67,11 @@
 
 <div class="guide" role="dialog" aria-modal="true" aria-label={t("guide.name")}>
   <header>
-    <h2>{t("guide.title", { name: t(`guide.step${m.step + 1}`), n: m.step + 1, of: STEPS })}</h2>
+    <h2>{t("guide.title", { name: t(`guide.step${kind}`), n: m.step + 1, of: STEPS })}</h2>
     <button class="x" title={t("guide.skip")} onclick={close}>×</button>
   </header>
   <div class="body">
-    {#if m.step === 0}
+    {#if kind === 1}
       <p class="lead">{t("guide.panels_intro")}</p>
       <div class="mini" aria-hidden="true">
         <div class="on"><b>projects</b><span>src/ · docs/ · README.md</span></div>
@@ -88,7 +91,7 @@
           <option value="command">{t("settings.typing_command")}</option>
         </select>
       </label>
-    {:else if m.step === 1}
+    {:else if kind === 2}
       <p class="lead">{t("guide.find_intro", { key: keyOf("search") })}</p>
       <div class="levels" role="radiogroup">
         {#each ui.cfg.levels as [id] (id)}
@@ -99,7 +102,7 @@
         {/each}
       </div>
       <p class="hint">{t("guide.find_setup")}</p>
-    {:else if m.step === 2}
+    {:else if kind === 3}
       <p class="lead">{t("guide.looks_intro")}</p>
       <div class="swatches" role="radiogroup" aria-label={t("setting.theme")}>
         {#each ui.cfg.guide_themes as id (id)}
@@ -131,6 +134,18 @@
           <p><span class="glyph">{"\u{f07b} \u{f15b}"}</span> {t("guide.icons_unknown")} <button onclick={() => save({ glyphs: "ascii" })}>{t("guide.icons_plain")}</button></p>
         {/if}
       </div>
+    {:else if kind === 5}
+      <p class="lead">{t("guide.images_intro")}</p>
+      <div class="levels" role="radiogroup" aria-label={t("setting.image_updates")}>
+        {#each ["off", "ask", "weekly", "monthly"] as id (id)}
+          <label class:on={(s.image_updates === "ask-monthly" ? "ask" : s.image_updates) === id}>
+            <input type="radio" name="image_updates" checked={(s.image_updates === "ask-monthly" ? "ask" : s.image_updates) === id} onchange={() => save({ image_updates: id })} />
+            <span>{t(`settings.image_updates_${id}`)}</span>
+          </label>
+        {/each}
+      </div>
+      <label class="check"><input type="checkbox" checked={s.image_prune} onchange={(e) => save({ image_prune: e.currentTarget.checked })} /> {t("setting.image_prune")}</label>
+      <p class="hint">{t("guide.images_where")}</p>
     {:else}
       <p class="lead">{t("guide.privacy_intro")}</p>
       <label class="check"><input type="checkbox" checked={s.check_updates} onchange={(e) => save({ check_updates: e.currentTarget.checked })} /> {t("guide.privacy_update")} <span class="mono hint">{ui.cfg.update_host}</span></label>

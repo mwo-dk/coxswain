@@ -317,7 +317,12 @@ pub fn keep(app: tauri::AppHandle) {
                 continue;
             }
             let now = coxswain_core::fs::now();
-            if ctx.state.lock().is_ok_and(|st| images::update_due(&cfg, &st, now)) {
+            // Ask mode: only look, and let the notice offer the update.
+            let snapshot = ctx.state.lock().map(|st| st.clone()).ok();
+            let found = snapshot.and_then(|st| images::ask_round(&cfg, &st, now));
+            if let Some(found) = found {
+                let _ = ctx.edit(|st| (st.images_newer, st.images_checked) = (found, now));
+            } else if !images::asks(&cfg.image_updates) && ctx.state.lock().is_ok_and(|st| images::update_due(&cfg, &st, now)) {
                 // A new version's pins first: the old copies they replace go.
                 let moved = ctx.state.lock().map(|st| images::superseded(&cfg, &st)).unwrap_or_default();
                 let gone = images::move_pins(&rt, &moved, |i| pull(&rt, i));
@@ -338,7 +343,7 @@ pub fn keep(app: tauri::AppHandle) {
                 });
                 for image in stale.unwrap_or_default() {
                     if images::remove(&rt, &image).is_ok() {
-                        let _ = ctx.edit(|st| st.images_used.remove(&image));
+                        let _ = ctx.edit(|st| (st.images_used.remove(&image), st.images_newer.remove(&image)));
                     }
                 }
             }
@@ -912,11 +917,14 @@ pub struct Tools {
     failed_details: BTreeMap<String, String>,
     /// Why no container runs, when none can.
     no_runtime: Option<String>,
+    /// Images a check found a newer build of (`AppState::images_newer`).
+    newer: BTreeMap<String, String>,
 }
 
 #[tauri::command]
 pub async fn preview_tools(ctx: tauri::State<'_, crate::Ctx>) -> Res<Tools> {
     let cfg = ctx.cfg().preview.clone();
+    let newer = ctx.state.lock().map(|st| st.images_newer.clone()).unwrap_or_default();
     tauri::async_runtime::spawn_blocking(move || {
         let rows = coxswain_core::preview_tools::rows(&cfg);
         // Only an image that is not there: a failed update leaves the old one working.
@@ -932,6 +940,7 @@ pub async fn preview_tools(ctx: tauri::State<'_, crate::Ctx>) -> Res<Tools> {
             failed,
             no_runtime: runtime(&cfg).is_none().then(|| if cfg.container == "off" { t!("searchable.containers_off") } else { coxswain_core::tools::no_runtime() }),
             rows,
+            newer,
         }
     })
     .await
@@ -955,7 +964,24 @@ pub fn preview_sample(kind: String) -> Res<PathBuf> {
 #[tauri::command]
 pub async fn pull_image(image: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<()> {
     let cfg = ctx.cfg().preview.clone();
-    tauri::async_runtime::spawn_blocking(move || coxswain_core::images::pulls::retry_job(&runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?.1, &image)).await.map_err(|e| e.to_string())?
+    let name = image.clone();
+    tauri::async_runtime::spawn_blocking(move || coxswain_core::images::pulls::retry_job(&runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?.1, &name)).await.map_err(|e| e.to_string())??;
+    // Pulled to the newest: no newer build waits for it any more.
+    ctx.edit(|st| st.images_newer.remove(&image)).map(|_| ())
+}
+
+/// *Update* on the notice of a newer build: `image` is pulled and the copy it replaced removed.
+/// Poll `pull_progress` meanwhile.
+#[tauri::command]
+pub async fn image_update(image: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<()> {
+    let cfg = ctx.cfg().preview.clone();
+    let pins = ctx.state.lock().map(|st| coxswain_core::images::superseded(&cfg, &st)).unwrap_or_default();
+    let (rt, name) = (runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?.1, image.clone());
+    let gone = tauri::async_runtime::spawn_blocking(move || coxswain_core::images::apply(&rt, &name, &pins, |i| pull(&rt, i))).await.map_err(|e| e.to_string())??;
+    ctx.edit(|st| {
+        st.images_newer.remove(&image);
+        st.images_used.retain(|i, _| !gone.contains(i));
+    })
 }
 
 #[tauri::command]

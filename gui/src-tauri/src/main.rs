@@ -247,6 +247,8 @@ struct UiConfig {
     guide_menu: String,
     guide_features: String,
     guide_themes: [&'static str; 4],
+    /// The guide's steps by number, in order: the images step only with a container tool.
+    guide_steps: Vec<usize>,
     /// The line that installs each search tool and the icon font here, where Coxswain knows one
     /// (a preview tool's comes with its engines, `preview_engines`).
     installs: BTreeMap<&'static str, Option<String>>,
@@ -335,6 +337,7 @@ fn get_config(ctx: tauri::State<Ctx>) -> Res<UiConfig> {
         guide_menu: coxswain_core::guide::menu_line(&cfg),
         guide_features: coxswain_core::guide::features_line(&cfg),
         guide_themes: coxswain_core::guide::THEMES,
+        guide_steps: coxswain_core::guide::plan(&cfg),
         ask_name: coxswain_core::chat::shown(&cfg.search.ask_model),
         trash_restores: coxswain_core::undo::trash_restores(),
         speech_endings: coxswain_core::transcribe::FORMATS,
@@ -2219,7 +2222,7 @@ const PICK_REFUSES: &[&str] = &[
     "open_keys", "open_config_at", "scripts_folder", "run_command", "run_script", "add_user_command", "extract", "pack", "set_flags", "set_permissions", "paste", "start_drag", "set_tags", "set_note",
     "save_session", "save_favorites", "repo_edit", "git_switch", "git_new_branch", "git_tool", "remote_run", "bin_restore", "bin_delete", "bin_empty", "chess_save_line", "chess_save_origin",
     "chess_review_save", "chess_engine_set", "chess_index", "ebook_run", "searchable_run", "viruses_run", "viruses_act", "media_run", "export_run", "sums_make", "split_file", "join_parts", "transcribe",
-    "save_settings", "set_preview_tool", "disk_clear", "models_action", "index_action", "meaning_action", "chat_action", "index_service", "meaning_pull", "pull_image", "remove_image", "clear_preview_cache", "suggest_translation",
+    "save_settings", "set_preview_tool", "disk_clear", "models_action", "index_action", "meaning_action", "chat_action", "index_service", "meaning_pull", "pull_image", "image_update", "remove_image", "clear_preview_cache", "suggest_translation",
 ];
 
 /// The password of the locked archive `path` is in (or is), kept in memory for this run.
@@ -3126,7 +3129,7 @@ fn main() {
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_has_password, archive_peek, archive_beside, archive_unpack_beside, asset::inside_forget, disk_image_facts, cloud_fetch, properties, set_flags, set_permissions,
             clip_set, paste, start_drag, drop_keys, watch_dirs, chess::chess_looks, chess::chess_rows, chess::chess_game, chess::chess_positions, chess::chess_hit, chess::chess_close, chess::chess_book, chess::chess_is_book, chess::chess_streams, chess::chess_sniffed, chess::chess_moves, chess::chess_analyse, chess::chess_remembered, chess::chess_memory, chess_engines, chess_engine_test, chess_engine_set, chess_engine_config, chess::chess_save_line, chess::chess_save_origin, chess::chess_review, chess::chess_review_save, chess::chess_position_games, chess::chess_index_status, chess::chess_index, chess::chess_tree, chess::chess_tree_move, go::go_games, go::go_game, go::go_position, go::go_hit, go::go_close, logs::log_open, logs::log_close, logs::log_state, logs::log_rows, logs::log_shape, logs::log_row_of, logs::log_follow, preview::git_diff, preview::sqlite_info, preview::epub_preview,
             preview::file_facts, preview::old_picture, preview::comic_pages, preview::module_names, preview::cert_info, bom::bom_info, bom::bom_node, bom::bom_diff, provenance::provenance_info, provenance::provenance_statements, provenance::provenance_subject, provenance::provenance_cancel, provenance::provenance_sources, provenance::provenance_diff, provenance::provenance_bom, preview::mail_preview, preview::plist_xml, convert::preview_engines, convert::preview_cache, convert::clear_preview_cache,
-            job_progress, job_stop, pack_room, convert::convert, convert::preview_tools, convert::preview_with, long_files_change, long_files_choices, convert::preview_sample, set_preview_tool, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, convert::pull_image, convert::remove_image, convert::pull_progress, convert::pull_stop, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, viruses::viruses_plan, viruses::viruses_run, viruses::viruses_progress, viruses::viruses_stop, viruses::viruses_act, viruses::viruses_facts, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::export_plan, convert::export_run, convert::export_progress, convert::export_stop, convert::drawio_xml, convert::drawio_thumbnail, convert::adoc_blocks, convert::adoc_diagram, convert::gpx_map, dupes_scan,
+            job_progress, job_stop, pack_room, convert::convert, convert::preview_tools, convert::preview_with, long_files_change, long_files_choices, convert::preview_sample, set_preview_tool, ebook::ebook_plan, ebook::ebook_run, ebook::ebook_progress, ebook::ebook_stop, convert::pull_image, convert::image_update, convert::remove_image, convert::pull_progress, convert::pull_stop, convert::searchable_plan, convert::searchable_run, convert::searchable_progress, convert::searchable_stop, convert::pdf_scanned, viruses::viruses_plan, viruses::viruses_run, viruses::viruses_progress, viruses::viruses_stop, viruses::viruses_act, viruses::viruses_facts, convert::media_thumbnail, convert::media_plan, convert::media_run, convert::media_progress, convert::media_stop, convert::export_plan, convert::export_run, convert::export_progress, convert::export_stop, convert::drawio_xml, convert::drawio_thumbnail, convert::adoc_blocks, convert::adoc_diagram, convert::gpx_map, dupes_scan,
             dupes_progress, dupes_cancel, space_scan, space_progress, space_cancel, space_view, space_info, space_toward, space_gone, space_close, save_settings, search_status, search_level, guide_seen, nerd_font, copy_text, features, settings_find, open_docs, models_list, models_action, disk_list, disk_clear, own_store, work::sums_algos, work::sums_make, work::sums_verify, work::work_progress, work::work_stop, transcribe_plan, transcribe, transcript, whisper_models, work::split_sizes, work::split_size, work::split_file, work::join_plan, work::join_parts, remote::remote_run, remote::remote_progress, remote::remote_stop, pick_choose, pick_save,
         ]))
         .build(tauri::generate_context!())

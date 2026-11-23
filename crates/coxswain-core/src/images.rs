@@ -1,8 +1,9 @@
 //! The container images of `[preview.images]`: what each one brings and costs, keeping the
 //! pulled ones up to date (`[preview] image_updates`), and removing those no preview used for
-//! 90 days (`[preview] image_prune`). The desktop app does both in the background; the terminal
-//! app makes no container previews (only Make PDF searchable and Scan for viruses run containers there), so it
-//! only shows the settings.
+//! 90 days (`[preview] image_prune`). The desktop app does both in the background. With
+//! `image_updates` at "ask" the look for newer builds (`check`) runs in both apps and a notice
+//! offers the update; the terminal app makes no container previews (only Make PDF searchable
+//! and Scan for viruses run containers there), so it pulls and removes nothing by itself.
 //!
 //! Every default image is pinned by its digest (`name:tag@sha256:…`, `preview_tools::IMAGES`):
 //! a pull fetches exactly that build, never whatever the tag points at that day. A new version
@@ -696,13 +697,191 @@ pub fn about(tool: &str, image: &str) -> Option<String> {
     .into()
 }
 
-/// Days between two rounds of updates for `[preview] image_updates`; none when off.
+/// Days between two rounds for `[preview] image_updates`; none when off. "weekly" and
+/// "monthly" pull what is newer; "ask" and "ask-monthly" only look, and ask (`asks`).
 pub fn every(updates: &str) -> Option<u64> {
     match updates {
-        "weekly" => Some(7),
-        "monthly" => Some(30),
+        "weekly" | "ask" => Some(7),
+        "monthly" | "ask-monthly" => Some(30),
         _ => None,
     }
+}
+
+/// Does `[preview] image_updates` look for newer builds and ask, instead of pulling them?
+pub fn asks(updates: &str) -> bool {
+    matches!(updates, "ask" | "ask-monthly")
+}
+
+const ACCEPT: &str = "application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json";
+
+/// (registry host, repository, tag) of an image name as `docker pull` reads it; none for one
+/// pinned by a digest, which a pull fetches exactly and no newer build replaces.
+fn reference(image: &str) -> Option<(String, String, String)> {
+    if image.contains('@') {
+        return None;
+    }
+    let (first, rest) = image.split_once('/').unwrap_or(("", image));
+    let (host, repo) = if !rest.is_empty() && (first.contains('.') || first.contains(':')) {
+        (first.to_string(), rest.to_string())
+    } else {
+        ("docker.io".to_string(), image.to_string())
+    };
+    let slash = repo.rfind('/').map_or(0, |i| i + 1);
+    let (repo, tag) = match repo[slash..].find(':') {
+        Some(c) => (repo[..slash + c].to_string(), repo[slash + c + 1..].to_string()),
+        None => (repo, "latest".to_string()),
+    };
+    let (host, repo) = if host == "docker.io" {
+        ("registry-1.docker.io".to_string(), if repo.contains('/') { repo } else { format!("library/{repo}") })
+    } else {
+        (host, repo)
+    };
+    Some((host, repo, tag))
+}
+
+/// The digest the registry says the tag of `image` has now: an anonymous `HEAD` of its manifest
+/// (with the anonymous pull token the registry asks for), nothing else leaves the machine.
+/// None: no answer (offline). Some(None): answered without a digest (pinned, refused).
+pub fn remote_digest(image: &str) -> Option<Option<String>> {
+    let (host, repo, tag) = reference(image).map_or((String::new(), String::new(), String::new()), |r| r);
+    if host.is_empty() {
+        return Some(None);
+    }
+    let agent = crate::meaning::agent(|b| b.timeout_global(Some(std::time::Duration::from_secs(30))).http_status_as_error(false));
+    let url = format!("https://{host}/v2/{repo}/manifests/{tag}");
+    let head = |token: Option<&str>| {
+        let mut req = agent.head(&url).header("Accept", ACCEPT);
+        if let Some(t) = token {
+            req = req.header("Authorization", &format!("Bearer {t}"));
+        }
+        req.call().ok()
+    };
+    // No answer at all (offline) is None; any answer, even a refusal, is one.
+    let mut res = head(None)?;
+    let got = digest_of(&agent, &mut res, &repo, &head);
+    Some(got)
+}
+
+fn digest_of(agent: &ureq::Agent, res: &mut ureq::http::Response<ureq::Body>, repo: &str, head: &dyn Fn(Option<&str>) -> Option<ureq::http::Response<ureq::Body>>) -> Option<String> {
+    let mut second;
+    let mut res = res;
+    if res.status().as_u16() == 401 {
+        let challenge = res.headers().get("www-authenticate")?.to_str().ok()?.to_string();
+        // Only an anonymous bearer token over https; anything else is not asked.
+        if !challenge.starts_with("Bearer ") {
+            return None;
+        }
+        let field = |k: &str| {
+            let at = challenge.find(&format!("{k}=\""))? + k.len() + 2;
+            challenge[at..].split('"').next().map(str::to_string)
+        };
+        let (realm, service) = (field("realm").filter(|r| r.starts_with("https://"))?, field("service").unwrap_or_default());
+        let got = agent.get(&realm).query("service", &service).query("scope", format!("repository:{repo}:pull")).call().ok()?;
+        let body: serde_json::Value = serde_json::from_str(&got.into_body().read_to_string().ok()?).ok()?;
+        let token = body["token"].as_str().or_else(|| body["access_token"].as_str())?.to_string();
+        second = head(Some(&token))?;
+        res = &mut second;
+    }
+    if !res.status().is_success() {
+        return None;
+    }
+    Some(res.headers().get("docker-content-digest")?.to_str().ok()?.to_string())
+}
+
+/// The digests the runtime has for `image` (`RepoDigests`).
+pub fn local_digests(rt: &Path, image: &str) -> Vec<String> {
+    let Ok(out) = crate::tools::command(rt).args(["image", "inspect", "--format", "{{json .RepoDigests}}", image]).stdin(Stdio::null()).output() else {
+        return vec![];
+    };
+    let all: Vec<String> = serde_json::from_slice(&out.stdout).unwrap_or_default();
+    all.iter().filter_map(|d| d.split_once('@').map(|(_, d)| d.to_string())).collect()
+}
+
+/// The look of a round that only asks: image -> the build that is newer than the pulled copy
+/// (the registry's digest; "pin" for the new pin of a default whose older build is pulled), and
+/// whether the round is done. `pins` are the `superseded` pairs whose old copy is pulled. Only the registry is asked, once per unpinned image; one with no
+/// digest on either side is not called newer, and a round where every lookup failed stays due.
+pub fn check(
+    pulled: &[String],
+    pins: &[(String, String)],
+    local: impl Fn(&str) -> Vec<String>,
+    remote: impl Fn(&str) -> Option<Option<String>>,
+) -> (BTreeMap<String, String>, bool) {
+    let mut found = BTreeMap::new();
+    let mut asked = 0;
+    let mut answered = 0;
+    for image in pulled.iter().filter(|i| !i.contains('@')) {
+        asked += 1;
+        if let Some(answer) = remote(image) {
+            answered += 1;
+            let Some(d) = answer else { continue };
+            let have = local(image);
+            if !have.is_empty() && !have.contains(&d) {
+                found.insert(image.clone(), d);
+            }
+        }
+    }
+    for (_, new) in pins {
+        found.insert(new.clone(), "pin".to_string());
+    }
+    (found, asked == 0 || answered > 0)
+}
+
+/// `check` on what the runtime `rt` has: the digest lookups are the only network use.
+pub fn check_now(cfg: &PreviewConfig, st: &AppState, rt: &Path) -> (BTreeMap<String, String>, bool) {
+    let pins: Vec<(String, String)> = superseded(cfg, st).into_iter().filter(|(old, _)| crate::tools::image_size(rt, old).is_some()).collect();
+    check(&pulled(cfg, rt), &pins, |i| local_digests(rt, i), remote_digest)
+}
+
+/// The ask mode's round when it is due (`update_due` with `asks`), never on battery and never
+/// with containers off: the newer builds to offer, when it is done. None: not now.
+pub fn ask_round(cfg: &PreviewConfig, st: &AppState, now: u64) -> Option<BTreeMap<String, String>> {
+    if !asks(&cfg.image_updates) || !update_due(cfg, st, now) || crate::machine::on_battery() {
+        return None;
+    }
+    let (_, rt) = crate::tools::container_runtime(cfg)?;
+    let (found, done) = check_now(cfg, st, &rt);
+    done.then_some(found)
+}
+
+/// The terminal app's side of the ask mode: once an hour (the first time after ten minutes) a
+/// thread looks when a round is due, and keeps what it found in the state file for the notice.
+pub fn watch_in_terminal() {
+    std::thread::spawn(|| {
+        let mut wait = 600;
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(wait));
+            wait = 3600;
+            let Ok(cfg) = crate::config::Config::load() else { continue };
+            let now = crate::fs::now();
+            if let Some(found) = ask_round(&cfg.preview, &AppState::load(), now) {
+                // Read again: the desktop app shares the file, and the look took a while.
+                let mut st = AppState::load();
+                (st.images_newer, st.images_checked) = (found, now);
+                let _ = st.save();
+            }
+        }
+    });
+}
+
+/// *Update* on a notice: `image` is pulled, and the copy it replaced removed (by its id, or, for
+/// the new pin of a default, the old pin's name). The old images done with are returned, to be
+/// forgotten.
+pub fn apply(rt: &Path, image: &str, pins: &[(String, String)], pull: impl Fn(&str) -> Result<(), String>) -> Result<Vec<String>, String> {
+    let mine: Vec<&(String, String)> = pins.iter().filter(|(_, new)| new == image).collect();
+    if mine.is_empty() {
+        update(rt, image, || pull(image))?;
+        return Ok(vec![]);
+    }
+    let mut gone = vec![];
+    for (old, new) in mine {
+        if crate::tools::image_size(rt, old).is_some() {
+            pull(new)?;
+            remove(rt, old)?;
+        }
+        gone.push(old.clone());
+    }
+    Ok(gone)
 }
 
 /// Is a round of updates due at `now`?
@@ -1113,6 +1292,48 @@ def456 coxswain-media-20-500-1 exited
         assert!(update_due(&cfg, &st, now));
         cfg.container = "off".into();
         assert!(!update_due(&cfg, &st, now));
+    }
+
+    #[test]
+    fn asking_rounds_come_weekly_or_monthly_and_only_ask() {
+        assert!(asks("ask") && asks("ask-monthly") && !asks("weekly") && !asks("off"));
+        assert_eq!((every("ask"), every("ask-monthly")), (Some(7), Some(30)));
+        let (mut cfg, st) = (PreviewConfig::default(), AppState::default());
+        cfg.image_updates = "ask".into();
+        assert!(update_due(&cfg, &st, 100 * DAY));
+    }
+
+    #[test]
+    fn references_are_read_as_a_pull_reads_them() {
+        let r = |i| reference(i);
+        assert_eq!(r("pandoc/core:latest"), Some(("registry-1.docker.io".into(), "pandoc/core".into(), "latest".into())));
+        assert_eq!(r("alpine"), Some(("registry-1.docker.io".into(), "library/alpine".into(), "latest".into())));
+        assert_eq!(r("docker.io/library/alpine:3"), Some(("registry-1.docker.io".into(), "library/alpine".into(), "3".into())));
+        assert_eq!(r("ghcr.io/mwo-dk/coxswain-magick:stable"), Some(("ghcr.io".into(), "mwo-dk/coxswain-magick".into(), "stable".into())));
+        assert_eq!(r("localhost:5000/x/y"), Some(("localhost:5000".into(), "x/y".into(), "latest".into())));
+        assert_eq!(r("pandoc/core:latest@sha256:abc"), None, "a pinned image has no newer build to ask for");
+    }
+
+    #[test]
+    fn a_check_names_the_images_whose_registry_digest_is_not_the_pulled_one() {
+        let pulled = ["a:1", "b:1", "c:1", "d:1@sha256:x"].map(String::from);
+        let local = |i: &str| if i == "c:1" { vec![] } else { vec!["sha256:old".to_string()] };
+        let remote = |i: &str| match i {
+            "a:1" => Some(Some("sha256:new".to_string())),
+            "b:1" => Some(Some("sha256:old".to_string())),
+            "c:1" => Some(Some("sha256:new".to_string())),
+            _ => panic!("a pinned image is never asked about: {i}"),
+        };
+        let pins = [("old".to_string(), "p:1@sha256:p".to_string())];
+        let (found, done) = check(&pulled, &pins, local, remote);
+        assert_eq!(found.keys().map(String::as_str).collect::<Vec<_>>(), ["a:1", "p:1@sha256:p"], "b is current, c has no digest to compare");
+        assert_eq!(found["a:1"], "sha256:new");
+        assert!(done);
+        // Every lookup failed (offline): not done, so the round stays due.
+        assert!(!check(&pulled, &[], local, |_| None).1);
+        // A refusal is an answer: the round is done and not asked again every hour.
+        assert!(check(&["p:1".to_string()], &[], local, |_| Some(None)).1);
+        assert!(check(&[], &[], local, |_| None).1, "nothing to look at is done");
     }
 
     #[test]

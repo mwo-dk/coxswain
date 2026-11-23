@@ -145,7 +145,7 @@ is read when an app starts again.
 | *Looks* | The theme and the language: *Cyber · English (United Kingdom)* | Opens Looks |
 | *Privacy and updates* | What can leave this machine and where to, one line each (*The update check, at start and then once a day → api.github.com*, or the channel your copy came from first), or *Nothing leaves this machine.* | Opens Privacy and updates |
 | **Set up…** | | Opens the [setup guide](../search/setup.md) for words, meaning and Ask |
-| **Show the guide again** | *The first-run guide: the two panels, how far Find looks, looks and privacy.* | Opens the [first-run guide](../panels/first-run.md) at its first step |
+| **Show the guide again** | *The first-run guide: the two panels, how far Find looks, looks, container images (when podman or docker is found) and privacy.* | Opens the [first-run guide](../panels/first-run.md) at its first step |
 | *What's new* | *For you*: the tips, each with **Show me** and **Dismiss**; then the versions you have not read, and *Earlier versions: N* folded | **Show me** opens the tip's area. Once *What's new* is in sight, the versions count as read and the count on the gear goes |
 
 Nothing in Overview is kept in `config.toml`. See [Notices and what's new](../panels/notices.md).
@@ -201,7 +201,7 @@ it has. The chess options are in [Games](#games) since coxswain 2.35.0.
 |---|---|---|
 | *Container runtime* | *podman, else docker* (`"auto"`), *podman*, *docker*, *No containers* (`"off"`) | `[preview] container` |
 | *LaTeX image* | `docker.io/texlive/texlive:latest` by default; about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB | `[preview] images.latex` |
-| *Keep images up to date* | *Off*, *Weekly*, *Monthly*: the desktop app pulls the images already pulled again, in the background and never on battery, and removes each replaced copy ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) | `[preview] image_updates` |
+| *Keep images up to date* | *Off*, *Check weekly, then ask me*, *Check monthly, then ask me* (a notice with **Update** and **Not now**, both apps), *Weekly*, *Monthly* (the desktop app pulls at once, in the background and never on battery); an update removes each replaced copy ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) | `[preview] image_updates` |
 | *Remove images not used for 90 days* | Off: images stay until you remove them ([Removing unused images](../previews/containers.md#removing-unused-images)) | `[preview] image_prune` |
 
 **Safety**

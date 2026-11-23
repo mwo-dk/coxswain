@@ -37,7 +37,19 @@
   let update = $state(null);
   // A mistake in config.toml or a problem with search is said in the status line; the rest
   // waits under What's new.
-  const problem = $derived(ui.news.notices.find((n) => n.config_line || n.id.startsWith("error:")));
+  const problem = $derived(ui.news.notices.find((n) => n.config_line || n.id.startsWith("error:") || n.image));
+  let updatingImage = $state(false);
+  // A newer build of a pulled image: Update pulls it and removes the old copy; × is Not now.
+  async function updateImage(n) {
+    updatingImage = true;
+    try {
+      await invoke("image_update", { image: n.image });
+      ui.news.notices = ui.news.notices.filter((x) => x.id !== n.id);
+    } catch (e) {
+      ui.status = String(e);
+    }
+    updatingImage = false;
+  }
   const newsCount = $derived(ui.news.notices.length + ui.news.unread.length);
   function actOn(n) {
     // config.toml at the mistake's line; the notice stays until the file is mended.
@@ -1036,8 +1048,13 @@
       {#if ui.status}<span class="status">{ui.status}</span>{:else if (enterLabel || hint) && !ui.cmd && ui.quick === null && !ui.modal}<span class="status hint">{[enterLabel, hint?.[1]].filter(Boolean).join(" · ")}</span>{/if}
       {#if problem && !update}
         <span class="notice">
-          <button class="update" title={problem.config_line ? t("config.open_at", { line: problem.config_line }) : undefined} onclick={() => actOn(problem)}>{problem.text}</button>
-          <button class="dismiss" title={t("common.close")} aria-label={t("common.close")} onclick={() => dismissNotice(problem)}>×</button>
+          {#if problem.image}
+            <span class="status" title={problem.text}>{problem.text}</span>
+            <button class="update" disabled={updatingImage} onclick={() => updateImage(problem)}>{updatingImage ? t("common.loading") : t("notice.image_update")}</button>
+          {:else}
+            <button class="update" title={problem.config_line ? t("config.open_at", { line: problem.config_line }) : undefined} onclick={() => actOn(problem)}>{problem.text}</button>
+          {/if}
+          <button class="dismiss" title={problem.image ? t("notice.image_not_now") : t("common.close")} aria-label={t("common.close")} onclick={() => dismissNotice(problem)}>×</button>
         </span>
       {/if}
       <!-- Something new or to turn on: counted here, listed under Settings → What's new. -->

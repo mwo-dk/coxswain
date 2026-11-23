@@ -25,6 +25,7 @@ the database) and sees your files read-only. Nothing is downloaded until you cli
   - [Leftovers of a run that was killed](#leftovers-of-a-run-that-was-killed)
 - [Pulling and removing images](#pulling-and-removing-images)
 - [Keeping images up to date](#keeping-images-up-to-date)
+  - [A newer build, and the notice](#a-newer-build-and-the-notice)
   - [Pinned images](#pinned-images)
 - [Removing unused images](#removing-unused-images)
 - [What you see](#what-you-see)
@@ -239,18 +240,22 @@ cleans up after its own daemon; on macOS and Windows podman pulls inside its vir
 ## Keeping images up to date
 
 *Settings → Previews → Keep images up to date* (`[preview] image_updates`): **Off** (the
-default), **Weekly** or **Monthly**.
+default), **Check weekly, then ask me** (`ask`), **Check monthly, then ask me** (`ask-monthly`),
+**Weekly** or **Monthly**. The first-run guide offers the same ([it asks when podman or docker is
+found](../panels/first-run.md#the-steps)): *Off*, *Check and ask me* (weekly), *Weekly*, *Monthly*.
 
 - **What it updates:** only the images under `[preview.images]` that are already pulled, and
   the new [pin](#pinned-images) of a default image whose older build is there. One you never
   pulled is never downloaded by it.
 - **When:** the desktop app looks once an hour while it runs (the first time ten minutes after
-  it starts). When a week or a month has passed since the last round, it runs `podman pull`
-  (or `docker pull`) for each of those images, in the background. Not on battery, and not with
+  it starts), and so does the terminal app for *Check, then ask me*. When a week or a month has
+  passed since the last round, **Weekly** and **Monthly** run `podman pull` (or `docker pull`) for
+  each of those images, in the background; **Check, then ask me** only looks, as
+  [below](#a-newer-build-and-the-notice). Not on battery, and not with
   *Container runtime → No containers*. Each image is tried, even after one fails. When every
   pull fails (no network), the round stays due and the next hour tries again; when only some
   fail, the round is done and those wait for the next one.
-- **What you see:** nothing pops up. While it pulls, *Settings → Previews → Preview tools*
+- **What you see:** with *Weekly* or *Monthly* nothing pops up. While it pulls, *Settings → Previews → Preview tools*
   shows the runtime's progress line on that image's row, as for **Pull**, and the image's
   **Pull** and **Remove** wait.
 - **The old copy goes at once.** When a pull brought a new version, the copy it replaced is
@@ -263,9 +268,41 @@ default), **Weekly** or **Monthly**.
   *Settings → Privacy and updates → What can leave this machine* then says *Container images for
   previews, when pulled and each week to keep them up to date* (or *each month*), with the
   registry. Apache Tika's image, once pulled for [search](../search/tika.md), is updated with
-  them.
-- **The terminal app** makes no container previews, so it updates nothing; its **F12** →
-  *Previews* shows the option, and the desktop app does the updating.
+  them. With *Check, then ask me* the line reads *Container images for previews, when pulled; each
+  week their registry is asked whether a pulled image has a newer build (only its name is sent)*
+  (or *each month*).
+- **The terminal app** makes no container previews, so it pulls nothing by itself; with *Weekly*
+  or *Monthly* the desktop app does the updating. *Check, then ask me* works in both: the terminal
+  app looks too, and its **F12** → *Previews* marks the row and pulls it with **P**.
+
+### A newer build, and the notice
+
+*Check, then ask me* (and the first-run guide's *Check and ask me*) never pulls by itself. Once a
+week (or month) and not on battery, and not with *Container runtime → No containers*, it looks at
+the images already pulled:
+
+- **An image without a digest** (one you set under `[preview.images]` as a tag, such as
+  `docker.io/library/alpine:3`): Coxswain asks its registry, anonymously, for the digest the tag has
+  now, a single `HEAD` request for the manifest (with the anonymous token the registry hands
+  out), and compares it with the digests the runtime has for the copy (`RepoDigests`). Only the
+  image's name goes out. A different digest is a newer build.
+- **A pinned image** (`name:tag@sha256:…`, every default): a pull fetches exactly the pin, so no
+  registry is asked. Its newer build is the new pin of a later Coxswain, when the older pin is
+  pulled: the same case *Keep images up to date* moves on ([Pinned images](#pinned-images)).
+- **What you see.** One notice per new build, naming the image: *A newer build of the image … is
+  available. Update downloads it and removes the old copy.* In the **desktop app** it is on the
+  status line (and under *Settings → What's new*, counted on the Settings button) with **Update**
+  and **Not now** (the **×**). **Update** pulls the image, with the runtime's progress line on its row
+  in *Settings → Previews → Preview tools*, and removes the copy it replaced by its id. In the
+  **terminal app** the status line says it once, naming **F12** → *Previews* and **P**; the row of
+  that image says *newer build available* (in the desktop app too) until you pull it there or **P**.
+- **Not now** is remembered for that build: the notice comes back only when a still newer build
+  appears. Turning the option off hides it.
+- When every lookup fails (no network) the round stays due and the next hour looks again.
+
+<!-- screenshot: images-update-notice.png: the desktop app's status line with the notice "A newer build of the image … is available. Update downloads it and removes the old copy." and the buttons Update and ×, over a folder -->
+
+<!-- screenshot: images-update-notice-tui.png: the terminal app's Settings, Previews: a Preview tools row whose container reads "Pulled, 120 MB, newer build available", and the status line with the notice -->
 
 ### Pinned images
 
@@ -352,7 +389,7 @@ default.
 | – | `[preview.images] calibre` | `"docker.io/linuxserver/calibre:9.16.0@sha256:…"` ([E-books](ebooks.md)) |
 | – | `[preview.images] whisper` | `"ghcr.io/ggml-org/whisper.cpp:main@sha256:…"` (pinned) ([Transcripts of speech](../search/transcripts.md)) |
 | [*Preview tools*](tools.md#preview-tools-in-settings) | `[preview.tools]` | **Pull** and **Remove** for each kind's image, with what it gives, its size and cost; the choice per kind (`"local"`, `"container"`, `"off"`) |
-| *Keep images up to date* | `[preview] image_updates` | `"off"`, `"weekly"`, `"monthly"`; default `"off"` |
+| *Keep images up to date* | `[preview] image_updates` | `"off"`, `"ask"`, `"ask-monthly"`, `"weekly"`, `"monthly"`; default `"off"` |
 | *Remove images not used for 90 days* | `[preview] image_prune` | `true`, `false`; default `false` |
 | *Timeout (seconds)* | `[preview] timeout` | `120` |
 
@@ -389,8 +426,8 @@ geodata's with GDAL the same way. Its
 `config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,
 `tools`, `drawio`, `virus_scan` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre, Asciidoctor, draw.io and ClamAV images (and its helper `images.tika`). Its **F12** → *Previews* shows
 [*Preview tools*](tools.md#preview-tools-in-settings), a line per kind, where **P** pulls a kind's image and **Delete**
-removes it, and *Keep images up to date* and *Remove images not used for 90 days*, so you can
-set them from there; the desktop app is what updates and removes unused images, while it runs. Its Disk use rows for the
+removes it (the row says *newer build available* when a check found one), and *Keep images up to date* and *Remove images not used for 90 days*, so you can
+set them from there; with *Check, then ask me* it looks for newer builds too, and the desktop app is what pulls with *Weekly* or *Monthly* and removes unused images, while it runs. Its Disk use rows for the
 images (`coxswain --disk`) say what each one gives, its size and cost, as the desktop app does.
 
 ## Questions
@@ -420,10 +457,29 @@ image ([Stopping a pull](#stopping-a-pull)).
 
 #### Does Coxswain update the images?
 
-Only when you turn it on: *Settings → Previews → Keep images up to date* → **Weekly** or
-**Monthly** has the desktop app pull the images you already pulled, in the background and never
-on battery, and remove the copy each one replaced. **Pull** in Settings fetches the newest
-version of the tag at once.
+Only when you turn it on: *Settings → Previews → Keep images up to date* → **Check weekly, then
+ask me** (or monthly) looks for newer builds of the images you already pulled and shows a notice
+with **Update** and **Not now**; **Weekly** or **Monthly** has the desktop app pull them in the
+background, never on battery. An update removes the copy each image replaced. **Pull** in Settings
+fetches the newest version of the tag at once.
+
+#### What does the check send, and to whom?
+
+Only the image's name, to the registry in it (`docker.io`, `ghcr.io`), anonymously, as a request for
+the digest of its tag; nothing about you or your files. Only with *Check, then ask me* (or the
+guide's *Check and ask me*), only for images already pulled, and never with *No containers*. It
+is named under *Settings → Privacy and updates → What can leave this machine*.
+
+#### I pressed **Not now**. Will it ask again?
+
+Not for that build. When a newer one appears, there is a new notice. The row in *Settings →
+Previews → Preview tools* keeps saying *newer build available* until you pull the image.
+
+#### Why does it never ask about my pinned images?
+
+A pull fetches exactly the pin, so a registry's newer tag is not what **Update** would bring.
+A newer Coxswain moves the pin, and then the notice offers it ([Pinned images](#pinned-images)).
+Put an image of your own under `[preview.images]` without a digest to follow a tag.
 
 #### Will an update leave old copies behind?
 
