@@ -91,6 +91,9 @@ jobs:
         shell: vmsh {0}
         run: |
           set -e
+          # Each vmsh step copies the VM's checkout back to the runner when it ends: the cached
+          # dependencies left here (target.vm/, already saved) would go back again, GBs of them.
+          rm -rf target.vm
           sh install/install-unix.sh --from dist --yes --prefix /usr/local
           /usr/local/bin/coxswain --version
           # The GCC runtime it links: in the base system, not only in build-essential?
@@ -100,10 +103,21 @@ jobs:
           MANPATH=/usr/local/share/man man -l coxswain >/dev/null 2>&1 || ls /usr/local/share/man/man1/coxswain.1
           useradd -m -d /export/home/alice alice || { useradd -d /export/home/alice alice; mkdir -p /export/home/alice; chown alice /export/home/alice; }
           s=application/coxswain-index
+          # svcadm disable -s can wait for ever on a service that will not stop: bounded, and the
+          # reason shown.
+          stop() {
+            svcadm disable $s
+            i=0
+            until [ "$(svcs -H -o state $s)" = disabled ]; do
+              i=$((i + 1))
+              if [ $i -gt 120 ]; then svcs -xv $s; tail -20 "$(svcs -L $s)"; return 1; fi
+              sleep 1
+            done
+          }
           svcadm enable $s
           sleep 8
           svcs -H -o state $s | grep -q maintenance || { echo "started without a user" >&2; exit 1; }
-          svcadm disable -s $s
+          stop
           svccfg -s $s setprop start/user = astring: alice
           svcadm refresh $s
           svcadm enable $s
@@ -112,7 +126,7 @@ jobs:
           tail -5 "$(svcs -L $s)"
           svcs -H -o state $s | grep -q online
           test -s /export/home/alice/.cache/coxswain/index.addr
-          svcadm disable -s $s
+          stop
           sleep 2
           if pgrep -u alice coxswain; then echo "still running" >&2; exit 1; fi
           sh install/install-unix.sh --uninstall --yes --prefix /usr/local
