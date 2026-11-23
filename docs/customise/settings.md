@@ -201,7 +201,7 @@ it has. The chess options are in [Games](#games) since coxswain 2.35.0.
 |---|---|---|
 | *Container runtime* | *podman, else docker* (`"auto"`), *podman*, *docker*, *No containers* (`"off"`) | `[preview] container` |
 | *LaTeX image* | `docker.io/texlive/texlive:latest` by default; about 2.8 GB to download, 5.9 GB on disk; `:latest-medium` about 960 MB and 2.2 GB | `[preview] images.latex` |
-| *Keep images up to date* | *Off*, *Check weekly, then ask me*, *Check monthly, then ask me* (a notice with **Update** and **Not now**, both apps), *Weekly*, *Monthly* (the desktop app pulls at once, in the background and never on battery); an update removes each replaced copy ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) | `[preview] image_updates` |
+| *Keep images up to date* | *Off*, *Check weekly, then ask me*, *Check monthly, then ask me* (a notice with **Update** and **Not now** in the desktop app; in the terminal app the notice names **P** on the image's row in *Preview tools*), *Weekly*, *Monthly* (the desktop app pulls at once, in the background and never on battery); an update removes each replaced copy ([Keeping images up to date](../previews/containers.md#keeping-images-up-to-date)) | `[preview] image_updates` |
 | *Remove images not used for 90 days* | Off: images stay until you remove them ([Removing unused images](../previews/containers.md#removing-unused-images)) | `[preview] image_prune` |
 
 **Safety**

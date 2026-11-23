@@ -244,6 +244,10 @@ default), **Check weekly, then ask me** (`ask`), **Check monthly, then ask me** 
 **Weekly** or **Monthly**. The first-run guide offers the same ([it asks when podman or docker is
 found](../panels/first-run.md#the-steps)): *Off*, *Check and ask me* (weekly), *Weekly*, *Monthly*.
 
+![The desktop app's Settings at Previews, Cyber, scrolled to Container images: Container runtime podman, else docker, the LaTeX image, then Keep images up to date set to Check weekly, then ask me, with its explanation under it, and Remove images not used for 90 days](../screenshots/gui-settings-image-updates.png)
+
+![The terminal app's Settings at Previews, Classic blue: the cursor on Keep images up to date with Check weekly, then ask me, and at the bottom its explanation, which names Update in the desktop app and P on the image's row in Preview tools in the terminal app](../screenshots/tui-settings-image-updates.png)
+
 - **What it updates:** only the images under `[preview.images]` that are already pulled, and
   the new [pin](#pinned-images) of a default image whose older build is there. One you never
   pulled is never downloaded by it.
@@ -273,7 +277,8 @@ found](../panels/first-run.md#the-steps)): *Off*, *Check and ask me* (weekly), *
   (or *each month*).
 - **The terminal app** makes no container previews, so it pulls nothing by itself; with *Weekly*
   or *Monthly* the desktop app does the updating. *Check, then ask me* works in both: the terminal
-  app looks too, and its **F12** → *Previews* marks the row and pulls it with **P**.
+  app looks too, and its **F12** → *Previews* marks the row; **P** there updates it as **Update**
+  does, removing the old copy.
 
 ### A newer build, and the notice
 
@@ -286,6 +291,11 @@ the images already pulled:
   now, a single `HEAD` request for the manifest (with the anonymous token the registry hands
   out), and compares it with the digests the runtime has for the copy (`RepoDigests`). Only the
   image's name goes out. A different digest is a newer build.
+- **A name without its registry, or on `localhost`** (`alpine:3`, `pandoc/core:3.5`,
+  `localhost/mine:1`, `localhost:5000/mine`, `127.0.0.1:5000/mine`): never asked about. podman may find such a name in a
+  registry of your own through `registries.conf`, so Coxswain does not send it to `docker.io`,
+  where it could also raise a false *newer build*. Write the registry into the name
+  (`docker.io/pandoc/core:3.5`) to have it checked.
 - **A pinned image** (`name:tag@sha256:…`, every default): a pull fetches exactly the pin, so no
   registry is asked. Its newer build is the new pin of a later Coxswain, when the older pin is
   pulled: the same case *Keep images up to date* moves on ([Pinned images](#pinned-images)).
@@ -293,9 +303,12 @@ the images already pulled:
   available. Update downloads it and removes the old copy.* In the **desktop app** it is on the
   status line (and under *Settings → What's new*, counted on the Settings button) with **Update**
   and **Not now** (the **×**). **Update** pulls the image, with the runtime's progress line on its row
-  in *Settings → Previews → Preview tools*, and removes the copy it replaced by its id. In the
-  **terminal app** the status line says it once, naming **F12** → *Previews* and **P**; the row of
-  that image says *newer build available* (in the desktop app too) until you pull it there or **P**.
+  in *Settings → Previews → Preview tools*, and removes the copy it replaced by its id; the notice
+  is then gone for that build. In the **terminal app** the status line says it once, naming the key
+  of Settings as your keymap has it (**F12** by default) → *Previews* and **P**; **P** on that row
+  updates it as **Update** does, removing the old copy by its id. The row of that image says
+  *newer build available* (in the desktop app too) until it is updated (**Update**, **Pull**, or
+  **P** in the terminal app).
 - **Not now** is remembered for that build: the notice comes back only when a still newer build
   appears. Turning the option off hides it.
 - When every lookup fails (no network) the round stays due and the next hour looks again.
@@ -426,7 +439,7 @@ geodata's with GDAL the same way. Its
 `config.toml` is the same file: of the `[preview]` section it uses the runtime, `prefer`,
 `tools`, `drawio`, `virus_scan` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre, Asciidoctor, draw.io and ClamAV images (and its helper `images.tika`). Its **F12** → *Previews* shows
 [*Preview tools*](tools.md#preview-tools-in-settings), a line per kind, where **P** pulls a kind's image and **Delete**
-removes it (the row says *newer build available* when a check found one), and *Keep images up to date* and *Remove images not used for 90 days*, so you can
+removes it (the row says *newer build available* when a check found one, and **P** then also removes the copy it replaced), and *Keep images up to date* and *Remove images not used for 90 days*, so you can
 set them from there; with *Check, then ask me* it looks for newer builds too, and the desktop app is what pulls with *Weekly* or *Monthly* and removes unused images, while it runs. Its Disk use rows for the
 images (`coxswain --disk`) say what each one gives, its size and cost, as the desktop app does.
 
@@ -465,8 +478,9 @@ fetches the newest version of the tag at once.
 
 #### What does the check send, and to whom?
 
-Only the image's name, to the registry in it (`docker.io`, `ghcr.io`), anonymously, as a request for
-the digest of its tag; nothing about you or your files. Only with *Check, then ask me* (or the
+Only the image's name, to the registry written in it (`docker.io/…`, `ghcr.io/…`), anonymously, as a
+request for the digest of its tag; nothing about you or your files. A name without its registry
+(`alpine:3`) or on `localhost` is never sent anywhere: it may be an image of your own. Only with *Check, then ask me* (or the
 guide's *Check and ask me*), only for images already pulled, and never with *No containers*. It
 is named under *Settings → Privacy and updates → What can leave this machine*.
 
@@ -479,7 +493,9 @@ Previews → Preview tools* keeps saying *newer build available* until you pull 
 
 A pull fetches exactly the pin, so a registry's newer tag is not what **Update** would bring.
 A newer Coxswain moves the pin, and then the notice offers it ([Pinned images](#pinned-images)).
-Put an image of your own under `[preview.images]` without a digest to follow a tag.
+Put an image of your own under `[preview.images]` without a digest, and with its registry written
+in the name (`docker.io/pandoc/core:3.5`), to follow a tag: a short name (`pandoc/core:3.5`) or a
+`localhost` one is never asked about.
 
 #### Will an update leave old copies behind?
 

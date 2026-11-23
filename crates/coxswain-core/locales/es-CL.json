@@ -401,7 +401,7 @@
  "notice.git_tool_shell": "Abrir en tu herramienta de git ({key}) no encontró ninguna herramienta de git y abrió una shell acá. Instala lazygit, gitui o tig, o un cliente de escritorio como Sublime Merge, o indica el tuyo en Configuración → Comportamiento.",
  "notice.helper_outdated": "Coxswain se actualizó a {version}: reinícialo para usar la búsqueda en segundo plano. Mientras tanto busca nombres de archivo por su cuenta.",
  "notice.hg_missing": "Este repositorio lo lleva Mercurial, pero hg no está instalado: instala Mercurial para ver sus cambios, su historial y sus marcadores.",
- "notice.image_newer_tui": "Hay una compilación más nueva de la imagen {image}. Abre Ajustes (F12) → Vistas previas y presiona P en su fila para actualizarla.",
+ "notice.image_newer_tui": "Hay una compilación más nueva de la imagen {image}. Abre Ajustes ({key}) → Vistas previas y presiona P en su fila para actualizarla.",
  "notice.jj_missing": "Este repositorio lo lleva Jujutsu, pero jj no está instalado: instala Jujutsu (el programa jj) para ver sus cambios, su historial y sus marcadores. Hasta entonces, git muestra lo que puede.",
  "notice.language_new": "{language} es una traducción nueva. Si una palabra suena mal o torpe, ayuda a mejorarla: Configuración → Idioma.",
  "notice.macos_folders": "macOS puede preguntar si Coxswain puede abrir Escritorio, Documentos, Descargas, o un volumen extraíble o de red: el asistente de búsqueda lee ahí tus archivos para encontrarlos por nombre y texto. Permítelo una vez y macOS lo recuerda. Coxswain nunca lee datos de otras apps (~/Library, Fotos, Mail, Mensajes) y no necesita acceso total al disco.",

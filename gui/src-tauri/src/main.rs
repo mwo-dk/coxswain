@@ -118,6 +118,11 @@ impl Ctx {
         self.edit_if(|st| (f(st), true))
     }
 
+    /// The state as the file has it now (what the terminal app wrote since too), unchanged.
+    fn fresh(&self) -> Res<AppState> {
+        self.edit_if(|st| (st.clone(), false))
+    }
+
     /// `edit`, saved only when `f` says it changed something. What others wrote since (the
     /// terminal app, a reset of the hints) is read first, so it is not saved over.
     fn edit_if<T>(&self, f: impl FnOnce(&mut AppState) -> (T, bool)) -> Res<T> {

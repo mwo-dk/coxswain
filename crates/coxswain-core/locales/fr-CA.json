@@ -743,6 +743,7 @@
  "setting.font_size.hint": "En pixels; les lignes et les dialogues grandissent avec elle.",
  "setting.hints.hint": "Une courte astuce dans la ligne d’état, adaptée à ce qui est sous le curseur; chacune s’affiche trois fois.",
  "setting.image_prune.hint": "L’application de bureau supprime une image de ces aperçus qu’aucun aperçu n’a utilisée depuis 90 jours; elle est téléchargée à nouveau, après un clic, quand un aperçu en a besoin. Aucune autre image n’est touchée.",
+ "setting.image_updates.hint": "Vérifier et demander : chaque semaine ou chaque mois, le registre est interrogé pour savoir si une image téléchargée a un build plus récent, et une notification propose Mettre à jour (le bouton de l'application de bureau; dans l'app de terminal, P sur la ligne de l'image dans Outils d’aperçu). Chaque semaine et Chaque mois la téléchargent aussitôt dans l'application de bureau, jamais sur batterie, et suppriment la copie remplacée.",
  "setting.meaning_device.hint": "Sur un Mac, le modèle intégré tourne sur le GPU quand il le peut; ceci le garde sur le processeur.",
  "setting.preview_prefer.hint": "Pour LaTeX, PlantUML, Word et autres : un programme installé est le plus rapide; un conteneur n’a besoin que de podman ou docker.",
  "setting.search_commit_changes.hint": "Désactivé par défaut. Cherche aussi ce que chaque commit a modifié : son diff, jusqu’à 64 Ko par commit et 64 Mo par dépôt. search.db peut devenir bien plus gros; la taille et la durée sont indiquées avant de commencer.",

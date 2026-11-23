@@ -317,14 +317,15 @@ pub fn keep(app: tauri::AppHandle) {
                 continue;
             }
             let now = coxswain_core::fs::now();
-            // Ask mode: only look, and let the notice offer the update.
-            let snapshot = ctx.state.lock().map(|st| st.clone()).ok();
-            let found = snapshot.and_then(|st| images::ask_round(&cfg, &st, now));
-            if let Some(found) = found {
-                let _ = ctx.edit(|st| (st.images_newer, st.images_checked) = (found, now));
-            } else if !images::asks(&cfg.image_updates) && ctx.state.lock().is_ok_and(|st| images::update_due(&cfg, &st, now)) {
+            // Read again: the terminal app may have kept a round, or pulled, since.
+            let Ok(st) = ctx.fresh() else { continue };
+            // Ask mode: only look, and let the notice offer the update. A round the terminal
+            // app kept while this one looked stands (`keep_found`).
+            if let Some(found) = images::ask_round(&cfg, &st, now) {
+                let _ = ctx.edit_if(|now_st| ((), images::keep_found(now_st, st.images_checked, found, now)));
+            } else if !images::asks(&cfg.image_updates) && images::update_due(&cfg, &st, now) {
                 // A new version's pins first: the old copies they replace go.
-                let moved = ctx.state.lock().map(|st| images::superseded(&cfg, &st)).unwrap_or_default();
+                let moved = images::superseded(&cfg, &st);
                 let gone = images::move_pins(&rt, &moved, |i| pull(&rt, i));
                 if !gone.is_empty() {
                     let _ = ctx.edit(|st| st.images_used.retain(|i, _| !gone.contains(i)));
@@ -343,7 +344,7 @@ pub fn keep(app: tauri::AppHandle) {
                 });
                 for image in stale.unwrap_or_default() {
                     if images::remove(&rt, &image).is_ok() {
-                        let _ = ctx.edit(|st| (st.images_used.remove(&image), st.images_newer.remove(&image)));
+                        let _ = ctx.edit(|st| (st.images_used.remove(&image), images::updated(st, &image)));
                     }
                 }
             }
@@ -924,7 +925,7 @@ pub struct Tools {
 #[tauri::command]
 pub async fn preview_tools(ctx: tauri::State<'_, crate::Ctx>) -> Res<Tools> {
     let cfg = ctx.cfg().preview.clone();
-    let newer = ctx.state.lock().map(|st| st.images_newer.clone()).unwrap_or_default();
+    let newer = ctx.fresh().map(|st| st.images_newer).unwrap_or_default();
     tauri::async_runtime::spawn_blocking(move || {
         let rows = coxswain_core::preview_tools::rows(&cfg);
         // Only an image that is not there: a failed update leaves the old one working.
@@ -966,8 +967,8 @@ pub async fn pull_image(image: String, ctx: tauri::State<'_, crate::Ctx>) -> Res
     let cfg = ctx.cfg().preview.clone();
     let name = image.clone();
     tauri::async_runtime::spawn_blocking(move || coxswain_core::images::pulls::retry_job(&runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?.1, &name)).await.map_err(|e| e.to_string())??;
-    // Pulled to the newest: no newer build waits for it any more.
-    ctx.edit(|st| st.images_newer.remove(&image)).map(|_| ())
+    // Pulled to the newest: no newer build waits for it any more, and its notice goes.
+    ctx.edit_if(|st| ((), coxswain_core::images::updated(st, &image)))
 }
 
 /// *Update* on the notice of a newer build: `image` is pulled and the copy it replaced removed.
@@ -975,11 +976,11 @@ pub async fn pull_image(image: String, ctx: tauri::State<'_, crate::Ctx>) -> Res
 #[tauri::command]
 pub async fn image_update(image: String, ctx: tauri::State<'_, crate::Ctx>) -> Res<()> {
     let cfg = ctx.cfg().preview.clone();
-    let pins = ctx.state.lock().map(|st| coxswain_core::images::superseded(&cfg, &st)).unwrap_or_default();
+    let pins = coxswain_core::images::superseded(&cfg, &ctx.fresh()?);
     let (rt, name) = (runtime(&cfg).ok_or_else(coxswain_core::tools::no_runtime)?.1, image.clone());
     let gone = tauri::async_runtime::spawn_blocking(move || coxswain_core::images::apply(&rt, &name, &pins, |i| pull(&rt, i))).await.map_err(|e| e.to_string())??;
     ctx.edit(|st| {
-        st.images_newer.remove(&image);
+        coxswain_core::images::updated(st, &image);
         st.images_used.retain(|i, _| !gone.contains(i));
     })
 }

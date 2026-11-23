@@ -714,24 +714,29 @@ pub fn asks(updates: &str) -> bool {
 
 const ACCEPT: &str = "application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json";
 
-/// (registry host, repository, tag) of an image name as `docker pull` reads it; none for one
-/// pinned by a digest, which a pull fetches exactly and no newer build replaces.
+/// (registry host, repository, tag) of an image name whose registry it writes out
+/// (`docker.io/…`, `ghcr.io/…`); none for one pinned by a digest, which a pull fetches exactly
+/// and no newer build replaces. None too for a short name (`alpine`, `pandoc/core`), which
+/// podman may resolve through registries.conf to a private registry, and for `localhost`: their
+/// name is never sent to a registry that may not be theirs.
 fn reference(image: &str) -> Option<(String, String, String)> {
     if image.contains('@') {
         return None;
     }
-    let (first, rest) = image.split_once('/').unwrap_or(("", image));
-    let (host, repo) = if !rest.is_empty() && (first.contains('.') || first.contains(':')) {
-        (first.to_string(), rest.to_string())
-    } else {
-        ("docker.io".to_string(), image.to_string())
-    };
+    let (host, repo) = image.split_once('/')?;
+    // The host without its port: `localhost` and the loopback addresses are this machine's own.
+    let bare = host.rsplit_once(':').filter(|(h, p)| !h.is_empty() && p.bytes().all(|b| b.is_ascii_digit())).map_or(host, |(h, _)| h);
+    let own = bare.eq_ignore_ascii_case("localhost") || bare.starts_with("127.") || bare == "[::1]";
+    if repo.is_empty() || !(host.contains('.') || host.contains(':')) || own {
+        return None;
+    }
+    let (host, repo) = (host.to_string(), repo.to_string());
     let slash = repo.rfind('/').map_or(0, |i| i + 1);
     let (repo, tag) = match repo[slash..].find(':') {
         Some(c) => (repo[..slash + c].to_string(), repo[slash + c + 1..].to_string()),
         None => (repo, "latest".to_string()),
     };
-    let (host, repo) = if host == "docker.io" {
+    let (host, repo) = if host == "docker.io" || host == "index.docker.io" {
         ("registry-1.docker.io".to_string(), if repo.contains('/') { repo } else { format!("library/{repo}") })
     } else {
         (host, repo)
@@ -743,10 +748,7 @@ fn reference(image: &str) -> Option<(String, String, String)> {
 /// (with the anonymous pull token the registry asks for), nothing else leaves the machine.
 /// None: no answer (offline). Some(None): answered without a digest (pinned, refused).
 pub fn remote_digest(image: &str) -> Option<Option<String>> {
-    let (host, repo, tag) = reference(image).map_or((String::new(), String::new(), String::new()), |r| r);
-    if host.is_empty() {
-        return Some(None);
-    }
+    let Some((host, repo, tag)) = reference(image) else { return Some(None) };
     let agent = crate::meaning::agent(|b| b.timeout_global(Some(std::time::Duration::from_secs(30))).http_status_as_error(false));
     let url = format!("https://{host}/v2/{repo}/manifests/{tag}");
     let head = |token: Option<&str>| {
@@ -788,6 +790,11 @@ fn digest_of(agent: &ureq::Agent, res: &mut ureq::http::Response<ureq::Body>, re
     Some(res.headers().get("docker-content-digest")?.to_str().ok()?.to_string())
 }
 
+/// Is `image` one a check asks its registry about (`reference`)?
+pub fn checkable(image: &str) -> bool {
+    reference(image).is_some()
+}
+
 /// The digests the runtime has for `image` (`RepoDigests`).
 pub fn local_digests(rt: &Path, image: &str) -> Vec<String> {
     let Ok(out) = crate::tools::command(rt).args(["image", "inspect", "--format", "{{json .RepoDigests}}", image]).stdin(Stdio::null()).output() else {
@@ -810,7 +817,7 @@ pub fn check(
     let mut found = BTreeMap::new();
     let mut asked = 0;
     let mut answered = 0;
-    for image in pulled.iter().filter(|i| !i.contains('@')) {
+    for image in pulled.iter().filter(|i| checkable(i)) {
         asked += 1;
         if let Some(answer) = remote(image) {
             answered += 1;
@@ -854,14 +861,34 @@ pub fn watch_in_terminal() {
             wait = 3600;
             let Ok(cfg) = crate::config::Config::load() else { continue };
             let now = crate::fs::now();
-            if let Some(found) = ask_round(&cfg.preview, &AppState::load(), now) {
+            let st = AppState::load();
+            if let Some(found) = ask_round(&cfg.preview, &st, now) {
                 // Read again: the desktop app shares the file, and the look took a while.
-                let mut st = AppState::load();
-                (st.images_newer, st.images_checked) = (found, now);
-                let _ = st.save();
+                let mut again = AppState::load();
+                if keep_found(&mut again, st.images_checked, found, now) {
+                    let _ = again.save();
+                }
             }
         }
     });
+}
+
+/// Keep what a round found in `st` (read again just now), unless another round was kept since
+/// this one read `checked_before` (the other app's): then its finding stands. Whether `st` changed.
+pub fn keep_found(st: &mut AppState, checked_before: u64, found: BTreeMap<String, String>, now: u64) -> bool {
+    if st.images_checked != checked_before {
+        return false;
+    }
+    (st.images_newer, st.images_checked) = (found, now);
+    true
+}
+
+/// `image` was pulled to its newest (Update, Pull, **P**): no newer build waits for it, and its
+/// notice is dismissed. Whether `st` changed.
+pub fn updated(st: &mut AppState, image: &str) -> bool {
+    let Some(build) = st.images_newer.remove(image) else { return false };
+    crate::notices::dismiss(st, &crate::notices::image_id(image, &build));
+    true
 }
 
 /// *Update* on a notice: `image` is pulled, and the copy it replaced removed (by its id, or, for
@@ -1306,33 +1333,65 @@ def456 coxswain-media-20-500-1 exited
     #[test]
     fn references_are_read_as_a_pull_reads_them() {
         let r = |i| reference(i);
-        assert_eq!(r("pandoc/core:latest"), Some(("registry-1.docker.io".into(), "pandoc/core".into(), "latest".into())));
-        assert_eq!(r("alpine"), Some(("registry-1.docker.io".into(), "library/alpine".into(), "latest".into())));
+        assert_eq!(r("docker.io/pandoc/core:latest"), Some(("registry-1.docker.io".into(), "pandoc/core".into(), "latest".into())));
+        assert_eq!(r("docker.io/alpine"), Some(("registry-1.docker.io".into(), "library/alpine".into(), "latest".into())));
+        assert_eq!(r("index.docker.io/alpine:3"), Some(("registry-1.docker.io".into(), "library/alpine".into(), "3".into())));
         assert_eq!(r("docker.io/library/alpine:3"), Some(("registry-1.docker.io".into(), "library/alpine".into(), "3".into())));
         assert_eq!(r("ghcr.io/mwo-dk/coxswain-magick:stable"), Some(("ghcr.io".into(), "mwo-dk/coxswain-magick".into(), "stable".into())));
-        assert_eq!(r("localhost:5000/x/y"), Some(("localhost:5000".into(), "x/y".into(), "latest".into())));
-        assert_eq!(r("pandoc/core:latest@sha256:abc"), None, "a pinned image has no newer build to ask for");
+        assert_eq!(r("registry.example:5000/x/y"), Some(("registry.example:5000".into(), "x/y".into(), "latest".into())));
+        assert_eq!(r("docker.io/pandoc/core:latest@sha256:abc"), None, "a pinned image has no newer build to ask for");
+    }
+
+    #[test]
+    fn a_name_without_its_registry_or_on_localhost_is_never_sent_anywhere() {
+        // podman may resolve a short name through registries.conf to a private registry: its
+        // name must not go to docker.io, nor raise a false newer build from there.
+        for local in ["alpine", "alpine:3", "pandoc/core:latest", "me/private", "localhost/x", "localhost/x:1", "localhost:5000/x/y", "LOCALHOST:5000/x", "127.0.0.1:5000/x", "[::1]:5000/x"] {
+            assert_eq!(reference(local), None, "{local}");
+            assert!(!checkable(local), "{local}");
+            assert_eq!(remote_digest(local), Some(None), "{local}: answered here, nothing sent");
+        }
+        let pulled = ["alpine:3", "localhost/x:1", "docker.io/library/alpine:3"].map(String::from);
+        let asked = std::cell::RefCell::new(vec![]);
+        let (found, done) = check(&pulled, &[], |_| vec!["sha256:old".into()], |i| {
+            asked.borrow_mut().push(i.to_string());
+            Some(Some("sha256:new".into()))
+        });
+        assert_eq!(asked.into_inner(), ["docker.io/library/alpine:3"]);
+        assert_eq!(found.keys().collect::<Vec<_>>(), ["docker.io/library/alpine:3"]);
+        assert!(done);
+        assert!(check(&["localhost/x:1".to_string()], &[], |_| vec![], |_| panic!("asked")).1, "nothing to ask is done");
+    }
+
+    #[test]
+    fn a_round_kept_by_the_other_app_meanwhile_is_not_written_over() {
+        let mut st = AppState { images_checked: 5, ..AppState::default() };
+        let found = BTreeMap::from([("docker.io/a:1".to_string(), "sha256:n".to_string())]);
+        assert!(!keep_found(&mut st, 4, found.clone(), 9), "the other app kept a round at 5");
+        assert!(st.images_newer.is_empty() && st.images_checked == 5);
+        assert!(keep_found(&mut st, 5, found.clone(), 9));
+        assert_eq!((st.images_newer, st.images_checked), (found, 9));
     }
 
     #[test]
     fn a_check_names_the_images_whose_registry_digest_is_not_the_pulled_one() {
-        let pulled = ["a:1", "b:1", "c:1", "d:1@sha256:x"].map(String::from);
-        let local = |i: &str| if i == "c:1" { vec![] } else { vec!["sha256:old".to_string()] };
+        let pulled = ["docker.io/a:1", "docker.io/b:1", "docker.io/c:1", "docker.io/d:1@sha256:x"].map(String::from);
+        let local = |i: &str| if i == "docker.io/c:1" { vec![] } else { vec!["sha256:old".to_string()] };
         let remote = |i: &str| match i {
-            "a:1" => Some(Some("sha256:new".to_string())),
-            "b:1" => Some(Some("sha256:old".to_string())),
-            "c:1" => Some(Some("sha256:new".to_string())),
+            "docker.io/a:1" => Some(Some("sha256:new".to_string())),
+            "docker.io/b:1" => Some(Some("sha256:old".to_string())),
+            "docker.io/c:1" => Some(Some("sha256:new".to_string())),
             _ => panic!("a pinned image is never asked about: {i}"),
         };
         let pins = [("old".to_string(), "p:1@sha256:p".to_string())];
         let (found, done) = check(&pulled, &pins, local, remote);
-        assert_eq!(found.keys().map(String::as_str).collect::<Vec<_>>(), ["a:1", "p:1@sha256:p"], "b is current, c has no digest to compare");
-        assert_eq!(found["a:1"], "sha256:new");
+        assert_eq!(found.keys().map(String::as_str).collect::<Vec<_>>(), ["docker.io/a:1", "p:1@sha256:p"], "b is current, c has no digest to compare");
+        assert_eq!(found["docker.io/a:1"], "sha256:new");
         assert!(done);
         // Every lookup failed (offline): not done, so the round stays due.
         assert!(!check(&pulled, &[], local, |_| None).1);
         // A refusal is an answer: the round is done and not asked again every hour.
-        assert!(check(&["p:1".to_string()], &[], local, |_| Some(None)).1);
+        assert!(check(&["docker.io/p:1".to_string()], &[], local, |_| Some(None)).1);
         assert!(check(&[], &[], local, |_| None).1, "nothing to look at is done");
     }
 

@@ -93,7 +93,7 @@ open it outside the pane:
 - **Download a tool by itself.** Pulling a container image, the one big download, waits for a
   click, and the engine button says what will be pulled, and how big it is, beforehand. Only
   *Keep images up to date* in *Settings → Previews*, when you turn it on, looks for newer builds
-  of the images you already pulled and asks (both apps), or pulls them again by itself (the desktop app) ([Keeping images up to date](containers.md#keeping-images-up-to-date)).
+  of the images you already pulled whose registry is in their name and asks (both apps), or pulls them again by itself (the desktop app) ([Keeping images up to date](containers.md#keeping-images-up-to-date)).
 
 ### What does reach the network
 
