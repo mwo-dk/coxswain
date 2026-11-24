@@ -777,9 +777,13 @@ pub(crate) mod fd {
             // SAFETY: getuid cannot fail.
             let uid = unsafe { libc::getuid() };
             // Held open as it was looked at: a folder of the top's disk, never a link, that only
-            // the user or root can change (the top's rule, `crate::fs::only_ours`). `at`, `part`:
+            // the user or root can change (the top's rule; for root, also a user's folder only
+            // its owner may write: `crate::fs::passable`). `at`, `part`:
             // where it was opened, to tell a plain file there from a link; `folder`: its path,
             // for the text.
+            // The user whose folder root's walk went into (after it, only theirs or root's), and
+            // the mode of the folder held last (`None`: at the top).
+            let (entered, parent) = (std::cell::Cell::new(None), std::cell::Cell::new(None));
             let held = |fd: libc::c_int, dev: Option<u64>, at: libc::c_int, part: &std::ffi::CStr, folder: &Path| -> io::Result<(std::os::fd::OwnedFd, u64)> {
                 let not_folder = || io::Error::new(io::ErrorKind::InvalidInput, crate::t!("bin.not_a_folder", "folder" => folder.display()));
                 if fd < 0 {
@@ -810,9 +814,13 @@ pub(crate) mod fd {
                 if dev.is_some_and(|d| d != m.dev()) {
                     return Err(bad());
                 }
-                if !crate::fs::only_ours(m.uid(), m.gid(), m.mode(), uid) {
+                if !crate::fs::passable(m.uid(), m.gid(), m.mode(), uid, parent.get(), entered.get()) {
                     return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("bin.open_folder", "folder" => folder.display())));
                 }
+                if m.uid() != 0 && m.uid() != uid {
+                    entered.set(Some(m.uid()));
+                }
+                parent.set(Some(m.mode()));
                 Ok((f.into(), m.dev()))
             };
             let top_c = c(top.as_os_str())?;
@@ -1050,7 +1058,14 @@ pub(crate) mod fd {
         // it; a folder of the user's keeps its sticky and set-group bits.
         let bits = if m.is_dir() && m.uid() == uid { 0o3777 } else { 0o777 };
         let kept = |f: &fs::File| {
-            f.set_permissions(fs::Permissions::from_mode(m.mode() & bits))?;
+            // A system that refuses the set-group bit (a seccomp filter, as in Nix's builds)
+            // gets the folder without it rather than no restore.
+            if let Err(e) = f.set_permissions(fs::Permissions::from_mode(m.mode() & bits)) {
+                if e.kind() != io::ErrorKind::PermissionDenied || m.mode() & bits & 0o6000 == 0 {
+                    return Err(e);
+                }
+                f.set_permissions(fs::Permissions::from_mode(m.mode() & bits & !0o6000))?;
+            }
             let _ = m.modified().and_then(|t| f.set_modified(t));
             f.sync_all()
         };
@@ -2492,8 +2507,11 @@ mod tests {
         let bins = [b.clone()];
         let file = trashed(&b, "f.txt", "docs/f.txt");
         fs::write(&file, "file").unwrap();
-        // A set-user bit stays behind: the copy is a new file of the user's.
-        fs::set_permissions(&file, fs::Permissions::from_mode(0o4750)).unwrap();
+        // A set-user bit stays behind: the copy is a new file of the user's. A system that
+        // refuses the bit (Nix's build sandbox) tests the rest with a plain mode.
+        if fs::set_permissions(&file, fs::Permissions::from_mode(0o4750)).is_err() {
+            fs::set_permissions(&file, fs::Permissions::from_mode(0o750)).unwrap();
+        }
         let link = trashed(&b, "l", "docs/l");
         std::os::unix::fs::symlink("../elsewhere", &link).unwrap();
         let dir = trashed(&b, "dir", "docs/dir");
