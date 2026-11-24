@@ -4665,6 +4665,8 @@
  "bin.failed": "Im Papierkorb ging nicht alles",
  "bin.busy": "Ein anderes Coxswain arbeitet gerade im Papierkorb. Versuchen Sie es erneut, wenn es fertig ist.",
  "bin.bad_origin": "Der Ort, an dem es gelöscht wurde, liegt außerhalb seines Datenträgers: nicht wiederhergestellt",
+ "bin.open_folder": "Andere Benutzer können den Ordner {folder} auf dem Weg ändern: nicht wiederhergestellt",
+ "bin.not_a_folder": "{folder} auf dem Weg ist eine Datei, kein Ordner: nicht wiederhergestellt",
  "bin.no_restore": "macOS lässt Apps nichts aus dem Papierkorb zurücklegen: herauskopieren oder im Finder „Zurücklegen“ wählen",
  "bin.not_here": "Das geht nur im Papierkorb",
  "bin.read_only": "Im Papierkorb wird nichts verschoben, umbenannt oder angelegt: wiederherstellen oder herauskopieren",

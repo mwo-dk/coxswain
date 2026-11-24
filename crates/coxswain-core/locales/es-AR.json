@@ -4763,6 +4763,8 @@
  "bin.failed": "No se pudo hacer todo en la papelera",
  "bin.busy": "Otro Coxswain está trabajando en la papelera. Probá de nuevo cuando termine.",
  "bin.bad_origin": "El lugar de donde se eliminó está fuera de su disco: no se restauró",
+ "bin.open_folder": "Otros usuarios pueden cambiar la carpeta {folder} del camino: no se restauró",
+ "bin.not_a_folder": "{folder}, en el camino, es un archivo, no una carpeta: no se restauró",
  "bin.no_restore": "macOS no deja que las apps devuelvan archivos de la papelera: copialos afuera o usá Devolver en el Finder",
  "bin.not_here": "Esto funciona solo en la papelera",
  "bin.read_only": "En la papelera no se mueve, renombra ni crea nada: restauralo o copialo afuera",

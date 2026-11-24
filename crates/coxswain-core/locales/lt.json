@@ -4763,6 +4763,8 @@
  "bin.failed": "Šiukšlinėje pavyko ne viskas",
  "bin.busy": "Šiukšlinėje dirba kitas Coxswain. Bandykite dar kartą, kai jis baigs.",
  "bin.bad_origin": "Vieta, iš kurios jis ištrintas, yra už jo disko ribų: negrąžinta",
+ "bin.open_folder": "Kiti naudotojai gali keisti pakeliui esantį aplanką {folder}: negrąžinta",
+ "bin.not_a_folder": "Pakeliui esantis {folder} yra failas, ne aplankas: negrąžinta",
  "bin.no_restore": "macOS neleidžia programoms grąžinti failų iš šiukšlinės: nukopijuokite juos lauk arba naudokite „Finder“ komandą „Grąžinti“",
  "bin.not_here": "Tai veikia tik šiukšlinėje",
  "bin.read_only": "Šiukšlinėje niekas neperkeliama, nepervadinama ir nekuriama: atkurkite arba nukopijuokite lauk",

@@ -4665,6 +4665,8 @@
  "bin.failed": "Ezin izan da dena egin zakarrontzian",
  "bin.busy": "Beste Coxswain bat zakarrontzian ari da lanean. Saiatu berriro amaitzen duenean.",
  "bin.bad_origin": "Ezabatu zen lekua bere diskotik kanpo dago: ez da leheneratu",
+ "bin.open_folder": "Beste erabiltzaile batzuek bideko {folder} karpeta alda dezakete: ez da leheneratu",
+ "bin.not_a_folder": "Bideko {folder} fitxategi bat da, ez karpeta: ez da leheneratu",
  "bin.no_restore": "macOSek ez die aplikazioei fitxategiak zakarrontzitik itzultzen uzten: kopiatu kanpora, edo erabili Finderreko Itzuli",
  "bin.not_here": "Zakarrontzian bakarrik dabil",
  "bin.read_only": "Zakarrontzian ez da ezer mugitzen, berrizendatzen edo sortzen: leheneratu edo kopiatu kanpora",

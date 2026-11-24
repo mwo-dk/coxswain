@@ -97,9 +97,16 @@ link or another disk) is listed and goes with *Empty the bin*, but is never rest
 goes from the disk's top folder by folder, holding each one open and making a missing one
 inside the one it holds, so a folder another user swaps for a link meanwhile cannot lead it,
 or the folders it makes, anywhere else. A folder on the way must be yours or the system's,
-and others may write it only when it has the sticky bit: a restore through a folder of someone
-else's, or one your group may write (`775`), is refused the same way. Folders it makes are
-writable by you alone.
+and others may write it only when it has the sticky bit. Its group may write it (`775`) only
+when that group is your own: your primary group, named as you are, with no other member (the
+group most Linux systems and FreeBSD give each user). A restore through a folder of someone
+else's, or one a shared group such as `users` may write, is refused
+([Why does a restore say other users can change a folder?](#why-does-a-restore-say-other-users-can-change-a-folder)).
+Folders it makes are writable by you alone. When the disk refuses to move the item into place
+although it is the same disk (overlayfs, a bind mount, project quotas), the restore copies it
+there instead (a folder with all in it, links as links), and takes it out of the bin only once
+the copy is whole and written to the disk; a copy that fails leaves nothing at the place and the
+item in the bin.
 
 ## Settings and config.toml
 
@@ -157,7 +164,7 @@ yours went to the bin in your home folder, so look there; elsewhere they were de
 Another user of the machine could have made a `.Trash-1000` on a shared disk, filled it with
 items of their choosing, and named the places they would be restored to. So a disk's bin counts
 only when the disk's top folder is yours or the system's (others may write in it only when it has
-the sticky bit, as `/tmp` has), a shared `.Trash` there has the sticky bit and belongs to the
+the sticky bit, as `/tmp` has, and its group only when that group is your own), a shared `.Trash` there has the sticky bit and belongs to the
 system or the top's owner, and your `.Trash-1000` (or `.Trash/1000`) and its `files` and `info`
 are real folders of yours that no one else may write. When one is left out and holds items, the
 notice *The bin … is not yours alone* names it once (terminal app: the status line; desktop
@@ -171,12 +178,20 @@ uses: mount it with those options, and its bin is listed again.
 
 A disk's bin records each item's place relative to the disk's top. One that leads out of the
 disk, through `..`, as a whole path elsewhere, or through a folder on the way that is now a link
-or another disk, was not written by a put on that disk, or no longer leads where it did. A folder
-on the way that is someone else's, or that others may write without the sticky bit (a `775`
-folder your group may write), is refused too: they could swap it for a link while the file
-moves. `chmod g-w` on that folder lets the restore through. In each case Coxswain
-does not put it back there, and the dialog of what could not be done says *The place it was
-deleted from lies outside its disk: not put back*. Copy it out with **F5**, or delete it.
+or another disk, was not written by a put on that disk, or no longer leads where it did.
+Coxswain does not put it back there, and the dialog of what could not be done says *The place
+it was deleted from lies outside its disk: not put back*. Copy it out with **F5**, or delete it.
+
+#### Why does a restore say other users can change a folder?
+
+A folder on the way to the place that is someone else's, or that others may write without the
+sticky bit, could be swapped for a link while the file moves, so the restore stops there and the
+dialog of what could not be done says *Other users can change the folder … on the way: not put
+back*, naming the folder. A folder its group may write (`775`) passes only when that group is
+your own (named as you are, your primary group, no other member); a shared group such as `users`
+does not. `chmod g-w,o-w` on that folder lets the restore through, or copy the item out with
+**F5**. When a file stands where a folder on the way should be, the dialog says *… on the way is
+a file, not a folder: not put back*: move that file aside and restore again.
 
 #### The bin opens a folder called @bin instead.
 

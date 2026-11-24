@@ -94,6 +94,11 @@ Not modelled, so not proven:
 
 - Folders: `move_new` restores a folder by `rename`, which replaces an empty folder at the
   place (its own comment says so); `delete_in` removes it with `remove_dir_all`.
+- The copy into a held folder when a link or rename there says `EXDEV` on one device
+  (`fd::Place::copy`, #1104: `copy_at` makes the copy anew by handle, synced, then the item is
+  re-checked and removed; one that fails takes back what it made). Like the move across disks
+  below, its own order is the same as the link's (the place made only by `O_EXCL`, the item
+  removed only after, the info file last), but the copy is one step nowhere in the model.
 - The cross-disk fall-back in `move_new` (`crate::fs::rename`: copy, then delete), FAT disks
   without hard links, Windows (`trash::os_limited`, the shell) and macOS (Finder). The model is
   the freedesktop.org bin: FreeBSD, the other BSDs, illumos, Linux, Termux.
@@ -103,7 +108,8 @@ Not modelled, so not proven:
 - `fd::real` (a bin whose `files` or `info` is a link is refused, and a disk's bin that fails
   the spec's owner and mode checks, `fs::trusted_disk_bin`, since #1077) and `bin::inside`
   (nothing is made in `@bin`): checked at the start of each operation, not raced here. A
-  restore whose `Path=` leads out of its disk (`fd::may_restore`) is refused before any step:
+  restore whose `Path=` leads out of its disk, or through a folder others could change
+  (`fd::place` without making, `fs::only_ours`), is refused before any step:
   a step not taken, which no promise can break. From a disk's bin, `move_new`'s steps on the
   place (`fd::move_to`) act on a name in the folder `fd::place` holds open (`linkat`,
   `renameat`, `unlinkat`, `openat`, `fstatat`): the same steps in the same order.

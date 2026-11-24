@@ -1695,7 +1695,7 @@ pub(crate) fn trusted_disk_bin(top: &Path, bin: &Path, uid: u32, dev: u64, make:
     // The top a folder of its own (no link), of this user or root: another owner could move
     // the bin away even on a sticky top.
     let Ok(tm) = fs::symlink_metadata(top) else { return false };
-    if !tm.is_dir() || tm.dev() != dev || !(tm.uid() == uid || tm.uid() == 0) || (tm.mode() & 0o022 != 0 && tm.mode() & 0o1000 == 0) {
+    if !tm.is_dir() || tm.dev() != dev || !only_ours(tm.uid(), tm.gid(), tm.mode(), uid) {
         return false;
     }
     let shared = top.join(".Trash");
@@ -1706,6 +1706,70 @@ pub(crate) fn trusted_disk_bin(top: &Path, bin: &Path, uid: u32, dev: u64, make:
     } else {
         bin == top.join(format!(".Trash-{uid}")) && own_bin(bin, uid, dev, make)
     }
+}
+
+/// Whether a folder of owner `owner`, group `gid` and mode `mode` on the way to a disk's bin, or
+/// from one to a place a restore puts back, can be changed by no one but `uid` and root: it is
+/// theirs, others may write it only with the sticky bit (which keeps them from moving what is
+/// `uid`'s), and its group only when that group is the user's own ([`personal_gid`]).
+#[cfg(unix)]
+pub(crate) fn only_ours(owner: u32, gid: u32, mode: u32, uid: u32) -> bool {
+    (owner == uid || owner == 0)
+        && (mode & 0o1000 != 0 || (mode & 0o002 == 0 && (mode & 0o020 == 0 || personal_gid() == Some(gid))))
+}
+
+#[cfg(all(unix, test))]
+thread_local! {
+    /// A test's answer for `personal_gid`: `Some(answer)`, else the system's.
+    pub(crate) static PERSONAL_GID: std::cell::Cell<Option<Option<u32>>> = const { std::cell::Cell::new(None) };
+}
+
+/// The user's primary group when it is a group of their own (the user-private-group habit of
+/// most Linux systems and FreeBSD's `adduser`): named as the user, with no other member listed.
+/// A folder that group may write (`775`) is then no one else's to change.
+#[cfg(unix)]
+fn personal_gid() -> Option<u32> {
+    #[cfg(test)]
+    if let Some(g) = PERSONAL_GID.get() {
+        return g;
+    }
+    static GID: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
+    *GID.get_or_init(|| {
+        use std::ffi::CStr;
+        // SAFETY: getuid and getgid cannot fail.
+        let (uid, gid) = unsafe { (libc::getuid(), libc::getgid()) };
+        // A lookup into a buffer grown while the system says it is too small.
+        fn look<T, R>(f: impl Fn(*mut T, *mut libc::c_char, usize, *mut *mut T) -> libc::c_int, then: impl Fn(&T) -> Option<R>) -> Option<R> {
+            let mut buf = vec![0 as libc::c_char; 4096];
+            loop {
+                // SAFETY: zeroed is a valid passwd or group, filled by the lookup.
+                let mut v: T = unsafe { std::mem::zeroed() };
+                let mut out = std::ptr::null_mut();
+                match f(&mut v, buf.as_mut_ptr(), buf.len(), &mut out) {
+                    0 if !out.is_null() => return then(&v),
+                    libc::ERANGE if buf.len() < 1 << 20 => buf.resize(buf.len() * 2, 0),
+                    _ => return None,
+                }
+            }
+        }
+        // SAFETY: the buffers and the record are valid for the lengths given.
+        let login = look(|p, b, n, o| unsafe { libc::getpwuid_r(uid, p, b, n, o) }, |p: &libc::passwd| {
+            // SAFETY: the lookup filled pw_name with a C string in the buffer.
+            Some(unsafe { CStr::from_ptr(p.pw_name) }.to_bytes().to_vec())
+        })?;
+        // SAFETY: as above.
+        look(|g, b, n, o| unsafe { libc::getgrgid_r(gid, g, b, n, o) }, |g: &libc::group| {
+            // SAFETY: the lookup filled gr_name and gr_mem (null-ended) with C strings.
+            let named = unsafe { CStr::from_ptr(g.gr_name) }.to_bytes() == login.as_slice();
+            let mut alone = true;
+            let mut m = g.gr_mem;
+            while !m.is_null() && unsafe { !(*m).is_null() } {
+                alone &= unsafe { CStr::from_ptr(*m) }.to_bytes() == login.as_slice();
+                m = unsafe { m.add(1) };
+            }
+            (named && alone).then_some(gid)
+        })
+    })
 }
 
 /// Whether a shared `.Trash` owned by `owner` may hold the user's bin on a top owned by `top`:

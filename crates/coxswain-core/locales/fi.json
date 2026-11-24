@@ -4665,6 +4665,8 @@
  "bin.failed": "Kaikkea roskakorissa ei voitu tehdä",
  "bin.busy": "Toinen Coxswain työskentelee roskakorissa. Yritä uudelleen, kun se on valmis.",
  "bin.bad_origin": "Paikka, josta se poistettiin, on sen levyn ulkopuolella: ei palautettu",
+ "bin.open_folder": "Muut käyttäjät voivat muuttaa matkan varrella olevaa kansiota {folder}: ei palautettu",
+ "bin.not_a_folder": "Matkan varrella oleva {folder} on tiedosto, ei kansio: ei palautettu",
  "bin.no_restore": "macOS ei anna sovellusten palauttaa tiedostoja roskakorista: kopioi ne ulos tai käytä Finderin Palauta-toimintoa",
  "bin.not_here": "Tämä toimii vain roskakorissa",
  "bin.read_only": "Roskakorissa mitään ei siirretä, nimetä uudelleen tai luoda: palauta tai kopioi ulos",
