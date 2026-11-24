@@ -77,7 +77,11 @@ jobs:
             set -e
             export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1
             uname -a
-            rustc -V
+            id; echo HOME=$HOME; pwd; mount; df "$PWD" /root
+            ls -ldn / /home /home/runner /home/runner/work /home/runner/work/coxswain "$PWD" /root
+            ls -ld / /home /home/runner /home/runner/work /home/runner/work/coxswain "$PWD" /root
+            grep -E '^(wheel|runner|docker|staff)' /etc/group; getent group 118 121 1001 || true; getent passwd 1001 || true
+            exit 1
             sh packaging/target-cache.sh check
             sh packaging/target-cache.sh retry cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked --no-run
             cargo test -p coxswain-core -p coxswain -p coxswain-gui --locked
