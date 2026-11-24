@@ -1718,6 +1718,16 @@ pub(crate) fn only_ours(owner: u32, gid: u32, mode: u32, uid: u32) -> bool {
         && (mode & 0o1000 != 0 || (mode & 0o002 == 0 && (mode & 0o020 == 0 || personal_gid() == Some(gid))))
 }
 
+/// Whether a restore from a disk's bin passes a folder on its way to the place (`fd::place`):
+/// [`only_ours`], and for root also any user's folder that only its owner can change. Root
+/// puts back into a user's folders what it took from there, and that user can steer the item
+/// only among folders already in theirs: the walk follows no link and leaves no disk, and a
+/// folder moves to another parent only for one who may write it.
+#[cfg(unix)]
+pub(crate) fn passable(owner: u32, gid: u32, mode: u32, uid: u32) -> bool {
+    only_ours(if uid == 0 { 0 } else { owner }, gid, mode, uid)
+}
+
 #[cfg(all(unix, test))]
 thread_local! {
     /// A test's answer for `personal_gid`: `Some(answer)`, else the system's.
@@ -1765,16 +1775,8 @@ fn personal_gid() -> Option<u32> {
         })?;
         // SAFETY: as above.
         let (name, members) = look(|g, b, n, o| unsafe { libc::getgrgid_r(gid, g, b, n, o) }, |g: &libc::group| {
-            let mut members = vec![];
-            let mut m = g.gr_mem;
             // SAFETY: the lookup filled gr_name and gr_mem (null-ended) with C strings.
-            unsafe {
-                while !m.is_null() && !(*m).is_null() {
-                    members.push(CStr::from_ptr(*m).to_bytes().to_vec());
-                    m = m.add(1);
-                }
-                Some((CStr::from_ptr(g.gr_name).to_bytes().to_vec(), members))
-            }
+            unsafe { Some((CStr::from_ptr(g.gr_name).to_bytes().to_vec(), group_members(g.gr_mem))) }
         })?;
         #[cfg(target_os = "android")]
         let accounts = vec![];
@@ -1782,6 +1784,28 @@ fn personal_gid() -> Option<u32> {
         let accounts = primary_groups();
         personal(uid, gid, &login, &name, &members, &accounts).then_some(gid)
     })
+}
+
+/// The names in a group's null-ended `gr_mem`. macOS's getgrgid_r lays that list into the
+/// caller's byte buffer at any offset, so each pointer is read unaligned.
+///
+/// # Safety
+/// `m` is null or a null-ended list of pointers to C strings.
+#[cfg(unix)]
+unsafe fn group_members(mut m: *const *mut libc::c_char) -> Vec<Vec<u8>> {
+    let mut members = vec![];
+    // SAFETY: as the caller says.
+    unsafe {
+        while !m.is_null() {
+            let one = m.read_unaligned();
+            if one.is_null() {
+                break;
+            }
+            members.push(std::ffi::CStr::from_ptr(one).to_bytes().to_vec());
+            m = m.add(1);
+        }
+    }
+    members
 }
 
 /// Every account's uid and primary group, from the password database (getpwent is not
@@ -2590,6 +2614,38 @@ const KINDS: &[io::ErrorKind] = &[
 mod tests {
     /// A group named as the user, with no one listed in it, is still shared when another
     /// account has it as its primary group; a password database without the user is not whole.
+    /// Root passes another user's folder that only its owner can change (a CI runner's
+    /// checkout, a user's home), never one its group or others may write; a user does not.
+    #[cfg(unix)]
+    #[test]
+    fn root_passes_a_users_own_folder() {
+        super::PERSONAL_GID.set(Some(Some(0)));
+        assert!(super::passable(1001, 1001, 0o40755, 0));
+        assert!(!super::passable(1001, 1001, 0o40775, 0), "its group may write");
+        assert!(!super::passable(1001, 1001, 0o40777, 0), "anyone may write");
+        assert!(!super::passable(1001, 1001, 0o40755, 1000), "a user passes only their own or root's");
+        assert!(super::passable(0, 0, 0o40755, 1000));
+        super::PERSONAL_GID.set(None);
+    }
+
+    /// A group's member list read where macOS's getgrgid_r leaves it: at an odd offset in a
+    /// byte buffer (a debug build stops on a misaligned read).
+    #[cfg(unix)]
+    #[test]
+    fn group_members_are_read_at_any_offset() {
+        let (ann, bob) = (c"ann", c"bob");
+        let list = [ann.as_ptr().cast_mut(), bob.as_ptr().cast_mut(), std::ptr::null_mut()];
+        let size = std::mem::size_of_val(&list);
+        let mut buf = vec![0u8; size + 1];
+        // SAFETY: the list's bytes copied past the buffer's first byte, inside it.
+        unsafe { std::ptr::copy_nonoverlapping(list.as_ptr().cast::<u8>(), buf.as_mut_ptr().add(1), size) };
+        // SAFETY: a null-ended list of C strings, read unaligned.
+        let got = unsafe { super::group_members(buf.as_ptr().add(1).cast()) };
+        assert_eq!(got, [b"ann".to_vec(), b"bob".to_vec()]);
+        // SAFETY: null is an empty list.
+        assert!(unsafe { super::group_members(std::ptr::null()) }.is_empty());
+    }
+
     #[cfg(unix)]
     #[test]
     fn personal_group_is_the_users_alone() {
