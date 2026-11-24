@@ -1044,8 +1044,13 @@ pub(crate) mod fd {
             Ok(fs::File::from(unsafe { <std::os::fd::OwnedFd as std::os::fd::FromRawFd>::from_raw_fd(fd) }))
         };
         let m = fs::symlink_metadata(from)?;
+        // SAFETY: getuid cannot fail.
+        let uid = unsafe { libc::getuid() };
+        // The copy is the user's: a file keeps no set-user or set-group bit another owner gave
+        // it; a folder of the user's keeps its sticky and set-group bits.
+        let bits = if m.is_dir() && m.uid() == uid { 0o3777 } else { 0o777 };
         let kept = |f: &fs::File| {
-            f.set_permissions(fs::Permissions::from_mode(m.mode() & 0o7777))?;
+            f.set_permissions(fs::Permissions::from_mode(m.mode() & bits))?;
             let _ = m.modified().and_then(|t| f.set_modified(t));
             f.sync_all()
         };
@@ -1064,6 +1069,12 @@ pub(crate) mod fd {
                 unsafe { libc::unlinkat(d, n.as_ptr(), 0) };
             })
         } else if t.is_dir() {
+            // Read by path, as no one else may swap what is in a folder of the user's that only
+            // they can change; one of another's (which the removal after could not empty either)
+            // or that others may change: not copied, the item stays in the bin.
+            if m.uid() != uid || !crate::fs::only_ours(m.uid(), m.gid(), m.mode(), uid) {
+                return Err(io::Error::new(io::ErrorKind::PermissionDenied, crate::t!("bin.copy_refused", "folder" => from.display())));
+            }
             // SAFETY: a held folder and a valid C string; fails when anything is at the name.
             ok(unsafe { libc::mkdirat(d, n.as_ptr(), 0o700) })?;
             let flags = libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC;
@@ -1081,6 +1092,9 @@ pub(crate) mod fd {
                     kept(&dst)
                 });
                 if r.is_err() {
+                    // Open again for the removal, should `kept` have closed it.
+                    // SAFETY: a descriptor held here.
+                    unsafe { libc::fchmod(at, 0o700) };
                     for (p, name) in made.iter().rev() {
                         unmake(p, at, name);
                     }
@@ -2474,7 +2488,8 @@ mod tests {
         let bins = [b.clone()];
         let file = trashed(&b, "f.txt", "docs/f.txt");
         fs::write(&file, "file").unwrap();
-        fs::set_permissions(&file, fs::Permissions::from_mode(0o640)).unwrap();
+        // A set-user bit stays behind: the copy is a new file of the user's.
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o4750)).unwrap();
         let link = trashed(&b, "l", "docs/l");
         std::os::unix::fs::symlink("../elsewhere", &link).unwrap();
         let dir = trashed(&b, "dir", "docs/dir");
@@ -2487,27 +2502,40 @@ mod tests {
         assert_eq!((r.done, &r.failed), (3, &Vec::<String>::new()));
         let docs = top.join("docs");
         assert_eq!(fs::read_to_string(docs.join("f.txt")).unwrap(), "file");
-        assert_eq!(fs::metadata(docs.join("f.txt")).unwrap().permissions().mode() & 0o777, 0o640);
+        assert_eq!(fs::metadata(docs.join("f.txt")).unwrap().permissions().mode() & 0o7777, 0o750);
         assert_eq!(fs::read_link(docs.join("l")).unwrap(), Path::new("../elsewhere"));
         assert_eq!(fs::read_to_string(docs.join("dir/sub/ro/x.txt")).unwrap(), "x");
         assert_eq!(fs::read_link(docs.join("dir/sub/ro/y")).unwrap(), Path::new("x.txt"));
         assert_eq!(fs::metadata(docs.join("dir/sub/ro")).unwrap().permissions().mode() & 0o777, 0o555);
         assert!(list_in(&bins).is_empty() && !file.exists() && fs::symlink_metadata(&link).is_err() && !dir.exists());
         // A pipe inside cannot be copied: nothing at the place, the item still listed whole.
+        // Made first, and five read-only folders after it, so that in any order of the listing
+        // (a tmpfs lists the newest first) some are copied whole before the pipe fails.
         let dir = trashed(&b, "dir", "docs/again");
-        fs::create_dir_all(dir.join("a/ro")).unwrap();
-        fs::write(dir.join("a/ro/x.txt"), "x").unwrap();
-        fs::set_permissions(dir.join("a/ro"), fs::Permissions::from_mode(0o555)).unwrap();
-        let fifo = std::ffi::CString::new(dir.join("z-pipe").as_os_str().as_encoded_bytes()).unwrap();
+        fs::create_dir(&dir).unwrap();
+        let fifo = std::ffi::CString::new(dir.join("pipe").as_os_str().as_encoded_bytes()).unwrap();
         // SAFETY: a valid C string.
         assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+        let ro: Vec<_> = (0..5).map(|i| dir.join(format!("a{i}/ro"))).collect();
+        for p in &ro {
+            fs::create_dir_all(p).unwrap();
+            fs::write(p.join("x.txt"), "x").unwrap();
+            fs::set_permissions(p, fs::Permissions::from_mode(0o555)).unwrap();
+        }
         let r = restore_in(&bins, std::slice::from_ref(&dir), false);
-        EXDEV.set(false);
         assert_eq!((r.done, r.failed.len()), (0, 1), "{:?}", r.failed);
         assert!(fs::symlink_metadata(docs.join("again")).is_err(), "nothing left at the place");
         assert_eq!(list_in(&bins).len(), 1);
-        assert_eq!(fs::read_to_string(dir.join("a/ro/x.txt")).unwrap(), "x");
-        for p in [dir.join("a/ro"), docs.join("dir/sub/ro")] {
+        assert_eq!(fs::read_to_string(ro[4].join("x.txt")).unwrap(), "x");
+        // A folder in it that others may change: refused by name, nothing made, the item stays.
+        fs::remove_file(dir.join("pipe")).unwrap();
+        fs::set_permissions(dir.join("a0"), fs::Permissions::from_mode(0o777)).unwrap();
+        let r = restore_in(&bins, std::slice::from_ref(&dir), false);
+        EXDEV.set(false);
+        let text = crate::t!("bin.copy_refused", "folder" => dir.join("a0").display());
+        assert_eq!(r.failed, [format!("again: {text}")]);
+        assert!(fs::symlink_metadata(docs.join("again")).is_err() && list_in(&bins).len() == 1);
+        for p in ro.iter().chain([&docs.join("dir/sub/ro")]) {
             fs::set_permissions(p, fs::Permissions::from_mode(0o755)).unwrap();
         }
     }

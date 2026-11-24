@@ -4580,6 +4580,7 @@
  "bin.bad_origin": "它被删除前所在的位置在其磁盘之外：未还原",
  "bin.open_folder": "路径上的文件夹 {folder} 可被其他用户更改：未还原",
  "bin.not_a_folder": "路径上的 {folder} 是文件，不是文件夹：未还原",
+ "bin.copy_refused": "磁盘无法将其移回原处，且其中的文件夹 {folder} 可被其他用户更改：未还原",
  "bin.no_restore": "macOS 不让应用从回收站放回文件：请把它们复制出来，或在访达中使用“放回原处”",
  "bin.not_here": "这只能在回收站中使用",
  "bin.read_only": "在回收站中不会移动、重命名或新建任何内容：请还原它，或把它复制出来",

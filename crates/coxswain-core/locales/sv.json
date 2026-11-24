@@ -4667,6 +4667,7 @@
  "bin.bad_origin": "Platsen den togs bort från ligger utanför dess disk: inte återställd",
  "bin.open_folder": "Andra användare kan ändra mappen {folder} på vägen: inte återställd",
  "bin.not_a_folder": "{folder} på vägen är en fil, inte en mapp: inte återställd",
+ "bin.copy_refused": "Disken ville inte flytta den på plats, och andra användare kan ändra mappen {folder} i den: inte återställd",
  "bin.no_restore": "macOS låter inte appar lägga tillbaka filer från papperskorgen: kopiera ut dem, eller använd Lägg tillbaka i Finder",
  "bin.not_here": "Det fungerar bara i papperskorgen",
  "bin.read_only": "Inget flyttas, byter namn eller skapas i papperskorgen: återställ det, eller kopiera ut det",

@@ -4765,6 +4765,7 @@
  "bin.bad_origin": "Il posto da cui è stato eliminato si trova fuori dal suo disco: non ripristinato",
  "bin.open_folder": "Altri utenti possono modificare la cartella {folder} lungo il percorso: non ripristinato",
  "bin.not_a_folder": "{folder} lungo il percorso è un file, non una cartella: non ripristinato",
+ "bin.copy_refused": "Il disco non ha voluto spostarlo al suo posto, e altri utenti possono modificare la cartella {folder} al suo interno: non ripristinato",
  "bin.no_restore": "macOS non permette alle app di rimettere i file dal cestino: copiali fuori o usa Ripristina nel Finder",
  "bin.not_here": "Funziona solo nel cestino",
  "bin.read_only": "Nel cestino non si sposta, rinomina o crea nulla: ripristinalo o copialo fuori",

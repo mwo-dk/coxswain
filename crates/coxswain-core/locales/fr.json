@@ -4765,6 +4765,7 @@
  "bin.bad_origin": "L’endroit d’où il a été supprimé se trouve hors de son disque : non restauré",
  "bin.open_folder": "D’autres utilisateurs peuvent modifier le dossier {folder} sur le chemin : non restauré",
  "bin.not_a_folder": "{folder}, sur le chemin, est un fichier et non un dossier : non restauré",
+ "bin.copy_refused": "Le disque n’a pas voulu le déplacer à sa place, et d’autres utilisateurs peuvent modifier le dossier {folder} qu’il contient : non restauré",
  "bin.no_restore": "macOS ne permet pas aux apps de remettre des fichiers depuis la corbeille : copiez-les ailleurs, ou utilisez Remettre en place dans le Finder",
  "bin.not_here": "Ceci ne fonctionne que dans la corbeille",
  "bin.read_only": "Rien n’est déplacé, renommé ni créé dans la corbeille : restaurez-le ou copiez-le ailleurs",

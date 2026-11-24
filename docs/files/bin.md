@@ -106,7 +106,10 @@ Folders it makes are writable by you alone. When the disk refuses to move the it
 although it is the same disk (overlayfs, a bind mount, project quotas), the restore copies it
 there instead (a folder with all in it, links as links), and takes it out of the bin only once
 the copy is whole and written to the disk; a copy that fails leaves nothing at the place and the
-item in the bin.
+item in the bin. The copy is yours, without the set-user or set-group bit of a file. A folder
+inside the item that is someone else's, or that others may change, is not copied: the dialog says
+*The disk would not move it into place, and other users can change the folder … in it: not put
+back*; copy it out with **F5**.
 
 ## Settings and config.toml
 

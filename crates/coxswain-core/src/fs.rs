@@ -1725,8 +1725,9 @@ thread_local! {
 }
 
 /// The user's primary group when it is a group of their own (the user-private-group habit of
-/// most Linux systems and FreeBSD's `adduser`): named as the user, with no other member listed.
-/// A folder that group may write (`775`) is then no one else's to change.
+/// most Linux systems and FreeBSD's `adduser`): named as the user, with no other member, listed
+/// or by its primary group. A folder that group may write (`775`) is then no one else's to
+/// change. Looked up once; any lookup that fails says no.
 #[cfg(unix)]
 fn personal_gid() -> Option<u32> {
     #[cfg(test)]
@@ -1758,18 +1759,55 @@ fn personal_gid() -> Option<u32> {
             Some(unsafe { CStr::from_ptr(p.pw_name) }.to_bytes().to_vec())
         })?;
         // SAFETY: as above.
-        look(|g, b, n, o| unsafe { libc::getgrgid_r(gid, g, b, n, o) }, |g: &libc::group| {
-            // SAFETY: the lookup filled gr_name and gr_mem (null-ended) with C strings.
-            let named = unsafe { CStr::from_ptr(g.gr_name) }.to_bytes() == login.as_slice();
-            let mut alone = true;
+        let (name, members) = look(|g, b, n, o| unsafe { libc::getgrgid_r(gid, g, b, n, o) }, |g: &libc::group| {
+            let mut members = vec![];
             let mut m = g.gr_mem;
-            while !m.is_null() && unsafe { !(*m).is_null() } {
-                alone &= unsafe { CStr::from_ptr(*m) }.to_bytes() == login.as_slice();
-                m = unsafe { m.add(1) };
+            // SAFETY: the lookup filled gr_name and gr_mem (null-ended) with C strings.
+            unsafe {
+                while !m.is_null() && !(*m).is_null() {
+                    members.push(CStr::from_ptr(*m).to_bytes().to_vec());
+                    m = m.add(1);
+                }
+                Some((CStr::from_ptr(g.gr_name).to_bytes().to_vec(), members))
             }
-            (named && alone).then_some(gid)
-        })
+        })?;
+        personal(uid, gid, &login, &name, &members, &primary_groups()).then_some(gid)
     })
+}
+
+/// Every account's uid and primary group, from the password database (getpwent is not
+/// thread-safe: one walk at a time here).
+// shortcut: a directory (LDAP) that does not list its accounts is caught only by the user's own
+// missing from the walk; such a group then counts as shared.
+#[cfg(unix)]
+fn primary_groups() -> Vec<(u32, u32)> {
+    static WALK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _one = WALK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut all = vec![];
+    // SAFETY: setpwent, getpwent and endpwent under the lock; each record read before the next.
+    unsafe {
+        libc::setpwent();
+        loop {
+            let p = libc::getpwent();
+            if p.is_null() {
+                break;
+            }
+            all.push(((*p).pw_uid, (*p).pw_gid));
+        }
+        libc::endpwent();
+    }
+    all
+}
+
+/// Whether `gid`, named `name` with the listed `members`, is the user's own: named as the user
+/// (`login`, `uid`), no one else listed in it, and no other account's primary group (`accounts`:
+/// every uid and its primary group, the user's own among them, else the list is not whole).
+#[cfg(unix)]
+fn personal(uid: u32, gid: u32, login: &[u8], name: &[u8], members: &[Vec<u8>], accounts: &[(u32, u32)]) -> bool {
+    name == login
+        && members.iter().all(|m| m == login)
+        && accounts.iter().any(|&(u, _)| u == uid)
+        && accounts.iter().all(|&(u, g)| u == uid || g != gid)
 }
 
 /// Whether a shared `.Trash` owned by `owner` may hold the user's bin on a top owned by `top`:
@@ -2541,6 +2579,22 @@ const KINDS: &[io::ErrorKind] = &[
 
 #[cfg(test)]
 mod tests {
+    /// A group named as the user, with no one listed in it, is still shared when another
+    /// account has it as its primary group; a password database without the user is not whole.
+    #[cfg(unix)]
+    #[test]
+    fn personal_group_is_the_users_alone() {
+        let me = b"ann".to_vec();
+        assert!(super::personal(1000, 1000, &me, b"ann", &[], &[(0, 0), (1000, 1000), (1001, 1001)]));
+        assert!(super::personal(1000, 1000, &me, b"ann", std::slice::from_ref(&me), &[(1000, 1000)]));
+        assert!(!super::personal(1000, 1000, &me, b"ann", &[], &[(1000, 1000), (1001, 1000)]), "another's primary group");
+        assert!(!super::personal(1000, 1000, &me, b"ann", &[b"bob".to_vec()], &[(1000, 1000)]), "another listed");
+        assert!(!super::personal(1000, 100, &me, b"users", &[], &[(1000, 100)]), "not named as the user");
+        assert!(!super::personal(1000, 1000, &me, b"ann", &[], &[(1001, 1001)]), "the walk missed the user");
+        // The system's own answer, whatever it is, comes without failing.
+        let _ = super::personal_gid();
+    }
+
     /// The bytes a listing holds for its entries' names and paths, past the entries themselves.
     fn held(v: &[super::Entry]) -> usize {
         v.iter().map(|e| e.name.capacity() + e.path.capacity()).sum()
