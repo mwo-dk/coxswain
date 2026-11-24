@@ -562,7 +562,16 @@ pub(crate) fn sweep() {
                 Err(_) => m.mtime() < crate::fs::now() as i64 - 600,
             };
             if free {
-                let _ = std::fs::remove_dir_all(e.path());
+                // OmniOS at times refuses the folder itself, just emptied, as not empty ("File
+                // exists"): tried again while its lock is still ours, or it stays lockless ten minutes.
+                use std::io::ErrorKind::{AlreadyExists, DirectoryNotEmpty};
+                for _ in 0..20 {
+                    let Err(err) = std::fs::remove_dir_all(e.path()) else { break };
+                    if !matches!(err.kind(), AlreadyExists | DirectoryNotEmpty) {
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
             }
         }
     }
