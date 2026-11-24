@@ -8550,8 +8550,9 @@ mod tests {
             (0..5000).for_each(|i| f(&line(i)));
             Some(true)
         };
-        let Streamed::Done(n) = embed_streamed(&store, &engine, id, path, &mut whole, &AtomicBool::new(false)).unwrap() else {
-            panic!("read to its end")
+        let n = match embed_streamed(&store, &engine, id, path, &mut whole, &AtomicBool::new(false)).unwrap() {
+            Streamed::Done(n) => n,
+            other => panic!("read to its end: {other:?}"),
         };
         assert!(n > 64, "{n}");
         assert_eq!((rows(id), rows(-id), embedded()), (n as i64, 0, Some(1)));
