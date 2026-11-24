@@ -1695,7 +1695,7 @@ pub(crate) fn trusted_disk_bin(top: &Path, bin: &Path, uid: u32, dev: u64, make:
     // The top a folder of its own (no link), of this user or root: another owner could move
     // the bin away even on a sticky top.
     let Ok(tm) = fs::symlink_metadata(top) else { return false };
-    if !tm.is_dir() || tm.dev() != dev || !(tm.uid() == uid || tm.uid() == 0) || (tm.mode() & 0o022 != 0 && tm.mode() & 0o1000 == 0) {
+    if !tm.is_dir() || tm.dev() != dev || !only_ours(tm.uid(), tm.gid(), tm.mode(), uid) {
         return false;
     }
     let shared = top.join(".Trash");
@@ -1706,6 +1706,117 @@ pub(crate) fn trusted_disk_bin(top: &Path, bin: &Path, uid: u32, dev: u64, make:
     } else {
         bin == top.join(format!(".Trash-{uid}")) && own_bin(bin, uid, dev, make)
     }
+}
+
+/// Whether a folder of owner `owner`, group `gid` and mode `mode` on the way to a disk's bin, or
+/// from one to a place a restore puts back, can be changed by no one but `uid` and root: it is
+/// theirs, others may write it only with the sticky bit (which keeps them from moving what is
+/// `uid`'s), and its group only when that group is the user's own ([`personal_gid`]).
+#[cfg(unix)]
+pub(crate) fn only_ours(owner: u32, gid: u32, mode: u32, uid: u32) -> bool {
+    (owner == uid || owner == 0)
+        && (mode & 0o1000 != 0 || (mode & 0o002 == 0 && (mode & 0o020 == 0 || personal_gid() == Some(gid))))
+}
+
+#[cfg(all(unix, test))]
+thread_local! {
+    /// A test's answer for `personal_gid`: `Some(answer)`, else the system's.
+    pub(crate) static PERSONAL_GID: std::cell::Cell<Option<Option<u32>>> = const { std::cell::Cell::new(None) };
+}
+
+/// The user's primary group when it is a group of their own (the user-private-group habit of
+/// most Linux systems and FreeBSD's `adduser`): named as the user, with no other member, listed
+/// or by its primary group. A folder that group may write (`775`) is then no one else's to
+/// change. Looked up once, and only for a folder its group may write (the walk of every account
+/// may take a moment on a network directory); any lookup that fails says no. Android: no (each
+/// app's own group, and no account walk before API 26).
+#[cfg(unix)]
+fn personal_gid() -> Option<u32> {
+    #[cfg(test)]
+    if let Some(g) = PERSONAL_GID.get() {
+        return g;
+    }
+    if cfg!(target_os = "android") {
+        return None;
+    }
+    static GID: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
+    *GID.get_or_init(|| {
+        use std::ffi::CStr;
+        // SAFETY: getuid and getgid cannot fail.
+        let (uid, gid) = unsafe { (libc::getuid(), libc::getgid()) };
+        // A lookup into a buffer grown while the system says it is too small.
+        fn look<T, R>(f: impl Fn(*mut T, *mut libc::c_char, usize, *mut *mut T) -> libc::c_int, then: impl Fn(&T) -> Option<R>) -> Option<R> {
+            let mut buf = vec![0 as libc::c_char; 4096];
+            loop {
+                // SAFETY: zeroed is a valid passwd or group, filled by the lookup.
+                let mut v: T = unsafe { std::mem::zeroed() };
+                let mut out = std::ptr::null_mut();
+                match f(&mut v, buf.as_mut_ptr(), buf.len(), &mut out) {
+                    0 if !out.is_null() => return then(&v),
+                    libc::ERANGE if buf.len() < 1 << 20 => buf.resize(buf.len() * 2, 0),
+                    _ => return None,
+                }
+            }
+        }
+        // SAFETY: the buffers and the record are valid for the lengths given.
+        let login = look(|p, b, n, o| unsafe { libc::getpwuid_r(uid, p, b, n, o) }, |p: &libc::passwd| {
+            // SAFETY: the lookup filled pw_name with a C string in the buffer.
+            Some(unsafe { CStr::from_ptr(p.pw_name) }.to_bytes().to_vec())
+        })?;
+        // SAFETY: as above.
+        let (name, members) = look(|g, b, n, o| unsafe { libc::getgrgid_r(gid, g, b, n, o) }, |g: &libc::group| {
+            let mut members = vec![];
+            let mut m = g.gr_mem;
+            // SAFETY: the lookup filled gr_name and gr_mem (null-ended) with C strings.
+            unsafe {
+                while !m.is_null() && !(*m).is_null() {
+                    members.push(CStr::from_ptr(*m).to_bytes().to_vec());
+                    m = m.add(1);
+                }
+                Some((CStr::from_ptr(g.gr_name).to_bytes().to_vec(), members))
+            }
+        })?;
+        #[cfg(target_os = "android")]
+        let accounts = vec![];
+        #[cfg(not(target_os = "android"))]
+        let accounts = primary_groups();
+        personal(uid, gid, &login, &name, &members, &accounts).then_some(gid)
+    })
+}
+
+/// Every account's uid and primary group, from the password database (getpwent is not
+/// thread-safe: one walk at a time here).
+// shortcut: a directory (LDAP) that does not list its accounts is caught only by the user's own
+// missing from the walk; such a group then counts as shared.
+#[cfg(all(unix, not(target_os = "android")))]
+fn primary_groups() -> Vec<(u32, u32)> {
+    static WALK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _one = WALK.lock().unwrap_or_else(|e| e.into_inner());
+    let mut all = vec![];
+    // SAFETY: setpwent, getpwent and endpwent under the lock; each record read before the next.
+    unsafe {
+        libc::setpwent();
+        loop {
+            let p = libc::getpwent();
+            if p.is_null() {
+                break;
+            }
+            all.push(((*p).pw_uid, (*p).pw_gid));
+        }
+        libc::endpwent();
+    }
+    all
+}
+
+/// Whether `gid`, named `name` with the listed `members`, is the user's own: named as the user
+/// (`login`, `uid`), no one else listed in it, and no other account's primary group (`accounts`:
+/// every uid and its primary group, the user's own among them, else the list is not whole).
+#[cfg(unix)]
+fn personal(uid: u32, gid: u32, login: &[u8], name: &[u8], members: &[Vec<u8>], accounts: &[(u32, u32)]) -> bool {
+    name == login
+        && members.iter().all(|m| m == login)
+        && accounts.iter().any(|&(u, _)| u == uid)
+        && accounts.iter().all(|&(u, g)| u == uid || g != gid)
 }
 
 /// Whether a shared `.Trash` owned by `owner` may hold the user's bin on a top owned by `top`:
@@ -2477,6 +2588,22 @@ const KINDS: &[io::ErrorKind] = &[
 
 #[cfg(test)]
 mod tests {
+    /// A group named as the user, with no one listed in it, is still shared when another
+    /// account has it as its primary group; a password database without the user is not whole.
+    #[cfg(unix)]
+    #[test]
+    fn personal_group_is_the_users_alone() {
+        let me = b"ann".to_vec();
+        assert!(super::personal(1000, 1000, &me, b"ann", &[], &[(0, 0), (1000, 1000), (1001, 1001)]));
+        assert!(super::personal(1000, 1000, &me, b"ann", std::slice::from_ref(&me), &[(1000, 1000)]));
+        assert!(!super::personal(1000, 1000, &me, b"ann", &[], &[(1000, 1000), (1001, 1000)]), "another's primary group");
+        assert!(!super::personal(1000, 1000, &me, b"ann", &[b"bob".to_vec()], &[(1000, 1000)]), "another listed");
+        assert!(!super::personal(1000, 100, &me, b"users", &[], &[(1000, 100)]), "not named as the user");
+        assert!(!super::personal(1000, 1000, &me, b"ann", &[], &[(1001, 1001)]), "the walk missed the user");
+        // The system's own answer, whatever it is, comes without failing.
+        let _ = super::personal_gid();
+    }
+
     /// The bytes a listing holds for its entries' names and paths, past the entries themselves.
     fn held(v: &[super::Entry]) -> usize {
         v.iter().map(|e| e.name.capacity() + e.path.capacity()).sum()

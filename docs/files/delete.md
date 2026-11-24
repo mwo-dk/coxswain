@@ -106,7 +106,8 @@ rename into the bin is refused too.
 On FreeBSD, the other BSDs and Linux, **F8** uses a disk's own bin only when no other user of
 the machine could lead your files somewhere else through it. The disk's top folder must be
 yours or the system's, and others may write in it only when it has the sticky bit (as `/tmp`
-has). A shared `.Trash` there must have the sticky bit and belong to the system or the top's
+has); its group may write it only when that group is your own (your primary group, named as you
+are, with no other member). A shared `.Trash` there must have the sticky bit and belong to the system or the top's
 owner. Your `.Trash-1000` (or `.Trash/1000`) and its `files` and `info` must be real folders of
 yours that no one else may write. When any of that is not so, the files go to the bin in your
 home folder, moved file by file as above. Coxswain makes a disk's bin readable by you alone,

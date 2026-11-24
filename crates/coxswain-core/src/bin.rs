@@ -352,6 +352,9 @@ pub(crate) mod fd {
             const { std::cell::RefCell::new(None) };
         /// A test's disk without hard links (Termux, where Android refuses them; FAT).
         pub(crate) static NO_LINK: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+        /// A test's disk that says "other disks" to a link or rename in a held folder on its own
+        /// device (overlayfs, a bind mount, project quotas).
+        pub(crate) static EXDEV: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     }
 
     pub(crate) fn midway() {
@@ -736,12 +739,6 @@ pub(crate) mod fd {
         item(b, path.file_name()?).filter(|i| i.path == path).map(|i| (b, i))
     }
 
-    /// Whether an item of `b` may go back to `origin`, its info file's `Path=`: `place` would
-    /// take it, making nothing.
-    pub(crate) fn may_restore(b: &Bin, origin: &Path) -> bool {
-        place(b, origin, false).is_ok()
-    }
-
     /// Where an item of `b` goes back to: `origin`, its info file's `Path=`, with the folders on
     /// the way made when `make` (else a missing one is taken as to be made). The home bin's
     /// places are the user's own: a path. A disk's bin: only a name under that disk's top,
@@ -750,7 +747,8 @@ pub(crate) mod fd {
     /// and each missing one made inside the one held, so nothing is made or put where a link
     /// another user swapped in since leads. An info file is text whoever wrote the disk chose;
     /// one that names a place elsewhere is listed (and emptied) but never put back there:
-    /// `bin.bad_origin`.
+    /// `bin.bad_origin`. A folder on the way that someone else could change: `bin.open_folder`;
+    /// a plain file where a folder should be: `bin.not_a_folder`.
     pub(crate) fn place(b: &Bin, origin: &Path, make: bool) -> io::Result<Place> {
         let Some(top) = &b.top else {
             if make {
@@ -779,39 +777,54 @@ pub(crate) mod fd {
             // SAFETY: getuid cannot fail.
             let uid = unsafe { libc::getuid() };
             // Held open as it was looked at: a folder of the top's disk, never a link, that only
-            // the user or root can change (the top's rule): others may write it only with the
-            // sticky bit, which keeps them from swapping what is the user's.
-            let held = |fd: libc::c_int, dev: Option<u64>| -> io::Result<(std::os::fd::OwnedFd, u64)> {
+            // the user or root can change (the top's rule, `crate::fs::only_ours`). `at`, `part`:
+            // where it was opened, to tell a plain file there from a link; `folder`: its path,
+            // for the text.
+            let held = |fd: libc::c_int, dev: Option<u64>, at: libc::c_int, part: &std::ffi::CStr, folder: &Path| -> io::Result<(std::os::fd::OwnedFd, u64)> {
+                let not_folder = || io::Error::new(io::ErrorKind::InvalidInput, crate::t!("bin.not_a_folder", "folder" => folder.display()));
                 if fd < 0 {
                     let e = io::Error::last_os_error();
-                    // A link or no folder at the name (each system says so its own way): bad;
-                    // anything else (no permission, too many files open) said as it is.
+                    // A link or no folder at the name (each system says so its own way): bad,
+                    // or a plain file there said as such; anything else (no permission, too
+                    // many files open) said as it is.
                     #[cfg(target_os = "netbsd")]
                     let link = [libc::ELOOP, libc::ENOTDIR, libc::EMLINK, libc::EFTYPE];
                     #[cfg(not(target_os = "netbsd"))]
                     let link = [libc::ELOOP, libc::ENOTDIR, libc::EMLINK];
-                    return Err(if e.raw_os_error().is_some_and(|c| link.contains(&c)) { bad() } else { e });
+                    if !e.raw_os_error().is_some_and(|c| link.contains(&c)) {
+                        return Err(e);
+                    }
+                    // SAFETY: zeroed is a valid `stat`, filled by fstatat.
+                    let mut st: libc::stat = unsafe { std::mem::zeroed() };
+                    // SAFETY: a held folder (or the working folder) and a valid C string.
+                    let file = unsafe { libc::fstatat(at, part.as_ptr(), &mut st, libc::AT_SYMLINK_NOFOLLOW) } == 0
+                        && st.st_mode & libc::S_IFMT != libc::S_IFLNK;
+                    return Err(if file { not_folder() } else { bad() });
                 }
                 // SAFETY: a descriptor just opened, owned here alone.
                 let f = fs::File::from(unsafe { <std::os::fd::OwnedFd as std::os::fd::FromRawFd>::from_raw_fd(fd) });
                 let m = f.metadata()?;
-                if !m.is_dir()
-                    || dev.is_some_and(|d| d != m.dev())
-                    || !(m.uid() == uid || m.uid() == 0)
-                    || (m.mode() & 0o022 != 0 && m.mode() & 0o1000 == 0)
-                {
+                if !m.is_dir() {
+                    return Err(not_folder());
+                }
+                if dev.is_some_and(|d| d != m.dev()) {
                     return Err(bad());
+                }
+                if !crate::fs::only_ours(m.uid(), m.gid(), m.mode(), uid) {
+                    return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("bin.open_folder", "folder" => folder.display())));
                 }
                 Ok((f.into(), m.dev()))
             };
             let top_c = c(top.as_os_str())?;
             // SAFETY: a valid C string.
-            let (mut dir, dev) = held(unsafe { libc::open(top_c.as_ptr(), flags) }, None)?;
+            let (mut dir, dev) = held(unsafe { libc::open(top_c.as_ptr(), flags) }, None, libc::AT_FDCWD, &top_c, top)?;
+            let mut folder = top.clone();
             for part in rest.parent().into_iter().flat_map(Path::components) {
+                folder.push(part);
                 let part = c(part.as_os_str())?;
                 let at = std::os::fd::AsRawFd::as_raw_fd(&dir);
                 // SAFETY: a held folder and a valid C string.
-                let open = || held(unsafe { libc::openat(at, part.as_ptr(), flags) }, Some(dev));
+                let open = || held(unsafe { libc::openat(at, part.as_ptr(), flags) }, Some(dev), at, &part, &folder);
                 dir = match open() {
                     Ok((d, _)) => d,
                     Err(e) if e.kind() == io::ErrorKind::NotFound && !make => {
@@ -955,6 +968,56 @@ pub(crate) mod fd {
             Ok(fs::OpenOptions::new().write(true).create_new(true).open(&self.path)?.metadata().ok().map(|m| id_of(&m)))
         }
 
+        /// `from`, an item of the user's own bin, copied to the name in the held folder, for when
+        /// a link or rename there says "other disks" on one device (overlayfs, a bind mount,
+        /// project quotas; #1104): made anew there, never through a link, whole and synced
+        /// before the item leaves the bin; one that fails leaves nothing made. `was` and the
+        /// answer as in `move_to`. The bin's `files` no one else may enter, so its side is read
+        /// by path.
+        // shortcut: the item is looked at before and after the copy, not read by one handle; a
+        // file another program puts under its name in that instant is copied instead and both
+        // stay (the #726 instant).
+        #[cfg(unix)]
+        fn copy(&self, from: &Path, was: Option<Id>) -> io::Result<bool> {
+            let inode = |i: Option<Id>| i.map(|i| (i.0, i.1));
+            let Some((d, n)) = self.at() else { return Err(io::ErrorKind::CrossesDevices.into()) };
+            if inode(id(from)) != inode(was) {
+                return Err(io::Error::new(io::ErrorKind::NotFound, crate::t!("err.not_in_trash")));
+            }
+            // SAFETY: `n` is the held name's C string, alive with `self`.
+            let n = unsafe { std::ffi::CStr::from_ptr(n) };
+            copy_at(from, d, n)?;
+            // The new name itself written through to the disk (a folder read-only to us cannot
+            // be opened for that: its copy is synced all the same).
+            // SAFETY: a held folder and a valid C string.
+            let dot = unsafe { libc::openat(d, c".".as_ptr(), libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC) };
+            if dot >= 0 {
+                // SAFETY: a descriptor just opened, owned here alone.
+                let _ = fs::File::from(unsafe { <std::os::fd::OwnedFd as std::os::fd::FromRawFd>::from_raw_fd(dot) }).sync_all();
+            }
+            midway();
+            if inode(id(from)) != inode(was) {
+                return Ok(false);
+            }
+            // A folder in it read-only to the user (a module cache's) would keep what is in it:
+            // opened for the removal, now that the copy is whole.
+            fn writable(p: &Path) {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(m) = fs::symlink_metadata(p)
+                    && m.is_dir()
+                {
+                    if m.permissions().mode() & 0o700 != 0o700 {
+                        let _ = fs::set_permissions(p, fs::Permissions::from_mode(m.permissions().mode() | 0o700));
+                    }
+                    for e in fs::read_dir(p).into_iter().flatten().flatten() {
+                        writable(&e.path());
+                    }
+                }
+            }
+            writable(from);
+            remove(from).map(|_| true)
+        }
+
         /// Whether a step that fails here may be done again as a move across disks: never for a
         /// name in a held folder, which is on the bin's disk.
         fn by_path(&self) -> bool {
@@ -962,6 +1025,124 @@ pub(crate) mod fd {
             return self.at.is_none();
             #[cfg(not(unix))]
             true
+        }
+    }
+
+    /// `from` (in the user's own bin) copied as the new name `n` in the folder `d`: a file by
+    /// its bytes, a link as a link, a folder with all in it, each with its mode and date and
+    /// synced; a folder is the user's alone until whole. Fails leaving nothing made.
+    #[cfg(unix)]
+    fn copy_at(from: &Path, d: libc::c_int, n: &std::ffi::CStr) -> io::Result<()> {
+        use std::os::unix::ffi::OsStrExt;
+        use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+        let ok = |r: libc::c_int| if r == 0 { Ok(()) } else { Err(io::Error::last_os_error()) };
+        let opened = |fd: libc::c_int| -> io::Result<fs::File> {
+            if fd < 0 {
+                return Err(io::Error::last_os_error());
+            }
+            // SAFETY: a descriptor just opened, owned here alone.
+            Ok(fs::File::from(unsafe { <std::os::fd::OwnedFd as std::os::fd::FromRawFd>::from_raw_fd(fd) }))
+        };
+        let m = fs::symlink_metadata(from)?;
+        // SAFETY: getuid cannot fail.
+        let uid = unsafe { libc::getuid() };
+        // The copy is the user's: a file keeps no set-user or set-group bit another owner gave
+        // it; a folder of the user's keeps its sticky and set-group bits.
+        let bits = if m.is_dir() && m.uid() == uid { 0o3777 } else { 0o777 };
+        let kept = |f: &fs::File| {
+            f.set_permissions(fs::Permissions::from_mode(m.mode() & bits))?;
+            let _ = m.modified().and_then(|t| f.set_modified(t));
+            f.sync_all()
+        };
+        let t = m.file_type();
+        if t.is_symlink() {
+            let to = Place::from_c(&fs::read_link(from)?)?;
+            // SAFETY: valid C strings and a held folder; fails when anything is at the name.
+            ok(unsafe { libc::symlinkat(to.as_ptr(), d, n.as_ptr()) })
+        } else if t.is_file() {
+            // Never waiting on a pipe swapped in since the look: the handle must be a plain file.
+            let mut src = fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK).open(from)?;
+            if !src.metadata()?.is_file() {
+                return Err(io::ErrorKind::Unsupported.into());
+            }
+            let flags = libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC;
+            // SAFETY: a held folder and a valid C string.
+            let mut dst = opened(unsafe { libc::openat(d, n.as_ptr(), flags, 0o600 as libc::c_uint) })?;
+            io::copy(&mut src, &mut dst).and_then(|_| kept(&dst)).inspect_err(|_| {
+                // SAFETY: a held folder and a valid C string: the file made just now.
+                unsafe { libc::unlinkat(d, n.as_ptr(), 0) };
+            })
+        } else if t.is_dir() {
+            // Read by path, as no one else may swap what is in a folder of the user's that only
+            // they can change; one of another's (which the removal after could not empty either)
+            // or that others may change: not copied, the item stays in the bin.
+            if m.uid() != uid || !crate::fs::only_ours(m.uid(), m.gid(), m.mode(), uid) {
+                return Err(io::Error::new(io::ErrorKind::PermissionDenied, crate::t!("bin.copy_refused", "folder" => from.display())));
+            }
+            // SAFETY: a held folder and a valid C string; fails when anything is at the name.
+            ok(unsafe { libc::mkdirat(d, n.as_ptr(), 0o700) })?;
+            let flags = libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC;
+            let mut made = vec![];
+            // SAFETY: a held folder and a valid C string.
+            let r = opened(unsafe { libc::openat(d, n.as_ptr(), flags) }).and_then(|dst| {
+                let at = std::os::fd::AsRawFd::as_raw_fd(&dst);
+                let r = fs::read_dir(from).and_then(|entries| {
+                    for e in entries {
+                        let e = e?;
+                        let name = std::ffi::CString::new(e.file_name().as_bytes()).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+                        copy_at(&e.path(), at, &name)?;
+                        made.push((e.path(), name));
+                    }
+                    kept(&dst)
+                });
+                if r.is_err() {
+                    // Open again for the removal, should `kept` have closed it.
+                    // SAFETY: a descriptor held here.
+                    unsafe { libc::fchmod(at, 0o700) };
+                    for (p, name) in made.iter().rev() {
+                        unmake(p, at, name);
+                    }
+                }
+                r
+            });
+            if r.is_err() {
+                // SAFETY: a held folder and a valid C string: the folder made just now.
+                unsafe { libc::unlinkat(d, n.as_ptr(), libc::AT_REMOVEDIR) };
+            }
+            r
+        } else {
+            // A pipe, a socket or a device: nothing to copy.
+            Err(io::ErrorKind::Unsupported.into())
+        }
+    }
+
+    /// A whole copy `copy_at` made of `from` as `n` in `d` taken away again, by what `from`
+    /// holds: inside a folder only the user may enter until the copy is whole.
+    #[cfg(unix)]
+    fn unmake(from: &Path, d: libc::c_int, n: &std::ffi::CStr) {
+        use std::os::unix::ffi::OsStrExt;
+        if fs::symlink_metadata(from).is_ok_and(|m| m.is_dir()) {
+            let flags = libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC;
+            // SAFETY: a held folder and a valid C string.
+            let fd = unsafe { libc::openat(d, n.as_ptr(), flags) };
+            if fd >= 0 {
+                // SAFETY: a descriptor just opened, owned here alone.
+                let dir = unsafe { <std::os::fd::OwnedFd as std::os::fd::FromRawFd>::from_raw_fd(fd) };
+                let at = std::os::fd::AsRawFd::as_raw_fd(&dir);
+                // A copy of a folder read-only to its owner: opened again for the removal.
+                // SAFETY: a descriptor held here.
+                unsafe { libc::fchmod(at, 0o700) };
+                for e in fs::read_dir(from).into_iter().flatten().flatten() {
+                    if let Ok(name) = std::ffi::CString::new(e.file_name().as_bytes()) {
+                        unmake(&e.path(), at, &name);
+                    }
+                }
+            }
+            // SAFETY: a held folder and a valid C string.
+            unsafe { libc::unlinkat(d, n.as_ptr(), libc::AT_REMOVEDIR) };
+        } else {
+            // SAFETY: a held folder and a valid C string.
+            unsafe { libc::unlinkat(d, n.as_ptr(), 0) };
         }
     }
 
@@ -1009,8 +1190,9 @@ pub(crate) mod fd {
                 done.failed.push(failed(p, crate::t!("err.not_in_trash")));
                 continue;
             };
-            if !may_restore(b, &item.origin) {
-                done.failed.push(failed(p, crate::t!("bin.bad_origin")));
+            // Its place looked at, making nothing yet.
+            if let Err(e) = place(b, &item.origin, false) {
+                done.failed.push(failed(p, e));
                 continue;
             }
             let was = ids(&item.path);
@@ -1082,7 +1264,7 @@ pub(crate) mod fd {
         };
         #[cfg(test)]
         let simulated = || {
-            if crate::fs::ACROSS.get() && to.by_path() {
+            if (crate::fs::ACROSS.get() && to.by_path()) || (EXDEV.get() && !to.by_path()) {
                 Err(io::Error::from(io::ErrorKind::CrossesDevices))
             } else {
                 Ok(())
@@ -1178,6 +1360,8 @@ pub(crate) mod fd {
             Err(e) if e.kind() != io::ErrorKind::AlreadyExists && to.by_path() && across(&e) => {
                 crate::fs::rename(from, &to.path).map(|_| true)
             }
+            #[cfg(unix)]
+            Err(e) if e.kind() == io::ErrorKind::CrossesDevices && !to.by_path() => to.copy(from, was),
             r => r,
         }
     }
@@ -2166,9 +2350,9 @@ mod tests {
         fs::create_dir_all(top.join("open/in")).unwrap();
         fs::set_permissions(top.join("open/in"), fs::Permissions::from_mode(0o755)).unwrap();
         fs::set_permissions(top.join("open"), fs::Permissions::from_mode(0o777)).unwrap();
-        assert!(!may_restore(&bins[0], &top.join("open/in/x.txt")));
+        assert!(!place(&bins[0], &top.join("open/in/x.txt"), false).is_ok());
         fs::set_permissions(top.join("open"), fs::Permissions::from_mode(0o1777)).unwrap();
-        assert!(may_restore(&bins[0], &top.join("open/in/x.txt")));
+        assert!(place(&bins[0], &top.join("open/in/x.txt"), false).is_ok());
         fs::remove_dir_all(top.join("open")).unwrap();
         // A link planted where a folder on the way was missing, after the look: nothing is
         // made or put inside where it leads.
@@ -2203,7 +2387,7 @@ mod tests {
         assert_eq!(beside, ["outside", "top"], "nothing put beside the top");
         // The home bin's places are the user's own, whole paths anywhere.
         let home = Bin { dir: d.join("Trash"), top: None };
-        assert!(may_restore(&home, Path::new("/srv/a.txt")));
+        assert!(place(&home, Path::new("/srv/a.txt"), false).is_ok());
         assert_eq!(empty_in(&bins).done, 5, "Empty takes them");
         // Into a held folder: without hard links (claimed, then renamed), and a folder.
         fs::write(b.join("files/nolink.txt"), "n").unwrap();
@@ -2216,6 +2400,148 @@ mod tests {
         assert_eq!((r.done, r.failed), (2, Vec::<String>::new()));
         assert_eq!(fs::read_to_string(top.join("new/deep/nolink.txt")).unwrap(), "n");
         assert!(top.join("new/dir/sub").is_dir() && list_in(&bins).is_empty());
+    }
+
+    /// A disk with a bin of the user's, for the tests below: its top, its bin.
+    #[cfg(unix)]
+    fn disk(d: &Path, top_mode: u32) -> (PathBuf, Bin) {
+        use std::os::unix::fs::PermissionsExt;
+        // SAFETY: getuid cannot fail.
+        let uid = unsafe { libc::getuid() };
+        let top = d.join("top");
+        let b = top.join(format!(".Trash-{uid}"));
+        fs::create_dir_all(b.join("files")).unwrap();
+        fs::create_dir_all(b.join("info")).unwrap();
+        for p in [&b, &b.join("files"), &b.join("info")] {
+            fs::set_permissions(p, fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        fs::set_permissions(&top, fs::Permissions::from_mode(top_mode)).unwrap();
+        (top, Bin::at(b))
+    }
+
+    #[cfg(unix)]
+    fn trashed(b: &Bin, name: &str, path: &str) -> PathBuf {
+        fs::write(b.dir.join("info").join(format!("{name}.trashinfo")), format!("[Trash Info]\nPath={path}\n")).unwrap();
+        b.dir.join("files").join(name)
+    }
+
+    /// A folder its group may write (`775`) is on the way only when that group is the user's
+    /// own (named as the user, their primary group, no other member): put, list and restore
+    /// agree. Any other group, or others writing it, is refused with its own text; a plain file
+    /// where a folder should be, too.
+    #[cfg(unix)]
+    #[test]
+    fn bin_restores_through_a_folder_of_the_users_own_group() {
+        use crate::fs::PERSONAL_GID;
+        use std::os::unix::fs::{MetadataExt, PermissionsExt};
+        let d = crate::fs::Scratch::named("bin-group");
+        // SAFETY: getuid cannot fail.
+        let uid = unsafe { libc::getuid() };
+        let (top, b) = disk(&d, 0o775);
+        let gid = fs::metadata(&top).unwrap().gid();
+        let dev = fs::metadata(&top).unwrap().dev();
+        fs::create_dir(top.join("team")).unwrap();
+        fs::set_permissions(top.join("team"), fs::Permissions::from_mode(0o775)).unwrap();
+        let item = trashed(&b, "a.txt", "team/a.txt");
+        fs::write(&item, "a").unwrap();
+        let bins = [b.clone()];
+        // Another group's (or one the user shares): the top's bin is not the user's alone, and
+        // the folder on the way is refused, by name.
+        PERSONAL_GID.set(Some(Some(gid.wrapping_add(1))));
+        assert!(!crate::fs::trusted_disk_bin(&top, &b.dir, uid, dev, false));
+        fs::set_permissions(&top, fs::Permissions::from_mode(0o755)).unwrap();
+        let r = restore_in(&bins, std::slice::from_ref(&item), false);
+        let text = crate::t!("bin.open_folder", "folder" => top.join("team").display());
+        assert_eq!(r.failed, [format!("a.txt: {text}")]);
+        assert!(item.exists());
+        // The user's own group: all through.
+        PERSONAL_GID.set(Some(Some(gid)));
+        fs::set_permissions(&top, fs::Permissions::from_mode(0o775)).unwrap();
+        assert!(crate::fs::trusted_disk_bin(&top, &b.dir, uid, dev, false));
+        assert_eq!(list_in(&bins).len(), 1);
+        let r = restore_in(&bins, std::slice::from_ref(&item), false);
+        assert_eq!((r.done, r.failed), (1, Vec::<String>::new()));
+        assert_eq!(fs::read_to_string(top.join("team/a.txt")).unwrap(), "a");
+        // Others writing it, without the sticky bit: refused all the same.
+        fs::set_permissions(top.join("team"), fs::Permissions::from_mode(0o777)).unwrap();
+        fs::write(&item, "a").unwrap();
+        let item = trashed(&b, "a.txt", "team/b.txt");
+        assert_eq!(restore_in(&bins, std::slice::from_ref(&item), false).failed, [format!("a.txt: {text}")]);
+        // The bin's own folders stay the user's alone.
+        fs::set_permissions(b.dir.join("files"), fs::Permissions::from_mode(0o770)).unwrap();
+        assert!(!crate::fs::trusted_disk_bin(&top, &b.dir, uid, dev, false));
+        fs::set_permissions(b.dir.join("files"), fs::Permissions::from_mode(0o700)).unwrap();
+        // A plain file where a folder should be.
+        fs::write(top.join("plain"), "").unwrap();
+        let item = trashed(&b, "a.txt", "plain/a.txt");
+        let text = crate::t!("bin.not_a_folder", "folder" => top.join("plain").display());
+        assert_eq!(restore_in(&bins, std::slice::from_ref(&item), false).failed, [format!("a.txt: {text}")]);
+        PERSONAL_GID.set(None);
+    }
+
+    /// A link or rename in a held folder that says "other disks" on one device (overlayfs, a
+    /// bind mount, project quotas): the item is copied there by handle, a file, a link and a
+    /// folder with all in it, and leaves the bin only when whole (#1104). One that cannot be
+    /// copied whole leaves nothing at its place and stays in the bin.
+    #[cfg(unix)]
+    #[test]
+    fn bin_restores_by_copy_when_a_disk_will_not_rename() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = crate::fs::Scratch::named("bin-exdev");
+        let (top, b) = disk(&d, 0o755);
+        let bins = [b.clone()];
+        let file = trashed(&b, "f.txt", "docs/f.txt");
+        fs::write(&file, "file").unwrap();
+        // A set-user bit stays behind: the copy is a new file of the user's.
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o4750)).unwrap();
+        let link = trashed(&b, "l", "docs/l");
+        std::os::unix::fs::symlink("../elsewhere", &link).unwrap();
+        let dir = trashed(&b, "dir", "docs/dir");
+        fs::create_dir_all(dir.join("sub/ro")).unwrap();
+        fs::write(dir.join("sub/ro/x.txt"), "x").unwrap();
+        std::os::unix::fs::symlink("x.txt", dir.join("sub/ro/y")).unwrap();
+        fs::set_permissions(dir.join("sub/ro"), fs::Permissions::from_mode(0o555)).unwrap();
+        EXDEV.set(true);
+        let r = restore_in(&bins, &[file.clone(), link.clone(), dir.clone()], false);
+        assert_eq!((r.done, &r.failed), (3, &Vec::<String>::new()));
+        let docs = top.join("docs");
+        assert_eq!(fs::read_to_string(docs.join("f.txt")).unwrap(), "file");
+        assert_eq!(fs::metadata(docs.join("f.txt")).unwrap().permissions().mode() & 0o7777, 0o750);
+        assert_eq!(fs::read_link(docs.join("l")).unwrap(), Path::new("../elsewhere"));
+        assert_eq!(fs::read_to_string(docs.join("dir/sub/ro/x.txt")).unwrap(), "x");
+        assert_eq!(fs::read_link(docs.join("dir/sub/ro/y")).unwrap(), Path::new("x.txt"));
+        assert_eq!(fs::metadata(docs.join("dir/sub/ro")).unwrap().permissions().mode() & 0o777, 0o555);
+        assert!(list_in(&bins).is_empty() && !file.exists() && fs::symlink_metadata(&link).is_err() && !dir.exists());
+        // A pipe inside cannot be copied: nothing at the place, the item still listed whole.
+        // Made first, and five read-only folders after it, so that in any order of the listing
+        // (a tmpfs lists the newest first) some are copied whole before the pipe fails.
+        let dir = trashed(&b, "dir", "docs/again");
+        fs::create_dir(&dir).unwrap();
+        let fifo = std::ffi::CString::new(dir.join("pipe").as_os_str().as_encoded_bytes()).unwrap();
+        // SAFETY: a valid C string.
+        assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+        let ro: Vec<_> = (0..5).map(|i| dir.join(format!("a{i}/ro"))).collect();
+        for p in &ro {
+            fs::create_dir_all(p).unwrap();
+            fs::write(p.join("x.txt"), "x").unwrap();
+            fs::set_permissions(p, fs::Permissions::from_mode(0o555)).unwrap();
+        }
+        let r = restore_in(&bins, std::slice::from_ref(&dir), false);
+        assert_eq!((r.done, r.failed.len()), (0, 1), "{:?}", r.failed);
+        assert!(fs::symlink_metadata(docs.join("again")).is_err(), "nothing left at the place");
+        assert_eq!(list_in(&bins).len(), 1);
+        assert_eq!(fs::read_to_string(ro[4].join("x.txt")).unwrap(), "x");
+        // A folder in it that others may change: refused by name, nothing made, the item stays.
+        fs::remove_file(dir.join("pipe")).unwrap();
+        fs::set_permissions(dir.join("a0"), fs::Permissions::from_mode(0o777)).unwrap();
+        let r = restore_in(&bins, std::slice::from_ref(&dir), false);
+        EXDEV.set(false);
+        let text = crate::t!("bin.copy_refused", "folder" => dir.join("a0").display());
+        assert_eq!(r.failed, [format!("again: {text}")]);
+        assert!(fs::symlink_metadata(docs.join("again")).is_err() && list_in(&bins).len() == 1);
+        for p in ro.iter().chain([&docs.join("dir/sub/ro")]) {
+            fs::set_permissions(p, fs::Permissions::from_mode(0o755)).unwrap();
+        }
     }
 
     /// An info file named `..`, `.` or nothing names `files` or the bin itself: never an item.
