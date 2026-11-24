@@ -1,0 +1,36 @@
+# TEMPORARY: runs one store test many times on Windows; removed before merge.
+name: tmp loop
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  loop:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          save-if: false
+      - name: Alone, 300 times
+        shell: bash
+        run: |
+          cargo test -p coxswain-core --lib --locked --no-run
+          fails=0
+          for i in $(seq 300); do
+            cargo test -q -p coxswain-core --lib --locked -- --exact store::tests::a_file_kept_whole_read_part_way_keeps_the_vectors_it_had > out.txt 2>&1 || { fails=$((fails+1)); grep -A3 "panicked" out.txt; }
+          done
+          echo "alone: $fails of 300 failed"
+      - name: With every store test, 15 times
+        shell: bash
+        run: |
+          fails=0
+          for i in $(seq 15); do
+            cargo test -q -p coxswain-core --lib --locked -- store:: > out.txt 2>&1 || { fails=$((fails+1)); grep -A3 "panicked" out.txt; }
+          done
+          echo "with the rest: $fails of 15 failed"
