@@ -63,7 +63,7 @@ sys-locale = "0.3.2"
 jiff = { version = "1", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-platform", "tzdb-concatenated"] }
 rusqlite = { version = "0.41.1", features = ["bundled", "hooks"] }
 quick-xml = "0.42.0"
-mail-parser = { version = "0.11.9", optional = true }
+mail-parser = { version = "1.0.1", optional = true }
 encoding_rs = "0.8.42"
 pdf-extract = { version = "0.12.1", optional = true }
 # The length of a song or a recording, for the hours Transcribe asks about (pure Rust).
