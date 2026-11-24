@@ -296,8 +296,6 @@
       m.wrote = true;
       asking = null;
       said = t("editor.saved", { name });
-      // Saved over a changed file while the app was closing: nothing is unsaved now.
-      if (force && m.quitAfter) close();
       return true;
     } catch (e) {
       if (String(e) === "changed") asking = "changed";
@@ -314,7 +312,6 @@
       area.value = doc.text;
       asking = null;
       said = t("editor.reloaded");
-      if (m.quitAfter) close();
     } catch (e) {
       said = String(e);
     }
@@ -327,14 +324,8 @@
     if (m.quitAfter) getCurrentWindow().close();
   }
 
-  // Cancel on the question: a quit the system asked for (the Dock, a logout) is called off too.
-  function cancelAsk() {
-    asking = null;
-    if (m.quitAfter) (m.quitAfter = false), invoke("quit_cancelled");
-  }
-
   function tryClose(quit = false) {
-    m.quitAfter ||= quit;
+    m.quitAfter = quit;
     if (dirty) asking = "close";
     else close();
   }
@@ -349,7 +340,7 @@
     const inBar = e?.target?.closest?.(".bar");
     if (k === "Esc") {
       if (gitBusy) invoke("git_lines_cancel"), (gitBusy = false), (said = t("blame.stopped"));
-      else if (asking) cancelAsk();
+      else if (asking) asking = null;
       else if (bar) (bar = null), area?.focus();
       else tryClose();
       return true;
@@ -421,14 +412,14 @@
       <span>{t("editor.ask_close_gui", { name })}</span>
       <button class="primary" onclick={saveAndClose}>{t("editor.save")}</button>
       <button class="danger" onclick={close}>{t("editor.discard")}</button>
-      <button onclick={() => cancelAsk()}>{t("common.cancel")}</button>
+      <button onclick={() => (asking = null)}>{t("common.cancel")}</button>
     </div>
   {:else if asking === "changed"}
     <div class="ask">
       <span>{t("editor.ask_changed_gui", { name })}</span>
       <button class="danger" onclick={() => save(true)}>{t("editor.save_over")}</button>
       <button onclick={reload}>{t("editor.read_again")}</button>
-      <button onclick={() => cancelAsk()}>{t("common.cancel")}</button>
+      <button onclick={() => (asking = null)}>{t("common.cancel")}</button>
     </div>
   {:else if bar}
     <div class="bar">
