@@ -815,16 +815,12 @@ mod tests {
         std::fs::write(&spoiled, b"II\x2a\x00\x08\x00\x00\x00\x00\x00").unwrap();
         coxswain_core::archive::create(&zip, &[tif, spoiled]).unwrap();
         let inner = zip.join("a.tif");
-        // The one file kept unpacked is shared with the other tests' threads: one of them may
-        // take its place between the two reads, so a few tries; a second unpacking every time fails.
-        let once = (0..3).any(|i| {
-            let before = coxswain_core::archive::heads();
-            let made = picture_in(&d.join(format!("cache-{i}")), &unused, &inner, 0, 2048).unwrap().unwrap();
-            assert!(made.file.is_file() && made.pages == 1);
-            exif_facts(&inner);
-            coxswain_core::archive::heads() - before == 1
-        });
-        assert!(once, "unpacked once for its picture and its facts");
+        // `heads` counts this thread's unpackings, and in tests its kept file is its own.
+        let before = coxswain_core::archive::heads();
+        let made = picture_in(&d.join("cache"), &unused, &inner, 0, 2048).unwrap().unwrap();
+        assert!(made.file.is_file() && made.pages == 1);
+        exif_facts(&inner);
+        assert_eq!(coxswain_core::archive::heads() - before, 1, "unpacked once for its picture and its facts");
         let e = picture_in(&d.join("cache"), &unused, &zip.join("spoiled.tif"), 0, 2048).err().unwrap();
         assert!(!e.starts_with(coxswain_core::pictures::NEEDS_COPY), "{e}");
         let js = format!("export const NEEDS_COPY = \"{}\";", coxswain_core::pictures::NEEDS_COPY);

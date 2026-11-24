@@ -33,7 +33,20 @@ type Stamp = (u64, Option<std::time::SystemTime>);
 /// The last file served from inside an archive, unpacked, with its archive as it was then: a
 /// player asks for its song or video a range at a time, and each would unpack it again. One
 /// file, at most `MAX_INSIDE`; the next one served from an archive takes its place.
-static INSIDE: std::sync::Mutex<Option<(PathBuf, Stamp, std::sync::Arc<Vec<u8>>)>> = std::sync::Mutex::new(None);
+fn kept() -> &'static Kept {
+    #[cfg(not(test))]
+    {
+        static INSIDE: Kept = Kept::new(None);
+        &INSIDE
+    }
+    // A test thread has a kept file of its own: another test's file never takes its place.
+    #[cfg(test)]
+    {
+        thread_local!(static INSIDE: &'static Kept = Box::leak(Box::new(Kept::new(None))));
+        INSIDE.with(|k| *k)
+    }
+}
+type Kept = std::sync::Mutex<Option<(PathBuf, Stamp, std::sync::Arc<Vec<u8>>)>>;
 
 /// The file inside an archive the preview showed last, from memory: what its facts are read
 /// from (`preview::file_facts`), from the same unpacking. `None` for a file on disk.
@@ -45,7 +58,7 @@ pub fn inside_file(path: &Path) -> Option<std::sync::Arc<Vec<u8>>> {
 /// The preview has left the files inside archives: the one kept unpacked goes.
 #[tauri::command]
 pub fn inside_forget() {
-    let mut kept = INSIDE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut kept = kept().lock().unwrap_or_else(|e| e.into_inner());
     FORGOTTEN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     *kept = None;
 }
@@ -60,10 +73,10 @@ static FORGOTTEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::n
 pub(crate) fn inside(path: &Path, archive: &Path, keep: bool, fresh: bool) -> std::io::Result<Option<std::sync::Arc<Vec<u8>>>> {
     let m = std::fs::metadata(archive)?;
     let stamp = (m.len(), m.modified().ok());
-    // `INSIDE` is held only to look at it or fill it, never while unpacking: the preview's own
+    // The kept file is locked only to look at it or fill it, never while unpacking: the preview's own
     // file does not wait behind a grid's tiles.
     let hit = || {
-        let kept = INSIDE.lock().unwrap_or_else(|e| e.into_inner());
+        let kept = kept().lock().unwrap_or_else(|e| e.into_inner());
         kept.as_ref().filter(|(p, s, _)| p == path && *s == stamp && !fresh).map(|(.., bytes)| bytes.clone())
     };
     if let Some(bytes) = hit() {
@@ -82,7 +95,7 @@ pub(crate) fn inside(path: &Path, archive: &Path, keep: bool, fresh: bool) -> st
     }
     let bytes = std::sync::Arc::new(bytes);
     if keep {
-        let mut kept = INSIDE.lock().unwrap_or_else(|e| e.into_inner());
+        let mut kept = kept().lock().unwrap_or_else(|e| e.into_inner());
         if FORGOTTEN.load(std::sync::atomic::Ordering::Relaxed) == forgotten {
             *kept = Some((path.to_path_buf(), stamp, bytes.clone()));
         }
@@ -412,7 +425,7 @@ mod tests {
         assert!(r.body().len() < png.len() / 10 && r.body().starts_with(b"\x89PNG"), "a much smaller PNG");
         assert_eq!(ask("note.txt", "thumb").status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
         assert_eq!(ask("wide.ppm", "inside&once").body().as_slice(), png.as_slice());
-        let kept = INSIDE.lock().unwrap().as_ref().is_some_and(|(p, ..)| p.starts_with(&zip));
+        let kept = kept().lock().unwrap().as_ref().is_some_and(|(p, ..)| p.starts_with(&zip));
         assert!(!kept, "neither is kept unpacked");
         std::fs::remove_dir_all(&dir).unwrap();
     }
