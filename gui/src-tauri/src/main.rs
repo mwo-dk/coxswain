@@ -1074,23 +1074,6 @@ fn read_changes(ctx: tauri::State<Ctx>) -> Res<()> {
     ctx.edit(coxswain_core::notices::read)
 }
 
-/// macOS: the page asks about unsaved text before the app closes (`mac_menu`): the window is
-/// shown, and a quit the system asked for (the Dock, a logout) waits for the answer.
-#[tauri::command]
-fn quit_asking(app: tauri::AppHandle) {
-    #[cfg(target_os = "macos")]
-    mac_menu::asking(&app);
-    #[cfg(not(target_os = "macos"))]
-    let _ = app;
-}
-
-/// macOS: the question was answered with Cancel, so a quit the system asked for is called off.
-#[tauri::command]
-fn quit_cancelled() {
-    #[cfg(target_os = "macos")]
-    mac_menu::cancelled();
-}
-
 /// The window's title. On Linux the title bar that GTK draws keeps the title it was made
 /// with, so it is told too.
 #[tauri::command]
@@ -3171,7 +3154,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(refuse_in_pick_mode(picking, tauri::generate_handler![
-            get_config, action_menu, hint, enter_on, hint_once, action_ran, hints_reset, notices, dismiss_notice, find_away, hit_place, changes, read_changes, set_title, quit_asking, quit_cancelled, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, terminals, git_config, places, disks, get_state, repos, repo_edit, save_session, save_favorites, set_tags, set_note, get_note, bin_summary, bin_question, bin_restore, bin_delete, bin_empty, bin_finder,
+            get_config, action_menu, hint, enter_on, hint_once, action_ran, hints_reset, notices, dismiss_notice, find_away, hit_place, changes, read_changes, set_title, index_status, index_action, index_service, meaning_status, meaning_action, chat_status, chat_action, meaning_models, meaning_pull, tabs::tab_list, tabs::tab_rows, tabs::tab_sort, tabs::tab_find, tabs::tab_quick, tabs::tab_mark, tabs::tab_pick, tabs::tab_drop, tabs::tab_reset, dir_summary, zfs_facts, bsd_places, clouds, git_status, git_facts, git_last, history_graph, history_server, history_allow, history_forget, git_switch, branch_name, git_new_branch, git_tool, git_tools, terminals, git_config, places, disks, get_state, repos, repo_edit, save_session, save_favorites, set_tags, set_note, get_note, bin_summary, bin_question, bin_restore, bin_delete, bin_empty, bin_finder,
             find, find_read_too, ask, ask_stop, ask_check, meaning_change, setup_probe, setup_probe_url, setup_try, setup_speed, meaning_bench, resolve_path, folder_to_add, copy, rename, delete_plan, delete, mkdir, dir_sizes, dir_size_known, rename_plan, rename_shown, rename_typed, rename_apply, replace::replace_plan, replace::replace_apply, replace::replace_progress, replace::replace_stop, attrs::attrs_plan, attrs::attrs_apply, attrs::attrs_progress, attrs::attrs_stop, folders_sync::sync_check, folders_sync::sync_plan, folders_sync::sync_apply, folders_sync::sync_progress, folders_sync::sync_stop, undo, undo_next, open_path, suggest_translation, edit_path, edit_open, edit_save, compare::compare_open, compare::compare_close, compare::compare_state, compare::compare_rows, compare::compare_hex, compare::compare_next, compare::compare_take, compare::compare_undo, compare::compare_save, compare::folders_open, compare::folders_close, compare::folders_state, compare::folders_states, compare::folders_diff_only, compare::folders_ahead, open_keys, open_config_at, scripts_folder,
             plain_error, viewer_detect, module_notice, git_blame, git_line_history, git_lines_cancel, git_lines_here,
             read_text, code_language, run_command, scripts, run_script, add_user_command, check_update, archive_list, extract, pack, archive_password, archive_has_password, archive_peek, archive_beside, archive_unpack_beside, asset::inside_forget, disk_image_facts, cloud_fetch, properties, set_flags, set_permissions,
@@ -3186,14 +3169,6 @@ fn main() {
         // and waited for, so its container is killed and its scratch folder removed; a file
         // operation too, at the file it is on, so none is left half copied.
         .run(move |app, event| {
-            #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::Ready = event {
-                mac_menu::ask_before_terminate(app);
-            }
-            #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::ExitRequested { .. } = event {
-                mac_menu::exit_requested();
-            }
             if let tauri::RunEvent::Exit = event {
                 if let Some(ctx) = app.try_state::<Ctx>() {
                     let _ = job_stop(ctx);
@@ -3228,12 +3203,6 @@ fn main() {
 #[cfg(target_os = "macos")]
 mod mac_menu {
     use tauri::menu::{AboutMetadata, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
-    use objc2::runtime::{AnyClass, AnyObject, Bool, Imp, Sel};
-    use objc2::{class, ffi, msg_send, sel};
-    use std::sync::atomic::{AtomicU64, AtomicU8, Ordering};
-    use std::ffi::c_void;
-    use std::sync::OnceLock;
-    use std::time::Duration;
     use tauri::{AppHandle, Manager, Wry};
 
     const QUIT: &str = "coxswain-quit";
@@ -3273,125 +3242,14 @@ mod mac_menu {
 
     /// Quit: every window closed as by its close button; the last one closed ends the app. A
     /// hidden (Cmd+H) or minimised window is shown first, so a question about unsaved text is seen.
-    fn quit_all(app: &AppHandle) {
-        for w in app.webview_windows().values() {
-            let _ = w.unminimize();
-            let _ = w.show();
-            let _ = w.set_focus();
-            let _ = w.close();
-        }
-    }
-
-    /// The Quit item of the app menu.
     pub fn on_event(app: &AppHandle, event: MenuEvent) {
         if event.id() == QUIT {
-            quit_all(app);
-        }
-    }
-
-    static APP: OnceLock<AppHandle> = OnceLock::new();
-    /// 0: no system quit under way; 1: one is, the windows are closing; 2: the page asks about
-    /// unsaved text, which may take as long as the user needs.
-    static STATE: AtomicU8 = AtomicU8::new(0);
-    /// Counts system quits, so a timeout of an earlier one does not reply to a later one.
-    static ROUND: AtomicU64 = AtomicU64::new(0);
-    /// A quit the page does not answer (a hung web view) is allowed after this long.
-    const PAGE_WAITS: Duration = Duration::from_secs(30);
-
-    unsafe extern "C" {
-        static _dispatch_main_q: c_void;
-        fn dispatch_async_f(queue: *const c_void, context: *mut c_void, work: extern "C" fn(*mut c_void));
-    }
-
-    extern "C" fn reply_now(yes: *mut c_void) {
-        // SAFETY: on the main thread (the main queue); `replyToApplicationShouldTerminate:` takes a BOOL.
-        unsafe {
-            let ns_app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-            let _: () = msg_send![ns_app, replyToApplicationShouldTerminate: Bool::new(!yes.is_null())];
-        }
-    }
-
-    /// Tells AppKit the answer to a `terminate:` that was put off (`NSTerminateLater`). It is sent
-    /// from the main queue, after the callback it is asked in: AppKit may end the app before the
-    /// reply returns, and tao's `applicationWillTerminate:` takes the lock that callback holds.
-    fn reply(yes: bool) {
-        // SAFETY: the context is a flag, not a pointer; the main queue is libdispatch's own.
-        unsafe { dispatch_async_f(&raw const _dispatch_main_q, usize::from(yes) as *mut c_void, reply_now) }
-    }
-
-    /// `applicationShouldTerminate:`, which tao's delegate does not answer: Quit in the Dock menu,
-    /// AppleScript `quit`, and logging out, shutting down or restarting all send `terminate:`,
-    /// which ends the process past the close request. The reply is Later (2): the windows are
-    /// closed as by their close button, and the page, which saves the session first, asks about
-    /// unsaved text (`quit_asking` shows the window then). The reply is sent when the last window
-    /// is gone (`exit_requested`: Yes), when the question is cancelled (`cancelled`: No), or
-    /// after `PAGE_WAITS` when the page said nothing (Yes). With no window it is Now (1).
-    extern "C-unwind" fn should_terminate(_this: &AnyObject, _cmd: Sel, _sender: *mut AnyObject) -> usize {
-        let Some(app) = APP.get() else { return 1 };
-        if app.webview_windows().is_empty() {
-            return 1;
-        }
-        if STATE.swap(1, Ordering::SeqCst) == 0 {
-            let round = ROUND.fetch_add(1, Ordering::SeqCst) + 1;
             for w in app.webview_windows().values() {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
                 let _ = w.close();
             }
-            std::thread::spawn(move || {
-                std::thread::sleep(PAGE_WAITS);
-                if ROUND.load(Ordering::SeqCst) == round && STATE.compare_exchange(1, 0, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
-                    reply(true);
-                }
-            });
-        }
-        2
-    }
-
-    /// The page shows its question about unsaved text: the windows are shown, and the wait for
-    /// the page ends.
-    pub fn asking(app: &AppHandle) {
-        let _ = STATE.compare_exchange(1, 2, Ordering::SeqCst, Ordering::SeqCst);
-        for w in app.webview_windows().values() {
-            let _ = w.unminimize();
-            let _ = w.show();
-            let _ = w.set_focus();
-        }
-    }
-
-    /// The question was answered with Cancel: the system's quit (a logout too) is called off.
-    pub fn cancelled() {
-        if STATE.swap(0, Ordering::SeqCst) != 0 {
-            ROUND.fetch_add(1, Ordering::SeqCst);
-            reply(false);
-        }
-    }
-
-    /// The last window is gone: the system's quit goes on (tao's own stop would end only the
-    /// wait AppKit runs while a reply is due).
-    pub fn exit_requested() {
-        if STATE.swap(0, Ordering::SeqCst) != 0 {
-            ROUND.fetch_add(1, Ordering::SeqCst);
-            reply(true);
-        }
-    }
-
-    /// Adds `applicationShouldTerminate:` to the class of the application's delegate (tao's), once
-    /// the delegate is set (`RunEvent::Ready`).
-    pub fn ask_before_terminate(app: &AppHandle) {
-        let _ = APP.set(app.clone());
-        // SAFETY: on the main thread (the run callback); the method's type is `Q@:@` (an
-        // NSUInteger from self, the selector and the sender), as `should_terminate` takes.
-        unsafe {
-            let ns_app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-            let delegate: *mut AnyObject = msg_send![ns_app, delegate];
-            if delegate.is_null() {
-                return;
-            }
-            // Set again, in case AppKit noted at `setDelegate:` which methods the delegate answers.
-            let _: () = msg_send![ns_app, setDelegate: delegate];
-            let class = (*delegate).class() as *const AnyClass as *mut AnyClass;
-            let imp: Imp = std::mem::transmute(should_terminate as extern "C-unwind" fn(&AnyObject, Sel, *mut AnyObject) -> usize);
-            // NO when the class has the method already: then it is left as it is.
-            ffi::class_addMethod(class, sel!(applicationShouldTerminate:), imp, c"Q@:@".as_ptr());
         }
     }
 }

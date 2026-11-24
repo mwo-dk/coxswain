@@ -1079,9 +1079,7 @@ Find (Alt+F7 or Ctrl+F), quillwort: plants.txt under In files
 Settings (Ctrl+,) opens; Finding files shows the index of this fake home (do NOT turn on Start with my session)
 F1, then Features: the list of features with their questions
 Clouds in the sidebar: your iCloud Drive / OneDrive / Dropbox, if you linked them (look, do not open files)
-Cmd+Q or Quit in the Dock menu (right-click the icon): first Shift+F4 on notes.md and type a letter, then it asks about the change; Don't save quits the app
-Log out (Apple menu) with nothing unsaved in Coxswain: it logs out at once, with no "Coxswain cancelled log out"; log in again afterwards
-Log out with a letter typed in the editor: the window comes up and asks; Cancel keeps you logged in, and Coxswain open"
+Cmd+Q: first Shift+F4 on notes.md and type a letter, then Cmd+Q asks about the change; Don't save quits the app"
 
 by_hand() {
   section "Desktop app, by hand"
