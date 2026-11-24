@@ -1234,7 +1234,15 @@ def456 coxswain-media-20-500-1 exited
     #[test]
     fn a_child_starts_later_and_is_gone_once_ended() {
         let mut child = std::process::Command::new("sleep").arg("30").spawn().unwrap();
-        let (me, it) = (super::started(std::process::id()).flatten().unwrap(), super::started(child.id()));
+        // A just-forked process may not have its start yet (NetBSD's `p_uvalid` is 0 until the
+        // fork is done): wait by state until it is known, `started` itself keeps saying unknown.
+        let limit = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(10));
+        let mut it = super::started(child.id());
+        while matches!(it, Some(None)) && std::time::Instant::now() < limit {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+            it = super::started(child.id());
+        }
+        let me = super::started(std::process::id()).flatten().unwrap();
         assert!(matches!(it, Some(Some(t)) if t >= me), "{it:?} against {me}");
         child.kill().unwrap();
         child.wait().unwrap();
