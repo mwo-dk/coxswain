@@ -3169,10 +3169,6 @@ fn main() {
         // and waited for, so its container is killed and its scratch folder removed; a file
         // operation too, at the file it is on, so none is left half copied.
         .run(move |app, event| {
-            #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::Ready = event {
-                mac_menu::ask_before_terminate(app);
-            }
             if let tauri::RunEvent::Exit = event {
                 if let Some(ctx) = app.try_state::<Ctx>() {
                     let _ = job_stop(ctx);
@@ -3207,9 +3203,6 @@ fn main() {
 #[cfg(target_os = "macos")]
 mod mac_menu {
     use tauri::menu::{AboutMetadata, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
-    use objc2::runtime::{AnyClass, AnyObject, Imp, Sel};
-    use objc2::{class, ffi, msg_send, sel};
-    use std::sync::OnceLock;
     use tauri::{AppHandle, Manager, Wry};
 
     const QUIT: &str = "coxswain-quit";
@@ -3249,58 +3242,14 @@ mod mac_menu {
 
     /// Quit: every window closed as by its close button; the last one closed ends the app. A
     /// hidden (Cmd+H) or minimised window is shown first, so a question about unsaved text is seen.
-    fn quit_all(app: &AppHandle) {
-        for w in app.webview_windows().values() {
-            let _ = w.unminimize();
-            let _ = w.show();
-            let _ = w.set_focus();
-            let _ = w.close();
-        }
-    }
-
-    /// The Quit item of the app menu.
     pub fn on_event(app: &AppHandle, event: MenuEvent) {
         if event.id() == QUIT {
-            quit_all(app);
-        }
-    }
-
-    static APP: OnceLock<AppHandle> = OnceLock::new();
-
-    /// `applicationShouldTerminate:`, which tao's delegate does not answer: Quit in the Dock menu,
-    /// AppleScript `quit`, and logging out or shutting down all send `terminate:`, which ends the
-    /// process past the close request. The reply is Cancel (0) with the windows closed as above:
-    /// the last one closed ends the app (tao stops its loop, it does not call `terminate:`
-    /// again). With no window left it is Now (1). A logout or shutdown with a window open
-    /// is cancelled by the Cancel, also with nothing to ask, and has to be asked for again (#1096).
-    extern "C-unwind" fn should_terminate(_this: &AnyObject, _cmd: Sel, _sender: *mut AnyObject) -> usize {
-        match APP.get() {
-            Some(app) if !app.webview_windows().is_empty() => {
-                quit_all(app);
-                0
+            for w in app.webview_windows().values() {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
+                let _ = w.close();
             }
-            _ => 1,
-        }
-    }
-
-    /// Adds `applicationShouldTerminate:` to the class of the application's delegate (tao's), once
-    /// the delegate is set (`RunEvent::Ready`).
-    pub fn ask_before_terminate(app: &AppHandle) {
-        let _ = APP.set(app.clone());
-        // SAFETY: on the main thread (the run callback); the method's type is `Q@:@` (an
-        // NSUInteger from self, the selector and the sender), as `should_terminate` takes.
-        unsafe {
-            let ns_app: *mut AnyObject = msg_send![class!(NSApplication), sharedApplication];
-            let delegate: *mut AnyObject = msg_send![ns_app, delegate];
-            if delegate.is_null() {
-                return;
-            }
-            // Set again, in case AppKit noted at `setDelegate:` which methods the delegate answers.
-            let _: () = msg_send![ns_app, setDelegate: delegate];
-            let class = (*delegate).class() as *const AnyClass as *mut AnyClass;
-            let imp: Imp = std::mem::transmute(should_terminate as extern "C-unwind" fn(&AnyObject, Sel, *mut AnyObject) -> usize);
-            // NO when the class has the method already: then it is left as it is.
-            ffi::class_addMethod(class, sel!(applicationShouldTerminate:), imp, c"Q@:@".as_ptr());
         }
     }
 }

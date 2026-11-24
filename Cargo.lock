@@ -1083,7 +1083,6 @@ dependencies = [
  "kamadak-exif",
  "lofty",
  "notify",
- "objc2",
  "plist",
  "rusqlite",
  "serde",
