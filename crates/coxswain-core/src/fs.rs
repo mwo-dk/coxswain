@@ -1727,12 +1727,17 @@ thread_local! {
 /// The user's primary group when it is a group of their own (the user-private-group habit of
 /// most Linux systems and FreeBSD's `adduser`): named as the user, with no other member, listed
 /// or by its primary group. A folder that group may write (`775`) is then no one else's to
-/// change. Looked up once; any lookup that fails says no.
+/// change. Looked up once, and only for a folder its group may write (the walk of every account
+/// may take a moment on a network directory); any lookup that fails says no. Android: no (each
+/// app's own group, and no account walk before API 26).
 #[cfg(unix)]
 fn personal_gid() -> Option<u32> {
     #[cfg(test)]
     if let Some(g) = PERSONAL_GID.get() {
         return g;
+    }
+    if cfg!(target_os = "android") {
+        return None;
     }
     static GID: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
     *GID.get_or_init(|| {
@@ -1771,7 +1776,11 @@ fn personal_gid() -> Option<u32> {
                 Some((CStr::from_ptr(g.gr_name).to_bytes().to_vec(), members))
             }
         })?;
-        personal(uid, gid, &login, &name, &members, &primary_groups()).then_some(gid)
+        #[cfg(target_os = "android")]
+        let accounts = vec![];
+        #[cfg(not(target_os = "android"))]
+        let accounts = primary_groups();
+        personal(uid, gid, &login, &name, &members, &accounts).then_some(gid)
     })
 }
 
@@ -1779,7 +1788,7 @@ fn personal_gid() -> Option<u32> {
 /// thread-safe: one walk at a time here).
 // shortcut: a directory (LDAP) that does not list its accounts is caught only by the user's own
 // missing from the walk; such a group then counts as shared.
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "android")))]
 fn primary_groups() -> Vec<(u32, u32)> {
     static WALK: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _one = WALK.lock().unwrap_or_else(|e| e.into_inner());

@@ -1060,7 +1060,11 @@ pub(crate) mod fd {
             // SAFETY: valid C strings and a held folder; fails when anything is at the name.
             ok(unsafe { libc::symlinkat(to.as_ptr(), d, n.as_ptr()) })
         } else if t.is_file() {
-            let mut src = fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW).open(from)?;
+            // Never waiting on a pipe swapped in since the look: the handle must be a plain file.
+            let mut src = fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK).open(from)?;
+            if !src.metadata()?.is_file() {
+                return Err(io::ErrorKind::Unsupported.into());
+            }
             let flags = libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC;
             // SAFETY: a held folder and a valid C string.
             let mut dst = opened(unsafe { libc::openat(d, n.as_ptr(), flags, 0o600 as libc::c_uint) })?;

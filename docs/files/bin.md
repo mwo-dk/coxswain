@@ -109,7 +109,7 @@ the copy is whole and written to the disk; a copy that fails leaves nothing at t
 item in the bin. The copy is yours, without the set-user or set-group bit of a file. A folder
 inside the item that is someone else's, or that others may change, is not copied: the dialog says
 *The disk would not move it into place, and other users can change the folder … in it: not put
-back*; copy it out with **F5**.
+back*; copy it out with **F5**, or `chmod go-w` that folder in the bin and restore again.
 
 ## Settings and config.toml
 
