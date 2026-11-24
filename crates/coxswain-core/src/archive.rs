@@ -1019,13 +1019,37 @@ fn uncache(archive: &Path) {
 /// Known by size and time, as `LAST` is: an archive replaced by another of both the same
 /// outside our own writes (which `uncache`) is taken for the old one.
 static TWICE: std::sync::Mutex<Vec<Twice>> = std::sync::Mutex::new(Vec::new());
-/// The archive, how it was, and its names given twice.
-type Twice = (PathBuf, Stamp, Arc<[String]>);
+/// The archive, how it was, its names given twice, and the bytes they take (`twice_bytes`).
+type Twice = (PathBuf, Stamp, Arc<[String]>, usize);
 const TWICE_KEPT: usize = 1024;
-/// The most bytes of names given twice kept for one archive: past it, none (listed again).
+/// The most bytes kept for one archive: past it, nothing (it is listed again when asked), so
+/// an archive of millions of short names given twice does not fill memory.
 const TWICE_BYTES: usize = 1 << 20;
+/// The most bytes kept for all archives together; the oldest go first.
+const TWICE_ALL: usize = 8 << 20;
 /// The most entries of a list whose names given twice are kept.
 const TWICE_ITEMS: usize = 1 << 20;
+
+/// About the bytes `names` of `archive` take kept: each name's own, its `String`, and what the
+/// allocator adds to it (its header, a 32-byte least).
+fn twice_bytes(archive: &Path, names: &[&str]) -> usize {
+    archive.as_os_str().len() + names.iter().map(|n| n.len().max(24) + 8 + std::mem::size_of::<String>()).sum::<usize>()
+}
+
+/// The names given twice of `archive` into `kept`, unless they take more than `TWICE_BYTES`; the
+/// oldest go past `TWICE_KEPT` archives or `TWICE_ALL` bytes. What was kept of `archive` goes.
+fn twice_into(kept: &mut Vec<Twice>, archive: &Path, stamp: Stamp, names: &[&str]) {
+    kept.retain(|(p, ..)| p != archive);
+    let bytes = twice_bytes(archive, names);
+    if bytes > TWICE_BYTES {
+        return;
+    }
+    let mut all = kept.iter().map(|t| t.3).sum::<usize>() + bytes;
+    while !kept.is_empty() && (kept.len() >= TWICE_KEPT || all > TWICE_ALL) {
+        all -= kept.remove(0).3;
+    }
+    kept.push((archive.to_path_buf(), stamp, names.iter().map(|n| n.to_string()).collect(), bytes));
+}
 
 /// Whether a 7z's contents are locked: any of its blocks is AES-encrypted.
 fn seven_locked(a: &sevenz_rust2::Archive) -> bool {
@@ -2062,21 +2086,17 @@ fn cached(archive: &Path, stamp: Stamp) -> Option<Arc<Items>> {
 /// The oldest go first past `LAST_KEPT` lists, or past `LAST_BYTES` with the new one: a list
 /// of millions is kept alone.
 fn keep_items(archive: &Path, stamp: Stamp, items: Arc<Items>) {
-    TWICE.lock().unwrap_or_else(|e| e.into_inner()).retain(|(p, ..)| p != archive);
     // A list of millions is not gone through again here (it is listed anew when asked).
     if items.len() <= TWICE_ITEMS {
         let mut seen = std::collections::HashSet::new();
-        let mut twice: Vec<String> = items.iter().filter(|it| !it.dir && !seen.insert(it.name)).map(|it| it.name.to_string()).collect();
+        // Borrowed: copied only when within `TWICE_BYTES`.
+        let mut twice: Vec<&str> = items.iter().filter(|it| !it.dir && !seen.insert(it.name)).map(|it| it.name).collect();
         drop(seen);
         twice.sort_unstable();
         twice.dedup();
-        if twice.iter().map(String::len).sum::<usize>() <= TWICE_BYTES {
-            let mut kept = TWICE.lock().unwrap_or_else(|e| e.into_inner());
-            if kept.len() >= TWICE_KEPT {
-                kept.remove(0);
-            }
-            kept.push((archive.to_path_buf(), stamp, twice.into()));
-        }
+        twice_into(&mut TWICE.lock().unwrap_or_else(|e| e.into_inner()), archive, stamp, &twice);
+    } else {
+        TWICE.lock().unwrap_or_else(|e| e.into_inner()).retain(|(p, ..)| p != archive);
     }
     kept_with(&mut LAST.lock().unwrap(), archive, stamp, items);
 }
@@ -4072,8 +4092,8 @@ pub(crate) fn listed_twice(archive: &Path, wanted: &dyn Fn(&str) -> bool) -> io:
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .iter()
-        .find(|(p, s, _)| p == archive && *s == stamp)
-        .map(|(.., names)| names.clone());
+        .find(|(p, s, ..)| p == archive && *s == stamp)
+        .map(|(_, _, names, _)| names.clone());
     if let Some(names) = known {
         return Ok(names.iter().any(|n| wanted(n)));
     }
@@ -5402,6 +5422,39 @@ mod tests {
         }
         assert!(crate::tar_index::load(&d.join("4000.tar.gz")).is_some(), "the tar.gz's list is kept");
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// Names given twice are kept within their bytes, counted with what each `String` takes: an
+    /// archive of hundreds of thousands of one-letter-ish names given twice keeps nothing (it is
+    /// listed again when asked), and many archives together never pass `TWICE_ALL`.
+    #[test]
+    fn names_given_twice_are_kept_within_their_bytes() {
+        // A list of its own, not `TWICE`: other tests keep theirs there meanwhile.
+        let (mut kept, stamp) = (vec![], (0, None));
+        let tiny: Vec<String> = (0..TWICE_BYTES / 32).map(|i| format!("{i:x}")).collect();
+        let tiny: Vec<&str> = tiny.iter().map(String::as_str).collect();
+        assert!(tiny.iter().map(|n| n.len()).sum::<usize>() < TWICE_BYTES, "short names, under the cap by length alone");
+        twice_into(&mut kept, Path::new("hostile.tar"), stamp, &tiny);
+        assert!(kept.is_empty(), "too many to keep");
+        // Kept once, then too many: nothing of it is left to answer "no" for a name now twice.
+        twice_into(&mut kept, Path::new("a.tar"), stamp, &["x"]);
+        assert_eq!(kept.len(), 1);
+        twice_into(&mut kept, Path::new("a.tar"), stamp, &tiny);
+        assert!(kept.is_empty(), "nothing stale kept of an archive now too large");
+        let some = &tiny[..tiny.len() / 8];
+        for n in 0..TWICE_KEPT {
+            twice_into(&mut kept, Path::new(&format!("{n}.tar")), stamp, some);
+            assert!(kept.iter().map(|t| t.3).sum::<usize>() <= TWICE_ALL);
+        }
+        assert!(kept.len() < TWICE_KEPT, "pushed out by bytes before by count");
+        assert_eq!(kept.last().unwrap().0, Path::new(&format!("{}.tar", TWICE_KEPT - 1)), "the newest kept");
+        // Archives without names given twice: pushed out by count.
+        kept.clear();
+        for n in 0..=TWICE_KEPT {
+            twice_into(&mut kept, Path::new(&format!("{n}.tar")), stamp, &[]);
+        }
+        assert_eq!(kept.len(), TWICE_KEPT);
+        assert_eq!(kept[0].0, Path::new("1.tar"), "the oldest went");
     }
 
     /// A SCID database in a 7z, too large to look at there: offered to be unpacked beside the
