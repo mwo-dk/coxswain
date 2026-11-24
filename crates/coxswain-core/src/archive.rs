@@ -1010,7 +1010,22 @@ fn stamp(path: &Path) -> io::Result<Stamp> {
 
 fn uncache(archive: &Path) {
     LAST.lock().unwrap().retain(|(p, ..)| p != archive);
+    TWICE.lock().unwrap_or_else(|e| e.into_inner()).retain(|(p, ..)| p != archive);
 }
+
+/// The names given twice (a file, a link or a device; not a folder) by the archives last
+/// listed whole, as `listed_twice` asks of them: kept far longer than their lists (`LAST_KEPT`),
+/// being small, so a one-file read of an archive listed in this run does not list it again.
+/// Known by size and time, as `LAST` is: an archive replaced by another of both the same
+/// outside our own writes (which `uncache`) is taken for the old one.
+static TWICE: std::sync::Mutex<Vec<Twice>> = std::sync::Mutex::new(Vec::new());
+/// The archive, how it was, and its names given twice.
+type Twice = (PathBuf, Stamp, Arc<[String]>);
+const TWICE_KEPT: usize = 1024;
+/// The most bytes of names given twice kept for one archive: past it, none (listed again).
+const TWICE_BYTES: usize = 1 << 20;
+/// The most entries of a list whose names given twice are kept.
+const TWICE_ITEMS: usize = 1 << 20;
 
 /// Whether a 7z's contents are locked: any of its blocks is AES-encrypted.
 fn seven_locked(a: &sevenz_rust2::Archive) -> bool {
@@ -2047,6 +2062,22 @@ fn cached(archive: &Path, stamp: Stamp) -> Option<Arc<Items>> {
 /// The oldest go first past `LAST_KEPT` lists, or past `LAST_BYTES` with the new one: a list
 /// of millions is kept alone.
 fn keep_items(archive: &Path, stamp: Stamp, items: Arc<Items>) {
+    TWICE.lock().unwrap_or_else(|e| e.into_inner()).retain(|(p, ..)| p != archive);
+    // A list of millions is not gone through again here (it is listed anew when asked).
+    if items.len() <= TWICE_ITEMS {
+        let mut seen = std::collections::HashSet::new();
+        let mut twice: Vec<String> = items.iter().filter(|it| !it.dir && !seen.insert(it.name)).map(|it| it.name.to_string()).collect();
+        drop(seen);
+        twice.sort_unstable();
+        twice.dedup();
+        if twice.iter().map(String::len).sum::<usize>() <= TWICE_BYTES {
+            let mut kept = TWICE.lock().unwrap_or_else(|e| e.into_inner());
+            if kept.len() >= TWICE_KEPT {
+                kept.remove(0);
+            }
+            kept.push((archive.to_path_buf(), stamp, twice.into()));
+        }
+    }
     kept_with(&mut LAST.lock().unwrap(), archive, stamp, items);
 }
 
@@ -2054,10 +2085,23 @@ fn keep_items(archive: &Path, stamp: Stamp, items: Arc<Items>) {
 fn kept_with(last: &mut Vec<Looked>, archive: &Path, stamp: Stamp, items: Arc<Items>) {
     last.retain(|(p, ..)| p != archive);
     let mut bytes: usize = last.iter().map(|(_, _, i, _)| i.bytes()).sum::<usize>() + items.bytes();
-    while !last.is_empty() && (last.len() >= LAST_KEPT || bytes > LAST_BYTES) {
-        bytes -= last.remove(0).2.bytes();
+    while last.len() >= LAST_KEPT || bytes > LAST_BYTES {
+        let Some(oldest) = last.iter().position(|(p, ..)| !pinned(p)) else { break };
+        bytes -= last.remove(oldest).2.bytes();
     }
     last.push((archive.to_path_buf(), stamp, items, Arc::new(())));
+}
+
+#[cfg(test)]
+/// Archives whose lists other tests' lists never push out (`kept_with`), so a test of what a
+/// read costs with the list in memory does not depend on what runs beside it.
+static PINNED: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
+
+fn pinned(_archive: &Path) -> bool {
+    #[cfg(test)]
+    return PINNED.lock().unwrap_or_else(|e| e.into_inner()).iter().any(|p| p == _archive);
+    #[cfg(not(test))]
+    false
 }
 
 /// A list kept past this many bytes is kept only while a panel shows a folder of its archive
@@ -4015,12 +4059,23 @@ thread_local! {
 }
 
 /// Whether the archive's list gives a name `wanted` twice (a file, a link or a device; not a
-/// folder). The list in memory, which every reader of one file has just made; made again here
-/// when other archives' lists pushed it out meanwhile (`LAST_KEPT`), never taken for "no".
+/// folder). Known without reading when it was listed whole in this run (`TWICE`, which outlives
+/// the list in memory); else listed again (a compressed tar from its kept list, if any): never
+/// taken for "no", so one file of an archive not yet listed reads all its headers once.
 pub(crate) fn listed_twice(archive: &Path, wanted: &dyn Fn(&str) -> bool) -> io::Result<bool> {
     #[cfg(test)]
     if PUSHED_OUT.get() {
         uncache(archive);
+    }
+    let stamp = stamp(archive)?;
+    let known = TWICE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .iter()
+        .find(|(p, s, _)| p == archive && *s == stamp)
+        .map(|(.., names)| names.clone());
+    if let Some(names) = known {
+        return Ok(names.iter().any(|n| wanted(n)));
     }
     let all = items(archive)?;
     let mut seen = std::collections::HashSet::new();
@@ -4763,6 +4818,8 @@ pub fn create_locked(
         ));
     }
     ending_kind(path).ok_or_else(|| not_archive(path))?;
+    // A list kept of an archive once at this path is not this one's.
+    uncache(path);
     let password = password.filter(|p| !p.is_empty());
     if password.is_some() && !takes_password(path) {
         return Err(io::Error::new(
@@ -5172,6 +5229,14 @@ mod tests {
         }
         PUSHED_OUT.set(false);
         assert!(crate::tar_index::load(&gz).is_some(), "the tar.gz's places are kept");
+        // Listed, then pushed out of memory by other archives' lists: still known to give a.txt
+        // twice (and c.txt once), with no header read again.
+        items(&plain).unwrap();
+        LAST.lock().unwrap().retain(|(a, ..)| a != &plain);
+        HEADERS.with(|h| h.set(0));
+        assert!(listed_twice(&plain, &|n| n == "a.txt").unwrap());
+        assert!(!listed_twice(&plain, &|n| n == "c.txt").unwrap());
+        assert_eq!(HEADERS.with(|h| h.get()), 0);
         std::fs::remove_dir_all(&d).unwrap();
     }
 
@@ -5276,17 +5341,25 @@ mod tests {
         zip
     }
 
-    /// One file early in a large plain tar, its list in memory as a panel holds it, is read (a
-    /// stream, from a byte on, copied out) with as many headers read in a tar 8 times as large:
-    /// never through the rest of the tar.
+    /// One file early in a large tar is read (a stream, from a byte on, copied out) with as many
+    /// headers read as in a tar 8 times as large: never through the rest of the tar. A plain tar
+    /// with its list in memory, as a panel holds it (pinned there: other tests push lists out at
+    /// any time); a tar.gz with nothing of it in memory, its list kept on disk. And whether a name
+    /// is given twice is known with no header read once the list was pushed out of memory by
+    /// other archives' lists (`LAST_KEPT`), as a user's previews of other archives do.
     #[test]
     fn an_early_file_of_a_large_tar_is_read_without_the_rest() {
         let d = std::env::temp_dir().join(format!("coxswain-tar-early-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
-        let headers = |n: usize| {
-            let p = d.join(format!("{n}.tar"));
-            let mut t = tar::Builder::new(File::create(&p).unwrap());
+        let headers = |n: usize, gz: bool| {
+            let p = d.join(format!("{n}.tar{}", if gz { ".gz" } else { "" }));
+            let w: Box<dyn io::Write> = if gz {
+                Box::new(flate2::write::GzEncoder::new(File::create(&p).unwrap(), flate2::Compression::fast()))
+            } else {
+                Box::new(File::create(&p).unwrap())
+            };
+            let mut t = tar::Builder::new(w);
             for i in 0..=n {
                 let name = if i == 0 { "first.txt".to_string() } else { format!("f{i}.txt") };
                 let mut h = tar::Header::new_gnu();
@@ -5294,25 +5367,40 @@ mod tests {
                 h.set_mode(0o644);
                 t.append_data(&mut h, name, &b"hello"[..]).unwrap();
             }
-            t.finish().unwrap();
-            drop(t);
+            // The gzip ends as the encoder goes.
+            drop(t.into_inner().unwrap());
+            PINNED.lock().unwrap().push(p.clone());
             items(&p).unwrap();
+            if gz {
+                PINNED.lock().unwrap().retain(|a| a != &p);
+                uncache(&p);
+            }
             HEADERS.with(|h| h.set(0));
             let text = |r: &mut dyn Read| {
                 let mut s = String::new();
                 r.read_to_string(&mut s)?;
                 Ok(s)
             };
-            assert_eq!(stream(&p.join("first.txt"), text).unwrap(), "hello");
-            assert_eq!(stream_at(&p.join("first.txt"), 1, |r, _| text(r), false).unwrap(), "ello");
-            let out = d.join(format!("out-{n}"));
+            assert_eq!(stream(&p.join("first.txt"), text).unwrap(), "hello", "{}", p.display());
+            assert_eq!(stream_at(&p.join("first.txt"), 1, |r, _| text(r), false).unwrap(), "ello", "{}", p.display());
+            let out = d.join(format!("out-{n}-{gz}"));
             std::fs::create_dir_all(&out).unwrap();
             copy_out(&p, "first.txt", &out, None, false).unwrap();
-            HEADERS.with(|h| h.get())
+            let read = HEADERS.with(|h| h.get());
+            if !gz {
+                PINNED.lock().unwrap().retain(|a| a != &p);
+                LAST.lock().unwrap().retain(|(a, ..)| a != &p);
+                assert!(!listed_twice(&p, &|n| n == "first.txt").unwrap());
+                assert_eq!(HEADERS.with(|h| h.get()), read, "pushed out of memory: no header read to know");
+            }
+            read
         };
-        let (one, eight) = (headers(500), headers(4000));
-        assert_eq!(one, eight, "as many headers read in a tar 8 times as large");
-        assert!(one < 20, "{one} headers read for the first file");
+        for gz in [false, true] {
+            let (one, eight) = (headers(500, gz), headers(4000, gz));
+            assert_eq!(one, eight, "gz {gz}: as many headers read in a tar 8 times as large");
+            assert!(one < 20, "gz {gz}: {one} headers read for the first file");
+        }
+        assert!(crate::tar_index::load(&d.join("4000.tar.gz")).is_some(), "the tar.gz's list is kept");
         std::fs::remove_dir_all(&d).unwrap();
     }
 
