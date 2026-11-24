@@ -192,9 +192,10 @@ sticky bit, could be swapped for a link while the file moves, so the restore sto
 dialog of what could not be done says *Other users can change the folder … on the way: not put
 back*, naming the folder. A folder its group may write (`775`) passes only when that group is
 your own (named as you are, your primary group, no other member); a shared group such as `users`
-does not. Run as root, a restore also passes a user's folder that only that user may change
-(their home, a checkout of theirs), as it came from there. `chmod g-w,o-w` on that folder lets the restore through, or copy the item out with
-**F5**. When a file stands where a folder on the way should be, the dialog says *… on the way is
+does not. Run as root, a restore also passes a user's folder that only that user may write
+(their home, a checkout of theirs: no sticky bit, no group or others writing) when the folder
+it is in is closed to others too, but never a second user's folder below it. `chmod g-w,o-w`
+on that folder lets the restore through, or copy the item out with **F5**. When a file stands where a folder on the way should be, the dialog says *… on the way is
 a file, not a folder: not put back*: move that file aside and restore again.
 
 #### The bin opens a folder called @bin instead.

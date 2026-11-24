@@ -778,9 +778,12 @@ pub(crate) mod fd {
             let uid = unsafe { libc::getuid() };
             // Held open as it was looked at: a folder of the top's disk, never a link, that only
             // the user or root can change (the top's rule; for root, also a user's folder only
-            // its owner can change: `crate::fs::passable`). `at`, `part`:
+            // its owner may write: `crate::fs::passable`). `at`, `part`:
             // where it was opened, to tell a plain file there from a link; `folder`: its path,
             // for the text.
+            // The user whose folder root's walk went into (after it, only theirs or root's), and
+            // the mode of the folder held last (`None`: at the top).
+            let (entered, parent) = (std::cell::Cell::new(None), std::cell::Cell::new(None));
             let held = |fd: libc::c_int, dev: Option<u64>, at: libc::c_int, part: &std::ffi::CStr, folder: &Path| -> io::Result<(std::os::fd::OwnedFd, u64)> {
                 let not_folder = || io::Error::new(io::ErrorKind::InvalidInput, crate::t!("bin.not_a_folder", "folder" => folder.display()));
                 if fd < 0 {
@@ -811,9 +814,13 @@ pub(crate) mod fd {
                 if dev.is_some_and(|d| d != m.dev()) {
                     return Err(bad());
                 }
-                if !crate::fs::passable(m.uid(), m.gid(), m.mode(), uid) {
+                if !crate::fs::passable(m.uid(), m.gid(), m.mode(), uid, parent.get(), entered.get()) {
                     return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("bin.open_folder", "folder" => folder.display())));
                 }
+                if m.uid() != 0 && m.uid() != uid {
+                    entered.set(Some(m.uid()));
+                }
+                parent.set(Some(m.mode()));
                 Ok((f.into(), m.dev()))
             };
             let top_c = c(top.as_os_str())?;

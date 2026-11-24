@@ -1719,13 +1719,18 @@ pub(crate) fn only_ours(owner: u32, gid: u32, mode: u32, uid: u32) -> bool {
 }
 
 /// Whether a restore from a disk's bin passes a folder on its way to the place (`fd::place`):
-/// [`only_ours`], and for root also any user's folder that only its owner can change. Root
-/// puts back into a user's folders what it took from there, and that user can steer the item
-/// only among folders already in theirs: the walk follows no link and leaves no disk, and a
-/// folder moves to another parent only for one who may write it.
+/// a folder of the user or root by [`only_ours`]. For root also a user's folder that only its
+/// owner may write (no sticky or group exception: its owner could still swap what is in it), in
+/// a folder (`parent`, its mode; `None` for the disk's top) that no one else may write either,
+/// and after it (`entered`) only that user's or root's. Root puts back into a user's folders,
+/// and that user can steer the item only among folders already in theirs: the walk follows no
+/// link and leaves no disk.
 #[cfg(unix)]
-pub(crate) fn passable(owner: u32, gid: u32, mode: u32, uid: u32) -> bool {
-    only_ours(if uid == 0 { 0 } else { owner }, gid, mode, uid)
+pub(crate) fn passable(owner: u32, gid: u32, mode: u32, uid: u32, parent: Option<u32>, entered: Option<u32>) -> bool {
+    if owner == uid || owner == 0 {
+        return only_ours(owner, gid, mode, uid);
+    }
+    uid == 0 && mode & 0o022 == 0 && parent.is_some_and(|p| p & 0o022 == 0) && entered.is_none_or(|u| u == owner)
 }
 
 #[cfg(all(unix, test))]
@@ -2614,17 +2619,39 @@ const KINDS: &[io::ErrorKind] = &[
 mod tests {
     /// A group named as the user, with no one listed in it, is still shared when another
     /// account has it as its primary group; a password database without the user is not whole.
-    /// Root passes another user's folder that only its owner can change (a CI runner's
-    /// checkout, a user's home), never one its group or others may write; a user does not.
+    #[cfg(unix)]
+    #[test]
+    fn personal_group_is_the_users_alone() {
+        let me = b"ann".to_vec();
+        assert!(super::personal(1000, 1000, &me, b"ann", &[], &[(0, 0), (1000, 1000), (1001, 1001)]));
+        assert!(super::personal(1000, 1000, &me, b"ann", std::slice::from_ref(&me), &[(1000, 1000)]));
+        assert!(!super::personal(1000, 1000, &me, b"ann", &[], &[(1000, 1000), (1001, 1000)]), "another's primary group");
+        assert!(!super::personal(1000, 1000, &me, b"ann", &[b"bob".to_vec()], &[(1000, 1000)]), "another listed");
+        assert!(!super::personal(1000, 100, &me, b"users", &[], &[(1000, 100)]), "not named as the user");
+        assert!(!super::personal(1000, 1000, &me, b"ann", &[], &[(1001, 1001)]), "the walk missed the user");
+        // The system's own answer, whatever it is, comes without failing.
+        let _ = super::personal_gid();
+    }
+
+    /// Root passes another user's folder that only its owner may write (a CI runner's checkout,
+    /// a user's home), never one with the sticky bit or its group or others writing, one in a
+    /// folder others may write, the disk's top, nor a second user's below it; a user does not.
     #[cfg(unix)]
     #[test]
     fn root_passes_a_users_own_folder() {
         super::PERSONAL_GID.set(Some(Some(0)));
-        assert!(super::passable(1001, 1001, 0o40755, 0));
-        assert!(!super::passable(1001, 1001, 0o40775, 0), "its group may write");
-        assert!(!super::passable(1001, 1001, 0o40777, 0), "anyone may write");
-        assert!(!super::passable(1001, 1001, 0o40755, 1000), "a user passes only their own or root's");
-        assert!(super::passable(0, 0, 0o40755, 1000));
+        let p = Some(0o40755);
+        assert!(super::passable(1001, 1001, 0o40755, 0, p, None));
+        assert!(super::passable(1001, 1001, 0o40755, 0, p, Some(1001)), "the same user's again");
+        assert!(!super::passable(1002, 1002, 0o40755, 0, p, Some(1001)), "another user's after one");
+        assert!(super::passable(0, 0, 0o40755, 0, p, Some(1001)), "root's after one");
+        assert!(!super::passable(1001, 1001, 0o41777, 0, p, None), "sticky: its owner swaps in it");
+        assert!(!super::passable(1001, 0, 0o40775, 0, p, None), "its group may write, root's own group too");
+        assert!(!super::passable(1001, 1001, 0o40777, 0, p, None), "anyone may write");
+        assert!(!super::passable(1001, 1001, 0o40755, 0, Some(0o41777), None), "in a folder anyone may make it in");
+        assert!(!super::passable(1001, 1001, 0o40755, 0, None, None), "the disk's top: the bin's own rule");
+        assert!(!super::passable(1001, 1001, 0o40755, 1000, p, None), "a user passes only their own or root's");
+        assert!(super::passable(0, 0, 0o40755, 1000, None, None));
         super::PERSONAL_GID.set(None);
     }
 
@@ -2644,20 +2671,6 @@ mod tests {
         assert_eq!(got, [b"ann".to_vec(), b"bob".to_vec()]);
         // SAFETY: null is an empty list.
         assert!(unsafe { super::group_members(std::ptr::null()) }.is_empty());
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn personal_group_is_the_users_alone() {
-        let me = b"ann".to_vec();
-        assert!(super::personal(1000, 1000, &me, b"ann", &[], &[(0, 0), (1000, 1000), (1001, 1001)]));
-        assert!(super::personal(1000, 1000, &me, b"ann", std::slice::from_ref(&me), &[(1000, 1000)]));
-        assert!(!super::personal(1000, 1000, &me, b"ann", &[], &[(1000, 1000), (1001, 1000)]), "another's primary group");
-        assert!(!super::personal(1000, 1000, &me, b"ann", &[b"bob".to_vec()], &[(1000, 1000)]), "another listed");
-        assert!(!super::personal(1000, 100, &me, b"users", &[], &[(1000, 100)]), "not named as the user");
-        assert!(!super::personal(1000, 1000, &me, b"ann", &[], &[(1001, 1001)]), "the walk missed the user");
-        // The system's own answer, whatever it is, comes without failing.
-        let _ = super::personal_gid();
     }
 
     /// The bytes a listing holds for its entries' names and paths, past the entries themselves.
