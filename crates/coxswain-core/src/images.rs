@@ -1239,7 +1239,7 @@ def456 coxswain-media-20-500-1 exited
         let limit = std::time::Instant::now() + crate::test_limit(std::time::Duration::from_secs(10));
         let mut it = super::started(child.id());
         while matches!(it, Some(None)) && std::time::Instant::now() < limit {
-            std::thread::yield_now();
+            std::thread::sleep(std::time::Duration::from_millis(1));
             it = super::started(child.id());
         }
         let me = super::started(std::process::id()).flatten().unwrap();
