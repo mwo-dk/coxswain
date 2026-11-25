@@ -1,9 +1,14 @@
 # Package managers
 
-`release.yml` publishes each release to these, once their secret is set, right after the GitHub
+`release.yml` publishes each release to these right after the GitHub
 release in the same run; WinGet is the exception, filed once a week by `winget.yml` (below). Each step is tried again on a passing fault (`retry.sh`: an HTTP 5xx or
 429, a lost blob; five tries, a longer wait each time); a channel that still fails turns the run
-red with an error naming it. Without the secret the job just leaves a notice.
+red with an error naming it. `CARGO_REGISTRY_TOKEN` and `TAP_TOKEN` are required: before
+anything is published (and in the Saturday rehearsal) the *preflight* job checks that each is set
+and accepted, `TAP_TOKEN` with write access to the tap, writing nothing; a missing or refused one
+stops the release, its secret named. Whether a scoped crates.io token covers `publish-update` for
+both crates shows only when they are published. Without any other channel's secret its job just
+leaves a notice.
 
 | Where | What | Secret |
 |---|---|---|

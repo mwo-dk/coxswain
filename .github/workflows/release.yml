@@ -21,13 +21,15 @@ name: Release
 #
 #   version ─┬─ test-ci, test-freebsd, test-netbsd, test-openbsd, test-illumos,
 #            │  test-termux, test-flatpak, test-nix          (the systems' own workflows, in parallel)
+#            ├─ preflight (the channels' tokens work) ──────────────────────────────────┐
 #            └─ draft ── boms ── desktop, terminal, freebsd, other-unix ── verify ── publish
 #                                                                            │     ├─ crates, taps,
 #                                                         (rehearsal) rehearse ─┤     │  freebsd-port, aur
 #                                       (anything failed, or a rehearsal: discard) ──┘
 #
 # Never a partial release: every system and every file, or nothing. A failed test stops the run
-# before the draft; a missing file stops it before publishing, and the draft is deleted. A
+# before the draft; a missing file, or a channel's token that is missing or does not work
+# (preflight), stops it before publishing, and the draft is deleted. A
 # channel that still fails after its retries turns the run red, named. release-check.yml then
 # installs the release and checks every channel.
 on:
@@ -162,6 +164,56 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: .github/unreleased.sh
+
+  # The channels' tokens, before anything is published: a token that is missing, revoked or
+  # cannot write stops a release before publish (its draft is deleted) and turns a rehearsal red,
+  # instead of failing its channel after the GitHub release is out. Nothing is written (crates.io
+  # only notes the token's last use). Each
+  # token is only in its own step, and nothing here builds.
+  preflight:
+    needs: version
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # crates.io has no read-only call that checks a publish scope. GET /me/tokens/0 asks for a
+      # token id that never exists: a working legacy token gets 404, a working scoped one 403
+      # "does not have the required permissions" (that call needs no scope); an unknown or revoked
+      # token gets 403 "authentication failed". Whether a scoped token covers publish-update and
+      # both crates shows only at `cargo publish`.
+      - name: CARGO_REGISTRY_TOKEN works on crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          [ -n "$CARGO_REGISTRY_TOKEN" ] || { echo "::error title=CARGO_REGISTRY_TOKEN::the secret is not set: crates.io could not be updated. See packaging/README.md."; exit 1; }
+          # shellcheck disable=SC2016 # expanded by the inner bash
+          packaging/retry.sh bash -c '
+            code=$(curl -sS --max-time 60 -o "$RUNNER_TEMP/crates.json" -w "%{http_code}" -A "coxswain release (github.com/mwo-dk/coxswain)" \
+              -H "Authorization: $CARGO_REGISTRY_TOKEN" https://crates.io/api/v1/me/tokens/0) || exit 1
+            body=$(cat "$RUNNER_TEMP/crates.json")
+            case "$code" in
+              404) echo "CARGO_REGISTRY_TOKEN: a working legacy token" ;;
+              403) grep -q "does not have the required permissions" <<<"$body" || { echo "HTTP $code: $body"; exit 1; }
+                   echo "CARGO_REGISTRY_TOKEN: a working scoped token" ;;
+              *) echo "HTTP $code: $body"; exit 1 ;;
+            esac' ||
+            { echo "::error title=CARGO_REGISTRY_TOKEN::crates.io does not accept the token (above). Make a new one: packaging/README.md."; exit 1; }
+      # A dry-run push asks GitHub for the tap's receive-pack, which it gives only to a token
+      # that may write, then sends nothing: the tap's own HEAD, up to date.
+      - name: TAP_TOKEN can write to mwo-dk/homebrew-coxswain
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          GIT_TERMINAL_PROMPT: 0
+        run: |
+          [ -n "$TAP_TOKEN" ] || { echo "::error title=TAP_TOKEN::the secret is not set: Homebrew could not be updated. See packaging/README.md."; exit 1; }
+          { packaging/retry.sh git clone -q --depth 1 "https://x-access-token:$TAP_TOKEN@github.com/mwo-dk/homebrew-coxswain.git" "$RUNNER_TEMP/tap" &&
+            packaging/retry.sh git -C "$RUNNER_TEMP/tap" push --dry-run origin HEAD; } ||
+            { echo "::error title=TAP_TOKEN::cannot write to mwo-dk/homebrew-coxswain (above). Make a new one: packaging/README.md."; exit 1; }
 
   # Every system's own workflow, as part of this run. Pull requests run them by themselves.
   # A release and a rehearsal need every one to pass (the draft job checks).
@@ -841,7 +893,7 @@ jobs:
           subject-path: assets/*
 
   publish:
-    needs: [version, draft, verify]
+    needs: [version, preflight, draft, verify]
     if: needs.version.outputs.rehearsal != 'true'
     runs-on: ubuntu-24.04
     permissions:
@@ -913,7 +965,7 @@ jobs:
   # .github/draft-check.sh stops it at once): the run is rerun in full, tests and all.
   # A rehearsal's draft and branch always go.
   discard:
-    needs: [version, draft, boms, desktop, terminal, freebsd, other-unix, verify, rehearse, publish]
+    needs: [version, preflight, draft, boms, desktop, terminal, freebsd, other-unix, verify, rehearse, publish]
     if: always() && (needs.version.outputs.rehearsal == 'true' || (needs.draft.outputs.id != '' && needs.publish.result != 'success'))
     runs-on: ubuntu-24.04
     permissions:
@@ -1052,25 +1104,18 @@ jobs:
   crates:
     needs: [draft, publish]
     runs-on: ubuntu-24.04
-    env:
-      # Whether the token is set; the token itself is only in the step that publishes.
-      PUBLISH: ${{ secrets.CARGO_REGISTRY_TOKEN != '' }}
+    # The token is only in the step that publishes; preflight saw that it is set and works.
     steps:
-      - if: env.PUBLISH != 'true'
-        run: echo "::notice::CARGO_REGISTRY_TOKEN is not set, so crates.io is not updated. See packaging/README.md."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: env.PUBLISH == 'true'
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
-        if: env.PUBLISH == 'true'
         with:
           toolchain: stable
       # Both crates packed and built (the terminal app against the core packed with it) without
       # the token: this runs every dependency's build script.
       - name: Pack and build the crates
-        if: env.PUBLISH == 'true'
         run: |
           cargo package --locked -p coxswain-core -p coxswain
           sha256sum target/package/*.crate | tee "$RUNNER_TEMP/crates.sha256"
@@ -1079,7 +1124,6 @@ jobs:
       # match what was built above byte for byte; `cargo publish` packs once more, the same way.
       # The token is kept out of the build's environment, but this runs on the same machine.
       - name: Publish
-        if: env.PUBLISH == 'true'
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
           TAG: ${{ needs.draft.outputs.tag }}
@@ -1100,20 +1144,15 @@ jobs:
   taps:
     needs: [draft, publish]
     runs-on: ubuntu-24.04
-    env:
-      TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
     steps:
-      - if: env.TAP_TOKEN == ''
-        run: echo "::notice::TAP_TOKEN is not set, so Homebrew is not updated. See packaging/README.md."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: env.TAP_TOKEN != ''
         with:
           persist-credentials: false
           ref: ${{ needs.draft.outputs.sha }}
       - name: Update mwo-dk/homebrew-coxswain
-        if: env.TAP_TOKEN != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
           TAG: ${{ needs.draft.outputs.tag }}
         run: |
           git config --global user.name "Michael W. Olesen"
