@@ -1964,7 +1964,7 @@
  "feature.removable_disks.q2": "Hvordan skjuler jeg filerne fra en disk, der ikke er sat i?",
  "feature.removable_disks.q3": "Hvordan slipper jeg af med en gammel disks tekst?",
  "feature.removable_disks.title": "Flytbare diske",
- "feature.removable_disks.what": "En mappe på en USB-nøgle eller et eksternt drev kan læses; mens den er taget ud, findes dens filer stadig, mærket, og de findes igen hvor som helst.",
+ "feature.removable_disks.what": "En mappe på en USB-nøgle eller et eksternt drev kan læses. Mens drevet er taget ud, kan dens filer stadig findes, mærket som ikke sat i, og når det sættes i igen, findes de, uanset hvor det monteres.",
  "feature.scans.a1": "Meddelelsen slutter med kommandoen til dit system. I skrivebordsprogrammet klikker du på Kopiér ved siden af den i Indstillinger → Oversigt; i terminalprogrammet trykker du Space på tesseract under Programmer, der læser mere. Kør den i en shell.",
  "feature.scans.a2": "Hjælperen leder efter programmerne, når den starter. Foretag en vilkårlig ændring under Indstillinger → Find filer, eller luk alle Coxswain-vinduer, og vent ti minutter. ✓ i Indstillinger viser, at det blev fundet.",
  "feature.scans.a3": "En JPEG, hvis EXIF nævner en kameraproducent, er et foto, og fotos springes bevidst over: de har sjældent ord, og der er tusindvis.",
