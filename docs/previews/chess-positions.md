@@ -160,10 +160,10 @@ a second. While it is built, the disk holds the sorted parts too, about as much 
 index, removed once it is whole. The parts are merged straight into the index, on several
 threads, so a first build has at most the parts and the index on the disk at once: twice the
 index, not three times. A rebuild needs room for the old index as well, as it is used until the
-new one is whole and only then removed: about three times the index. That holds when the PGN
-file only grew too: the old index's entries for the games kept are then copied into a part of
-their own (`runs/old`), nearly the size of the old index, instead of those games being read
-again.
+new one is whole and only then removed: about three times the index. A rebuild of a file that
+only grew copies the old index's entries for the games kept into a part of their own
+(`runs/old`), nearly the size of the old index, instead of reading those games again; the three
+times include it.
 
 ## Settings and config.toml
 

@@ -235,11 +235,11 @@ is there. The layers podman finished stay in its store for the next pull. The pa
 downloading podman keeps in a temporary folder even when stopped, so Coxswain gives each pull a
 folder of its own, `~/.cache/coxswain/pull/<run>-<n>/`, and removes it when the pull ends; one
 left by an app that was killed goes at its next start. It does so only where `XDG_RUNTIME_DIR` is
-set, as a desktop session usually sets it: without it rootless podman keeps its runtime files
-in that folder too. Without it, as on FreeBSD over ssh or from a console, podman's partial
-download stays in its own temporary folder (`/var/tmp` unless its configuration says otherwise).
-Docker
-cleans up after its own daemon; on macOS and Windows podman pulls inside its virtual machine.
+set, as a desktop session usually sets it, because rootless podman without it keeps its runtime
+files under `TMPDIR`, which would then be removed. In an ssh session or on a console without a
+login manager, podman's partial download stays in its own temporary folder (`/var/tmp` unless
+its configuration says otherwise). Docker cleans up after its own daemon; on macOS and Windows
+podman pulls inside its virtual machine.
 
 ## Keeping images up to date
 
