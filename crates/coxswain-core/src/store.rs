@@ -2036,13 +2036,22 @@ impl Store {
     /// reach (the start, 1. e4) is answered as quickly as a rare one: never all of them sorted.
     pub fn games_at(&self, hash: u64, max: usize) -> rusqlite::Result<Vec<(PathBuf, u32)>> {
         let db = self.db.lock().unwrap();
-        let mut q = db.prepare_cached("SELECT f.path, p.game FROM (SELECT file, game FROM positions WHERE hash = ?1 ORDER BY file, game LIMIT ?2) p JOIN files f ON f.id = p.file")?;
+        // Not those of folders gone from a disk that is here, left out before the limit.
         let gone = self.hidden(true);
-        let mut games: Vec<(PathBuf, u32)> = q
-            .query_map(params![hash as i64, max as i64], |r| Ok((r.get::<_, String>(0)?, r.get::<_, u32>(1)?)))?
-            .filter(|g| g.as_ref().map_or(true, |(p, _)| !gone.iter().any(|(from, to)| p > from && p < to)))
-            .map(|g| g.map(|(p, n)| (PathBuf::from(p), n)))
-            .collect::<rusqlite::Result<_>>()?;
+        let filter: String = (0..gone.len())
+            .map(|i| format!(" AND NOT (f.path > ?{} AND f.path < ?{})", 3 + 2 * i, 4 + 2 * i))
+            .collect();
+        let inner = if gone.is_empty() {
+            "SELECT file, game FROM positions WHERE hash = ?1 ORDER BY file, game LIMIT ?2".to_string()
+        } else {
+            format!("SELECT p.file, p.game FROM positions p JOIN files f ON f.id = p.file WHERE p.hash = ?1{filter} ORDER BY p.file, p.game LIMIT ?2")
+        };
+        let mut q = db.prepare_cached(&format!("SELECT f.path, p.game FROM ({inner}) p JOIN files f ON f.id = p.file"))?;
+        let args: Vec<rusqlite::types::Value> = [rusqlite::types::Value::from(hash as i64), (max as i64).into()]
+            .into_iter()
+            .chain(gone.into_iter().flat_map(|(from, to)| [from.into(), to.into()]))
+            .collect();
+        let mut games: Vec<(PathBuf, u32)> = q.query_map(rusqlite::params_from_iter(&args), |r| Ok((PathBuf::from(r.get::<_, String>(0)?), r.get::<_, u32>(1)?)))?.collect::<rusqlite::Result<_>>()?;
         games.sort();
         Ok(games)
     }
@@ -3516,6 +3525,8 @@ fn scan_for(
     // the roots: their hits are marked from the first search.
     {
         let mut known = store.offline.lock().unwrap();
+        // A root back in its place is found unmarked at once, not after the walk.
+        known.retain(|k| !roots.iter().any(|r| key(r).as_deref() == Some(k.at.as_str())));
         for o in &offline {
             match known.iter_mut().find(|k| k.at == o.at) {
                 Some(k) => *k = o.clone(),
@@ -4322,6 +4333,18 @@ fn place(store: &Store, cfg: &SearchConfig) -> rusqlite::Result<(Vec<PathBuf>, V
     let placed = store.roots()?;
     *store.configured.lock().unwrap() = roots(cfg);
     let (mut online, mut offline) = (vec![], vec![]);
+    // A root no longer read forgets that it was gone: added again, it is looked at afresh.
+    {
+        let read: HashSet<String> = roots(cfg).iter().filter_map(|r| key(r)).map(|k| format!("gone:{k}")).collect();
+        let db = store.db.lock().unwrap();
+        let marks: Vec<String> = db
+            .prepare("SELECT key FROM meta WHERE key LIKE 'gone:%'")?
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<_>>()?;
+        for m in marks.iter().filter(|m| !read.contains(*m)) {
+            db.execute("DELETE FROM meta WHERE key = ?1", [m])?;
+        }
+    }
     for root in roots(cfg) {
         let Some(text) = key(&root) else { continue };
         let known = placed.get(&text);
@@ -4363,13 +4386,24 @@ fn place(store: &Store, cfg: &SearchConfig) -> rusqlite::Result<(Vec<PathBuf>, V
                 let mark = format!("gone:{text}");
                 // Its disk is mounted (anywhere), the folder is not on it: deleted or renamed.
                 // It stays gone if the disk is unplugged later, until the folder is back.
-                // A link on the way (`~/Documents` to another disk) records the link's disk,
-                // not the target's: such a folder is taken as away.
+                // A link on the way to another disk (`~/Documents` to an external drive) records
+                // the link's disk, not the target's: such a folder is taken as away. A link on
+                // the same disk (`/home` to `var/home`) does not count. Only a folder that is
+                // not there is gone: one that cannot be looked at now (a refusal, a hung disk) is
+                // away.
                 // shortcut: a disk known by its path only (network shares, the BSDs) cannot be
                 // told mounted, so a folder gone there counts as away; upgrade with a device id.
-                let linked = root.ancestors().any(|a| a.symlink_metadata().is_ok_and(|m| m.file_type().is_symlink()));
+                let disk_of = |p: &Path| crate::machine::volume(p).map(|v| v.0);
+                let linked = root.ancestors().any(|a| {
+                    a.symlink_metadata().is_ok_and(|m| m.file_type().is_symlink())
+                        && match (a.canonicalize(), a.parent()) {
+                            (Ok(target), Some(parent)) => disk_of(&target) != disk_of(parent),
+                            _ => true,
+                        }
+                });
+                let missing = root.symlink_metadata().is_err_and(|e| not_there(&e));
                 let marked = || store.db.lock().unwrap().query_row("SELECT 1 FROM meta WHERE key = ?1", [&mark], |_| Ok(())).is_ok();
-                let gone = !linked && (located.is_some() || marked());
+                let gone = missing && !linked && (located.is_some() || marked());
                 if gone {
                     store.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, '1')", [&mark])?;
                 }
@@ -4899,9 +4933,10 @@ pub fn refresh(
         let Some(root) = roots.iter().find(|r| path.starts_with(r) && path != **r) else {
             continue;
         };
-        // The folder read itself went (deleted, renamed, its disk unplugged): the next scan
+        // The folder read itself went (deleted, renamed, its disk unplugged): a scan, at once,
         // tells which, and its rows stay till then.
         if !root.is_dir() {
+            store.hurry.store(true, Ordering::Relaxed);
             continue;
         }
         // The topmost folder left out on the way down, this one included if it is a folder.
@@ -6837,6 +6872,8 @@ mod tests {
         scan(&store, &cfg, &go).unwrap();
         assert_eq!(store.search("orbit", None, 10).hits.iter().map(|h| (&h.path, &h.away)).collect::<Vec<_>>(), [(&notes, &None)]);
         assert_eq!(file_id(), before, "the same row: not read again");
+        let marks: i64 = store.db.lock().unwrap().query_row("SELECT count(*) FROM meta WHERE key LIKE 'gone:%'", [], |r| r.get(0)).unwrap();
+        assert_eq!(marks, 0, "back: no longer remembered as gone");
         drop(store);
         std::fs::remove_dir_all(d).unwrap();
     }
