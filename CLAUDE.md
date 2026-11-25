@@ -17,7 +17,8 @@ These rules hold for every contributor and every Claude session in this reposito
   system's workflow (FreeBSD, NetBSD, OpenBSD, illumos, Termux, Flatpak, Nix) as parts of that
   run; when all pass it makes a draft, builds every platform, checks the draft against the full
   list of files (`packaging/release-assets.sh`; a gap deletes the draft), publishes (creating the
-  `vX.Y.Z` tag) and then updates each channel, retrying passing faults; a channel that still
+  `vX.Y.Z` tag; a *preflight* job first proves `CARGO_REGISTRY_TOKEN` and `TAP_TOKEN` set and
+  working without writing, in the rehearsal too, or nothing is published) and then updates each channel, retrying passing faults; a channel that still
   fails turns the run red, named. A push without a new version runs only what its pull request
   ran: CI, and each system whose pull-request `paths` the push touches
   (`.github/changed-systems.py`). WinGet is not in that run: `winget.yml` files the newest
