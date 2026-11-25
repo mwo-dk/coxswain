@@ -552,22 +552,29 @@ pub(crate) fn mount_points() -> Vec<PathBuf> {
                 return libc::getvfsstat(buf, bytes, 2);
             }
         };
-        let n = fill(std::ptr::null_mut(), 0);
-        if n <= 0 {
-            return vec![];
+        // The count is only a first guess: NetBSD's getvfsstat (the one for the libc crate's
+        // struct, from before NetBSD 10) counts 0 into no buffer.
+        let n = usize::try_from(fill(std::ptr::null_mut(), 0)).unwrap_or(0);
+        // Room for a few mounted since the count; a full buffer may have left some out, so
+        // again with twice the room.
+        let mut cap = n + 8;
+        loop {
+            let mut all: Vec<St> = Vec::with_capacity(cap);
+            let Ok(got) = usize::try_from(fill(all.as_mut_ptr(), all.capacity())) else { return vec![] };
+            if got >= all.capacity() {
+                cap = all.capacity() * 2;
+                continue;
+            }
+            // SAFETY: the call filled `got` entries, fewer than the room it was given.
+            unsafe { all.set_len(got) };
+            return all
+                .iter()
+                // As the bins' list (the trash crate) leaves out one with no device named.
+                .filter(|f| f.f_mntfromname[0] != 0)
+                // SAFETY: the name ends with a NUL inside its array.
+                .map(|f| PathBuf::from(std::ffi::OsStr::from_bytes(unsafe { CStr::from_ptr(f.f_mntonname.as_ptr()) }.to_bytes())))
+                .collect();
         }
-        // Room for a few mounted since the count.
-        let mut all: Vec<St> = Vec::with_capacity(n as usize + 8);
-        let got = fill(all.as_mut_ptr(), all.capacity());
-        if got <= 0 {
-            return vec![];
-        }
-        // SAFETY: the call filled `got` entries, at most the room it was given.
-        unsafe { all.set_len((got as usize).min(all.capacity())) };
-        all.iter()
-            // SAFETY: the name ends with a NUL inside its array.
-            .map(|f| PathBuf::from(std::ffi::OsStr::from_bytes(unsafe { CStr::from_ptr(f.f_mntonname.as_ptr()) }.to_bytes())))
-            .collect()
     };
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd")))]
     vec![]
@@ -898,6 +905,20 @@ mod tests {
             all.iter().all(|m| !PSEUDO.contains(&m.fstype.as_str())),
             "{all:?}"
         );
+    }
+
+    /// The bins' mount points hold `/` and every mount the sidebar shows (NetBSD's first count
+    /// of them was 0, so no disk there had a bin of its own).
+    #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+    #[test]
+    fn mount_points_hold_the_root_and_every_mount() {
+        // The sidebar's list (getmntinfo) first: a mount made between the two is in both.
+        #[cfg(not(target_os = "linux"))]
+        let shown = mounted();
+        let points = mount_points();
+        assert!(points.iter().any(|p| p == Path::new("/")), "{points:?}");
+        #[cfg(not(target_os = "linux"))]
+        assert!(shown.iter().all(|m| m.device.is_empty() || points.contains(&m.mount)), "{points:?}");
     }
 
     #[test]
