@@ -1638,7 +1638,9 @@ exec sleep 60
         std::fs::create_dir_all(&d).unwrap();
         let rt = d.join("podman");
         // ids/<name> and tags/<name or id>: what inspect says; rm logs its argument.
-        std::fs::write(&rt, format!("#!/bin/sh\nf=$(echo \"$5\" | tr / _)\ncase \"$1 $2 $4\" in\n'image inspect {{{{.Id}}}}') cat {0}/ids/$f;;\n'image inspect {{{{json .RepoTags}}}}') cat {0}/tags/$f;;\n'image rm'*) echo \"$3\" >> {0}/rm.log;;\nesac\n", d.display())).unwrap();
+        // Termux has no /bin/sh: the shell is under $PREFIX.
+        let sh = std::env::var_os("PREFIX").map(|p| Path::new(&p).join("bin/sh")).filter(|p| p.exists()).unwrap_or_else(|| "/bin/sh".into());
+        std::fs::write(&rt, format!("#!{1}\nf=$(echo \"$5\" | tr / _)\ncase \"$1 $2 $4\" in\n'image inspect {{{{.Id}}}}') cat {0}/ids/$f;;\n'image inspect {{{{json .RepoTags}}}}') cat {0}/tags/$f;;\n'image rm'*) echo \"$3\" >> {0}/rm.log;;\nesac\n", d.display(), sh.display())).unwrap();
         std::fs::set_permissions(&rt, std::fs::Permissions::from_mode(0o755)).unwrap();
         let w = |f: &str, s: &str| std::fs::write(d.join(f), s).unwrap();
         let rm = || std::fs::read_to_string(d.join("rm.log")).unwrap_or_default();
