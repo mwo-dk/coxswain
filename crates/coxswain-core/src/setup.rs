@@ -512,8 +512,9 @@ fn amd_on_linux(
 /// than its VRAM, so a card counts its VRAM alone. A card is told from an APU by files amdgpu
 /// makes for a card only: `board_info` (Linux 6.7 and later) and `pcie_bw` (older kernels too;
 /// its PCIe counters do not work on an APU, so amdgpu hides it there). Without power
-/// management (`amdgpu.dpm=0`, some virtual machines) a card has neither, so VRAM above 8 GB,
-/// more than any carve-out, also marks a card.
+/// management (`amdgpu.dpm=0`, some virtual machines) a card has neither, so VRAM above 8 GB
+/// also marks a card: a Ryzen AI Max carving out more (it allows 16–96 GB) counts its
+/// carve-out alone.
 #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn amd_device_on_linux(dev: &std::path::Path) -> ((Vendor, String, Option<u64>), bool) {
     let bytes = |f: &str| {

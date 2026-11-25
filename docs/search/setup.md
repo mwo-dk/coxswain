@@ -241,8 +241,9 @@ graphics in an Intel processor do not count: they have no memory of their own fo
 Some GPUs have (next to) no memory of their own and borrow the processor's: the Radeon in a
 Ryzen (a 780M, an 890M, a Steam Deck, a Ryzen AI Max), NVIDIA's Jetson and GB10, Apple silicon.
 For them the memory counted is what they may borrow, not the small part the firmware sets
-aside: the kernel's GTT size for a Ryzen on Linux (whatever the carve-out, on any kernel; a card is told by
-files amdgpu makes only for cards, or by more than 8 GB of memory of its own),
+aside: the kernel's GTT size for a Ryzen on Linux (with up to 8 GB carved out, on any kernel; a card is told by
+files amdgpu makes only for cards, or by more than 8 GB of memory of its own, so a Ryzen AI Max
+set to carve out more than 8 GB is counted as a card, with only its carve-out),
 Lemonade's figure for its integrated GPU wherever Lemonade runs, and two thirds of the
 machine's memory for NVIDIA's (whose `nvidia-smi` reports no memory of its own) and for a Mac.
 A graphics card of its own counts only its own memory, and a card beside a Ryzen's Radeon is
