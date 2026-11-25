@@ -1201,6 +1201,7 @@ mod tests {
         let d = fs::canonicalize(&*d).unwrap();
         let big = d.join("big");
         fs::create_dir(&big).unwrap();
+        fs::set_permissions(&big, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
         std::os::unix::fs::symlink(&big, d.join("link")).unwrap();
         fs::write(big.join("f.txt"), "f").unwrap();
         // SAFETY: getuid cannot fail.

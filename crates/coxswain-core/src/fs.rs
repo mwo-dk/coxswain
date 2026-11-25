@@ -1664,7 +1664,7 @@ fn put_bin(path: &Path) -> Option<PathBuf> {
     if home.ancestors().find_map(|a| fs::metadata(a).ok()).is_some_and(|m| m.dev() == dev) {
         return Some(home);
     }
-    let top = disk_top(&path, dev, &mount_points(), |p| fs::metadata(p).ok().map(|m| m.dev()))?;
+    let top = disk_top(&path, dev, &crate::machine::mount_points(), |p| fs::metadata(p).ok().map(|m| m.dev()))?;
     // SAFETY: getuid cannot fail.
     disk_bin(&top, unsafe { libc::getuid() }, dev)
 }
@@ -1693,20 +1693,6 @@ fn disk_top(path: &Path, dev: u64, mounts: &[PathBuf], dev_of: impl Fn(&Path) ->
     (dev_of(top) == Some(dev)).then(|| top.clone())
 }
 
-#[cfg(all(test, unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
-thread_local! {
-    /// A test's mount points: `Some(list)`, else the system's.
-    pub(crate) static MOUNTS: std::cell::RefCell<Option<Vec<PathBuf>>> = const { std::cell::RefCell::new(None) };
-}
-
-#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
-fn mount_points() -> Vec<PathBuf> {
-    #[cfg(test)]
-    if let Some(m) = MOUNTS.with_borrow(Clone::clone) {
-        return m;
-    }
-    crate::machine::mount_points()
-}
 
 /// Whether the disk whose top folder is `top` (device `dev`) has a bin for `uid`, as the trash
 /// spec has it: `.Trash/<uid>` in a shared `.Trash` with the sticky bit, else `.Trash-<uid>`,
@@ -1918,7 +1904,7 @@ fn own_bin(bin: &Path, uid: u32, dev: u64, make: bool) -> bool {
             && m.dev() == dev
             && m.uid() == uid
             && m.mode() & 0o002 == 0
-            && (m.mode() & 0o020 == 0 || personal_gid() == Some(m.gid()));
+            && (m.mode() & 0o020 == 0 || (personal_gid() == Some(m.gid()) && !acl(p)));
         // One made readable by others or writable by the user's own group (as Coxswain's own
         // before 2.38, under umask 022 or 002) is closed: it holds the places the files came
         // from. A disk without permissions (FAT) may refuse; its mount decides who reads.
@@ -1928,6 +1914,29 @@ fn own_bin(bin: &Path, uid: u32, dev: u64, make: bool) -> bool {
         sound
     };
     ok(bin, false) && ok(&bin.join("files"), !make) && ok(&bin.join("info"), false)
+}
+
+/// Whether `p` carries an access ACL beyond its mode, whose group bits are then the ACL's mask
+/// and may let a named user write. Linux only: a POSIX ACL is the `system.posix_acl_access`
+/// attribute; anything but "none" (no attribute, or a disk without them) counts as one.
+#[cfg(unix)]
+fn acl(p: &Path) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        let Ok(c) = std::ffi::CString::new(p.as_os_str().as_bytes()) else { return true };
+        // SAFETY: a size query (null buffer, length 0) of a NUL-ended path and name.
+        let r = unsafe { libc::lgetxattr(c.as_ptr(), c"system.posix_acl_access".as_ptr(), std::ptr::null_mut(), 0) };
+        let e = io::Error::last_os_error().raw_os_error();
+        !(r < 0 && matches!(e, Some(libc::ENODATA) | Some(libc::ENOTSUP)))
+    }
+    // shortcut: FreeBSD's and NetBSD's ACLs are not read; a named user's write there is not seen
+    // (as for any mode), see the issue on ACLs in disk bins.
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = p;
+        false
+    }
 }
 
 /// What deleting does, decided the same in both apps.
@@ -2903,7 +2912,7 @@ mod tests {
 
     /// A put's disk bin is one the bin's list shows (`bin::fd::bins`: a mount point's top),
     /// and every listed mount point's bin is the one a put on it uses. A folder on a device of
-    /// its own that is no mount point (a nested btrfs subvolume, `~/VMs`) gets no bin of its
+    /// its own that is no mount point (a nested btrfs subvolume) gets no bin of its
     /// own, which no list would show: the home bin, as in 2.37.1.
     #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
     #[test]
@@ -2911,17 +2920,17 @@ mod tests {
         let p = |s: &str| PathBuf::from(s);
         let dev_of = |q: &Path| match q.to_str()? {
             "/" | "/home" | "/home/u" => Some(1),
-            "/home/u/VMs" => Some(2),
+            "/home/u/images" => Some(2),
             "/mnt/big" => Some(3),
             _ => None,
         };
         let mounts = [p("/"), p("/home"), p("/mnt/big")];
         // The subvolume: its device is not its nearest mount point's.
-        assert_eq!(super::disk_top(Path::new("/home/u/VMs/disk.img"), 2, &mounts, dev_of), None);
-        assert_eq!(super::disk_top(Path::new("/home/u/VMs/a/b.txt"), 2, &mounts, dev_of), None);
+        assert_eq!(super::disk_top(Path::new("/home/u/images/disk.img"), 2, &mounts, dev_of), None);
+        assert_eq!(super::disk_top(Path::new("/home/u/images/a/b.txt"), 2, &mounts, dev_of), None);
         // Mounted there after all: its own bin, which the list shows.
-        let more = [p("/"), p("/home"), p("/home/u/VMs"), p("/mnt/big")];
-        assert_eq!(super::disk_top(Path::new("/home/u/VMs/disk.img"), 2, &more, dev_of), Some(p("/home/u/VMs")));
+        let more = [p("/"), p("/home"), p("/home/u/images"), p("/mnt/big")];
+        assert_eq!(super::disk_top(Path::new("/home/u/images/disk.img"), 2, &more, dev_of), Some(p("/home/u/images")));
         // Every listed mount point's own files go to its bin, from deep down too.
         for m in &more {
             let dev = dev_of(m).unwrap();
@@ -2946,6 +2955,7 @@ mod tests {
         let uid = unsafe { libc::getuid() };
         let big = d.join("big");
         std::fs::create_dir(&big).unwrap();
+        std::fs::set_permissions(&big, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
         symlink(&big, d.join("link")).unwrap();
         std::fs::write(big.join("f.txt"), "f").unwrap();
         let mounts = vec![d.clone(), big.clone()];
@@ -3007,6 +3017,19 @@ mod tests {
         assert_eq!(super::disk_bin(&top, uid, dev), Some(own.clone()));
         for p in [own.clone(), own.join("files"), own.join("info")] {
             assert_eq!(std::fs::metadata(&p).unwrap().mode() & 0o777, 0o700, "{}", p.display());
+        }
+        // An ACL that names a user (its group bits then the ACL's mask): refused to the list, as
+        // that user may write it. Where `setfacl` and the disk have ACLs.
+        #[cfg(target_os = "linux")]
+        {
+            open();
+            let named = std::process::Command::new("setfacl").arg("-m").arg(format!("u:{}:rwx", uid + 1)).arg(&own).status().is_ok_and(|s| s.success());
+            if named {
+                assert!(super::acl(&own));
+                assert!(!super::trusted_disk_bin(&top, &own, uid, dev, false));
+                let _ = std::process::Command::new("setfacl").arg("-b").arg(&own).status();
+            }
+            assert!(!super::acl(&own));
         }
         // Others writing it: refused, even of the user's own group.
         open();

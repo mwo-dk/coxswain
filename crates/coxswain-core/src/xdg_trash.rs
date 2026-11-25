@@ -84,7 +84,8 @@ fn put_at(trash: &Path, top: Option<&Path>, path: &Path, same: fn(&Path, &Path) 
     let path = std::path::absolute(path)?;
     fs::symlink_metadata(&path)?;
     // A folder that holds the bin: moved across, it would walk into its own copy.
-    if std::path::absolute(trash)?.starts_with(&path) {
+    let real = fs::canonicalize(trash).unwrap_or(std::path::absolute(trash)?);
+    if std::path::absolute(trash)?.starts_with(&path) || real.starts_with(&path) {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, crate::t!("err.move_into_itself")));
     }
     if !same(trash, &path) {
