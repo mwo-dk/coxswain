@@ -554,7 +554,7 @@ pub(crate) fn mount_points() -> Vec<PathBuf> {
         };
         // The count is only a first guess: NetBSD's getvfsstat (the one for the libc crate's
         // struct, from before NetBSD 10) counts 0 into no buffer.
-        let Ok(n) = usize::try_from(fill(std::ptr::null_mut(), 0)) else { return vec![] };
+        let n = usize::try_from(fill(std::ptr::null_mut(), 0)).unwrap_or(0);
         // Room for a few mounted since the count; a full buffer may have left some out, so
         // again with twice the room.
         let mut cap = n + 8;
@@ -569,6 +569,8 @@ pub(crate) fn mount_points() -> Vec<PathBuf> {
             unsafe { all.set_len(got) };
             return all
                 .iter()
+                // As the bins' list (the trash crate) leaves out one with no device named.
+                .filter(|f| f.f_mntfromname[0] != 0)
                 // SAFETY: the name ends with a NUL inside its array.
                 .map(|f| PathBuf::from(std::ffi::OsStr::from_bytes(unsafe { CStr::from_ptr(f.f_mntonname.as_ptr()) }.to_bytes())))
                 .collect();
@@ -910,11 +912,13 @@ mod tests {
     #[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
     #[test]
     fn mount_points_hold_the_root_and_every_mount() {
+        // The sidebar's list (getmntinfo) first: a mount made between the two is in both.
+        #[cfg(not(target_os = "linux"))]
+        let shown = mounted();
         let points = mount_points();
         assert!(points.iter().any(|p| p == Path::new("/")), "{points:?}");
-        // The sidebar's list (getmntinfo) is a part of them.
         #[cfg(not(target_os = "linux"))]
-        assert!(mounted().iter().all(|m| points.contains(&m.mount)), "{points:?}");
+        assert!(shown.iter().all(|m| m.device.is_empty() || points.contains(&m.mount)), "{points:?}");
     }
 
     #[test]
