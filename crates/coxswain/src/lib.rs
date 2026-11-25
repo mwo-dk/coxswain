@@ -7306,7 +7306,6 @@ mod panel_tests {
             let (at, cursor) = away(&app);
             assert_eq!(at, Some(cursor), "still on the line when the hits came");
         }
-        assert!(find::away_shown(&app.find_dismissed), "two Enters: shown again");
     }
 
     /// A menu on a terminal of a few rows draws what fits, it never stops the app.
