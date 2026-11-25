@@ -2482,9 +2482,13 @@ mod tests {
         fs::write(&item, "a").unwrap();
         let item = trashed(&b, "a.txt", "team/b.txt");
         assert_eq!(restore_in(&bins, std::slice::from_ref(&item), false).failed, [format!("a.txt: {text}")]);
-        // The bin's own folders stay the user's alone.
+        // The bin's own folders writable by the group: listed when it is the user's own (a bin
+        // made under umask 002 by 2.37), refused for any other.
         fs::set_permissions(b.dir.join("files"), fs::Permissions::from_mode(0o770)).unwrap();
+        assert!(crate::fs::trusted_disk_bin(&top, &b.dir, uid, dev, false));
+        PERSONAL_GID.set(Some(Some(gid.wrapping_add(1))));
         assert!(!crate::fs::trusted_disk_bin(&top, &b.dir, uid, dev, false));
+        PERSONAL_GID.set(Some(Some(gid)));
         fs::set_permissions(b.dir.join("files"), fs::Permissions::from_mode(0o700)).unwrap();
         // A plain file where a folder should be.
         fs::write(top.join("plain"), "").unwrap();

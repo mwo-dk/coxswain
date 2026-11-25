@@ -157,9 +157,9 @@ system's bin in your file manager, or install Coxswain another way ([Install](..
 
 #### A USB stick's deleted files are not listed.
 
-Each disk keeps its own bin at its top (`.Trash-1000` on a stick). It is listed while the disk
-is mounted. On FreeBSD, the other BSDs and Linux, files deleted on a disk without a bin of
-yours went to the bin in your home folder, so look there; elsewhere they were deleted for good
+Each disk keeps its own bin at its top, the folder it is mounted at (`.Trash-1000` on a stick).
+It is listed while the disk is mounted. On FreeBSD, the other BSDs and Linux, files deleted on
+a disk without a bin of yours went to the bin in your home folder, so look there; elsewhere they were deleted for good
 (see [Delete](delete.md#why-did-f8-on-a-shared-disk-put-my-files-in-the-home-bin)).
 
 #### Why is a disk's bin left out?
@@ -169,7 +169,8 @@ items of their choosing, and named the places they would be restored to. So a di
 only when the disk's top folder is yours or the system's (others may write in it only when it has
 the sticky bit, as `/tmp` has, and its group only when that group is your own), a shared `.Trash` there has the sticky bit and belongs to the
 system or the top's owner, and your `.Trash-1000` (or `.Trash/1000`) and its `files` and `info`
-are real folders of yours that no one else may write. When one is left out and holds items, the
+are real folders of yours that no one else may write (your own group may: a bin made under
+`umask 002`, which **F8**'s next put there closes to you alone). When one is left out and holds items, the
 notice *The bin … is not yours alone* names it once (terminal app: the status line; desktop
 app: *Settings → What's new*). Check who owns it with `ls -ld`; when it is yours and only its
 mode is wrong, `chmod 700` it and its `files` and `info`, and the notice goes at the next look.

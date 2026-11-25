@@ -521,6 +521,58 @@ pub(crate) fn mountinfo(text: &str) -> impl Iterator<Item = Mount> + '_ {
     })
 }
 
+/// Every mount point, the kernel's own file systems too, as the freedesktop.org bins are
+/// looked for (the trash crate's `trash_folders`): Linux's mountinfo, the BSDs' getfsstat(2)
+/// into a buffer of our own (getmntinfo's is shared with the trash crate's listing), without
+/// asking any file system (a dead network share would hang). None elsewhere.
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+pub(crate) fn mount_points() -> Vec<PathBuf> {
+    #[cfg(target_os = "linux")]
+    return mountinfo(&std::fs::read_to_string("/proc/self/mountinfo").unwrap_or_default())
+        .map(|m| m.point)
+        .collect();
+    #[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+    return {
+        use std::ffi::CStr;
+        use std::os::unix::ffi::OsStrExt;
+        #[cfg(target_os = "netbsd")]
+        type St = libc::statvfs;
+        #[cfg(not(target_os = "netbsd"))]
+        type St = libc::statfs;
+        // MNT_NOWAIT (2): what the kernel has, no file system asked. `cap` entries of room.
+        let fill = |buf: *mut St, cap: usize| {
+            let bytes = cap * std::mem::size_of::<St>();
+            // SAFETY: `buf` is null (a count) or has room for `cap` entries.
+            unsafe {
+                #[cfg(target_os = "freebsd")]
+                return libc::getfsstat(buf, bytes as libc::c_long, 2);
+                #[cfg(target_os = "openbsd")]
+                return libc::getfsstat(buf, bytes, 2);
+                #[cfg(target_os = "netbsd")]
+                return libc::getvfsstat(buf, bytes, 2);
+            }
+        };
+        let n = fill(std::ptr::null_mut(), 0);
+        if n <= 0 {
+            return vec![];
+        }
+        // Room for a few mounted since the count.
+        let mut all: Vec<St> = Vec::with_capacity(n as usize + 8);
+        let got = fill(all.as_mut_ptr(), all.capacity());
+        if got <= 0 {
+            return vec![];
+        }
+        // SAFETY: the call filled `got` entries, at most the room it was given.
+        unsafe { all.set_len((got as usize).min(all.capacity())) };
+        all.iter()
+            // SAFETY: the name ends with a NUL inside its array.
+            .map(|f| PathBuf::from(std::ffi::OsStr::from_bytes(unsafe { CStr::from_ptr(f.f_mntonname.as_ptr()) }.to_bytes())))
+            .collect()
+    };
+    #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd")))]
+    vec![]
+}
+
 /// Mounted file systems as (device, part of it mounted, mount point), from mountinfo.
 #[cfg(target_os = "linux")]
 fn mounts() -> Vec<(PathBuf, PathBuf, PathBuf)> {
