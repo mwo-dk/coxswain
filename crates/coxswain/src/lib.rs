@@ -767,6 +767,8 @@ pub struct App {
     search_gen: u64,
     /// The last search whose answer came: behind `search_gen` while one is out.
     search_got: u64,
+    /// The search Enter on Find's not-plugged-in line started: its answer keeps the cursor there.
+    find_away_gen: Option<u64>,
     /// Ask in Find file: the turns so far, the answer on its way, and its stop flag. Closing
     /// Find file forgets them.
     pub chat: Vec<Turn>,
@@ -1151,6 +1153,7 @@ impl App {
             search_rx,
             search_gen: 0,
             search_got: 0,
+            find_away_gen: None,
             chat: vec![],
             ask_rx: None,
             ask_stop: Arc::default(),
@@ -4493,6 +4496,8 @@ impl App {
                 let scope = here.then(|| self.panel().dir.clone());
                 let mut requery = false;
                 let mut asked = false;
+                // Enter on the not-plugged-in line: the cursor stays on it, so Enter again undoes it.
+                let mut on_away = false;
                 match (key.code, ch) {
                     _ if esc && show == Show::List => return self.forget_chat(),
                     _ if esc => {
@@ -4570,6 +4575,7 @@ impl App {
                             }
                             self.find_dismissed = st.notices_dismissed;
                             requery = true;
+                            on_away = true;
                         }
                         // On a disk that is not plugged in: where it is now, or the status line
                         // says to plug it in, and Find stays.
@@ -4666,12 +4672,13 @@ impl App {
                     }
                     (show, cursor) = (Show::Answer, 0);
                 }
-                if requery {
+                if requery && !on_away {
                     (cursor, offset) = (0, 0);
                 }
                 self.dialog = Some(Dialog::Search { query, chip, here, found, cursor, offset, show });
                 if requery {
                     self.search_now();
+                    self.find_away_gen = on_away.then_some(self.search_gen);
                 }
             }
             Dialog::Menu { title, mut filter, items, mut cursor, direct, feature } => {
@@ -5241,7 +5248,10 @@ impl App {
                 continue;
             }
             let Some(Dialog::Search { query, chip, .. }) = &self.dialog else { continue };
-            let start = find::start(query, &self.find_rows(query, *chip, &now));
+            let rows = self.find_rows(query, *chip, &now);
+            // After Enter on the not-plugged-in line the cursor stays on it.
+            let on_away = self.find_away_gen.take() == Some(generation);
+            let start = rows.iter().position(|r| matches!(r, Row::Away { .. })).filter(|_| on_away).unwrap_or_else(|| find::start(query, &rows));
             if let Some(Dialog::Search { found, cursor, offset, .. }) = &mut self.dialog {
                 (*found, *cursor, *offset) = (now, start, 0);
             }
@@ -7263,6 +7273,39 @@ mod panel_tests {
         let Some(Dialog::Search { query, chip, found, cursor, .. }) = &app.dialog else { panic!() };
         let rows = app.find_rows(query, *chip, found);
         assert!(*cursor < rows.len() && rows[*cursor].selectable(), "{cursor} of {}", rows.len());
+    }
+
+    /// Enter on Find's not-plugged-in line hides those hits, and the cursor stays on the line
+    /// when the new hits come, so Enter again shows them again; it never opens a hit (#1110).
+    #[test]
+    fn enter_on_the_not_plugged_in_line_keeps_the_cursor_on_it() {
+        let d = crate::test_dir("panels");
+        let cfg = Config { check_updates: false, ..Config::default() };
+        let index = crate::test_index(&cfg);
+        let mut app = App::with_index(cfg, d.clone(), d.clone(), index).unwrap();
+        let hit = |n: &str, away: bool| coxswain_core::index::Hit { path: d.join(n), away: away.then(|| coxswain_core::store::Away { label: "BACKUP1".into(), disk: None }), ..Default::default() };
+        let mut found = Found::default();
+        found.names.hits = vec![hit("a.txt", false), hit("b.txt", true)];
+        found.names.total = 2;
+        let away = |app: &App| {
+            let Some(Dialog::Search { query, chip, found, cursor, .. }) = &app.dialog else { panic!("Find closed") };
+            let rows = app.find_rows(query, *chip, found);
+            (rows.iter().position(|r| matches!(r, Row::Away { .. })), *cursor)
+        };
+        let cursor = app.find_rows("txt", Kind::All, &found).iter().position(|r| matches!(r, Row::Away { .. })).unwrap();
+        app.dialog = Some(Dialog::Search { query: "txt".into(), chip: Kind::All, here: false, found: found.clone(), cursor, offset: 0, show: Show::List });
+        let (tx, rx) = mpsc::channel();
+        app.search_rx = rx;
+        let mut state = app.index.state();
+        for _ in 0..2 {
+            app.dialog_key(Key::new(KeyCode::Enter, false, false, false));
+            let (at, cursor) = away(&app);
+            assert_eq!(at, Some(cursor), "still on the line after Enter");
+            tx.send((app.search_gen, found.clone())).unwrap();
+            app.tick(&mut state);
+            let (at, cursor) = away(&app);
+            assert_eq!(at, Some(cursor), "still on the line when the hits came");
+        }
     }
 
     /// A menu on a terminal of a few rows draws what fits, it never stops the app.
