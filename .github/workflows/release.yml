@@ -712,7 +712,9 @@ jobs:
             sh packaging/pkg-retry.sh pkgin -y install rust pkgconf webkit-gtk41 || { cat /var/db/pkgin/pkg_install-err.log; exit 1; }
           run: |
             set -e
-            # A process may use only part of the memory by default (its login class): LLVM ran out in the 22 Nov rehearsal.
+            # A process may use only part of the memory by default (its login class): LLVM ran out in the 22 Nov rehearsal,
+            # and again at the 4 GB hard limit on 24 Nov. The build runs as root, which may raise the hard limit too.
+            ulimit -H -d unlimited 2>/dev/null || true
             ulimit -d "$(ulimit -H -d)" 2>/dev/null || true
             echo "data limit: $(ulimit -d) (hard $(ulimit -H -d))"
             cargo build --release --locked -p coxswain -p coxswain-gui
@@ -730,7 +732,9 @@ jobs:
             sh packaging/pkg-retry.sh pkg_add rust webkitgtk41 librsvg
           run: |
             set -e
-            # A process may use only part of the memory by default (its login class): LLVM ran out in the 22 Nov rehearsal.
+            # A process may use only part of the memory by default (its login class): LLVM ran out in the 22 Nov rehearsal,
+            # and again at the 4 GB hard limit on 24 Nov. The build runs as root, which may raise the hard limit too.
+            ulimit -H -d unlimited 2>/dev/null || true
             ulimit -d "$(ulimit -H -d)" 2>/dev/null || true
             echo "data limit: $(ulimit -d) (hard $(ulimit -H -d))"
             cargo build --release --locked -p coxswain -p coxswain-gui
