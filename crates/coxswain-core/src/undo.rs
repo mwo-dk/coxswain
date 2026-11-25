@@ -1191,6 +1191,31 @@ mod tests {
         fs::remove_dir_all(&d).unwrap();
     }
 
+    /// Undo of a delete made through a folder that is a link to another disk: the info file
+    /// names the place from that disk's top, and undo, asked for the place as the pane named
+    /// it, finds it the same and puts it back there.
+    #[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+    #[test]
+    fn undo_trash_through_a_linked_folder() {
+        let d = crate::fs::Scratch::named("undo-link");
+        let d = fs::canonicalize(&*d).unwrap();
+        let big = d.join("big");
+        fs::create_dir(&big).unwrap();
+        std::os::unix::fs::symlink(&big, d.join("link")).unwrap();
+        fs::write(big.join("f.txt"), "f").unwrap();
+        // SAFETY: getuid cannot fail.
+        let uid = unsafe { libc::getuid() };
+        let bin = big.join(format!(".Trash-{uid}"));
+        crate::xdg_trash::make(&bin).unwrap();
+        let real = cfs::real_place(&d.join("link/f.txt")).unwrap();
+        let name = crate::xdg_trash::put_in_bin(&bin, &real).unwrap();
+        let info = bin.join("info").join(format!("{name}.trashinfo"));
+        assert!(fs::read_to_string(&info).unwrap().contains("\nPath=f.txt\n"));
+        restore_item(&info, &comparable(&d.join("link/f.txt"))).unwrap();
+        assert_eq!(fs::read_to_string(big.join("f.txt")).unwrap(), "f");
+        assert!(fs::symlink_metadata(&info).is_err());
+    }
+
     /// Undo of a delete whose file went to the home bin from another disk: back across, with its
     /// bytes, and no empty file left at its place (#977); a place taken since is refused and
     /// kept.

@@ -229,15 +229,17 @@ const PSEUDO: &[&str] = &[
     "linsysfs",
 ];
 
+/// getmntinfo hands out one buffer of its own, overwritten by the next call: one at a time.
+#[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+static MNTINFO: Mutex<()> = Mutex::new(());
+
 /// The mounted file systems, for the desktop app's sidebar on the systems its disk library does
 /// not know or gets wrong: getmntinfo(3) on the BSDs (sysinfo counts FreeBSD's free inodes as
 /// free blocks).
 #[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
 pub fn mounted() -> Vec<Mounted> {
     use std::ffi::CStr;
-    // getmntinfo hands out one buffer of its own, overwritten by the next call.
-    static ONE: Mutex<()> = Mutex::new(());
-    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+    let _one = MNTINFO.lock().unwrap_or_else(|e| e.into_inner());
     let mut list = std::ptr::null_mut();
     // SAFETY: getmntinfo points `list` at `n` entries it keeps until its next call; MNT_NOWAIT (2)
     // reads what the kernel has without asking each file system (a dead NFS server would hang).
@@ -519,6 +521,38 @@ pub(crate) fn mountinfo(text: &str) -> impl Iterator<Item = Mount> + '_ {
             source: unescape(source),
         })
     })
+}
+
+/// Every mount point, the kernel's own file systems too, as the freedesktop.org bins are
+/// looked for (the trash crate's `trash_folders`): Linux's mountinfo, the BSDs' getmntinfo(3)
+/// without asking any file system (a dead network share would hang). None elsewhere.
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "ios", target_os = "android", target_os = "illumos", target_os = "solaris"))))]
+pub(crate) fn mount_points() -> Vec<PathBuf> {
+    #[cfg(target_os = "linux")]
+    return mountinfo(&std::fs::read_to_string("/proc/self/mountinfo").unwrap_or_default())
+        .map(|m| m.point)
+        .collect();
+    #[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+    {
+        use std::ffi::CStr;
+        use std::os::unix::ffi::OsStrExt;
+        let _one = MNTINFO.lock().unwrap_or_else(|e| e.into_inner());
+        let mut list = std::ptr::null_mut();
+        // SAFETY: as in `mounted`; MNT_NOWAIT (2).
+        let n = unsafe { libc::getmntinfo(&mut list, 2) };
+        if n <= 0 || list.is_null() {
+            return vec![];
+        }
+        // SAFETY: as in `mounted`.
+        let all = unsafe { std::slice::from_raw_parts(list, n as usize) };
+        // SAFETY: the name ends with a NUL inside its array.
+        return all
+            .iter()
+            .map(|f| PathBuf::from(std::ffi::OsStr::from_bytes(unsafe { CStr::from_ptr(f.f_mntonname.as_ptr()) }.to_bytes())))
+            .collect();
+    }
+    #[allow(unreachable_code)]
+    vec![]
 }
 
 /// Mounted file systems as (device, part of it mounted, mount point), from mountinfo.

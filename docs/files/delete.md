@@ -89,9 +89,11 @@ confirm and cancel, as before.
 Not every file system has a trash the system can use. The error names the file. Use
 **Shift+F8** to delete it for good, after checking.
 
-On FreeBSD, the other BSDs and Linux, a disk whose top folder you cannot write (a second disk
-mounted by the system, another ZFS dataset) has no bin of its own, and **F8** moves it to the
-bin in your home folder instead, file by file as **F6** moves between disks: each file is
+On FreeBSD, the other BSDs and Linux, a disk's bin sits at the folder the disk is mounted at,
+where the bin's panel finds it. A disk whose top folder you cannot write (a second disk mounted
+by the system, another ZFS dataset), or a folder that is a disk of its own without being
+mounted there (a nested btrfs subvolume such as `~/VMs`), has no bin of its own, and **F8**
+moves it to the bin in your home folder instead, file by file as **F6** moves between disks: each file is
 copied, checked and only then removed, and a link goes as a link, never followed. The bin
 lists it from the start. **Esc** or **Stop**, or a file that cannot be moved, brings back what
 went over, so it is either in the bin whole or where it was. A pipe, a socket or a device, and
@@ -99,7 +101,10 @@ a folder that holds one, cannot be moved there. **F8** on one asks *No bin on th
 delete … for good?* instead: **Yes** deletes it for good. Marked among other files, the others
 go to the bin and it stays where it is, named in the error. The same holds for a folder
 mounted a second time from your home's disk (a container's or toolbox's bind mount), where a
-rename into the bin is refused too.
+rename into the bin is refused too. A pane folder that is a link to another disk (`~/big`
+leading to `/mnt/big`) counts as that disk: **F8** there moves the file into that disk's bin
+at once, as if you had gone to `/mnt/big`. A link you delete is itself moved, as a link, never
+what it points at.
 
 #### Why did F8 on a shared disk put my files in the home bin?
 
@@ -109,9 +114,10 @@ yours or the system's, and others may write in it only when it has the sticky bi
 has); its group may write it only when that group is your own (your primary group, named as you
 are, with no other member). A shared `.Trash` there must have the sticky bit and belong to the system or the top's
 owner. Your `.Trash-1000` (or `.Trash/1000`) and its `files` and `info` must be real folders of
-yours that no one else may write. When any of that is not so, the files go to the bin in your
-home folder, moved file by file as above. Coxswain makes a disk's bin readable by you alone,
-and closes one that others could read, as it holds the places your files came from.
+yours that no one else may write, but for your own group (a bin made under `umask 002`). When
+any of that is not so, the files go to the bin in your home folder, moved file by file as
+above. Coxswain makes a disk's bin readable by you alone, and closes one that others could
+read or your group write, as it holds the places your files came from.
 The bin's panel lists, restores from and empties a disk's bin only under the same checks
 ([Bin](bin.md#why-is-a-disks-bin-left-out)).
 
