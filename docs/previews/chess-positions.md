@@ -158,8 +158,12 @@ any size, but for 8 bytes a game. A tree is read in 10 to 30 ms, the start posit
 million games) too; the games list cut to the games after 1.e4 e5 (1.7 million of them) in under
 a second. While it is built, the disk holds the sorted parts too, about as much again as the
 index, removed once it is whole. The parts are merged straight into the index, on several
-threads, so at most the parts and the index are on the disk at once: twice the index, not three
-times.
+threads, so a first build has at most the parts and the index on the disk at once: twice the
+index, not three times. A rebuild needs room for the old index as well, as it is used until the
+new one is whole and only then removed: about three times the index. That holds when the PGN
+file only grew too: the old index's entries for the games kept are then copied into a part of
+their own (`runs/old`), nearly the size of the old index, instead of those games being read
+again.
 
 ## Settings and config.toml
 
