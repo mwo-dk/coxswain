@@ -99,7 +99,7 @@ open it outside the pane:
 
 | What | When |
 |---|---|
-| Pulling a container image | After your click on the engine or **Pull**; weekly or monthly for the images already pulled when *Keep images up to date* is on: *Weekly* or *Monthly* (desktop app, not on battery), or, with *Check … then ask me*, only a lookup of the newest build at the registry (both apps), the pull after your **Update** |
+| Pulling a container image | After your click on the engine or **Pull**; weekly or monthly for the images already pulled when *Keep images up to date* is on: *Weekly* or *Monthly* (desktop app, not on battery), or, with *Check weekly, then ask me* or *Check monthly, then ask me*, only a lookup of the newest build at the registry (both apps), the pull after your **Update** |
 | tectonic's package bundle | When tectonic builds a document; tectonic's own design |
 | Typst Universe packages (`@preview/…`) | When an installed typst builds a document that imports one it does not have yet; typst's own design ([Typst](documents.md#typst)) |
 

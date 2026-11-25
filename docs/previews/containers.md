@@ -246,7 +246,7 @@ podman pulls inside its virtual machine.
 *Settings → Previews → Keep images up to date* (`[preview] image_updates`): **Off** (the
 default), **Check weekly, then ask me** (`ask`), **Check monthly, then ask me** (`ask-monthly`),
 **Weekly** or **Monthly**. The first-run guide offers the same ([it asks when podman or docker is
-found](../panels/first-run.md#the-steps)): *Off*, *Check and ask me* (weekly), *Weekly*, *Monthly*.
+found](../panels/first-run.md#the-steps)): *Off*, *Check weekly, then ask me*, *Weekly*, *Monthly*.
 
 ![The desktop app's Settings at Previews, Cyber, scrolled to Container images: Container runtime podman, else docker, the LaTeX image, then Keep images up to date set to Check weekly, then ask me, with its explanation under it, and Remove images not used for 90 days](../screenshots/gui-settings-image-updates.png)
 
@@ -256,9 +256,10 @@ found](../panels/first-run.md#the-steps)): *Off*, *Check and ask me* (weekly), *
   the new [pin](#pinned-images) of a default image whose older build is there. One you never
   pulled is never downloaded by it.
 - **When:** the desktop app looks once an hour while it runs (the first time ten minutes after
-  it starts), and so does the terminal app for *Check, then ask me*. When a week or a month has
+  it starts), and so does the terminal app for *Check weekly, then ask me* and
+  *Check monthly, then ask me*. When a week or a month has
   passed since the last round, **Weekly** and **Monthly** run `podman pull` (or `docker pull`) for
-  each of those images, in the background; **Check, then ask me** only looks, as
+  each of those images, in the background; **Check weekly, then ask me** and **Check monthly, then ask me** only look, as
   [below](#a-newer-build-and-the-notice). Not on battery, and not with
   *Container runtime → No containers*. Each image is tried, even after one fails. When every
   pull fails (no network), the round stays due and the next hour tries again; when only some
@@ -266,27 +267,31 @@ found](../panels/first-run.md#the-steps)): *Off*, *Check and ask me* (weekly), *
 - **What you see:** with *Weekly* or *Monthly* nothing pops up. While it pulls, *Settings → Previews → Preview tools*
   shows the runtime's progress line on that image's row, as for **Pull**, and the image's
   **Pull** and **Remove** wait.
-- **The old copy goes at once.** When a pull brought a new version, the copy it replaced is
-  removed by its own id (`podman image rm <id>`). Coxswain never runs `image prune`, which would
-  also take untagged images of yours that have nothing to do with it. A copy that cannot be
-  removed, because a container still uses it or another name points at it, stays; nothing is
-  said and it is not tried again.
+- **The old copy goes at once, unless it is yours too.** When a pull brought a new version,
+  Coxswain looks at the names the copy it replaced has left after the pull. With none left it is
+  removed by its own id (`podman image rm <id>`); with only the name Coxswain pulled it as, by
+  that name. When another name points at it (you pulled `alpine:3.19` and tagged it `alpine:3`,
+  the name a tool is set to, so the pull moved `alpine:3` to the new copy), it stays whole, as
+  does a copy a container still uses: nothing is forced, nothing is said, and it is not tried
+  again. Coxswain never runs `image prune`, which would also take untagged images of yours that
+  have nothing to do with it.
 - **Where it goes:** the registry in the image's name, `docker.io` for most defaults, `ghcr.io` for Typst's, GDAL's, whisper.cpp's and
   Coxswain's own (ImageMagick, Stockfish).
   *Settings → Privacy and updates → What can leave this machine* then says *Container images for
   previews, when pulled and each week to keep them up to date* (or *each month*), with the
   registry. Apache Tika's image, once pulled for [search](../search/tika.md), is updated with
-  them. With *Check, then ask me* the line reads *Container images for previews, when pulled; each
+  them. With *Check weekly, then ask me* (or monthly) the line reads *Container images for previews, when pulled; each
   week their registry is asked whether a pulled image has a newer build (only its name is sent)*
   (or *each month*).
 - **The terminal app** makes no container previews, so it pulls nothing by itself; with *Weekly*
-  or *Monthly* the desktop app does the updating. *Check, then ask me* works in both: the terminal
+  or *Monthly* the desktop app does the updating. *Check weekly, then ask me* and *Check monthly, then ask me* work in both: the terminal
   app looks too, and its **F12** → *Previews* marks the row; **P** there updates it as **Update**
   does, removing the old copy.
 
 ### A newer build, and the notice
 
-*Check, then ask me* (and the first-run guide's *Check and ask me*) never pulls by itself. Once a
+*Check weekly, then ask me* (in the first-run guide too) and *Check monthly, then ask me* never
+pull by themselves. Once a
 week (or month) and not on battery, and not with *Container runtime → No containers*, it looks at
 the images already pulled:
 
@@ -307,10 +312,11 @@ the images already pulled:
   available. Update downloads it and removes the old copy.* In the **desktop app** it is on the
   status line (and under *Settings → What's new*, counted on the Settings button) with **Update**
   and **Not now** (the **×**). **Update** pulls the image, with the runtime's progress line on its row
-  in *Settings → Previews → Preview tools*, and removes the copy it replaced by its id; the notice
+  in *Settings → Previews → Preview tools*, and removes the copy it replaced (as [above](#keeping-images-up-to-date), never one another name
+  points at); the notice
   is then gone for that build. In the **terminal app** the status line says it once, naming the key
   of Settings as your keymap has it (**F12** by default) → *Previews* and **P**; **P** on that row
-  updates it as **Update** does, removing the old copy by its id. The row of that image says
+  updates it as **Update** does, removing the old copy the same way. The row of that image says
   *newer build available* (in the desktop app too) until it is updated (**Update**, **Pull**, or
   **P** in the terminal app).
 - **Not now** is remembered for that build: the notice comes back only when a still newer build
@@ -444,7 +450,7 @@ geodata's with GDAL the same way. Its
 `tools`, `drawio`, `virus_scan` and the OCRmyPDF, ffmpeg, ImageMagick, GDAL, OpenSCAD, KiCad, calibre, Asciidoctor, draw.io and ClamAV images (and its helper `images.tika`). Its **F12** → *Previews* shows
 [*Preview tools*](tools.md#preview-tools-in-settings), a line per kind, where **P** pulls a kind's image and **Delete**
 removes it (the row says *newer build available* when a check found one, and **P** then also removes the copy it replaced), and *Keep images up to date* and *Remove images not used for 90 days*, so you can
-set them from there; with *Check, then ask me* it looks for newer builds too, and the desktop app is what pulls with *Weekly* or *Monthly* and removes unused images, while it runs. Its Disk use rows for the
+set them from there; with *Check weekly, then ask me* (or monthly) it looks for newer builds too, and the desktop app is what pulls with *Weekly* or *Monthly* and removes unused images, while it runs. Its Disk use rows for the
 images (`coxswain --disk`) say what each one gives, its size and cost, as the desktop app does.
 
 ## Questions
@@ -484,8 +490,8 @@ fetches the newest version of the tag at once.
 
 Only the image's name, to the registry written in it (`docker.io/…`, `ghcr.io/…`), anonymously, as a
 request for the digest of its tag; nothing about you or your files. A name without its registry
-(`alpine:3`) or on `localhost` is never sent anywhere: it may be an image of your own. Only with *Check, then ask me* (or the
-guide's *Check and ask me*), only for images already pulled, and never with *No containers*. It
+(`alpine:3`) or on `localhost` is never sent anywhere: it may be an image of your own. Only with *Check weekly, then ask me* (in the
+guide too) or *Check monthly, then ask me*, only for images already pulled, and never with *No containers*. It
 is named under *Settings → Privacy and updates → What can leave this machine*.
 
 #### I pressed **Not now**. Will it ask again?
@@ -503,9 +509,10 @@ in the name (`docker.io/pandoc/core:3.5`), to follow a tag: a short name (`pando
 
 #### Will an update leave old copies behind?
 
-No. When a pull brings a new version, the old copy is removed straight away by its own id. If a
-running container still uses it, or you gave it another name, it stays, and you can remove it
-with `podman image rm` yourself. Coxswain never runs `image prune`, so your own untagged images
+No. When a pull brings a new version, the old copy is removed straight away: by its own id when
+no name is left on it, by Coxswain's own name when that is the only one. If a container still
+uses it, or a name of yours points at it (say you tagged your `alpine:3.19` as `alpine:3`, the
+name a tool is set to), it stays whole, and you can remove it with `podman image rm` yourself. Coxswain never runs `image prune`, so your own untagged images
 are safe.
 
 #### Why did an image disappear?

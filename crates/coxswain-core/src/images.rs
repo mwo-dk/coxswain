@@ -891,8 +891,8 @@ pub fn updated(st: &mut AppState, image: &str) -> bool {
     true
 }
 
-/// *Update* on a notice: `image` is pulled, and the copy it replaced removed (by its id, or, for
-/// the new pin of a default, the old pin's name). The old images done with are returned, to be
+/// *Update* on a notice: `image` is pulled, and the copy it replaced removed (`drop_old`; for
+/// the new pin of a default, the old pin's copy). The old images done with are returned, to be
 /// forgotten.
 pub fn apply(rt: &Path, image: &str, pins: &[(String, String)], pull: impl Fn(&str) -> Result<(), String>) -> Result<Vec<String>, String> {
     let mine: Vec<&(String, String)> = pins.iter().filter(|(_, new)| new == image).collect();
@@ -904,7 +904,10 @@ pub fn apply(rt: &Path, image: &str, pins: &[(String, String)], pull: impl Fn(&s
     for (old, new) in mine {
         if crate::tools::image_size(rt, old).is_some() {
             pull(new)?;
-            remove(rt, old)?;
+            // Not removed now (a container uses it): kept in mind for the next round.
+            if drop_pin(rt, old, new).is_err() {
+                continue;
+            }
         }
         gone.push(old.clone());
     }
@@ -989,13 +992,13 @@ pub fn superseded(cfg: &PreviewConfig, st: &AppState) -> Vec<(String, String)> {
 }
 
 /// Move each pin of `pairs` (`superseded`): when the runtime has the old copy, the new pin is
-/// pulled and the old copy removed by its name. The old images done with are returned, to be
+/// pulled and the old copy removed (`drop_old`). The old images done with are returned, to be
 /// forgotten: those removed, and those the runtime no longer has. A pull that fails keeps the
 /// old copy for the next round.
 pub fn move_pins(rt: &Path, pairs: &[(String, String)], pull: impl Fn(&str) -> Result<(), String>) -> Vec<String> {
     pairs
         .iter()
-        .filter(|(old, new)| crate::tools::image_size(rt, old).is_none() || (pull(new).is_ok() && remove(rt, old).is_ok()))
+        .filter(|(old, new)| crate::tools::image_size(rt, old).is_none() || (pull(new).is_ok() && drop_pin(rt, old, new).is_ok()))
         .map(|(old, _)| old.clone())
         .collect()
 }
@@ -1072,8 +1075,8 @@ pub fn remove_freeing(rt: &Path, image: &str) -> Result<Option<u64>, String> {
     Ok(before.zip(storage(rt)).map(|(b, a)| b.saturating_sub(a)))
 }
 
-/// Update `image` with `pull`; when that brought a new copy, the one it replaced is removed by
-/// its id at once. A copy that cannot go (a container still uses it, another name points at
+/// Update `image` with `pull`; when that brought a new copy, the one it replaced is removed at
+/// once (`drop_old`). A copy that cannot go (a container still uses it, another name points at
 /// it) stays, quietly.
 pub fn update(
     rt: &Path,
@@ -1083,9 +1086,74 @@ pub fn update(
     let old = id(rt, image);
     pull()?;
     if let Some(old) = replaced(old, id(rt, image)) {
-        let _ = remove(rt, &old);
+        let _ = drop_old(rt, &old, image);
     }
     Ok(())
+}
+
+/// The old pin `old`'s copy after `new` was pulled, by `drop_old`; nothing when both pins name
+/// the same copy (only the digest moved), which removing `old` could take with it.
+fn drop_pin(rt: &Path, old: &str, new: &str) -> Result<(), String> {
+    match replaced(id(rt, old), id(rt, new)) {
+        Some(_) => drop_old(rt, old, old),
+        None => Ok(()),
+    }
+}
+
+/// Remove the old copy `what` (an id or a pin's name) that `ours`, the name Coxswain pulled it
+/// as, no longer needs, looking at its names as they are now, after the pull: with none left
+/// it goes by its id; with only `ours` it goes by that name; any other name (one the user
+/// gave it) keeps it whole. Never forced, so a copy a container uses stays too.
+fn drop_old(rt: &Path, what: &str, ours: &str) -> Result<(), String> {
+    let out = crate::tools::command(rt)
+        .args(["image", "inspect", "--format", "{{json .RepoTags}}", what])
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|e| e.to_string())?;
+    let said = String::from_utf8_lossy(&out.stdout);
+    let tags: Vec<String> = match serde_json::from_str::<Option<Vec<String>>>(said.trim()) {
+        Ok(t) if out.status.success() => t.unwrap_or_default(),
+        _ => return Err(format!("{what}: its names could not be read")),
+    };
+    match dropped_by(&tags, ours) {
+        Dropped::Kept => Ok(()),
+        Dropped::Id => remove(rt, what),
+        Dropped::Names(names) => names.iter().try_for_each(|t| remove(rt, t)),
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum Dropped {
+    /// Another name points at it: the copy is the user's now.
+    Kept,
+    /// No name left at all.
+    Id,
+    /// Only Coxswain's own name: removed by it.
+    Names(Vec<String>),
+}
+
+/// How an old copy with the names `tags` goes, when `ours` is the name Coxswain pulled it as.
+// shortcut: a name by digest only (`repo@sha256:…`) is not in RepoTags, so a copy with only
+// that left goes by its id; it came from a registry and can be pulled again.
+fn dropped_by(tags: &[String], ours: &str) -> Dropped {
+    match tags {
+        [] => Dropped::Id,
+        _ if tags.iter().all(|t| full(t) == full(ours)) => Dropped::Names(tags.to_vec()),
+        _ => Dropped::Kept,
+    }
+}
+
+/// `name:tag` written out as podman lists it, so docker's short `alpine:3` and podman's
+/// `docker.io/library/alpine:3` compare equal; a digest is left off, a missing tag is `latest`.
+fn full(name: &str) -> String {
+    let name = short(name);
+    let first = name.split('/').next().unwrap_or_default();
+    let host = name.contains('/') && (first.contains(['.', ':']) || first == "localhost");
+    let mut s = if host { name.to_string() } else if name.contains('/') { format!("docker.io/{name}") } else { format!("docker.io/library/{name}") };
+    if !s[s.rfind('/').map_or(0, |i| i + 1)..].contains(':') {
+        s.push_str(":latest");
+    }
+    s
 }
 
 /// A round of updates: every image in `images` is tried, each with `pull`. Done when there was
@@ -1434,6 +1502,20 @@ def456 coxswain-media-20-500-1 exited
     }
 
     #[test]
+    fn images_an_old_copy_goes_only_when_no_other_name_points_at_it() {
+        let t = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(dropped_by(&[], "docker.io/library/alpine:3"), Dropped::Id, "no name left: by its id");
+        assert_eq!(dropped_by(&t(&["docker.io/library/alpine:3.19"]), "docker.io/library/alpine:3"), Dropped::Kept, "the user's own name keeps it");
+        assert_eq!(dropped_by(&t(&["alpine:3", "mine:1"]), "docker.io/library/alpine:3"), Dropped::Kept, "ours and another: kept");
+        assert_eq!(dropped_by(&t(&["alpine:1"]), "b/x:1"), Dropped::Kept);
+        assert_eq!(dropped_by(&t(&["alpine:3.19"]), "docker.io/library/alpine:3.19@sha256:old"), Dropped::Names(t(&["alpine:3.19"])), "only ours: by that name");
+        assert_eq!(full("alpine"), "docker.io/library/alpine:latest");
+        assert_eq!(full("user/x:1@sha256:a"), "docker.io/user/x:1");
+        assert_eq!(full("localhost:5000/x"), "localhost:5000/x:latest");
+        assert_eq!(full("ghcr.io/a/b:2"), "ghcr.io/a/b:2");
+    }
+
+    #[test]
     fn images_defaults_are_pinned_by_digest() {
         for (tool, image) in PreviewConfig::default().images {
             let pinned = image.split_once('@').is_some_and(|(name, d)| name.rsplit('/').next().is_some_and(|n| n.contains(':')) && d.len() == 71 && d.starts_with("sha256:"));
@@ -1526,18 +1608,56 @@ exec sleep 60
         let d = std::env::temp_dir().join(format!("coxswain-test-pins-{}", std::process::id()));
         std::fs::create_dir_all(&d).unwrap();
         let rt = d.join("podman");
-        std::fs::write(&rt, format!("#!/bin/sh\ncase \"$1 $2\" in\n'image inspect') grep -qxF \"$5\" {0}/has && echo 1;;\n'image rm') echo \"$3\" >> {0}/rm.log;;\nesac\n", d.display())).unwrap();
+        std::fs::write(&rt, format!("#!/bin/sh\ncase \"$1 $2\" in\n'image inspect') grep -qxF \"$5\" {0}/has || exit 1; case \"$4\" in *RepoTags*) echo '[]';; *Id*) echo \"$5\";; *) echo 1;; esac;;\n'image rm') echo \"$3\" >> {0}/rm.log;;\nesac\n", d.display())).unwrap();
         std::fs::set_permissions(&rt, std::fs::Permissions::from_mode(0o755)).unwrap();
         std::fs::write(d.join("has"), "a:1@sha256:old\nb:1\n").unwrap();
         let pairs = [("a:1@sha256:old", "a:1@sha256:new"), ("b:1", "b:1@sha256:new"), ("c:1@sha256:gone", "c:1@sha256:new")].map(|(o, n)| (o.to_string(), n.to_string()));
         let pulled = std::cell::RefCell::new(vec![]);
         let done = move_pins(&rt, &pairs, |i| {
             pulled.borrow_mut().push(i.to_string());
-            if i.starts_with("b:") { Err("offline".into()) } else { Ok(()) }
+            if i.starts_with("b:") { return Err("offline".into()) }
+            let mut has = std::fs::read_to_string(d.join("has")).unwrap();
+            has.push_str(&format!("{i}\n"));
+            std::fs::write(d.join("has"), has).unwrap();
+            Ok(())
         });
         assert_eq!(*pulled.borrow(), ["a:1@sha256:new", "b:1@sha256:new"], "nothing pulled for a copy not there");
         assert_eq!(done, ["a:1@sha256:old", "c:1@sha256:gone"], "a failed pull keeps the old copy");
         assert_eq!(std::fs::read_to_string(d.join("rm.log")).unwrap(), "a:1@sha256:old\n");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    /// The hand test of 2.38.0: the user tagged their `alpine:3.19` as `alpine:3`, the name a
+    /// tool is set to. Updating `alpine:3` moves that name to the new copy; the old one, left
+    /// with the user's `alpine:3.19` only, must stay. With no name left it goes by its id.
+    #[cfg(unix)]
+    #[test]
+    fn images_update_keeps_an_old_copy_another_name_points_at() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = std::env::temp_dir().join(format!("coxswain-test-update-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let rt = d.join("podman");
+        // ids/<name> and tags/<name or id>: what inspect says; rm logs its argument.
+        std::fs::write(&rt, format!("#!/bin/sh\nf=$(echo \"$5\" | tr / _)\ncase \"$1 $2 $4\" in\n'image inspect {{{{.Id}}}}') cat {0}/ids/$f;;\n'image inspect {{{{json .RepoTags}}}}') cat {0}/tags/$f;;\n'image rm'*) echo \"$3\" >> {0}/rm.log;;\nesac\n", d.display())).unwrap();
+        std::fs::set_permissions(&rt, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let w = |f: &str, s: &str| std::fs::write(d.join(f), s).unwrap();
+        let rm = || std::fs::read_to_string(d.join("rm.log")).unwrap_or_default();
+        let image = "docker.io/library/alpine:3";
+        for f in ["ids", "tags"] { std::fs::create_dir_all(d.join(f)).unwrap() }
+        w("ids/docker.io_library_alpine:3", "old\n");
+        update(&rt, image, || {
+            w("ids/docker.io_library_alpine:3", "new\n");
+            w("tags/old", "[\"docker.io/library/alpine:3.19\"]\n");
+            Ok(())
+        }).unwrap();
+        assert_eq!(rm(), "", "the user's alpine:3.19 is kept");
+        w("ids/docker.io_library_alpine:3", "old\n");
+        update(&rt, image, || {
+            w("ids/docker.io_library_alpine:3", "new\n");
+            w("tags/old", "null\n");
+            Ok(())
+        }).unwrap();
+        assert_eq!(rm(), "old\n", "no name left: removed by its id");
         std::fs::remove_dir_all(&d).unwrap();
     }
 
