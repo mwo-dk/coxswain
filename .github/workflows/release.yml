@@ -167,12 +167,14 @@ jobs:
 
   # The channels' tokens, before anything is published: a token that is missing, revoked or
   # cannot write stops a release before publish (its draft is deleted) and turns a rehearsal red,
-  # instead of failing its channel after the GitHub release is out. Nothing is written. Each
+  # instead of failing its channel after the GitHub release is out. Nothing is written (crates.io
+  # only notes the token's last use). Each
   # token is only in its own step, and nothing here builds.
   preflight:
     needs: version
     if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
     steps:
@@ -191,7 +193,7 @@ jobs:
           [ -n "$CARGO_REGISTRY_TOKEN" ] || { echo "::error title=CARGO_REGISTRY_TOKEN::the secret is not set: crates.io could not be updated. See packaging/README.md."; exit 1; }
           # shellcheck disable=SC2016 # expanded by the inner bash
           packaging/retry.sh bash -c '
-            code=$(curl -sS -o "$RUNNER_TEMP/crates.json" -w "%{http_code}" -A "coxswain release (github.com/mwo-dk/coxswain)" \
+            code=$(curl -sS --max-time 60 -o "$RUNNER_TEMP/crates.json" -w "%{http_code}" -A "coxswain release (github.com/mwo-dk/coxswain)" \
               -H "Authorization: $CARGO_REGISTRY_TOKEN" https://crates.io/api/v1/me/tokens/0) || exit 1
             body=$(cat "$RUNNER_TEMP/crates.json")
             case "$code" in
@@ -1142,8 +1144,6 @@ jobs:
   taps:
     needs: [draft, publish]
     runs-on: ubuntu-24.04
-    env:
-      TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1152,6 +1152,7 @@ jobs:
       - name: Update mwo-dk/homebrew-coxswain
         env:
           GH_TOKEN: ${{ github.token }}
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
           TAG: ${{ needs.draft.outputs.tag }}
         run: |
           git config --global user.name "Michael W. Olesen"
