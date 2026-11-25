@@ -181,11 +181,14 @@ does not arise there.
 
 #### I deleted a folder I had added. Why does it not say "not plugged in"?
 
-A folder is away only when its disk is not mounted. When the disk is there (your home's own
+A folder is away when its disk is not mounted. When the disk is there (your home's own
 disk, `C:\` on Windows) and the folder is not, it was deleted or renamed: Find and Ask leave its
-files out, with no mark, and its text stays until you **Remove** it under *Folders read*. A
-folder known by its path only (a network share, any folder on the BSDs and illumos) cannot be
-told from an unplugged disk, so its files are found marked as away.
+files out, with no mark, and its text stays until you **Remove** it under *Folders read*. It
+stays that way if the disk is unplugged later, until the folder is back. Two kinds of folder
+cannot be told from an unplugged disk, so their files are found marked as away: a folder
+reached through a link (`~/Documents` linking to another disk), and a folder on a disk known
+by its path only (a network share, tmpfs, ZFS, FUSE or overlay file systems, Termux, and
+every folder on the BSDs and illumos).
 
 #### How do I get rid of an old disk's text?
 

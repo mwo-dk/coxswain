@@ -1339,6 +1339,22 @@ impl Store {
             .collect()
     }
 
+    /// The ranges of paths left out of Find and Ask: folders gone from a disk that is here, and
+    /// with `!away` those of disks that are not plugged in too; the commits of the repositories
+    /// in them (`git:` paths) with them.
+    fn hidden(&self, away: bool) -> Vec<(String, String)> {
+        self.offline
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|o| o.gone || !away)
+            .flat_map(|o| {
+                let (from, to) = below(&o.at);
+                [(format!("git:{from}"), format!("git:{to}")), (from, to)]
+            })
+            .collect()
+    }
+
     /// The disk `path` is on, when that disk is not plugged in (the store keeps its rows).
     pub fn away(&self, path: &Path) -> Option<Away> {
         self.away_at(&key(path)?)
@@ -2021,7 +2037,12 @@ impl Store {
     pub fn games_at(&self, hash: u64, max: usize) -> rusqlite::Result<Vec<(PathBuf, u32)>> {
         let db = self.db.lock().unwrap();
         let mut q = db.prepare_cached("SELECT f.path, p.game FROM (SELECT file, game FROM positions WHERE hash = ?1 ORDER BY file, game LIMIT ?2) p JOIN files f ON f.id = p.file")?;
-        let mut games: Vec<(PathBuf, u32)> = q.query_map(params![hash as i64, max as i64], |r| Ok((PathBuf::from(r.get::<_, String>(0)?), r.get::<_, u32>(1)?)))?.collect::<rusqlite::Result<_>>()?;
+        let gone = self.hidden(true);
+        let mut games: Vec<(PathBuf, u32)> = q
+            .query_map(params![hash as i64, max as i64], |r| Ok((r.get::<_, String>(0)?, r.get::<_, u32>(1)?)))?
+            .filter(|g| g.as_ref().map_or(true, |(p, _)| !gone.iter().any(|(from, to)| p > from && p < to)))
+            .map(|g| g.map(|(p, n)| (PathBuf::from(p), n)))
+            .collect::<rusqlite::Result<_>>()?;
         games.sort();
         Ok(games)
     }
@@ -2163,14 +2184,18 @@ impl Store {
             })?;
             rows.collect::<rusqlite::Result<_>>()?
         };
+        // Those of a disk that is not plugged in, or a folder gone from one, stay: when it is
+        // back its files are not read again to be hashed.
+        let kept = self.hidden(false);
         // So do those of files gone back to the cloud, which are not read again.
         let stale: Vec<String> = rows
             .into_iter()
             .filter(|(path, size, modified)| {
-                crate::cloud::keep_out(Path::new(path))
-                    || Path::new(path).ancestors().any(crate::fs::protected)
-                    || std::fs::metadata(path)
-                        .map_or(true, |m| (m.len(), secs(&m) as u64) != (*size, *modified))
+                !held(&kept, path)
+                    && (crate::cloud::keep_out(Path::new(path))
+                        || Path::new(path).ancestors().any(crate::fs::protected)
+                        || std::fs::metadata(path)
+                            .map_or(true, |m| (m.len(), secs(&m) as u64) != (*size, *modified)))
             })
             .map(|r| r.0)
             .collect();
@@ -2651,8 +2676,7 @@ impl Store {
         let mut sparse: HashSet<i64> = HashSet::new();
         let mut out: Vec<(PathBuf, f32, usize, i64)> = vec![];
         // Folders gone from a disk that is here keep their rows, never given (as before 2.38).
-        let gone: Vec<(String, String)> =
-            self.offline.lock().unwrap().iter().filter(|o| o.gone).map(|o| below(&o.at)).collect();
+        let gone = self.hidden(true);
         for (file, s, n, v) in ranked {
             if out.len() >= want {
                 break;
@@ -2804,8 +2828,7 @@ impl Store {
         let db = self.db.lock().unwrap();
         // Disks that are not plugged in keep their rows: found marked, or left out (`away`).
         // Folders gone from a disk that is here are always left out.
-        let offline: Vec<(String, String)> =
-            self.offline.lock().unwrap().iter().filter(|o| o.gone || !away).map(|o| below(&o.at)).collect();
+        let offline = self.hidden(away);
         let mut filter: String = (0..offline.len())
             .map(|i| format!(" AND NOT (f.path > ?{} AND f.path < ?{})", 2 + 2 * i, 3 + 2 * i))
             .collect();
@@ -3493,8 +3516,11 @@ fn scan_for(
     // the roots: their hits are marked from the first search.
     {
         let mut known = store.offline.lock().unwrap();
-        if known.is_empty() {
-            known.clone_from(&offline);
+        for o in &offline {
+            match known.iter_mut().find(|k| k.at == o.at) {
+                Some(k) => *k = o.clone(),
+                None => known.push(o.clone()),
+            }
         }
     }
     let tika = crate::extract::tika::extensions();
@@ -4306,16 +4332,17 @@ fn place(store: &Store, cfg: &SearchConfig) -> rusqlite::Result<(Vec<PathBuf>, V
             (Some(was), Some((now, _))) => was == now,
             _ => true,
         };
+        // Where its disk is mounted now, when it is: looked up only when the folder is not there.
+        let mut located = None;
         let at = if root.is_dir() && same {
             Some(root.clone())
         } else {
             // Not where it was set: its disk may be mounted elsewhere. A folder with files in it
             // on another disk is taken as it is (the disk was replaced).
-            let elsewhere = known
-                .and_then(|(volume, inside, _)| {
-                    crate::machine::locate(volume.as_deref()?, Path::new(inside.as_deref()?))
-                })
-                .filter(|p| p.is_dir());
+            located = known.and_then(|(volume, inside, _)| {
+                locate_disk(volume.as_deref()?, Path::new(inside.as_deref()?))
+            });
+            let elsewhere = located.clone().filter(|p| p.is_dir());
             let full = || std::fs::read_dir(&root).is_ok_and(|mut d| d.next().is_some());
             elsewhere.or_else(|| full().then(|| root.clone()))
         };
@@ -4328,31 +4355,45 @@ fn place(store: &Store, cfg: &SearchConfig) -> rusqlite::Result<(Vec<PathBuf>, V
                     crate::machine::volume(&at)
                 };
                 store.place(&text, volume, &at_text, known.map(|k| k.2.as_str()))?;
+                store.db.lock().unwrap().execute("DELETE FROM meta WHERE key = ?1", [format!("gone:{text}")])?;
                 online.push(at);
             }
-            None => offline.extend(known.map(|(volume, inside, at)| {
-                let disk = volume.clone().zip(inside.as_deref().map(PathBuf::from));
+            None => {
+                let Some((volume, inside, at)) = known else { continue };
+                let mark = format!("gone:{text}");
                 // Its disk is mounted (anywhere), the folder is not on it: deleted or renamed.
+                // It stays gone if the disk is unplugged later, until the folder is back.
+                // A link on the way (`~/Documents` to another disk) records the link's disk,
+                // not the target's: such a folder is taken as away.
                 // shortcut: a disk known by its path only (network shares, the BSDs) cannot be
                 // told mounted, so a folder gone there counts as away; upgrade with a device id.
-                let gone = disk.as_ref().is_some_and(|(id, inside)| disk_mounted(id, inside));
-                Offline { at: at.clone(), disk, gone }
-            })),
+                let linked = root.ancestors().any(|a| a.symlink_metadata().is_ok_and(|m| m.file_type().is_symlink()));
+                let marked = || store.db.lock().unwrap().query_row("SELECT 1 FROM meta WHERE key = ?1", [&mark], |_| Ok(())).is_ok();
+                let gone = !linked && (located.is_some() || marked());
+                if gone {
+                    store.db.lock().unwrap().execute("INSERT OR REPLACE INTO meta(key, value) VALUES (?1, '1')", [&mark])?;
+                }
+                offline.push(Offline {
+                    at: at.clone(),
+                    disk: volume.clone().zip(inside.as_deref().map(PathBuf::from)),
+                    gone,
+                });
+            }
         }
     }
     Ok((online, offline))
 }
 
-/// Whether the disk with this id is mounted now, wherever.
-fn disk_mounted(id: &str, inside: &Path) -> bool {
+/// Where `inside` on the disk with this id is now, when that disk is mounted (`machine::locate`).
+fn locate_disk(id: &str, inside: &Path) -> Option<PathBuf> {
     #[cfg(test)]
     if let Some((_, here)) = TEST_DISKS.lock().unwrap().iter().find(|(i, _)| i == id) {
-        return *here;
+        return here.then(|| Path::new("/coxswain-test-disk").join(inside));
     }
-    crate::machine::locate(id, inside).is_some()
+    crate::machine::locate(id, inside)
 }
 
-/// Disk ids a test takes as mounted (`true`) or not plugged in.
+/// Disk ids a test takes as mounted (`true`, the folder not on it) or not plugged in.
 #[cfg(test)]
 static TEST_DISKS: Mutex<Vec<(String, bool)>> = Mutex::new(Vec::new());
 
@@ -4858,6 +4899,11 @@ pub fn refresh(
         let Some(root) = roots.iter().find(|r| path.starts_with(r) && path != **r) else {
             continue;
         };
+        // The folder read itself went (deleted, renamed, its disk unplugged): the next scan
+        // tells which, and its rows stay till then.
+        if !root.is_dir() {
+            continue;
+        }
         // The topmost folder left out on the way down, this one included if it is a folder.
         let mut down: Vec<&Path> = path.ancestors().take_while(|a| a != root).collect();
         down.reverse();
@@ -6739,7 +6785,11 @@ mod tests {
     /// no "not plugged in" mark, as in 2.37.1.
     #[test]
     fn a_folder_deleted_on_a_disk_that_is_here_is_not_away() {
-        let d = std::env::temp_dir().join(format!("coxswain-store-gone-{}", std::process::id()));
+        // Not below a link (macOS's `/var`): a folder reached through one is taken as away.
+        let tmp = std::env::temp_dir();
+        #[cfg(target_os = "macos")]
+        let tmp = tmp.canonicalize().unwrap();
+        let d = tmp.join(format!("coxswain-store-gone-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(d.join("disk")).unwrap();
         std::fs::write(d.join("disk/notes.txt"), b"orbit plan\n").unwrap();
@@ -6760,8 +6810,12 @@ mod tests {
         on_disk(&store, &id);
 
         std::fs::rename(d.join("disk"), d.join("renamed")).unwrap();
-        scan(&store, &cfg, &go).unwrap();
         let notes = d.join("disk/notes.txt");
+        // The watcher says a file below it went: the row stays, for the scan to decide.
+        let mut paths = HashSet::from([notes.clone()]);
+        refresh(&store, &cfg, &mut paths, &mut HashSet::new(), &go).unwrap();
+        assert_eq!(store.texts(), 1, "kept after the watcher's event");
+        scan(&store, &cfg, &go).unwrap();
         assert_eq!(store.texts(), 1, "kept");
         assert_eq!(store.search_words_with("orbit", None, 10, true).0.total, 0, "not found by words");
         assert_eq!(store.away_names("notes", None, 10).1, 0, "not found by name");
@@ -6772,6 +6826,11 @@ mod tests {
             assert!(store.similar("orbit plan", None, 10).is_empty(), "not found by meaning");
             assert!(store.passages("orbit plan", None, 10_000).is_empty(), "not given to Ask");
         }
+        // Its disk unplugged later: still gone, not away.
+        TEST_DISKS.lock().unwrap().iter_mut().find(|(i, _)| *i == id).unwrap().1 = false;
+        scan(&store, &cfg, &go).unwrap();
+        assert_eq!((store.away(&notes), store.search_words_with("orbit", None, 10, true).0.total), (None, 0));
+        assert!(store.hidden(true).contains(&below(&format!("git:{}", key(&d.join("disk")).unwrap()))), "its commits hidden too");
 
         // Back: found again, nothing read again.
         std::fs::rename(d.join("renamed"), d.join("disk")).unwrap();
