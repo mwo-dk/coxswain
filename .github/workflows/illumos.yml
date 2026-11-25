@@ -61,6 +61,10 @@ jobs:
           prepare: sh packaging/pkg-retry.sh pkg install build-essential ooce/developer/rust
           run: |
             set -e
+            # illumos reserves swap for every process it starts, so a linker started from a large
+            # rustc can fail with ENOMEM ("could not exec the linker", 21 and 25 Nov): more swap.
+            p=$(zpool list -Ho name | head -1); zfs create -s -V 8G "$p/ciswap" 2>/dev/null || true
+            swap -a "/dev/zvol/dsk/$p/ciswap" 2>/dev/null || true; swap -sh || true
             export CARGO_HOME="$PWD/.cargo-vm" CARGO_PROFILE_DEV_DEBUG=line-tables-only COXSWAIN_SLOW_CI=1 PATH="/opt/ooce/bin:$PATH"
             uname -a
             rustc -V
