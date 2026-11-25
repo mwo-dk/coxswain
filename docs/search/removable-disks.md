@@ -36,6 +36,7 @@ From then on:
 | **Plugged in again**, at the same place or another (`/media/me/BACKUP1` one day, `E:\` the next) | A hit opens at the new place at once. At the helper's next pass the marks go, without the disk being read afresh; only what changed is read |
 | **Replaced** by another disk with files at the same place | The new disk is taken as it is, and read |
 | **Removed** from *Folders read* | Its text is forgotten |
+| **Deleted or renamed**, on a disk that is still mounted | Not away: its text stays in the index but Find and Ask leave its files out, unmarked. Settings shows its size. If the folder comes back, nothing is read again |
 
 The disk is told apart by the file system's UUID on Linux and macOS, and by the volume serial on
 Windows, with the folder's place inside that file system. A disk that cannot be told apart (a
@@ -177,6 +178,14 @@ ecryptfs folder holds two) and a Finder's `.DS_Store` do not count as files. A f
 with its disk (one an automounter made under `/run/media`) is gone, not away: when it sits inside
 a folder read, its text goes. On Windows a disk mounted in a folder is not walked into, so this
 does not arise there.
+
+#### I deleted a folder I had added. Why does it not say "not plugged in"?
+
+A folder is away only when its disk is not mounted. When the disk is there (your home's own
+disk, `C:\` on Windows) and the folder is not, it was deleted or renamed: Find and Ask leave its
+files out, with no mark, and its text stays until you **Remove** it under *Folders read*. A
+folder known by its path only (a network share, any folder on the BSDs and illumos) cannot be
+told from an unplugged disk, so its files are found marked as away.
 
 #### How do I get rid of an old disk's text?
 
